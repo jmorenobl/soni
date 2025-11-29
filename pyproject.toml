@@ -21,25 +21,18 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "dspy>=2.5.0",
-    "langgraph>=0.2.0",
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "httpx>=0.27.0",
-    "pyyaml>=6.0",
-    "aiosqlite>=0.20.0",
-    "pydantic>=2.0.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "pre-commit>=3.0.0",
-    "anyio>=4.0.0",
+    # Core framework dependencies - allow patch and minor updates, prevent major breaking changes
+    "dspy>=3.0.4,<4.0.0",
+    "langgraph>=1.0.4,<2.0.0",
+    "pydantic>=2.12.5,<3.0.0",
+    # Web framework
+    "fastapi>=0.122.0,<1.0.0",
+    "uvicorn[standard]>=0.38.0,<1.0.0",
+    # HTTP client
+    "httpx>=0.28.1,<1.0.0",
+    # Utilities
+    "pyyaml>=6.0.3,<7.0.0",
+    "aiosqlite>=0.21.0,<1.0.0",
 ]
 
 [project.scripts]
@@ -55,6 +48,18 @@ packages = ["src/soni"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Exclude directories that don't need linting
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "htmlcov",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "experiments",
+]
 
 [tool.ruff.lint]
 select = [
@@ -68,12 +73,17 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
-    "B008",  # do not perform function calls in argument defaults
+    # B008 is kept active to catch bugs from function calls in default arguments
+    # If you need to ignore it for a specific case, use: # noqa: B008 with explanation
 ]
 
 [tool.ruff.format]
+# Configuración compatible con Black
 quote-style = "double"
 indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true
 
 [tool.mypy]
 python_version = "3.11"
@@ -111,10 +121,15 @@ omit = [
 
 [dependency-groups]
 dev = [
-    "mypy>=1.19.0",
-    "pre-commit>=4.5.0",
-    "pytest>=9.0.1",
-    "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.0.0",
-    "ruff>=0.14.7",
+    # Testing
+    "pytest>=9.0.1,<10.0.0",
+    "pytest-asyncio>=1.3.0,<2.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    # Code quality
+    "ruff>=0.14.7,<1.0.0",
+    "mypy>=1.19.0,<2.0.0",
+    # Pre-commit hooks
+    "pre-commit>=4.5.0,<5.0.0",
+    # Utilities
+    "anyio>=4.12.0,<5.0.0",
 ]
