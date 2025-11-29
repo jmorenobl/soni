@@ -33,6 +33,7 @@ dependencies = [
     # Utilities
     "pyyaml>=6.0.3,<7.0.0",
     "aiosqlite>=0.21.0,<1.0.0",
+    "typer>=0.15.0,<1.0.0",
 ]
 
 [project.scripts]
@@ -110,21 +111,17 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 
+# Ignore missing imports for third-party libraries without stubs
+[[tool.mypy.overrides]]
+module = ["dspy", "dspy.*"]
+ignore_missing_imports = true
+
 # Relaxed rules for test files
 [[tool.mypy.overrides]]
-module = [
-    "tests.*",
-    "tests.unit.*",
-    "tests.integration.*",
-]
-# Allow more flexibility in tests
+module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
-warn_return_any = false
-warn_unused_ignores = false
-warn_redundant_casts = false
-no_implicit_optional = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -137,7 +134,7 @@ addopts = [
     "--cov=soni",
     "--cov-report=term-missing",
     "--cov-report=html",
-    "--cov-fail-under=60",
+    "--cov-fail-under=85",
 ]
 
 [tool.coverage.run]

@@ -48,6 +48,20 @@ def test_get_user_messages():
     assert user_messages[1] == "Message 2"
 
 
+def test_get_assistant_messages():
+    """Test getting assistant messages"""
+    state = DialogueState()
+    state.add_message("user", "Hello")
+    state.add_message("assistant", "Hi there!")
+    state.add_message("user", "How are you?")
+    state.add_message("assistant", "I'm doing well!")
+
+    assistant_messages = state.get_assistant_messages()
+    assert len(assistant_messages) == 2
+    assert assistant_messages[0] == "Hi there!"
+    assert assistant_messages[1] == "I'm doing well!"
+
+
 def test_slot_operations():
     """Test slot get/set/has operations"""
     state = DialogueState()

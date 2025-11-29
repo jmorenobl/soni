@@ -1,25 +1,51 @@
 """Main CLI entry point for Soni Framework"""
 
-import click
+import typer
+
+app = typer.Typer(
+    name="soni",
+    help="Soni Framework - Open Source Conversational AI Framework",
+    add_completion=False,
+)
 
 
-@click.group()
-@click.version_option(version="0.0.1", prog_name="soni")
-def cli():
+def version_callback(value: bool) -> None:
+    """Print version and exit"""
+    if value:
+        typer.echo("Soni Framework version 0.0.1")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-v",
+        help="Show version and exit",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
     """Soni Framework - Open Source Conversational AI Framework"""
     pass
 
 
-@cli.command()
-def optimize():
+@app.command()
+def optimize() -> None:
     """Optimize NLU module using DSPy MIPROv2"""
-    click.echo("Optimization command - Coming soon in Hito 4")
+    typer.echo("Optimization command - Coming soon in Hito 4")
 
 
-@cli.command()
-def server():
+@app.command()
+def server() -> None:
     """Start the Soni API server"""
-    click.echo("Server command - Coming soon in Hito 7")
+    typer.echo("Server command - Coming soon in Hito 7")
+
+
+def cli() -> None:
+    """Entry point for CLI"""
+    app()
 
 
 if __name__ == "__main__":

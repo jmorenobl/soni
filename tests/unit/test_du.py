@@ -102,3 +102,73 @@ async def test_soni_du_predict():
     except Exception:
         # Expected if LM not configured
         pass
+
+
+@pytest.mark.asyncio
+async def test_soni_du_predict_error_handling():
+    """Test predict method handles malformed prediction responses"""
+    du = SoniDU()
+
+    # Mock a prediction object with invalid JSON in extracted_slots
+    class MockPrediction:
+        structured_command = "book_flight"
+        extracted_slots = "invalid json"
+        confidence = "not_a_number"
+        reasoning = "test"
+
+    # Temporarily replace aforward to return mock
+    original_aforward = du.aforward
+
+    async def mock_aforward(*args, **kwargs):
+        return MockPrediction()
+
+    du.aforward = mock_aforward
+
+    try:
+        result = await du.predict(
+            user_message="Test",
+            current_slots={},
+            available_actions=[],
+        )
+
+        # Should handle JSON decode error and set empty slots
+        assert isinstance(result, NLUResult)
+        assert result.slots == {}
+        assert result.confidence == 0.0  # Should handle ValueError
+        assert result.command == "book_flight"
+    finally:
+        du.aforward = original_aforward
+
+
+@pytest.mark.asyncio
+async def test_soni_du_predict_missing_attributes():
+    """Test predict method handles prediction with missing attributes"""
+    du = SoniDU()
+
+    # Mock prediction with minimal attributes
+    class MockPrediction:
+        structured_command = None
+        extracted_slots = None  # Will trigger AttributeError in json.loads
+        confidence = None  # Will trigger ValueError in float()
+        reasoning = None
+
+    original_aforward = du.aforward
+
+    async def mock_aforward(*args, **kwargs):
+        return MockPrediction()
+
+    du.aforward = mock_aforward
+
+    try:
+        result = await du.predict(
+            user_message="Test",
+        )
+
+        # Should handle AttributeError gracefully
+        assert isinstance(result, NLUResult)
+        assert result.slots == {}
+        assert result.confidence == 0.0
+        assert result.command == ""
+        assert result.reasoning == ""
+    finally:
+        du.aforward = original_aforward

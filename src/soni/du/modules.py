@@ -1,5 +1,6 @@
 """DSPy modules for Dialogue Understanding"""
 
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import dspy
@@ -8,29 +9,18 @@ from soni.core.interfaces import IScopeManager
 from soni.du.signatures import DialogueUnderstanding
 
 
+@dataclass
 class NLUResult:
     """Result from NLU prediction"""
 
-    def __init__(
-        self,
-        command: str,
-        slots: dict[str, Any],
-        confidence: float,
-        reasoning: str,
-    ):
-        self.command = command
-        self.slots = slots
-        self.confidence = confidence
-        self.reasoning = reasoning
+    command: str
+    slots: dict[str, Any]
+    confidence: float
+    reasoning: str
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
-        return {
-            "command": self.command,
-            "slots": self.slots,
-            "confidence": self.confidence,
-            "reasoning": self.reasoning,
-        }
+        return asdict(self)
 
 
 class SoniDU(dspy.Module):
@@ -156,12 +146,12 @@ class SoniDU(dspy.Module):
         # Parse outputs
         try:
             slots = json.loads(prediction.extracted_slots)
-        except (json.JSONDecodeError, AttributeError):
+        except (json.JSONDecodeError, AttributeError, TypeError):
             slots = {}
 
         try:
             confidence = float(prediction.confidence)
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, TypeError):
             confidence = 0.0
 
         return NLUResult(
