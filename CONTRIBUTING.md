@@ -13,7 +13,7 @@ Thank you for your interest in contributing to Soni! This document provides guid
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/soni.git
+git clone https://github.com/jmorenobl/soni.git
 cd soni
 
 # Install dependencies

@@ -13,8 +13,8 @@ This guide will help you get started with Soni Framework in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/soni-framework.git
-cd soni-framework
+git clone https://github.com/jmorenobl/soni.git
+cd soni
 
 # Install dependencies
 uv sync
