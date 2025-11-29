@@ -1,6 +1,7 @@
 """Unit tests for Dialogue Understanding module"""
 
 import pytest
+
 from soni.du.modules import NLUResult, SoniDU
 
 

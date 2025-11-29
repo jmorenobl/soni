@@ -15,8 +15,10 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        # Ruff only checks staged files (pre-commit default behavior)
         # Ruff reads configuration from pyproject.toml automatically
       - id: ruff-format
+        # Ruff format only checks staged files (pre-commit default behavior)
         # Ruff format reads configuration from pyproject.toml automatically
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -24,5 +26,10 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: []
+        # Mypy only checks staged files (pre-commit passes files as arguments)
+        # Pre-commit automatically passes only staged files to hooks
         # Mypy automatically reads configuration from pyproject.toml
-        exclude: ^(experiments/|tests/)
+        # Tests are checked but with relaxed rules (see pyproject.toml [tool.mypy.overrides])
+        exclude: ^experiments/
+        # Note: Pre-commit by default only checks staged files when run as git hook
+        # Use 'pre-commit run --all-files' to check all files manually

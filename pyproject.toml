@@ -77,6 +77,17 @@ ignore = [
     # If you need to ignore it for a specific case, use: # noqa: B008 with explanation
 ]
 
+# Relaxed rules for test files
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "B008",  # Allow function calls in default arguments (common in fixtures)
+    "B006",  # Allow mutable default arguments (common in test fixtures)
+    "PLR2004",  # Allow magic values (test data often uses magic numbers)
+    "S101",  # Allow use of assert (tests use assert statements)
+    "ARG",   # Allow unused function arguments (common in test fixtures)
+    "F401",  # Allow unused imports (common for test utilities)
+]
+
 [tool.ruff.format]
 # Configuración compatible con Black
 quote-style = "double"
@@ -96,6 +107,22 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
+
+# Relaxed rules for test files
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "tests.unit.*",
+    "tests.integration.*",
+]
+# Allow more flexibility in tests
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+warn_redundant_casts = false
+no_implicit_optional = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
