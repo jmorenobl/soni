@@ -96,9 +96,24 @@ async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, An
             current_flow=state.current_flow,
         )
 
-        # Update state with NLU results
+        # Normalize extracted slots before updating state
+        normalized_slots = nlu_result.slots
+        if normalized_slots and hasattr(state, "config"):
+            try:
+                from soni.du.normalizer import SlotNormalizer
+
+                normalizer = SlotNormalizer(config=state.config)
+                logger.debug(f"Normalizing {len(normalized_slots)} extracted slots")
+                normalized_slots = await normalizer.process(normalized_slots)
+                logger.info(f"Normalized slots: {normalized_slots}")
+            except Exception as e:
+                logger.warning(f"Normalization failed, using original slots: {e}")
+                # Continue with original slots if normalization fails
+                normalized_slots = nlu_result.slots
+
+        # Update state with NLU results (using normalized slots)
         updated_slots = state.slots.copy()
-        updated_slots.update(nlu_result.slots)
+        updated_slots.update(normalized_slots)
 
         updates = {
             "slots": updated_slots,
@@ -120,7 +135,7 @@ async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, An
         logger.info(
             f"NLU result: command={nlu_result.command}, "
             f"confidence={nlu_result.confidence:.2f}, "
-            f"slots={nlu_result.slots}"
+            f"slots={normalized_slots}"
         )
 
         return updates

@@ -9,6 +9,7 @@ from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState
 from soni.dm.graph import SoniGraphBuilder
 from soni.du.modules import SoniDU
+from soni.du.normalizer import SlotNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,9 @@ class RuntimeLoop:
 
         # Initialize ScopeManager
         self.scope_manager = ScopeManager(config=self.config)
+
+        # Initialize normalizer
+        self.normalizer = SlotNormalizer(config=self.config)
 
         # Initialize DU module with scope_manager
         if optimized_du_path and Path(optimized_du_path).exists():
