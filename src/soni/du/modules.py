@@ -1,12 +1,17 @@
 """DSPy modules for Dialogue Understanding"""
 
+import json
+import logging
 from dataclasses import asdict, dataclass
 from typing import Any
 
 import dspy
 
 from soni.core.interfaces import IScopeManager
+from soni.core.state import DialogueState
 from soni.du.signatures import DialogueUnderstanding
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -122,17 +127,22 @@ class SoniDU(dspy.Module):
         Returns:
             NLUResult object
         """
-        import json
+        # Apply scoping if scope_manager is available and available_actions not provided
+        if self.scope_manager and available_actions is None:
+            # Create minimal state for scoping
+            scoping_state = DialogueState(
+                current_flow=current_flow,
+                slots=current_slots or {},
+            )
+            available_actions = self.scope_manager.get_available_actions(scoping_state)
+            logger.debug(
+                f"Applied scoping: {len(available_actions)} actions available "
+                f"for flow '{current_flow}'"
+            )
 
         # Convert inputs to string format expected by signature
         slots_str = json.dumps(current_slots or {})
         actions_str = json.dumps(available_actions or [])
-
-        # Apply scoping if scope_manager is available
-        if self.scope_manager and available_actions:
-            # Note: This requires DialogueState, will be fully integrated later
-            # For now, use available_actions as-is
-            pass
 
         # Get prediction using acall() (DSPy's public async method)
         prediction = await self.acall(

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from soni.core.config import ConfigLoader, SoniConfig
 from soni.core.errors import SoniError, ValidationError
+from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState
 from soni.dm.graph import SoniGraphBuilder
 from soni.du.modules import SoniDU
@@ -45,14 +46,17 @@ class RuntimeLoop:
         flow_name = list(self.config.flows.keys())[0]
         self.graph = self.builder.build_manual(flow_name=flow_name)
 
-        # Initialize DU module
+        # Initialize ScopeManager
+        self.scope_manager = ScopeManager(config=self.config)
+
+        # Initialize DU module with scope_manager
         if optimized_du_path and Path(optimized_du_path).exists():
             from soni.du.optimizers import load_optimized_module
 
             self.du = load_optimized_module(optimized_du_path)
             logger.info(f"Loaded optimized DU from {optimized_du_path}")
         else:
-            self.du = SoniDU()
+            self.du = SoniDU(scope_manager=self.scope_manager)
             logger.info("Using default (non-optimized) DU module")
 
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
@@ -156,6 +160,34 @@ class RuntimeLoop:
             # Inject config into state for node access
             # Note: This is a workaround for MVP
             state.config = self.config  # type: ignore[attr-defined]
+
+            # Get scoped actions based on current state
+            scoped_actions = self.scope_manager.get_available_actions(state)
+            logger.debug(
+                f"Scoped actions for user {user_id}: {scoped_actions} "
+                f"(total: {len(scoped_actions)})"
+            )
+
+            # Log scoping metrics
+            total_actions = len(self.config.actions) if hasattr(self.config, "actions") else 0
+            scoped_count = len(scoped_actions)
+            if total_actions > 0:
+                reduction = (
+                    ((total_actions - scoped_count) / total_actions * 100)
+                    if total_actions > 0
+                    else 0
+                )
+                logger.info(
+                    f"Action scoping for user {user_id}: "
+                    f"{scoped_count}/{total_actions} actions ({reduction:.1f}% reduction)",
+                    extra={
+                        "user_id": user_id,
+                        "total_actions": total_actions,
+                        "scoped_actions": scoped_count,
+                        "reduction_percent": reduction,
+                        "current_flow": state.current_flow,
+                    },
+                )
 
             # Execute graph
             result = await self.graph.ainvoke(

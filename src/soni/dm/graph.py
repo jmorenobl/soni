@@ -65,16 +65,27 @@ async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, An
             [f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in state.messages[:-1]]
         )
 
-        # Get available actions from config
-        # For MVP, we use all actions. Scoping will be added in Hito 10
+        # Get scoped actions using ScopeManager if available
+        # Otherwise, use all actions from config
+        available_actions: list[str] = []
         if hasattr(state, "config"):
-            available_actions = list(state.config.actions.keys())
+            # Try to get scope_manager from config or create one
+            # For now, create ScopeManager on the fly (will be optimized later)
+            from soni.core.scope import ScopeManager
+
+            scope_manager = ScopeManager(config=state.config)
+            available_actions = scope_manager.get_available_actions(state)
         else:
             available_actions = []
 
-        # Initialize SoniDU (for MVP, create new instance each time)
+        # Initialize SoniDU with scope_manager
         # In future, this will be injected via builder
-        du = SoniDU()
+        from soni.core.scope import ScopeManager
+
+        scope_manager_for_du = (
+            ScopeManager(config=state.config) if hasattr(state, "config") else None
+        )
+        du = SoniDU(scope_manager=scope_manager_for_du)
 
         # Call NLU
         nlu_result: NLUResult = await du.predict(
