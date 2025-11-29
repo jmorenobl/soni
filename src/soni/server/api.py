@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Soni server")
     if runtime:
-        runtime.cleanup()
+        await runtime.cleanup()
     runtime = None
 
 

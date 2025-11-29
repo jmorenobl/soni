@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from soni.core.config import ConfigLoader, SoniConfig
 from soni.core.errors import SoniError, ValidationError
@@ -41,11 +42,11 @@ class RuntimeLoop:
         config_dict = ConfigLoader.load(config_path)
         self.config = SoniConfig(**config_dict)
 
-        # Build graph
+        # Build graph (checkpointer will be initialized lazily in build_manual)
         self.builder = SoniGraphBuilder(self.config)
-        # Use first flow for MVP
-        flow_name = list(self.config.flows.keys())[0]
-        self.graph = self.builder.build_manual(flow_name=flow_name)
+        # Graph will be built lazily on first use (requires async)
+        self.graph: Any = None
+        self._flow_name: str = list(self.config.flows.keys())[0]
 
         # Initialize ScopeManager
         self.scope_manager = ScopeManager(config=self.config)
@@ -65,7 +66,16 @@ class RuntimeLoop:
 
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
 
-    def cleanup(self) -> None:
+    async def _ensure_graph_initialized(self) -> None:
+        """
+        Ensure graph is initialized (lazy initialization).
+
+        This method initializes the graph asynchronously if not already done.
+        """
+        if self.graph is None:
+            self.graph = await self.builder.build_manual(self._flow_name)
+
+    async def cleanup(self) -> None:
         """
         Cleanup resources, especially the graph builder's checkpointer.
 
@@ -73,7 +83,7 @@ class RuntimeLoop:
         proper resource cleanup.
         """
         if hasattr(self, "builder") and self.builder:
-            self.builder.cleanup()
+            await self.builder.cleanup()
             logger.info("RuntimeLoop cleanup completed")
 
     def __del__(self) -> None:
@@ -81,9 +91,12 @@ class RuntimeLoop:
         Destructor to ensure cleanup is called when object is garbage collected.
 
         Note: Relying on __del__ is not ideal, but provides a safety net.
+        Since cleanup() is now async, __del__ cannot call it directly.
         Explicit cleanup() calls are preferred.
         """
-        self.cleanup()
+        # Note: Cannot call async cleanup() from __del__
+        # Resources will be cleaned up when context manager exits
+        pass
 
     async def process_message(
         self,
@@ -121,6 +134,9 @@ class RuntimeLoop:
         logger.info(f"Processing message for user {user_id}: {user_msg[:50]}...")
 
         try:
+            # Ensure graph is initialized (lazy initialization)
+            await self._ensure_graph_initialized()
+
             # Configure checkpointing with thread_id = user_id
             config = {
                 "configurable": {
@@ -131,9 +147,9 @@ class RuntimeLoop:
             # Try to load existing state from checkpoint
             existing_state_snapshot = None
             try:
-                # Use get_state() to retrieve the current checkpoint for this thread
+                # Use aget_state() to retrieve the current checkpoint for this thread (async)
                 if self.builder.checkpointer:
-                    existing_state_snapshot = self.graph.get_state(config)
+                    existing_state_snapshot = await self.graph.aget_state(config)
                     if existing_state_snapshot and existing_state_snapshot.values:
                         logger.info(f"Loaded existing state for user {user_id}")
                     else:

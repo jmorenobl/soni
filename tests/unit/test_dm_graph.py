@@ -36,7 +36,7 @@ async def test_build_manual_linear_flow():
     builder = SoniGraphBuilder(config)
 
     # Act
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     # Assert
     assert graph is not None
@@ -53,7 +53,7 @@ async def test_build_manual_nonexistent_flow():
 
     # Act & Assert
     with pytest.raises(ValueError, match="Flow 'nonexistent' not found"):
-        builder.build_manual("nonexistent")
+        await builder.build_manual("nonexistent")
 
 
 @pytest.mark.asyncio
@@ -64,6 +64,7 @@ async def test_checkpointer_creation():
 
     # Act
     builder = SoniGraphBuilder(config)
+    await builder.initialize()
 
     # Assert
     assert builder.checkpointer is not None
@@ -82,7 +83,7 @@ async def test_build_manual_validates_slots():
     # (actual invalid config would fail at YAML load time)
 
     # Act & Assert - should work with valid config
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
     assert graph is not None
 
 
@@ -94,7 +95,7 @@ async def test_build_manual_validates_actions():
     builder = SoniGraphBuilder(config)
 
     # Act & Assert - should work with valid config
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
     assert graph is not None
 
 
@@ -180,12 +181,15 @@ async def test_builder_cleanup():
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
+    # Initialize checkpointer (lazy initialization)
+    await builder.initialize()
+
     # Verify checkpointer was created
     assert builder.checkpointer is not None
     assert builder._checkpointer_cm is not None
 
     # Act
-    builder.cleanup()
+    await builder.cleanup()
 
     # Assert
     assert builder.checkpointer is None
@@ -205,7 +209,7 @@ async def test_builder_cleanup_no_checkpointer():
     assert builder.checkpointer is None
 
     # Act - should not raise error
-    builder.cleanup()
+    await builder.cleanup()
 
     # Assert
     assert builder.checkpointer is None
@@ -218,9 +222,12 @@ async def test_builder_cleanup_called_twice():
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
+    # Initialize checkpointer first
+    await builder.initialize()
+
     # Act
-    builder.cleanup()
-    builder.cleanup()  # Should not raise error
+    await builder.cleanup()
+    await builder.cleanup()  # Should not raise error
 
     # Assert
     assert builder.checkpointer is None

@@ -29,7 +29,7 @@ async def test_build_graph_structure(sample_config):
     builder = SoniGraphBuilder(sample_config)
 
     # Act
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     # Assert
     assert graph is not None
@@ -44,7 +44,7 @@ async def test_build_graph_with_checkpointer(sample_config):
     builder = SoniGraphBuilder(sample_config)
 
     # Act
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     # Assert
     # Graph should be compiled (checkpointer is integrated during compilation)
@@ -60,7 +60,7 @@ async def test_build_graph_nonexistent_flow(sample_config):
 
     # Act & Assert
     with pytest.raises(ValueError, match="Flow 'nonexistent' not found"):
-        builder.build_manual("nonexistent")
+        await builder.build_manual("nonexistent")
 
 
 @pytest.mark.asyncio
@@ -68,7 +68,7 @@ async def test_execute_linear_flow_basic(sample_config):
     """Test that graph can be invoked with basic state"""
     # Arrange
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     # Create state as dict (LangGraph format)
     initial_state = {
@@ -113,7 +113,7 @@ async def test_execute_flow_with_action_basic(sample_config):
     """Test that graph can handle action steps"""
     # Arrange
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     initial_state = {
         "messages": [{"role": "user", "content": "Search flights from NYC to Paris"}],
@@ -152,7 +152,7 @@ async def test_state_persistence_basic(sample_config, tmp_path):
     # Use temporary database
     sample_config.settings.persistence.path = str(tmp_path / "test.db")
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     user_id = "test_user_123"
     initial_state = {
@@ -212,7 +212,7 @@ async def test_state_isolation_basic(sample_config, tmp_path):
     # Arrange
     sample_config.settings.persistence.path = str(tmp_path / "test.db")
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     user1_id = "user1"
     user2_id = "user2"
@@ -274,7 +274,7 @@ async def test_handle_nlu_error(sample_config):
     """Test that NLU errors don't break the flow"""
     # Arrange
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     initial_state = {
         "messages": [{"role": "user", "content": "Invalid message"}],
@@ -312,7 +312,7 @@ async def test_handle_action_error(sample_config):
     """Test that action errors don't break the flow"""
     # Arrange
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     initial_state = {
         "messages": [{"role": "user", "content": "Search flights"}],
@@ -349,7 +349,7 @@ async def test_handle_missing_slot(sample_config):
     """Test that missing slot is handled gracefully"""
     # Arrange
     builder = SoniGraphBuilder(sample_config)
-    graph = builder.build_manual("book_flight")
+    graph = await builder.build_manual("book_flight")
 
     initial_state = {
         "messages": [{"role": "user", "content": "Book a flight"}],

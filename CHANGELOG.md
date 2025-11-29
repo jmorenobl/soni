@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No explicit jumps between steps
 - Validators referenced by name only (implementation in v0.4.0)
 - Action handlers by Python path (Action Registry in v0.4.0)
-- SqliteSaver instead of AsyncSqliteSaver (will be fixed in v0.2.0)
+- AsyncSqliteSaver implemented for full async checkpointing support
 
 ### Documentation
 - Quickstart guide (`docs/quickstart.md`)
@@ -44,12 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Testing
 - Unit tests for core components
 - Integration tests for runtime and API
-- E2E tests (some skip pending AsyncSqliteSaver)
-- Coverage: 30% (low due to skipped E2E tests)
+- E2E tests for complete flows (AsyncSqliteSaver implemented)
+- Coverage: 30% (targeting 80% for v1.0.0)
 
 ### Known Issues
-- E2E tests require AsyncSqliteSaver (will be implemented in v0.2.0)
-- Some tests are skipped due to checkpointing limitations
+- Some E2E tests may fail without real LLM (expected behavior for integration tests)
+- AsyncSqliteSaver requires aiosqlite package (included in dependencies)
 
 ## [0.0.1] - 2025-11-29
 

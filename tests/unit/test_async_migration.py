@@ -19,7 +19,7 @@ async def test_checkpointer_is_async():
 
     # Act
     builder = SoniGraphBuilder(config)
-    builder.build_manual(flow_name="book_flight")
+    await builder.build_manual(flow_name="book_flight")
 
     # Assert
     # Verify that checkpointer is SqliteSaver (which supports async methods)

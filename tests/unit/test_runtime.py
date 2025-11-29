@@ -195,12 +195,15 @@ async def test_runtime_cleanup():
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
 
+    # Initialize checkpointer (lazy initialization)
+    await runtime.builder.initialize()
+
     # Verify builder exists
     assert runtime.builder is not None
     assert runtime.builder.checkpointer is not None
 
     # Act
-    runtime.cleanup()
+    await runtime.cleanup()
 
     # Assert - builder's checkpointer should be closed
     assert runtime.builder.checkpointer is None
@@ -214,8 +217,8 @@ async def test_runtime_cleanup_called_multiple_times():
     runtime = RuntimeLoop(config_path)
 
     # Act
-    runtime.cleanup()
-    runtime.cleanup()  # Should not raise error
+    await runtime.cleanup()
+    await runtime.cleanup()  # Should not raise error
 
     # Assert
     assert runtime.builder.checkpointer is None

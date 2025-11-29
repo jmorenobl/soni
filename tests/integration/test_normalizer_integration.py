@@ -23,7 +23,7 @@ async def test_runtime_initializes_normalizer():
     assert runtime.normalizer.config is not None
 
     # Cleanup
-    runtime.cleanup()
+    await runtime.cleanup()
 
 
 @pytest.mark.asyncio

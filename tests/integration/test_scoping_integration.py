@@ -9,11 +9,6 @@ from soni.runtime import RuntimeLoop
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="Requires AsyncSqliteSaver for full async support. "
-    "SqliteSaver doesn't support async methods. "
-    "This test verifies scoping integration which works, but full execution requires async checkpointing."
-)
 async def test_runtime_uses_scoped_actions():
     """Test that runtime uses scoped actions"""
     # Arrange
@@ -31,7 +26,7 @@ async def test_runtime_uses_scoped_actions():
         # Verify that scoped actions were used (check logs or internal state)
         assert runtime.scope_manager is not None
     finally:
-        runtime.cleanup()
+        await runtime.cleanup()
 
 
 @pytest.mark.asyncio
@@ -54,7 +49,7 @@ async def test_scoping_reduces_actions():
         assert "cancel" in scoped_actions
         assert "restart" in scoped_actions
     finally:
-        runtime.cleanup()
+        await runtime.cleanup()
 
 
 @pytest.mark.asyncio
@@ -82,4 +77,4 @@ async def test_different_flows_have_different_actions():
         assert len(actions1) > 0
         assert len(actions2) > 0
     finally:
-        runtime.cleanup()
+        await runtime.cleanup()

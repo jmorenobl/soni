@@ -22,11 +22,6 @@ def runtime(config_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(
-    reason="Requires AsyncSqliteSaver for full async support. "
-    "SqliteSaver doesn't support async methods. "
-    "This will be fixed in Hito 10."
-)
 async def test_e2e_flight_booking_complete_flow(runtime):
     """
     Test complete flight booking flow end-to-end.

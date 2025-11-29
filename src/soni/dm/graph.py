@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from soni.core.config import SoniConfig
@@ -353,9 +353,22 @@ class SoniGraphBuilder:
         """
         self.config = config
         self._checkpointer_cm: Any = None  # Context manager for proper cleanup
-        self.checkpointer = self._create_checkpointer()
+        self.checkpointer: Any = None  # Will be initialized in initialize() method
 
-    def cleanup(self) -> None:
+    async def initialize(self) -> None:
+        """
+        Initialize the checkpointer asynchronously.
+
+        This method must be called before using the builder to ensure
+        the checkpointer is properly initialized with async context manager.
+
+        Raises:
+            Exception: If checkpointer initialization fails
+        """
+        if self.checkpointer is None:
+            self.checkpointer = await self._create_checkpointer()
+
+    async def cleanup(self) -> None:
         """
         Cleanup resources, especially the checkpointer context manager.
 
@@ -364,7 +377,7 @@ class SoniGraphBuilder:
         """
         if self._checkpointer_cm is not None:
             try:
-                self._checkpointer_cm.__exit__(None, None, None)
+                await self._checkpointer_cm.__aexit__(None, None, None)
                 logger.info("Checkpointer context manager closed successfully")
             except Exception as e:
                 logger.warning(f"Error closing checkpointer context manager: {e}")
@@ -377,31 +390,34 @@ class SoniGraphBuilder:
         Destructor to ensure cleanup is called when object is garbage collected.
 
         Note: Relying on __del__ is not ideal, but provides a safety net.
+        Since cleanup() is now async, __del__ cannot call it directly.
         Explicit cleanup() calls are preferred.
         """
-        self.cleanup()
+        # Note: Cannot call async cleanup() from __del__
+        # Resources will be cleaned up when context manager exits
+        pass
 
-    def _create_checkpointer(self) -> Any:
+    async def _create_checkpointer(self) -> Any:
         """
-        Create checkpointer for state persistence.
+        Create checkpointer for state persistence using AsyncSqliteSaver.
 
         Returns:
-            SqliteSaver instance or None if persistence is disabled
+            AsyncSqliteSaver instance or None if persistence is disabled
 
         Note:
-            SqliteSaver.from_conn_string() returns a context manager.
+            AsyncSqliteSaver.from_conn_string() returns an async context manager.
             We enter it and store the context manager for proper cleanup.
-            SqliteSaver supports async methods (aget, aput, etc.) for async operations.
+            AsyncSqliteSaver supports async methods (aget, aput, etc.) for async operations.
         """
         persistence = self.config.settings.persistence
 
         if persistence.backend == "sqlite":
             try:
-                # from_conn_string returns a context manager
-                # SqliteSaver supports both sync and async methods
-                self._checkpointer_cm = SqliteSaver.from_conn_string(persistence.path)
-                # Enter the context manager and return the checkpointer
-                return self._checkpointer_cm.__enter__()
+                # from_conn_string returns an async context manager
+                # AsyncSqliteSaver requires aiosqlite and supports async methods
+                self._checkpointer_cm = AsyncSqliteSaver.from_conn_string(persistence.path)
+                # Enter the async context manager and return the checkpointer
+                return await self._checkpointer_cm.__aenter__()
             except Exception as e:
                 logger.warning(
                     f"Failed to create SQLite checkpointer: {e}. Using in-memory state only."
@@ -417,7 +433,7 @@ class SoniGraphBuilder:
             )
             return None
 
-    def build_manual(self, flow_name: str) -> Any:
+    async def build_manual(self, flow_name: str) -> Any:
         """
         Build a linear graph manually from flow configuration.
 
@@ -430,6 +446,10 @@ class SoniGraphBuilder:
         Raises:
             ValueError: If flow_name is not found in config
         """
+        # Initialize checkpointer if not already initialized
+        if self.checkpointer is None:
+            await self.initialize()
+
         if flow_name not in self.config.flows:
             raise ValueError(f"Flow '{flow_name}' not found in configuration")
 
