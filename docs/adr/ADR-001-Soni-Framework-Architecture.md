@@ -2,17 +2,17 @@
 
 ## ADR-001: Arquitectura Híbrida Optimizada para Framework ToD Moderno
 
-**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales  
-**Fecha:** 28 de Noviembre de 2025  
-**Estado:** Aprobado (Revisión v1.3 - Final)  
-**Autor:** Jorge - AI Solutions Architect  
+**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales
+**Fecha:** 28 de Noviembre de 2025
+**Estado:** Aprobado (Revisión v1.3 - Final)
+**Autor:** Jorge - AI Solutions Architect
 **Versión:** 1.3
 
 ---
 
 ## Resumen Ejecutivo
 
-Este ADR define la arquitectura de **Soni**, un framework open source para sistemas de diálogo orientado a tareas (ToD) que combina la flexibilidad semántica de los LLMs con el control determinista requerido por aplicaciones empresariales. 
+Este ADR define la arquitectura de **Soni**, un framework open source para sistemas de diálogo orientado a tareas (ToD) que combina la flexibilidad semántica de los LLMs con el control determinista requerido por aplicaciones empresariales.
 
 **La propuesta de valor central es la optimización automática**: el módulo de Dialogue Understanding (`SoniDU`) hereda de `dspy.Module` y puede ser optimizado automáticamente con MIPROv2, SIMBA, o GEPA, eliminando la necesidad de prompt engineering manual.
 
@@ -174,26 +174,26 @@ Se adopta una **Arquitectura Híbrida Desacoplada** que sigue el principio de **
 2. **Entrada del Usuario**: El usuario introduce un mensaje de lenguaje natural.
 3. **Carga de Estado (`await`)**: El StateStore carga el estado del usuario de forma async (aiosqlite, asyncpg, aioredis).
 4. **Scoping Dinámico**: El ScopeManager filtra las acciones disponibles según el estado actual (flujo activo, slots completados).
-5. **Interpretación por DSPy (`await acall()`)**: 
+5. **Interpretación por DSPy (`await acall()`)**:
    - El módulo DU utiliza `acall()` para invocación async al LLM optimizado
    - Recibe solo las acciones válidas filtradas (reducción de ruido)
    - Genera slots extraídos, nivel de confianza y reasoning
-6. **Normalización (`await`)**: 
+6. **Normalización (`await`)**:
    - Los slots extraídos pasan por el Normalizer
    - Limpieza heurística o LLM async antes de validación estricta
-7. **Validación de Seguridad**: 
+7. **Validación de Seguridad**:
    - Verificación de acciones permitidas (guardrails)
    - Validación de slots contra constraints del YAML
    - Detección de intents fuera de alcance
-8. **Ejecución por LangGraph (`async for ... astream()`)**: 
+8. **Ejecución por LangGraph (`async for ... astream()`)**:
    - El grafo recibe el comando y ejecuta transiciones deterministas mediante aristas condicionales
    - Los nodos de política (todos `async def`) deciden el siguiente paso basándose en lógica Python pura
    - `astream()` emite eventos en tiempo real
-9. **Actualización de Estado (`await`)**: 
+9. **Actualización de Estado (`await`)**:
    - El DST se actualiza con checkpointer persistente async
    - Se registra la traza completa para auditoría
    - Si el historial supera el límite, se genera resumen inteligente
-10. **Generación de Respuesta con Streaming**: 
+10. **Generación de Respuesta con Streaming**:
     - Los tokens se envían al frontend inmediatamente via `AsyncGenerator`
     - Compatible con SSE (Server-Sent Events) y WebSockets
 
@@ -211,7 +211,7 @@ version: "1.0"
 settings:
   # Estrategia de modelos diferenciada para reducir latencia (v1.1)
   models:
-    nlu: 
+    nlu:
       provider: openai
       model: gpt-4o-mini       # Modelo rápido para clasificación
       temperature: 0.1
@@ -220,28 +220,28 @@ settings:
       model: gpt-4o            # Modelo potente para respuestas complejas
       temperature: 0.7
       max_tokens: 500
-  
+
   dspy:
     optimizer: MIPROv2         # MIPROv2, BootstrapFewShot, COPRO, SIMBA, GEPA
     metric: intent_accuracy
     num_candidates: 10
     auto_config: medium        # light, medium, heavy (v1.1 - auto-hyperparams)
-  
+
   persistence:
     backend: sqlite            # sqlite, postgresql, redis
     path: ./dialogue_state.db
-  
+
   security:
     enable_guardrails: true
     allowed_actions: []        # Lista vacía = todas permitidas
     blocked_intents: []
     max_confidence_threshold: 0.95
-  
+
   logging:
     level: INFO
     trace_graphs: true
     audit_log: true            # Registro de auditoría completo
-  
+
   # Configuración de resumen de historial (v1.1)
   history:
     max_messages: 10
@@ -253,11 +253,11 @@ entities:
     type: string
     examples: [Madrid, Barcelona, NYC, London, París]
     # Pipeline: Extracción -> Normalización -> Validación (v1.1/v1.3)
-    normalization: 
+    normalization:
       strategy: "llm_correction"  # lowercase, trim, llm_correction, custom_func
     # v1.3: Validación semántica (implementada en código Python)
     validator: city_format
-  
+
   - name: date
     type: datetime
     format: "%Y-%m-%d"
@@ -265,11 +265,11 @@ entities:
       strategy: "trim"
     # v1.3: Validador semántico
     validator: future_date_only
-  
+
   - name: cabin_class
     type: enum
     values: [economy, business, first]
-  
+
   - name: booking_ref
     type: custom
     # v1.3: Abstracción - Referencia a un validador registrado en código
@@ -286,14 +286,14 @@ Para flujos simples de slot-filling, el framework infiere automáticamente el gr
 flows:
   book_flight:
     description: "Reserva de vuelos"
-    
+
     # Ejemplos para entrenar DSPy (no keywords exactos)
     triggers:
       - "quiero reservar un vuelo"
       - "necesito volar a {destination}"
       - "busca vuelos de {origin} a {destination}"
       - "hay aviones a {destination} el {date}?"
-    
+
     slots:
       origin:
         entity: city
@@ -311,12 +311,12 @@ flows:
         entity: cabin_class
         required: false
         default: economy
-    
+
     # Validaciones entre slots
     constraints:
       - condition: "origin != destination"
         error: "El origen y destino no pueden ser iguales"
-    
+
     # Acción al completar todos los slots
     on_complete:
       action: search_flights
@@ -324,7 +324,7 @@ flows:
       confirmation_template: |
         Voy a buscar vuelos de {origin} a {destination}
         para el {date} en clase {cabin}. ¿Confirmas?
-    
+
     # Respuestas según resultado de la acción
     responses:
       success: "Encontré {count} vuelos. El más barato: {cheapest}"
@@ -339,7 +339,7 @@ flows:
                                       │         │
                                       ▼         │
                               [check_slots]─────┘ (slots faltantes)
-                                      │ 
+                                      │
                                       │ (completo)
                                       ▼
                               [validate_constraints]
@@ -356,17 +356,17 @@ Este es el nuevo estándar para flujos con lógica. Se lee como un guion, de for
 flows:
   modify_booking:
     description: "Modificar reserva existente"
-    triggers: 
+    triggers:
       - "cambiar mi vuelo"
       - "modificar reserva"
-    
+
     # NUEVO: Definición por Pasos (Procedural) - v1.2
     process:
       # Paso 1: Recolectar información (Abstracción de Slot Filling)
       - step: request_id
         type: collect
         slot: booking_ref  # Usa la entidad definida globalmente
-        
+
       # Paso 2: Ejecutar acción de negocio (v1.3: Caja negra)
       - step: verify_status
         type: action
@@ -375,7 +375,7 @@ flows:
         map_outputs:
           status: api_status       # output_accion -> variable_flujo
           rejection_reason: reason # output_accion -> variable_flujo
-        
+
       # Paso 3: Decisión (Sobre variables planas, no objetos anidados)
       - step: decide_path
         type: branch
@@ -384,7 +384,7 @@ flows:
           modifiable: continue       # Sigue al siguiente paso
           not_modifiable: jump_to_explain
           not_found: jump_to_error
-          
+
       # Paso 4: Interacción con usuario (Menú)
       - step: select_modification
         type: choice
@@ -394,26 +394,26 @@ flows:
             jump_to: change_date_flow
           - label: "Cancelar reserva"
             jump_to: cancel_flow
-            
+
       # Sub-flujo: Cambio de fecha
       - step: change_date_flow      # Etiqueta de destino (Label)
         type: collect
         slot: new_date
-        
+
       - step: apply_changes
         type: action
         call: modify_booking_api
-        
+
       - step: confirm_success
         type: say
         message: "Cambio realizado correctamente. Nueva fecha: {new_date}"
         # Fin implícito del flujo
-        
+
       # Bloques de manejo de errores (Targets de saltos)
       - step: jump_to_explain
         type: say
         message: "Lo siento, esta reserva no permite cambios: {reason}"  # v1.3: Variable plana
-        
+
       - step: jump_to_error
         type: say
         message: "No he podido encontrar esa reserva en el sistema."
@@ -478,10 +478,10 @@ fallback:
     response: "No he entendido. ¿Puedes reformularlo?"
     max_retries: 2
     then: handoff_human
-  
+
   out_of_scope:
     response: "Solo puedo ayudarte con reservas de vuelos."
-  
+
   action_error:
     response: "Ha ocurrido un error. ¿Quieres intentarlo de nuevo?"
     log_level: ERROR
@@ -543,9 +543,9 @@ class DialogueState:
 class INLUProvider(Protocol):
     """Interfaz async para proveedores de Entendimiento de Lenguaje."""
     async def predict(
-        self, 
-        message: str, 
-        context: Dict[str, Any], 
+        self,
+        message: str,
+        context: Dict[str, Any],
         scoped_actions: List[str]
     ) -> NLUResult:
         """Método async obligatorio."""
@@ -554,8 +554,8 @@ class INLUProvider(Protocol):
 class IDialogueManager(Protocol):
     """Interfaz async para el gestor de estado y flujo."""
     async def process_turn(
-        self, 
-        input_data: NLUResult, 
+        self,
+        input_data: NLUResult,
         state: DialogueState
     ) -> AsyncGenerator[str, None]:
         """Método async obligatorio que produce tokens en streaming."""
@@ -592,9 +592,9 @@ class ScopeManager(IScopeManager):
         """
         # 1. Siempre incluir comandos globales
         actions = self.global_intents.copy()
-        
+
         current_flow = state.current_flow
-        
+
         if current_flow and current_flow != 'none':
             # 2. Si estamos en un flujo, solo permitir acciones de ese flujo
             # (El usuario debe cancelar para salir, reduciendo alucinaciones)
@@ -609,13 +609,13 @@ class ScopeManager(IScopeManager):
             # 3. Si no hay flujo, permitir triggers de inicio de flujos
             for flow_name, flow_cfg in self.flows.items():
                 actions.append(f"start_{flow_name}")
-            
+
         return list(set(actions))  # Eliminar duplicados
 ```
 
 ### 4.3 Integración DSPy: Módulo Optimizable
 
-El módulo `SoniDU` **debe heredar de `dspy.Module`** e implementar `aforward()` (async) para ser optimizable con MIPROv2, SIMBA, GEPA, etc. 
+El módulo `SoniDU` **debe heredar de `dspy.Module`** e implementar `aforward()` (async) para ser optimizable con MIPROv2, SIMBA, GEPA, etc.
 
 **NOTA**: Usamos `aforward()` + `acall()` en runtime. El método `forward()` existe solo para los optimizadores DSPy.
 
@@ -625,7 +625,7 @@ import dspy
 
 class DialogueUnderstanding(dspy.Signature):
     """Interpreta la intención del usuario en contexto del diálogo."""
-    
+
     user_message: str = dspy.InputField(
         desc="Último mensaje del usuario"
     )
@@ -641,7 +641,7 @@ class DialogueUnderstanding(dspy.Signature):
     current_flow: str = dspy.InputField(
         desc="Flujo activo actual o 'none'"
     )
-    
+
     structured_command: str = dspy.OutputField(
         desc="Comando: action_name(slot=value, ...) o NONE"
     )
@@ -673,20 +673,20 @@ class NLUResult:
 class SoniDU(dspy.Module):
     """
     Módulo DSPy optimizable para Dialogue Understanding.
-    
-    CRÍTICO: 
+
+    CRÍTICO:
     - Hereda de dspy.Module
     - Implementa aforward() para runtime, forward() para optimizadores
     - Los optimizadores (MIPROv2, etc.) pueden optimizar este módulo
     """
-    
+
     def __init__(self, scope_manager: 'ScopeManager' = None):
         super().__init__()  # IMPORTANTE: Llamar a super().__init__()
-        
+
         # Predictor interno - ESTO es lo que se optimiza
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
         self.scope_manager = scope_manager
-    
+
     async def aforward(
         self,
         user_message: str,
@@ -697,10 +697,10 @@ class SoniDU(dspy.Module):
     ) -> dspy.Prediction:
         """
         Método aforward() ASYNC requerido por DSPy para ejecución asíncrona.
-        
+
         Los optimizadores (MIPROv2, etc.) usan forward() durante training,
         pero en runtime usamos aforward() via acall() para async.
-        
+
         DSPy automáticamente delega acall() -> aforward() si existe.
         """
         # Si tenemos scope_manager y no se pasaron acciones, calcularlas
@@ -710,7 +710,7 @@ class SoniDU(dspy.Module):
                 'slots': current_slots
             }
             available_actions = self.scope_manager.get_available_actions(state)
-        
+
         # Llamar al predictor usando acall() para async
         result = await self.predictor.acall(
             user_message=user_message,
@@ -719,9 +719,9 @@ class SoniDU(dspy.Module):
             available_actions=available_actions or [],
             current_flow=current_flow
         )
-        
+
         return result
-    
+
     def forward(
         self,
         user_message: str,
@@ -732,7 +732,7 @@ class SoniDU(dspy.Module):
     ) -> dspy.Prediction:
         """
         Método forward() SYNC requerido por optimizadores DSPy.
-        
+
         NOTA: Los optimizadores como MIPROv2 usan forward() durante
         el proceso de bootstrapping. Este método es necesario para
         que la optimización funcione, pero NO se usa en runtime.
@@ -743,7 +743,7 @@ class SoniDU(dspy.Module):
                 'slots': current_slots
             }
             available_actions = self.scope_manager.get_available_actions(state)
-        
+
         result = self.predictor(
             user_message=user_message,
             dialogue_history=dialogue_history,
@@ -751,9 +751,9 @@ class SoniDU(dspy.Module):
             available_actions=available_actions or [],
             current_flow=current_flow
         )
-        
+
         return result
-    
+
     async def predict(self, message: str, state: Dict[str, Any]) -> NLUResult:
         """
         Wrapper async de conveniencia para uso en runtime.
@@ -762,7 +762,7 @@ class SoniDU(dspy.Module):
         # Preparar historial resumido
         history_context = (state.get('summary') or "") + \
                          str(state.get('messages', [])[-5:])
-        
+
         # Llamar a acall() que usa aforward() internamente
         result = await self.acall(
             user_message=message,
@@ -770,7 +770,7 @@ class SoniDU(dspy.Module):
             current_slots=state.get('slots', {}),
             current_flow=state.get('current_flow', 'none')
         )
-        
+
         return NLUResult(
             command=result.structured_command,
             slots=result.extracted_slots,
@@ -807,10 +807,10 @@ def create_training_examples(yaml_config: dict) -> list[dspy.Example]:
                 confidence=0.95,
                 reasoning=f"Usuario quiere iniciar flujo {flow_name}"
             ).with_inputs(
-                "user_message", 
-                "dialogue_history", 
-                "current_slots", 
-                "current_flow", 
+                "user_message",
+                "dialogue_history",
+                "current_slots",
+                "current_flow",
                 "available_actions"
             )
             examples.append(example)
@@ -824,10 +824,10 @@ def intent_accuracy_metric(example, prediction, trace=None) -> float:
     """
     expected_cmd = example.structured_command.split("(")[0]
     predicted_cmd = prediction.structured_command.split("(")[0]
-    
+
     # Coincidencia exacta del comando
     cmd_match = 1.0 if expected_cmd == predicted_cmd else 0.0
-    
+
     # Bonus por slots extraídos correctamente
     slot_score = 0.0
     if hasattr(example, 'extracted_slots') and example.extracted_slots:
@@ -835,7 +835,7 @@ def intent_accuracy_metric(example, prediction, trace=None) -> float:
         predicted_slots = set(prediction.extracted_slots.keys())
         if expected_slots:
             slot_score = len(expected_slots & predicted_slots) / len(expected_slots)
-    
+
     return 0.7 * cmd_match + 0.3 * slot_score
 
 
@@ -848,14 +848,14 @@ def optimize_soni_du(
 ) -> SoniDU:
     """
     Optimiza el módulo SoniDU usando el optimizador especificado.
-    
+
     Args:
         base_module: Instancia de SoniDU sin optimizar
         trainset: Ejemplos de entrenamiento
         valset: Ejemplos de validación (opcional)
         optimizer_type: "MIPROv2", "BootstrapFewShot", "SIMBA", "GEPA"
         auto_config: "light", "medium", "heavy"
-    
+
     Returns:
         SoniDU optimizado con prompts mejorados
     """
@@ -864,14 +864,14 @@ def optimize_soni_du(
         split_idx = int(len(trainset) * 0.8)
         valset = trainset[split_idx:]
         trainset = trainset[:split_idx]
-    
+
     if optimizer_type == "MIPROv2":
         optimizer = MIPROv2(
             metric=intent_accuracy_metric,
             auto=auto_config,  # light, medium, heavy
             verbose=True
         )
-        
+
         optimized = optimizer.compile(
             base_module,
             trainset=trainset,
@@ -879,7 +879,7 @@ def optimize_soni_du(
             max_labeled_demos=4,
             requires_permission_to_run=False
         )
-    
+
     elif optimizer_type == "BootstrapFewShot":
         optimizer = BootstrapFewShotWithRandomSearch(
             metric=intent_accuracy_metric,
@@ -887,7 +887,7 @@ def optimize_soni_du(
             num_candidate_programs=10
         )
         optimized = optimizer.compile(base_module, trainset=trainset)
-    
+
     # Evaluar mejora
     evaluator = Evaluate(
         devset=valset,
@@ -895,34 +895,34 @@ def optimize_soni_du(
         num_threads=4,
         display_progress=True
     )
-    
+
     baseline_score = evaluator(base_module, devset=valset)
     optimized_score = evaluator(optimized, devset=valset)
-    
+
     print(f"Baseline: {baseline_score:.2%} -> Optimizado: {optimized_score:.2%}")
     print(f"Mejora: {(optimized_score - baseline_score):.2%}")
-    
+
     return optimized
 
 
 # Script de optimización
 if __name__ == "__main__":
     import yaml
-    
+
     # Cargar configuración
     with open("soni.yaml") as f:
         config = yaml.safe_load(f)
-    
+
     # Configurar LM
     dspy.configure(lm=dspy.LM('openai/gpt-4o-mini'))
-    
+
     # Crear módulo base
     scope_manager = ScopeManager(config)
     base_du = SoniDU(scope_manager=scope_manager)
-    
+
     # Crear ejemplos de entrenamiento
     trainset = create_training_examples(config)
-    
+
     # Optimizar
     optimized_du = optimize_soni_du(
         base_du,
@@ -930,7 +930,7 @@ if __name__ == "__main__":
         optimizer_type="MIPROv2",
         auto_config="medium"
     )
-    
+
     # Guardar módulo optimizado
     optimized_du.save("optimized_soni_du.json")
     print("Módulo optimizado guardado en optimized_soni_du.json")
@@ -947,16 +947,16 @@ from typing import Dict, Any
 class SoniDUAdapter(INLUProvider):
     """
     Adapter ASYNC que implementa INLUProvider envolviendo un módulo DSPy.
-    
+
     Permite:
     1. Mantener el módulo DSPy puro y optimizable
     2. Cumplir con la interfaz INLUProvider async para el runtime
     3. Swap de implementaciones sin cambiar el resto del sistema
     """
-    
+
     def __init__(self, dspy_module: SoniDU):
         self.module = dspy_module
-    
+
     async def predict(
         self,
         message: str,
@@ -969,7 +969,7 @@ class SoniDUAdapter(INLUProvider):
         """
         # Preparar historial
         history = context.get('summary', '') + str(context.get('messages', [])[-5:])
-        
+
         # Llamar a acall() que usa aforward() internamente
         result = await self.module.acall(
             user_message=message,
@@ -978,14 +978,14 @@ class SoniDUAdapter(INLUProvider):
             current_flow=context.get('current_flow', 'none'),
             available_actions=scoped_actions
         )
-        
+
         return NLUResult(
             command=result.structured_command,
             slots=result.extracted_slots,
             confidence=result.confidence,
             reasoning=result.reasoning
         )
-    
+
     @classmethod
     def from_optimized(cls, path: str, scope_manager: 'ScopeManager') -> 'SoniDUAdapter':
         """Carga un módulo optimizado y lo envuelve en el adapter."""
@@ -1007,92 +1007,92 @@ from typing import Any, Dict
 class SlotNormalizer(INormalizer):
     """
     Normaliza slots extraídos antes de validación.
-    
+
     NOTA: Las estrategias simples (trim, lowercase) son sync.
     La estrategia llm_correction es async internamente.
     """
-    
+
     def __init__(self, config: dict):
         self.config = config
         # Modelo rápido para correcciones
         self.cleanup_lm = dspy.LM("openai/gpt-4o-mini", temperature=0)
-    
+
     def normalize(self, raw_value: Any, entity_config: Dict) -> Any:
         """
         Normalización sync para estrategias simples.
         Para llm_correction, usar normalize().
         """
         strategy = entity_config.get('normalization', {}).get('strategy', 'none')
-        
+
         if strategy == 'none':
             return raw_value
-        
+
         if strategy == 'trim':
             return str(raw_value).strip()
-        
+
         elif strategy == 'lowercase':
             return str(raw_value).lower().strip()
-        
+
         elif strategy == 'llm_correction':
             # Marcador para procesamiento async posterior
             return {'__needs_async__': True, 'value': raw_value, 'config': entity_config}
-            
+
         elif strategy == 'custom_func':
             func_name = entity_config.get('normalization', {}).get('function')
             if func_name:
                 return self._call_custom_func(func_name, raw_value)
-            
+
         return raw_value
-    
+
     async def normalize(self, raw_value: Any, entity_config: Dict) -> Any:
         """
         Normalización async para estrategias que requieren LLM.
         """
         strategy = entity_config.get('normalization', {}).get('strategy', 'none')
-        
+
         if strategy == 'llm_correction':
             return await self._llm_cleanup(raw_value, entity_config)
-        
+
         # Para otras estrategias, delegar a sync
         return self.normalize(raw_value, entity_config)
-    
+
     async def _llm_cleanup(self, raw_value: str, entity_config: Dict) -> str:
         """Limpieza async usando LLM pequeño."""
         entity_type = entity_config.get('type', 'string')
         examples = entity_config.get('examples', [])
-        
+
         prompt = f"""Extract only the {entity_type} value from this text.
 Input: "{raw_value}"
 Examples of valid values: {examples[:5]}
 Return ONLY the clean value, nothing else."""
-        
+
         # Usar llamada async del LM
         response = await self.cleanup_lm.acall(prompt)
         return response.strip().strip('"\'')
-    
+
     async def process(self, slots: Dict[str, Any]) -> Dict[str, Any]:
         """Normaliza todos los slots extraídos de forma async."""
         import asyncio
-        
+
         entities = {e['name']: e for e in self.config.get('entities', [])}
-        
+
         async def normalize_slot(slot_name: str, raw_value: Any) -> tuple:
             entity_config = entities.get(slot_name, {})
             normalized = await self.normalize(raw_value, entity_config)
             return slot_name, normalized
-        
+
         # Procesar todos los slots en paralelo
         tasks = [normalize_slot(name, value) for name, value in slots.items()]
         results = await asyncio.gather(*tasks)
-        
+
         return dict(results)
-        
+
         return normalized
 ```
 
 ### 4.7 Graph Builder: Compilador de Pasos a LangGraph (v1.2)
 
-**IMPORTANTE**: Todos los nodos del grafo son funciones `async def`. 
+**IMPORTANTE**: Todos los nodos del grafo son funciones `async def`.
 LangGraph soporta nativamente nodos async y usa `astream()`/`ainvoke()` para ejecución.
 
 El Graph Builder ahora incluye un **Step Compiler** que traduce la lista secuencial de pasos (formato procedural) en el grafo de estados de LangGraph.
@@ -1112,40 +1112,40 @@ class SoniGraphBuilder:
         self.graph = StateGraph(DialogueState)
         self.scope_manager = ScopeManager(self.config)
         self.normalizer = SlotNormalizer(self.config)
-        
+
         # Cargar módulo DSPy (optimizado o base)
         self._init_du_module(optimized_du_path)
-    
+
     def _init_du_module(self, optimized_path: str = None):
         """Inicializa el módulo DU, cargando versión optimizada si existe."""
         base_module = SoniDU(scope_manager=self.scope_manager)
-        
+
         if optimized_path and os.path.exists(optimized_path):
             base_module.load(optimized_path)
             print(f"✓ Módulo DU optimizado cargado desde {optimized_path}")
         else:
             print("⚠ Usando módulo DU sin optimizar. Ejecuta optimize_soni_du() para mejorar.")
-        
+
         # Envolver en adapter async para cumplir interfaz
         self.du_adapter = SoniDUAdapter(base_module)
         self.du_module = base_module
-    
+
     def _create_du_node(self):
         """Crea nodo async para Dialogue Understanding."""
         adapter = self.du_adapter
         scope_manager = self.scope_manager
-        
+
         async def understand_node(state: DialogueState) -> Dict[str, Any]:
             """Nodo async que llama al módulo DSPy via acall()."""
             scoped_actions = scope_manager.get_available_actions(state)
-            
+
             # Llamada async al adapter
             nlu_result = await adapter.predict(
                 message=state['messages'][-1]['content'],
                 context=state,
                 scoped_actions=scoped_actions
             )
-            
+
             return {
                 'nlu_result': nlu_result,
                 'trace': state['trace'] + [{
@@ -1154,39 +1154,39 @@ class SoniGraphBuilder:
                     'confidence': nlu_result.confidence
                 }]
             }
-        
+
         return understand_node
-    
+
     def _create_normalizer_node(self):
         """Crea nodo async para normalización."""
         normalizer = self.normalizer
-        
+
         async def normalize_node(state: DialogueState) -> Dict[str, Any]:
             """Nodo async que normaliza slots extraídos."""
             nlu_result = state.get('nlu_result')
             if not nlu_result or not nlu_result.slots:
                 return {}
-            
+
             # Normalización async (puede usar LLM)
             normalized_slots = await normalizer.process(nlu_result.slots)
-            
+
             # Merge con slots existentes
             updated_slots = {**state.get('slots', {}), **normalized_slots}
-            
+
             return {'slots': updated_slots}
-        
+
         return normalize_node
-    
+
     def build(self) -> CompiledGraph:
         """Construye el grafo con todos los nodos async."""
-        
+
         # Nodos base siempre presentes (todos async)
         self.graph.add_node("understand", self._create_du_node())
         self.graph.add_node("normalize", self._create_normalizer_node())
         self.graph.add_node("route", self._create_router_node())
         self.graph.add_node("fallback", self._create_fallback_node())
         self.graph.add_node("handoff", self._create_handoff_node())
-        
+
         # Construir nodos dinámicos desde YAML
         for flow_name, flow_cfg in self.config['flows'].items():
             if 'process' in flow_cfg:
@@ -1198,37 +1198,37 @@ class SoniGraphBuilder:
             else:
                 # Nivel 2: Inferencia automática de slot-filling
                 self._build_inferred_graph(flow_name, flow_cfg)
-        
+
         self.graph.set_entry_point("understand")
         self.graph.add_edge("understand", "normalize")
         self.graph.add_edge("normalize", "route")
-        
+
         checkpointer = self._get_checkpointer()
         return self.graph.compile(checkpointer=checkpointer)
-    
+
     def _build_process_graph(self, flow_name: str, steps: list):
         """
-        v1.2: Compila una lista secuencial de pasos (Business Logic) 
+        v1.2: Compila una lista secuencial de pasos (Business Logic)
         en un Grafo de Estados (Technical Implementation).
-        
+
         Esta es la "magia" que traduce la sintaxis procedural a LangGraph.
         """
         previous_node_name = f"{flow_name}_entry"
-        
+
         # Crear nodo de entrada dummy para anclar el flujo
         self.graph.add_node(previous_node_name, self._create_pass_node())
-        
+
         # Mapeo de nombres de paso a nombres de nodo para saltos
         step_to_node = {}
-        
+
         for i, step in enumerate(steps):
             step_name = step['step']
             node_name = f"{flow_name}_{step_name}"
             step_type = step['type']
-            
+
             # Registrar para saltos
             step_to_node[step_name] = node_name
-            
+
             # 1. Factory de Nodos: Crear el nodo LangGraph según el tipo de alto nivel
             if step_type == 'collect':
                 self.graph.add_node(node_name, self._create_slot_node(step))
@@ -1243,28 +1243,28 @@ class SoniGraphBuilder:
                 self.graph.add_node(node_name, self._create_choice_node(step))
             elif step_type == 'confirm':
                 self.graph.add_node(node_name, self._create_confirm_node(step))
-            
+
             # 2. Conexión Automática (Implicit Next)
             # Conectar el nodo anterior con este, salvo que el anterior fuera terminal o un router
             if i > 0:
                 prev_step = steps[i-1]
                 prev_node_name = f"{flow_name}_{prev_step['step']}"
-                
+
                 # Si el paso anterior NO tenía lógica de saltos explícita, conectar linealmente
                 if not self._is_branching_step(prev_step):
                     self.graph.add_edge(prev_node_name, node_name)
-            
+
             # Conectar entrada del flujo al primer paso
             if i == 0:
                 self.graph.add_edge(previous_node_name, node_name)
-            
+
             # 3. Gestión de Saltos (Branching Logic)
             if 'jump_to' in step:
                 target = step['jump_to']
                 # Resolver el nombre del nodo destino
                 target_node = step_to_node.get(target, f"{flow_name}_{target}")
                 self.graph.add_edge(node_name, target_node)
-                
+
             elif step_type == 'branch':
                 # Crear aristas condicionales complejas
                 mapping = {}
@@ -1285,13 +1285,13 @@ class SoniGraphBuilder:
                         # Nombre directo del paso
                         target_node = step_to_node.get(case_target, f"{flow_name}_{case_target}")
                         mapping[case_key] = target_node
-                
+
                 self.graph.add_conditional_edges(
-                    node_name, 
-                    self._get_branch_selector(step), 
+                    node_name,
+                    self._get_branch_selector(step),
                     mapping
                 )
-            
+
             elif step_type == 'choice':
                 # Crear aristas condicionales para opciones
                 mapping = {}
@@ -1300,28 +1300,28 @@ class SoniGraphBuilder:
                         target = option['jump_to']
                         target_node = step_to_node.get(target, f"{flow_name}_{target}")
                         mapping[option['label']] = target_node
-                
+
                 self.graph.add_conditional_edges(
                     node_name,
                     self._get_choice_selector(step),
                     mapping
                 )
-    
+
     def _is_branching_step(self, step):
         """Determina si un paso gestiona su propio flujo de salida."""
         return step['type'] in ['branch', 'choice'] or 'jump_to' in step
-    
+
     def _get_branch_selector(self, step):
         """Crea función selector para branches."""
         input_path = step.get('input', '')
-        
+
         def selector(state: DialogueState) -> str:
             # Evaluar expresión de ruta (ej: "booking_status.status")
             value = self._resolve_path(state, input_path)
             return str(value)
-        
+
         return selector
-    
+
     def _get_choice_selector(self, step):
         """Crea función selector para choices (basado en input del usuario)."""
         def selector(state: DialogueState) -> str:
@@ -1329,9 +1329,9 @@ class SoniGraphBuilder:
             # Esto se maneja en el nodo choice_node
             last_message = state.get('messages', [])[-1] if state.get('messages') else {}
             return last_message.get('content', '')
-        
+
         return selector
-    
+
     def _resolve_path(self, obj: dict, path: str) -> Any:
         """Resuelve una ruta tipo 'a.b.c' en un objeto anidado."""
         parts = path.split('.')
@@ -1339,17 +1339,17 @@ class SoniGraphBuilder:
         for part in parts:
             value = value.get(part, {})
         return value
-    
+
     def _create_pass_node(self):
         """Nodo passthrough para puntos de entrada."""
         async def pass_node(state: DialogueState) -> Dict[str, Any]:
             return {}
         return pass_node
-    
+
     def _create_slot_node(self, step: dict):
         """Crea nodo para recolectar un slot."""
         slot_name = step.get('slot')
-        
+
         async def slot_node(state: DialogueState) -> Dict[str, Any]:
             # Lógica de slot-filling
             # Si el slot ya está en nlu_result, usarlo
@@ -1359,107 +1359,107 @@ class SoniGraphBuilder:
                 return {'slots': updated_slots}
             # Si no, solicitar al usuario
             return {'pending_slot': slot_name}
-        
+
         return slot_node
-    
+
     def _create_action_node(self, step: dict):
         """Crea nodo para ejecutar una acción."""
         action_name = step.get('call')
         result_into = step.get('result_into')
-        
+
         async def action_node(state: DialogueState) -> Dict[str, Any]:
             # Ejecutar acción async
             action_result = await self._execute_action(action_name, state)
-            
+
             result = {}
             if result_into:
                 result[result_into] = action_result
-            
+
             return result
-        
+
         return action_node
-    
+
     def _create_response_node(self, step: dict):
         """Crea nodo para generar respuesta."""
         message_template = step.get('message', '')
-        
+
         async def response_node(state: DialogueState) -> Dict[str, Any]:
             # Renderizar template con slots
             message = self._render_template(message_template, state.get('slots', {}))
             return {'last_response': message}
-        
+
         return response_node
-    
+
     def _create_router_node(self, step: dict):
         """Crea nodo router para branches."""
         # La lógica de routing se maneja en _get_branch_selector
         async def router_node(state: DialogueState) -> Dict[str, Any]:
             return {}
-        
+
         return router_node
-    
+
     def _create_choice_node(self, step: dict):
         """Crea nodo para menús de opciones."""
         prompt = step.get('prompt', '')
         options = step.get('options', [])
-        
+
         async def choice_node(state: DialogueState) -> Dict[str, Any]:
             # Generar mensaje con opciones
             options_text = '\n'.join([f"- {opt['label']}" for opt in options])
             message = f"{prompt}\n\n{options_text}"
             return {'last_response': message, 'pending_choice': True}
-        
+
         return choice_node
-    
+
     def _create_confirm_node(self, step: dict):
         """Crea nodo para confirmaciones."""
         template = step.get('template', '')
-        
+
         async def confirm_node(state: DialogueState) -> Dict[str, Any]:
             message = self._render_template(template, state.get('slots', {}))
             return {'last_response': message, 'pending_confirm': True}
-        
+
         return confirm_node
-    
+
     def _execute_action(self, action_name: str, state: dict) -> dict:
         """Ejecuta una acción definida en el YAML."""
         # Implementación de ejecución de acciones
         # (HTTP, Python, LangChain Tools)
         ...
-    
+
     def _render_template(self, template: str, context: dict) -> str:
         """Renderiza un template con variables del contexto."""
         return template.format(**context)
-    
+
     def _build_inferred_graph(self, flow_name: str, cfg: dict):
         """Genera grafo estándar de slot-filling (Nivel 2)."""
-        
+
         # Nodo de slot-filling iterativo
         self.graph.add_node(
             f"{flow_name}_fill_slots",
             self._create_slot_filler(flow_name, cfg['slots'])
         )
-        
+
         # Nodo de validación de constraints
         if 'constraints' in cfg:
             self.graph.add_node(
                 f"{flow_name}_validate",
                 self._create_validator(cfg['constraints'])
             )
-        
+
         # Nodo de confirmación
         if cfg.get('on_complete', {}).get('confirm'):
             self.graph.add_node(
                 f"{flow_name}_confirm",
                 self._create_confirmation(cfg['on_complete'])
             )
-        
+
         # Nodo de ejecución de acción
         self.graph.add_node(
             f"{flow_name}_execute",
             self._create_action_executor(cfg['on_complete']['action'])
         )
-        
+
         # Configurar transiciones condicionales
         self.graph.add_conditional_edges(
             f"{flow_name}_fill_slots",
@@ -1469,11 +1469,11 @@ class SoniGraphBuilder:
                 "missing": f"{flow_name}_fill_slots"
             }
         )
-    
+
     def _get_checkpointer(self):
         """Configura el backend de persistencia."""
         backend = self.config.get('settings', {}).get('persistence', {}).get('backend', 'sqlite')
-        
+
         if backend == 'sqlite':
             path = self.config['settings']['persistence'].get('path', './dialogue.db')
             return SqliteSaver.from_conn_string(path)
@@ -1530,18 +1530,18 @@ import os
 async def impl_check_booking(booking_ref: str) -> dict:
     """
     Implementación técnica: Aquí van los headers, URLs y JSONPaths.
-    
+
     El YAML solo conoce el contrato (inputs/outputs), no esta implementación.
     """
     async with httpx.AsyncClient() as client:
         # Detalles sucios ocultos al analista de negocio
         resp = await client.post(
-            "https://legacy-api.corp/v1/rules", 
+            "https://legacy-api.corp/v1/rules",
             json={"id": booking_ref},
             headers={"X-Auth": os.getenv("API_KEY")}
         )
         data = resp.json()
-        
+
         # Adaptador: Normaliza la respuesta al contrato esperado
         return {
             "status": data.get("rule_status"),  # Mapping técnico
@@ -1604,7 +1604,7 @@ from datetime import datetime
 def validate_ref(value: str) -> bool:
     """
     Validador semántico: La regex compleja vive aquí, testeable unitariamente.
-    
+
     El YAML solo referencia 'booking_ref_format', no contiene la regex.
     """
     return bool(re.match(r"^[A-Z]{2,3}\d{3,4}$", value))
@@ -1633,11 +1633,11 @@ El compilador ahora debe gestionar el mapeo de variables (`map_outputs`) para de
         """Crea nodo para ejecutar una acción con soporte de map_outputs (v1.3)."""
         action_name = step.get('call')
         output_mapping = step.get('map_outputs', {})  # v1.3: Mapeo de outputs
-        
+
         async def action_node(state: DialogueState) -> Dict[str, Any]:
             # 1. Resolver implementación desde el Registry
             func = ActionRegistry.get(action_name)
-            
+
             # 2. Preparar argumentos desde slots actuales
             # (Simplificado: asume que args coinciden con inputs del contrato)
             import inspect
@@ -1646,10 +1646,10 @@ El compilador ahora debe gestionar el mapeo de variables (`map_outputs`) para de
             for param_name in sig.parameters.keys():
                 if param_name in state.slots:
                     args[param_name] = state.slots[param_name]
-            
+
             # 3. Ejecutar implementación técnica
             raw_result = await func(**args)
-            
+
             # 4. Aplicar Output Mapping (Flattening) - v1.3
             # Convierte el dict de resultado en variables planas de estado
             updates = {}
@@ -1660,10 +1660,10 @@ El compilador ahora debe gestionar el mapeo de variables (`map_outputs`) para de
             else:
                 # Fallback: volcar todo si no hay mapping
                 updates = raw_result
-                
+
             # Actualizar estado (slots temporales o de contexto)
             return {"slots": {**state.get('slots', {}), **updates}}
-            
+
         return action_node
 ```
 
@@ -1676,11 +1676,11 @@ import asyncio
 
 class RuntimeLoop:
     """Runtime loop para Soni."""
-    
+
     def __init__(self, config_path: str, optimized_du_path: str = None):
         builder = SoniGraphBuilder(config_path, optimized_du_path)
         self.graph = builder.build()
-        
+
         # Usar el adapter async que envuelve el módulo DSPy optimizado
         self.nlu = builder.du_adapter  # INLUProvider (async)
         self.normalizer = builder.normalizer  # SlotNormalizer (async)
@@ -1688,10 +1688,10 @@ class RuntimeLoop:
         self.security = SecurityGuard(builder.config)
         self.tracer = TraceLogger(builder.config)
         self.scope_manager = builder.scope_manager
-    
+
     async def process_message(
-        self, 
-        user_msg: str, 
+        self,
+        user_msg: str,
         user_id: str
     ) -> AsyncGenerator[str, None]:
         """
@@ -1700,32 +1700,32 @@ class RuntimeLoop:
         """
         # 1. Cargar estado (async I/O)
         state = await self.state_store.load(user_id)
-        
+
         # 2. Obtener acciones disponibles según contexto
         scoped_actions = self.scope_manager.get_available_actions(state)
-        
+
         # 3. NLU async (DSPy acall -> gpt-4o-mini)
         nlu_result = await self.nlu.predict(
             message=user_msg,
             context=state,
             scoped_actions=scoped_actions
         )
-        
+
         # 4. Normalización async (puede usar LLM)
         nlu_result.slots = await self.normalizer.process(nlu_result.slots)
-        
+
         # 5. Validación de seguridad (sync, operación rápida CPU-bound)
         is_valid, error_msg = self.security.validate_action(
-            nlu_result.command, 
+            nlu_result.command,
             state
         )
         if not is_valid:
             yield error_msg
             return
-        
+
         # 6. LangGraph Execution con astream (Streaming async)
         async for event in self.graph.astream(
-            state, 
+            state,
             input={"nlu_result": nlu_result},
             stream_mode="updates"
         ):
@@ -1733,23 +1733,23 @@ class RuntimeLoop:
                 yield event['content']  # Enviar al frontend inmediatamente
             elif event.get('type') == 'state_update':
                 await self.state_store.save(user_id, event['new_state'])
-        
+
         # 7. Logging async de trazabilidad
         await self.tracer.log_turn(state, nlu_result, event.get('policy_decision', {}))
 
 
 class StateStore:
     """Almacenamiento de estado async."""
-    
+
     def __init__(self, config: dict):
         self.backend = config.get('persistence', {}).get('backend', 'sqlite')
         # Inicializar conexión async según backend
-    
+
     async def load(self, user_id: str) -> dict:
         """Carga estado de forma async."""
         # Implementar con aiosqlite, asyncpg, aioredis, etc.
         ...
-    
+
     async def save(self, user_id: str, state: dict):
         """Guarda estado de forma async."""
         ...
@@ -1757,10 +1757,10 @@ class StateStore:
 
 class TraceLogger:
     """Logger async para trazabilidad."""
-    
+
     def __init__(self, config: dict):
         self.audit_enabled = config.get('logging', {}).get('audit_log', False)
-    
+
     async def log_turn(self, state: dict, nlu_result, policy_decision: dict):
         """Log async del turno."""
         if self.audit_enabled:
@@ -1782,12 +1782,12 @@ runtime = RuntimeLoop("config.yaml", "optimized_du.json")
 @app.post("/chat/{user_id}")
 async def chat(user_id: str, message: str):
     """Endpoint async con streaming SSE."""
-    
+
     async def generate():
         async for token in runtime.process_message(message, user_id):
             yield f"data: {token}\n\n"
         yield "data: [DONE]\n\n"
-    
+
     return StreamingResponse(
         generate(),
         media_type="text/event-stream"
@@ -1804,29 +1804,29 @@ async def health():
 # soni/security/guardrails.py
 class SecurityGuard:
     """Sistema de guardrails para validar acciones y prevenir comportamientos no deseados."""
-    
+
     def __init__(self, config: dict):
         self.allowed_actions = config.get('security', {}).get('allowed_actions', [])
         self.blocked_intents = config.get('security', {}).get('blocked_intents', [])
         self.max_confidence = config.get('security', {}).get('max_confidence_threshold', 0.95)
-    
+
     def validate_action(self, action: str, state: dict) -> tuple[bool, str]:
         """Valida si una acción está permitida."""
         if self.allowed_actions and action not in self.allowed_actions:
             return False, f"Acción '{action}' no está en la lista de acciones permitidas"
-        
+
         # Validaciones adicionales de negocio
         if action.startswith("delete_") and not state.get('admin_mode'):
             return False, "Acciones de eliminación requieren modo administrador"
-        
+
         return True, ""
-    
+
     def validate_intent(self, intent: str) -> tuple[bool, str]:
         """Valida si un intent está permitido."""
         if intent in self.blocked_intents:
             return False, f"Intent '{intent}' está bloqueado"
         return True, ""
-    
+
     def validate_confidence(self, confidence: float) -> tuple[bool, str]:
         """Valida el nivel de confianza."""
         if confidence > self.max_confidence:
@@ -1843,22 +1843,22 @@ import aiosqlite  # O asyncpg para PostgreSQL
 
 class TraceLogger:
     """Sistema de logging y trazabilidad async para auditoría."""
-    
+
     def __init__(self, config: dict):
         self.audit_enabled = config.get('logging', {}).get('audit_log', False)
         self.trace_enabled = config.get('logging', {}).get('trace_graphs', False)
         self.db_path = config.get('logging', {}).get('db_path', 'audit.db')
-    
+
     async def log_turn(
-        self, 
-        state: DialogueState, 
-        nlu_result: NLUResult, 
+        self,
+        state: DialogueState,
+        nlu_result: NLUResult,
         policy_decision: dict
     ):
         """Registra un turno completo de conversación de forma async."""
         if not self.audit_enabled:
             return
-        
+
         trace_entry = {
             'timestamp': datetime.now().isoformat(),
             'turn': state.turn_count,
@@ -1879,13 +1879,13 @@ class TraceLogger:
                 'slots': state.slots
             }
         }
-        
+
         state.trace.append(trace_entry)
-        
+
         # Persistir en base de datos de auditoría de forma async
         if self.audit_enabled:
             await self._persist_audit_log(trace_entry)
-    
+
     async def _persist_audit_log(self, trace_entry: dict):
         """Persiste entrada de auditoría de forma async."""
         import json
@@ -1906,31 +1906,31 @@ from datetime import datetime
 
 class HandoffManager:
     """Gestiona la transferencia de control a agentes humanos de forma async."""
-    
+
     def __init__(self, config: dict):
         self.enabled = config.get('handoff', {}).get('enabled', False)
         self.webhook = config.get('handoff', {}).get('webhook')
         self.include_context = config.get('handoff', {}).get('include_context', True)
         # Cliente HTTP async reutilizable
         self._client: httpx.AsyncClient | None = None
-    
+
     async def _get_client(self) -> httpx.AsyncClient:
         """Obtiene o crea cliente HTTP async."""
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=30.0)
         return self._client
-    
+
     async def initiate_handoff(self, state: DialogueState, reason: str) -> dict:
         """Inicia el proceso de handoff a un agente humano de forma async."""
         if not self.enabled:
             return {}
-        
+
         handoff_data = {
             'conversation_id': state.get('conversation_id'),
             'reason': reason,
             'timestamp': datetime.now().isoformat()
         }
-        
+
         if self.include_context:
             handoff_data['context'] = {
                 'current_flow': state.current_flow,
@@ -1938,17 +1938,17 @@ class HandoffManager:
                 'history': state.messages[-10:],  # Últimos 10 mensajes
                 'trace': state.trace[-5:]  # Últimos 5 turnos
             }
-        
+
         # Notificar al sistema externo de forma async
         if self.webhook:
             client = await self._get_client()
             await client.post(self.webhook, json=handoff_data)
-        
+
         return {
             'action': 'paused',
             'message': "Un agente humano tomará el control en breve."
         }
-    
+
     async def close(self):
         """Cierra el cliente HTTP async."""
         if self._client:
@@ -2034,30 +2034,30 @@ requires-python = ">=3.11"  # Python 3.11+ para mejor soporte async
 dependencies = [
     # Core async
     "asyncio>=3.4",
-    
+
     # Frameworks principales
     "dspy>=2.6.0",          # Soporte nativo async: acall(), aforward()
     "langgraph>=0.2.0",     # Soporte nativo async: astream(), ainvoke()
-    
+
     # Persistencia async
     "aiosqlite>=0.19.0",    # SQLite async
     "asyncpg>=0.29.0",      # PostgreSQL async (opcional)
     "aioredis>=2.0.0",      # Redis async (opcional)
-    
+
     # Web framework async-native
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
-    
+
     # HTTP async
     "httpx>=0.26.0",        # Cliente HTTP async para acciones
     "aiohttp>=3.9.0",       # Alternativa para WebSockets
-    
+
     # LLM providers (todos usan async internamente via litellm)
     "litellm>=1.30.0",
-    
+
     # Observabilidad
     "langfuse>=2.0.0",      # Async compatible
-    
+
     # Validación
     "pydantic>=2.5.0",
     "pyyaml>=6.0.0",

@@ -1,24 +1,24 @@
 """Dialogue state management for Soni Framework"""
 
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Any, Optional
 import json
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 @dataclass
 class DialogueState:
     """Represents the state of a dialogue conversation"""
 
-    messages: List[Dict[str, str]] = field(default_factory=list)
+    messages: list[dict[str, str]] = field(default_factory=list)
     current_flow: str = "none"
-    slots: Dict[str, Any] = field(default_factory=dict)
-    pending_action: Optional[str] = None
+    slots: dict[str, Any] = field(default_factory=dict)
+    pending_action: str | None = None
     last_response: str = ""
     turn_count: int = 0
-    trace: List[Dict[str, Any]] = field(default_factory=list)
-    summary: Optional[str] = None
+    trace: list[dict[str, Any]] = field(default_factory=list)
+    summary: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert state to dictionary for serialization"""
         return asdict(self)
 
@@ -27,7 +27,7 @@ class DialogueState:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DialogueState":
+    def from_dict(cls, data: dict[str, Any]) -> "DialogueState":
         """Create DialogueState from dictionary"""
         return cls(
             messages=data.get("messages", []),
@@ -50,21 +50,13 @@ class DialogueState:
         """Add a message to the conversation history"""
         self.messages.append({"role": role, "content": content})
 
-    def get_user_messages(self) -> List[str]:
+    def get_user_messages(self) -> list[str]:
         """Get all user messages"""
-        return [
-            msg["content"]
-            for msg in self.messages
-            if msg.get("role") == "user"
-        ]
+        return [msg["content"] for msg in self.messages if msg.get("role") == "user"]
 
-    def get_assistant_messages(self) -> List[str]:
+    def get_assistant_messages(self) -> list[str]:
         """Get all assistant messages"""
-        return [
-            msg["content"]
-            for msg in self.messages
-            if msg.get("role") == "assistant"
-        ]
+        return [msg["content"] for msg in self.messages if msg.get("role") == "assistant"]
 
     def get_slot(self, slot_name: str, default: Any = None) -> Any:
         """Get a slot value by name"""
@@ -86,7 +78,6 @@ class DialogueState:
         """Increment turn counter"""
         self.turn_count += 1
 
-    def add_trace(self, event: str, data: Dict[str, Any]) -> None:
+    def add_trace(self, event: str, data: dict[str, Any]) -> None:
         """Add a trace event for debugging"""
         self.trace.append({"event": event, "data": data})
-

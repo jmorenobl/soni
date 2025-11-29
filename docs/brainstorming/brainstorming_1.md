@@ -34,7 +34,7 @@ class IntentClassifier(dspy.Module):
         self.classify = dspy.ChainOfThought(
             "context_history, utterance -> intent, confidence, reasoning"
         )
-    
+
     def forward(self, utterance, conversation_history):
         result = self.classify(
             context_history=conversation_history,
@@ -58,10 +58,10 @@ python
 class ContextAnalyzer(dspy.Module):
     def __init__(self):
         self.analyze = dspy.ChainOfThought("""
-            conversation_history, current_utterance, active_topics 
+            conversation_history, current_utterance, active_topics
             -> context_type, resolved_references, active_frame, reasoning
         """)
-    
+
     def forward(self, utterance, history, topics):
         analysis = self.analyze(
             conversation_history=history,
@@ -83,14 +83,14 @@ class SlotFiller(dspy.Module):
     def __init__(self):
         self.gliner = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
         self.slot_resolver = dspy.ChainOfThought("""
-            extracted_entities, conversation_context, required_slots 
+            extracted_entities, conversation_context, required_slots
             -> filled_slots, missing_slots, inherited_values
         """)
-    
+
     def forward(self, utterance, context, schema):
         # Paso 1: Extracción rápida con GLiNER2
         entities = self.gliner.extract_entities(utterance, schema.entity_types)
-        
+
         # Paso 2: Razonamiento contextual con DSPy
         slots = self.slot_resolver(
             extracted_entities=entities,
@@ -108,7 +108,7 @@ class DialogPolicy(dspy.Module):
             dialog_state, user_intent, filled_slots, business_constraints
             -> next_action, clarification_needed, reasoning
         """)
-    
+
     def forward(self, state, intent, slots):
         action = self.decide_action(
             dialog_state=state.to_dict(),
@@ -133,7 +133,7 @@ class ResponseGenerator(dspy.Module):
             dialog_action, user_context, conversation_style, filled_slots
             -> response, tone, follow_up_question
         """)
-    
+
     def forward(self, action, context, style="professional"):
         response = self.generate(
             dialog_action=action,
@@ -148,7 +148,7 @@ class ModernDialogSystem(dspy.Module):
     def __init__(self):
         # Componentes rápidos tradicionales
         self.gliner = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
-        
+
         # Componentes optimizables con DSPy
         self.intent_classifier = dspy.ChainOfThought(
             "context, utterance -> intent, confidence"
@@ -157,45 +157,45 @@ class ModernDialogSystem(dspy.Module):
         self.slot_filler = SlotFiller()
         self.policy = DialogPolicy()
         self.nlg = ResponseGenerator()
-        
+
         self.context_manager = ContextManager()
-    
+
     def forward(self, user_id, utterance):
         # 1. Load context
         context = self.context_manager.get_context(user_id)
-        
+
         # 2. Analyze context (DSPy optimizado)
         context_analysis = self.context_analyzer(
             utterance=utterance,
             history=context.history,
             topics=context.active_topics
         )
-        
+
         # 3. Intent classification (DSPy optimizado)
         intent = self.intent_classifier(
             context=context_analysis,
             utterance=utterance
         )
-        
+
         # 4. Entity extraction (GLiNER2 rápido)
         entities = self.gliner.extract_entities(
-            utterance, 
+            utterance,
             context.current_schema.entity_types
         )
-        
+
         # 5. Slot filling (Híbrido: GLiNER2 + DSPy)
         slots = self.slot_filler(utterance, context, entities)
-        
+
         # 6. Dialog policy (DSPy optimizado)
         action = self.policy(context, intent, slots)
-        
+
         # 7. Response generation (DSPy optimizado)
         response = self.nlg(action, context)
-        
+
         # 8. Update context
         context.update(intent, entities, slots, action)
         self.context_manager.save_context(context)
-        
+
         return response
 
 # Optimización end-to-end
@@ -231,21 +231,21 @@ Razonamiento contextual: Puede inferir entidades implícitas
 python
 class UnifiedNLU(dspy.Module):
     """NLU completo con DSPy - Sin dependencias externas"""
-    
+
     def __init__(self):
         # Signature para extracción estructurada conjunta
         self.understand = dspy.ChainOfThought("""
-            conversation_history, current_utterance, entity_schema 
+            conversation_history, current_utterance, entity_schema
             -> intent, entities: dict, confidence, reasoning
         """)
-    
+
     def forward(self, utterance, context, schema):
         result = self.understand(
             conversation_history=context.get_history_string(),
             current_utterance=utterance,
             entity_schema=schema.to_description()
         )
-        
+
         return {
             'intent': result.intent,
             'entities': result.entities,  # Ya estructurado como dict
@@ -255,14 +255,14 @@ class UnifiedNLU(dspy.Module):
 
 class ContextAwareEntityExtractor(dspy.Module):
     """Extractor que considera contexto conversacional"""
-    
+
     def __init__(self):
         self.extract = dspy.ChainOfThought("""
-            utterance, conversation_context, required_entities, 
-            previous_entities -> extracted_entities: dict, 
+            utterance, conversation_context, required_entities,
+            previous_entities -> extracted_entities: dict,
             inherited_entities: dict, missing_entities: list, reasoning
         """)
-    
+
     def forward(self, utterance, context, schema):
         result = self.extract(
             utterance=utterance,
@@ -270,13 +270,13 @@ class ContextAwareEntityExtractor(dspy.Module):
             required_entities=schema.get_entity_descriptions(),
             previous_entities=context.slots
         )
-        
+
         # Combina entidades extraídas con heredadas
         all_entities = {
             **result.inherited_entities,
             **result.extracted_entities
         }
-        
+
         return {
             'entities': all_entities,
             'missing': result.missing_entities,
@@ -286,58 +286,58 @@ class ContextAwareEntityExtractor(dspy.Module):
 
 class ModernDialogSystemFullDSPy(dspy.Module):
     """Sistema completo de diálogo usando solo DSPy"""
-    
+
     def __init__(self):
         # Componentes DSPy
         self.context_analyzer = dspy.ChainOfThought("""
-            conversation_history, utterance, active_topics 
+            conversation_history, utterance, active_topics
             -> context_type, resolved_references, active_frame, reasoning
         """)
-        
+
         self.nlu = dspy.ChainOfThought("""
             resolved_utterance, conversation_context, entity_schema
             -> intent, entities: dict, confidence, reasoning
         """)
-        
+
         self.slot_manager = dspy.ChainOfThought("""
             current_slots, new_entities, context, required_slots
-            -> updated_slots: dict, missing_slots: list, 
+            -> updated_slots: dict, missing_slots: list,
             slot_confidence: dict, reasoning
         """)
-        
+
         self.dialog_policy = dspy.ReAct("""
             dialog_state, user_intent, filled_slots, business_rules
             -> action_type, clarification_question, next_expected_input, reasoning
         """)
-        
+
         self.response_generator = dspy.ChainOfThought("""
             action, context, user_profile, conversation_style
             -> response, tone, follow_up_needed, reasoning
         """)
-        
+
         self.context_manager = ContextManager()
-    
+
     def forward(self, user_id, utterance):
         # 1. Cargar contexto
         context = self.context_manager.get_context(user_id)
-        
+
         # 2. Analizar contexto conversacional
         context_analysis = self.context_analyzer(
             conversation_history=context.get_history_string(),
             utterance=utterance,
             active_topics=context.active_topics
         )
-        
+
         # 3. Resolver referencias
         resolved_utterance = context_analysis.resolved_references or utterance
-        
+
         # 4. NLU unificado (intent + entities en un paso)
         nlu_result = self.nlu(
             resolved_utterance=resolved_utterance,
             conversation_context=context.get_semantic_context(),
             entity_schema=context.current_schema.to_description()
         )
-        
+
         # 5. Gestión de slots con razonamiento
         slot_result = self.slot_manager(
             current_slots=context.slots,
@@ -345,7 +345,7 @@ class ModernDialogSystemFullDSPy(dspy.Module):
             context=context_analysis,
             required_slots=context.current_schema.required_slots
         )
-        
+
         # 6. Policy de diálogo
         policy_decision = self.dialog_policy(
             dialog_state=context.to_state_dict(),
@@ -353,7 +353,7 @@ class ModernDialogSystemFullDSPy(dspy.Module):
             filled_slots=slot_result.updated_slots,
             business_rules=self.get_business_rules(context)
         )
-        
+
         # 7. Generación de respuesta
         response = self.response_generator(
             action=policy_decision,
@@ -361,7 +361,7 @@ class ModernDialogSystemFullDSPy(dspy.Module):
             user_profile=context.user_profile,
             conversation_style=context.preferences.get('style', 'professional')
         )
-        
+
         # 8. Actualizar contexto
         context.update(
             intent=nlu_result.intent,
@@ -370,7 +370,7 @@ class ModernDialogSystemFullDSPy(dspy.Module):
             action=policy_decision.action_type
         )
         self.context_manager.save_context(context)
-        
+
         return {
             'response': response.response,
             'debug': {
@@ -389,7 +389,7 @@ class ModernDialogSystemFullDSPy(dspy.Module):
                 }
             }
         }
-    
+
     def get_business_rules(self, context):
         """Retorna reglas de negocio relevantes"""
         # Aquí puedes incluir lógica específica del dominio
@@ -440,7 +440,7 @@ trainset = [
         entities={"city": "Barcelona"},
         reasoning="Usuario inicia búsqueda de hotel con ubicación clara"
     ).with_inputs('conversation_history', 'utterance', 'entity_schema'),
-    
+
     dspy.Example(
         conversation_history="User: Necesito hotel en Barcelona\nAssistant: ¿Para cuándo?",
         utterance="Para mañana",
@@ -449,7 +449,7 @@ trainset = [
         entities={"checkin_date": "2025-11-28"},  # Resuelto con fecha actual
         reasoning="Referencia temporal relativa resuelta a fecha absoluta"
     ).with_inputs('conversation_history', 'utterance', 'entity_schema'),
-    
+
     dspy.Example(
         conversation_history="[Hotel booking en Madrid iniciada]",
         utterance="Y después quiero cenar en un restaurante",
@@ -467,19 +467,19 @@ def conversation_success_metric(example, pred, trace=None):
     """Métrica: ¿Extrajo todas las entidades correctas?"""
     gold_entities = set(example.entities.keys())
     pred_entities = set(pred.entities.keys())
-    
+
     # Penaliza entidades faltantes y extras
     missing = gold_entities - pred_entities
     extra = pred_entities - gold_entities
-    
+
     if missing or extra:
         return 0.0
-    
+
     # Verifica valores correctos
     for key in gold_entities:
         if example.entities[key] != pred.entities[key]:
             return 0.5  # Partial credit
-    
+
     return 1.0
 
 teleprompter = BootstrapFewShotWithRandomSearch(
@@ -633,45 +633,45 @@ response = system("user123", "Quiero un hotel en Madrid")
 python
 class HybridDialogSystem(dspy.Module):
     """Sistema que usa modelos pequeños locales + modelo grande para casos difíciles"""
-    
+
     def __init__(self):
         # Modelo pequeño local para tareas rápidas (NLU, slots)
         self.local_lm = dspy.LM('ollama/llama3.2:3b')
-        
+
         # Modelo grande en cloud para razonamiento complejo
         self.cloud_lm = dspy.LM('anthropic/claude-sonnet-4')
-        
+
         # Componentes con modelo local
         with dspy.context(lm=self.local_lm):
             self.fast_nlu = dspy.Predict("""
                 utterance, context -> intent, entities: dict, confidence
             """)
-            
+
             self.slot_filler = dspy.Predict("""
                 entities, context, schema -> filled_slots: dict, missing: list
             """)
-        
+
         # Componentes con modelo grande (solo cuando es necesario)
         with dspy.context(lm=self.cloud_lm):
             self.complex_resolver = dspy.ChainOfThought("""
                 ambiguous_case, full_context, conversation_history
                 -> resolution, reasoning, confidence
             """)
-            
+
             self.policy = dspy.ReAct("""
                 state, intent, slots, business_rules
                 -> action, reasoning
             """)
-    
+
     def forward(self, user_id, utterance):
         context = self.context_manager.get_context(user_id)
-        
+
         # 1. NLU rápido con modelo local (~50ms)
         nlu_result = self.fast_nlu(
             utterance=utterance,
             context=context.get_compact_context()
         )
-        
+
         # 2. Si hay baja confianza, usar modelo grande
         if float(nlu_result.confidence) < 0.7:
             with dspy.context(lm=self.cloud_lm):
@@ -680,14 +680,14 @@ class HybridDialogSystem(dspy.Module):
                     full_context=context.get_full_context(),
                     conversation_history=context.history
                 )
-        
+
         # 3. Slot filling local (~30ms)
         slots = self.slot_filler(
             entities=nlu_result.entities,
             context=context,
             schema=context.schema
         )
-        
+
         # 4. Policy con modelo grande (decisiones críticas)
         policy_decision = self.policy(
             state=context.state,
@@ -695,7 +695,7 @@ class HybridDialogSystem(dspy.Module):
             slots=slots,
             business_rules=self.get_rules(context)
         )
-        
+
         return policy_decision
 🔧 Configuración óptima para producción
 python
@@ -708,14 +708,14 @@ from typing import Literal
 class ModelConfig:
     """Configuración de modelos para diferentes stages"""
     stage: Literal["development", "staging", "production"]
-    
+
     def get_nlu_model(self):
         if self.stage == "development":
             return dspy.LM('openai/gpt-4o-mini')  # Rápido para iterar
-        
+
         elif self.stage == "staging":
             return dspy.LM('ollama/llama3.2:3b')  # Test local
-        
+
         else:  # production
             return dspy.LM(
                 model='vllm/your-finetuned-model',
@@ -723,14 +723,14 @@ class ModelConfig:
                 max_tokens=300,
                 temperature=0.1
             )
-    
+
     def get_policy_model(self):
         if self.stage == "development":
             return dspy.LM('anthropic/claude-sonnet-4')
-        
+
         elif self.stage == "staging":
             return dspy.LM('ollama/llama3.2:3b')
-        
+
         else:  # production
             # Modelo grande solo para casos complejos
             return dspy.LM(
@@ -807,7 +807,7 @@ intents:
       - "Buenos días"
       - "Qué tal"
       - "Hey"
-    
+
   - name: hotel_search
     description: "Usuario quiere buscar un hotel"
     examples:
@@ -824,7 +824,7 @@ intents:
       - room_type
       - price_range
       - amenities
-  
+
   - name: restaurant_search
     description: "Usuario quiere buscar restaurante"
     examples:
@@ -848,7 +848,7 @@ entities:
       - "Barcelona"
       - "Valencia"
       - "Sevilla"
-  
+
   checkin_date:
     type: "date"
     description: "Fecha de entrada al hotel"
@@ -857,7 +857,7 @@ entities:
       - "mañana"
       - "el próximo viernes"
       - "2025-03-15"
-    
+
   checkout_date:
     type: "date"
     description: "Fecha de salida del hotel"
@@ -865,7 +865,7 @@ entities:
       - "18 de marzo"
       - "3 días después"
       - "2025-03-18"
-  
+
   num_guests:
     type: "integer"
     description: "Número de huéspedes"
@@ -873,7 +873,7 @@ entities:
       - "2 personas"
       - "somos 4"
       - "para 1"
-  
+
   room_type:
     type: "categorical"
     description: "Tipo de habitación"
@@ -882,7 +882,7 @@ entities:
       - "doble"
       - "suite"
       - "familiar"
-  
+
   price_range:
     type: "categorical"
     description: "Rango de precio"
@@ -896,15 +896,15 @@ slots:
     type: "text"
     influence_conversation: true
     inherit_across_intents: true  # Se hereda de hotel a restaurant
-  
+
   checkin_date:
     type: "date"
     influence_conversation: true
-    
+
   checkout_date:
     type: "date"
     influence_conversation: true
-  
+
   num_guests:
     type: "integer"
     influence_conversation: true
@@ -913,19 +913,19 @@ responses:
   utter_greet:
     - text: "¡Hola! ¿En qué puedo ayudarte hoy?"
     - text: "¡Bienvenido! Soy tu asistente de viajes."
-  
+
   utter_ask_city:
     - text: "¿En qué ciudad buscas alojamiento?"
     - text: "¿A qué ciudad viajas?"
-  
+
   utter_ask_checkin_date:
     - text: "¿Para qué fecha necesitas el hotel?"
     - text: "¿Cuándo es tu llegada?"
-  
+
   utter_ask_checkout_date:
     - text: "¿Cuándo te vas?"
     - text: "¿Cuántas noches te quedas?"
-  
+
   utter_ask_num_guests:
     - text: "¿Para cuántas personas?"
     - text: "¿Cuántos seréis?"
@@ -952,7 +952,7 @@ stories:
           - num_guests: "2"
       - action: action_search_hotels
       - action: utter_present_results
-  
+
   - story: "context_switch_to_restaurant"
     steps:
       - intent: hotel_search
@@ -998,13 +998,13 @@ class BotConfig:
     responses: Dict[str, List[Dict[str, str]]]
     stories: List[Dict[str, Any]]
     forms: Dict[str, Any]
-    
+
     @classmethod
     def from_yaml(cls, yaml_path: str):
         with open(yaml_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         return cls(**config)
-    
+
     def get_intent_descriptions(self) -> str:
         """Convierte intents a formato para DSPy"""
         descriptions = []
@@ -1013,7 +1013,7 @@ class BotConfig:
             desc += f"  Ejemplos: {', '.join(intent['examples'][:3])}"
             descriptions.append(desc)
         return "\n".join(descriptions)
-    
+
     def get_entity_schema(self) -> str:
         """Convierte entities a formato para DSPy"""
         schema = []
@@ -1023,7 +1023,7 @@ class BotConfig:
                 s += f" [valores: {', '.join(config['values'])}]"
             schema.append(s)
         return "\n".join(schema)
-    
+
     def get_required_slots_for_intent(self, intent_name: str) -> List[str]:
         """Obtiene slots requeridos para un intent"""
         for intent in self.intents:
@@ -1034,32 +1034,32 @@ class BotConfig:
 
 class SyntheticDataGenerator(dspy.Module):
     """Genera datos sintéticos de entrenamiento desde la config YAML"""
-    
+
     def __init__(self, bot_config: BotConfig):
         self.config = bot_config
-        
+
         # Generator para variaciones de utterances
         self.utterance_generator = dspy.ChainOfThought("""
             intent_description, entity_examples, num_variations
             -> variations: list[str], reasoning
         """)
-        
+
         # Generator para conversaciones completas
         self.conversation_generator = dspy.ChainOfThought("""
-            story_structure, intent_descriptions, entity_schema, 
+            story_structure, intent_descriptions, entity_schema,
             response_templates -> conversation: list[dict], reasoning
         """)
-    
+
     def generate_intent_examples(self, intent_name: str, num_examples: int = 50) -> List[Dict]:
         """Genera ejemplos sintéticos para un intent"""
         intent_config = next(i for i in self.config.intents if i['name'] == intent_name)
-        
+
         result = self.utterance_generator(
             intent_description=intent_config['description'],
             entity_examples=self.config.get_entity_schema(),
             num_variations=num_examples
         )
-        
+
         examples = []
         for variation in result.variations:
             examples.append({
@@ -1067,9 +1067,9 @@ class SyntheticDataGenerator(dspy.Module):
                 'intent': intent_name,
                 'metadata': {'synthetic': True}
             })
-        
+
         return examples
-    
+
     def generate_conversation_from_story(self, story: Dict) -> List[Dict]:
         """Genera una conversación completa desde un story"""
         result = self.conversation_generator(
@@ -1078,20 +1078,20 @@ class SyntheticDataGenerator(dspy.Module):
             entity_schema=self.config.get_entity_schema(),
             response_templates=yaml.dump(self.config.responses)
         )
-        
+
         return result.conversation
-    
+
     def generate_full_dataset(self, num_conversations: int = 100) -> List[dspy.Example]:
         """Genera dataset completo de entrenamiento"""
         dataset = []
-        
+
         # 1. Generar variaciones de intents
         for intent in self.config.intents:
             intent_examples = self.generate_intent_examples(
-                intent['name'], 
+                intent['name'],
                 num_examples=20
             )
-            
+
             for ex in intent_examples:
                 dataset.append(
                     dspy.Example(
@@ -1101,12 +1101,12 @@ class SyntheticDataGenerator(dspy.Module):
                         context=""
                     ).with_inputs('utterance', 'context')
                 )
-        
+
         # 2. Generar conversaciones desde stories
         for story in self.config.stories:
             for _ in range(num_conversations // len(self.config.stories)):
                 conversation = self.generate_conversation_from_story(story)
-                
+
                 # Convertir conversación a ejemplos de training
                 context = ""
                 for turn in conversation:
@@ -1120,39 +1120,39 @@ class SyntheticDataGenerator(dspy.Module):
                         ).with_inputs('utterance', 'context')
                     )
                     context += f"User: {turn['user']}\nBot: {turn.get('bot_response', '')}\n"
-        
+
         return dataset
 
 
 class YAMLDrivenNLU(dspy.Module):
     """Sistema NLU que usa la config YAML"""
-    
+
     def __init__(self, bot_config: BotConfig):
         self.config = bot_config
-        
+
         # Crear signature dinámica desde el YAML
         intent_list = [i['name'] for i in bot_config.intents]
-        
+
         self.classify_intent = dspy.ChainOfThought(f"""
             utterance, context, available_intents
             -> intent: str, confidence: float, reasoning
-            
+
             Available intents: {', '.join(intent_list)}
         """)
-        
+
         self.extract_entities = dspy.ChainOfThought(f"""
             utterance, context, entity_schema
             -> entities: dict, confidence: dict, reasoning
-            
+
             Entity schema:
             {bot_config.get_entity_schema()}
         """)
-        
+
         self.fill_slots = dspy.ChainOfThought("""
             current_slots, new_entities, required_slots, context
             -> updated_slots: dict, missing_slots: list, reasoning
         """)
-    
+
     def forward(self, utterance: str, context: str, active_intent: str = None):
         # 1. Clasificar intent
         intent_result = self.classify_intent(
@@ -1160,24 +1160,24 @@ class YAMLDrivenNLU(dspy.Module):
             context=context,
             available_intents=self.config.get_intent_descriptions()
         )
-        
+
         # 2. Extraer entities
         entity_result = self.extract_entities(
             utterance=utterance,
             context=context,
             entity_schema=self.config.get_entity_schema()
         )
-        
+
         # 3. Llenar slots
         required_slots = self.config.get_required_slots_for_intent(intent_result.intent)
-        
+
         slot_result = self.fill_slots(
             current_slots={},  # Obtener del context manager
             new_entities=entity_result.entities,
             required_slots=required_slots,
             context=context
         )
-        
+
         return dspy.Prediction(
             intent=intent_result.intent,
             entities=entity_result.entities,
@@ -1189,70 +1189,70 @@ class YAMLDrivenNLU(dspy.Module):
 
 class YAMLDrivenDialogSystem:
     """Sistema completo que se define desde YAML"""
-    
+
     def __init__(self, yaml_path: str):
         # Cargar configuración
         self.config = BotConfig.from_yaml(yaml_path)
-        
+
         # Inicializar componentes
         self.nlu = YAMLDrivenNLU(self.config)
         self.data_generator = SyntheticDataGenerator(self.config)
-        
+
         print(f"✓ Bot '{self.config.domain['name']}' cargado")
         print(f"  - {len(self.config.intents)} intents")
         print(f"  - {len(self.config.entities)} entities")
         print(f"  - {len(self.config.stories)} stories")
-    
+
     def generate_training_data(self, num_conversations: int = 100):
         """Genera datos de entrenamiento desde el YAML"""
         print(f"\n🔄 Generando {num_conversations} conversaciones sintéticas...")
         dataset = self.data_generator.generate_full_dataset(num_conversations)
         print(f"✓ Generados {len(dataset)} ejemplos de entrenamiento")
         return dataset
-    
+
     def train(self, dataset: List[dspy.Example] = None, num_synthetic: int = 100):
         """Entrena el sistema"""
         if dataset is None:
             print("📊 No hay dataset, generando datos sintéticos...")
             dataset = self.generate_training_data(num_synthetic)
-        
+
         print(f"\n🎓 Entrenando con {len(dataset)} ejemplos...")
-        
+
         # Métrica de evaluación
         def nlu_accuracy(example, pred, trace=None):
             intent_match = example.intent == pred.intent
             # Simplificado: verifica si los entities clave están presentes
             return 1.0 if intent_match else 0.0
-        
+
         # Optimizar con DSPy
         from dspy.teleprompt import BootstrapFewShotWithRandomSearch
-        
+
         teleprompter = BootstrapFewShotWithRandomSearch(
             metric=nlu_accuracy,
             max_bootstrapped_demos=8,
             num_candidate_programs=10
         )
-        
+
         # Split train/val
         train_size = int(len(dataset) * 0.8)
         trainset = dataset[:train_size]
         valset = dataset[train_size:]
-        
+
         self.optimized_nlu = teleprompter.compile(
             self.nlu,
             trainset=trainset,
             valset=valset
         )
-        
+
         print("✓ Entrenamiento completado")
-        
+
         return self.optimized_nlu
-    
+
     def save(self, output_path: str):
         """Guarda el sistema entrenado"""
         self.optimized_nlu.save(output_path)
         print(f"✓ Sistema guardado en {output_path}")
-    
+
     def chat(self, utterance: str, context: str = ""):
         """Procesa un mensaje"""
         result = self.optimized_nlu(utterance, context)
@@ -1408,7 +1408,7 @@ intents:
 entities:
   - city
   - date
-  
+
 slots:
   city:
     type: text
@@ -1420,7 +1420,7 @@ slots:
 responses:
   utter_greet:
     - text: "¡Hola! ¿En qué puedo ayudarte?"
-  
+
   utter_ask_city:
     - text: "¿En qué ciudad?"
 
@@ -1466,7 +1466,7 @@ Dado que:
 - Evoca generación sintética de datos
 - Suena técnico/moderno
 
-**3. `Convex`** 
+**3. `Convex`**
 - Convergencia de Rasa + DSPy
 - Corto, técnico
 - "Convex optimization" tiene sentido en el contexto
@@ -1486,7 +1486,7 @@ Dado que:
 ```
 Nombre: Loomis
 Tagline: "YAML-to-Production conversational AI with DSPy optimization"
-Descripción: "Define your bot in Rasa-compatible YAML, 
+Descripción: "Define your bot in Rasa-compatible YAML,
              optimize it with DSPy, deploy with modern LLMs"
 ```
 
@@ -1518,8 +1518,8 @@ markdown
 
 > YAML-to-Production conversational AI with DSPy optimization
 
-Loomis lets you define conversational AI assistants in YAML 
-(Rasa-compatible format), then automatically optimizes them 
+Loomis lets you define conversational AI assistants in YAML
+(Rasa-compatible format), then automatically optimizes them
 using DSPy and modern LLMs.
 
 ## Why Loomis?
@@ -1650,7 +1650,7 @@ synth.chat o synth.dev
 1. Synth ⭐⭐⭐⭐⭐
 Nombre: Synth
 Tagline: "Synthesize conversational AI from YAML"
-Descripción: "Define, optimize, and deploy conversational AI 
+Descripción: "Define, optimize, and deploy conversational AI
              using declarative YAML and automatic DSPy optimization"
 Por qué me encanta:
 
@@ -1673,7 +1673,7 @@ Por qué funciona:
 3. Dialect ⭐⭐⭐⭐
 Nombre: Dialect
 Tagline: "Your conversational AI dialect"
-Descripción: "Define your assistant's language in YAML, 
+Descripción: "Define your assistant's language in YAML,
              optimize automatically with DSPy"
 Por qué funciona:
 
@@ -1703,7 +1703,7 @@ markdown
 
 > Synthesize production-ready conversational AI from YAML
 
-Synth transforms simple YAML definitions into optimized conversational 
+Synth transforms simple YAML definitions into optimized conversational
 AI assistants using DSPy and modern LLMs.
 
 ## Features
@@ -1807,7 +1807,7 @@ Like the robot from Asimov's stories, Soni learns and improves itself.
 Define your assistant in YAML, and Soni handles the intelligence.
 
 - 📝 **Simple**: Define in YAML
-- 🧠 **Smart**: Auto-optimization with DSPy  
+- 🧠 **Smart**: Auto-optimization with DSPy
 - 🎯 **Accurate**: Synthetic data generation
 - 🚀 **Fast**: Local or cloud deployment
 
@@ -1850,7 +1850,7 @@ $ soni chat my-assistant/
 ## The Three Laws of Soni
 
 1. **Declarative First**: Define behavior, not implementation
-2. **Auto-Optimization**: Learn from data automatically  
+2. **Auto-Optimization**: Learn from data automatically
 3. **No Black Boxes**: Full transparency and explainability
 
 *Inspired by Asimov's vision of intelligent, helpful AI*
@@ -1926,9 +1926,3 @@ Funciona internacionalmente
 
 
 ¿Cómo puedo ayudarle hoy?
-
-
-
-
-
-

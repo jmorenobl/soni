@@ -1,12 +1,12 @@
 """Domain-specific exceptions for Soni Framework"""
 
-from typing import Any, Optional
+from typing import Any
 
 
 class SoniError(Exception):
     """Base exception for all Soni Framework errors"""
 
-    def __init__(self, message: str, context: Optional[dict] = None):
+    def __init__(self, message: str, context: dict | None = None):
         super().__init__(message)
         self.message = message
         self.context = context or {}
@@ -27,7 +27,13 @@ class NLUError(SoniError):
 class ValidationError(SoniError):
     """Error during slot/entity validation"""
 
-    def __init__(self, message: str, field: Optional[str] = None, value: Any = None, context: Optional[dict] = None):
+    def __init__(
+        self,
+        message: str,
+        field: str | None = None,
+        value: Any = None,
+        context: dict | None = None,
+    ):
         super().__init__(message, context)
         self.field = field
         self.value = value
@@ -36,7 +42,7 @@ class ValidationError(SoniError):
 class ActionNotFoundError(SoniError):
     """Error when an action is not found"""
 
-    def __init__(self, action_name: str, context: Optional[dict] = None):
+    def __init__(self, action_name: str, context: dict | None = None):
         message = f"Action '{action_name}' not found"
         super().__init__(message, context)
         self.action_name = action_name
@@ -45,7 +51,13 @@ class ActionNotFoundError(SoniError):
 class CompilationError(SoniError):
     """Error during YAML to graph compilation"""
 
-    def __init__(self, message: str, yaml_path: Optional[str] = None, line: Optional[int] = None, context: Optional[dict] = None):
+    def __init__(
+        self,
+        message: str,
+        yaml_path: str | None = None,
+        line: int | None = None,
+        context: dict | None = None,
+    ):
         super().__init__(message, context)
         self.yaml_path = yaml_path
         self.line = line
@@ -61,4 +73,3 @@ class PersistenceError(SoniError):
     """Error during state persistence"""
 
     pass
-

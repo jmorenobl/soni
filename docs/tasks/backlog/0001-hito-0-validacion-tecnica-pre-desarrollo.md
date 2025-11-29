@@ -1,7 +1,7 @@
 ## Hito 0: Validación Técnica Pre-Desarrollo
 
-**ID de tarea:** 0001  
-**Objetivo principal:** Validar que las tecnologías core (DSPy, LangGraph y persistencia async con `aiosqlite`) funcionan para el caso de uso de Soni antes de invertir meses de desarrollo.  
+**ID de tarea:** 0001
+**Objetivo principal:** Validar que las tecnologías core (DSPy, LangGraph y persistencia async con `aiosqlite`) funcionan para el caso de uso de Soni antes de invertir meses de desarrollo.
 **Definición de éxito:** Todas las validaciones completadas, métricas dentro de los umbrales definidos y decisión GO/NO-GO documentada.
 
 ---
@@ -23,7 +23,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 **2. Inicializar un entorno de trabajo para los experimentos del Hito 0:**
 
-Este hito es pre-desarrollo, pero es útil tener un entorno reproducible.  
+Este hito es pre-desarrollo, pero es útil tener un entorno reproducible.
 Desde la raíz del repo:
 
 ```bash
@@ -42,7 +42,7 @@ uv sync
 
 Esto creará un `pyproject.toml`, un entorno aislado gestionado por `uv` y permitirá ejecutar todos los scripts del directorio `experiments/` con `uv run`.
 
-> **Nota sobre credenciales de LLM:**  
+> **Nota sobre credenciales de LLM:**
 > Antes de ejecutar los experimentos DSPy, asegúrate de exportar la variable adecuada (por ejemplo):
 > ```bash
 > export OPENAI_API_KEY="tu_api_key_aquí"
@@ -81,7 +81,7 @@ uv run experiments/02_langgraph_streaming.py
 uv run experiments/03_async_persistence.py
 ```
 
-Tras cada ejecución, anota métricas y observaciones en el reporte del punto **0.4**.  
+Tras cada ejecución, anota métricas y observaciones en el reporte del punto **0.4**.
 Cuando los tres scripts pasen los criterios de éxito, redacta el informe de decisión GO/NO-GO.
 
 ---
@@ -100,7 +100,7 @@ La expectativa es que copies/adaptes esos snippets al directorio `experiments/` 
 
 ### 0.1 Experimento de validación DSPy (MIPROv2)
 
-**Propósito:**  
+**Propósito:**
 Demostrar que un módulo DSPy optimizado con MIPROv2 mejora de forma medible la accuracy en extracción de intents y entidades frente a un baseline sin optimización.
 
 **Entregables concretos:**
@@ -143,7 +143,7 @@ Demostrar que un módulo DSPy optimizado con MIPROv2 mejora de forma medible la 
 
 ### 0.2 Experimento de validación LangGraph Streaming
 
-**Propósito:**  
+**Propósito:**
 Verificar que LangGraph soporta streaming async de tokens de forma fiable, integrado con FastAPI y compatible con SSE, cumpliendo con una latencia razonable de primer token.
 
 **Entregables concretos:**
@@ -178,7 +178,7 @@ Verificar que LangGraph soporta streaming async de tokens de forma fiable, integ
 
 ### 0.3 Experimento de validación de persistencia async (aiosqlite)
 
-**Propósito:**  
+**Propósito:**
 Garantizar que es viable usar `aiosqlite` para checkpointing y persistencia del estado de conversación en un contexto altamente concurrente.
 
 **Entregables concretos:**
@@ -216,7 +216,7 @@ Garantizar que es viable usar `aiosqlite` para checkpointing y persistencia del 
 
 ### 0.4 Reporte y decisión GO/NO-GO
 
-**Propósito:**  
+**Propósito:**
 Tomar una decisión informada sobre continuar con la arquitectura propuesta, basándose en datos objetivos de los experimentos.
 
 **Entregables concretos:**
@@ -238,5 +238,3 @@ Tomar una decisión informada sobre continuar con la arquitectura propuesta, bas
 - [ ] Registrar decisión:
   - [ ] Definir claramente si se continúa (GO) o se replantea arquitectura (NO-GO).
   - [ ] En caso de NO-GO, listar alternativas tecnológicas y próximos pasos.
-
-

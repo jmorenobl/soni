@@ -104,14 +104,14 @@ Para flujos simples de slot-filling, el framework infiere automáticamente el gr
 flows:
   book_flight:
     description: "Reserva de vuelos"
-    
+
     # Ejemplos para entrenar DSPy (no keywords exactos)
     triggers:
       - "quiero reservar un vuelo"
       - "necesito volar a {destination}"
       - "busca vuelos de {origin} a {destination}"
       - "hay aviones a {destination} el {date}?"
-    
+
     slots:
       origin:
         entity: city
@@ -129,12 +129,12 @@ flows:
         entity: cabin_class
         required: false
         default: economy
-    
+
     # Validaciones entre slots
     constraints:
       - condition: "origin != destination"
         error: "El origen y destino no pueden ser iguales"
-    
+
     # Acción al completar todos los slots
     on_complete:
       action: search_flights
@@ -142,7 +142,7 @@ flows:
       confirmation_template: |
         Voy a buscar vuelos de {origin} a {destination}
         para el {date} en clase {cabin}. ¿Confirmas?
-    
+
     # Respuestas según resultado de la acción
     responses:
       success: "Encontré {count} vuelos. El más barato: {cheapest}"
@@ -154,7 +154,7 @@ Para flujos declarativos, el Graph Builder genera este patrón estándar:
                                       │         │
                                       ▼         │
                               [check_slots]─────┘ (slots faltantes)
-                                      │ 
+                                      │
                                       │ (completo)
                                       ▼
                               [validate_constraints]
@@ -168,17 +168,17 @@ Para flujos con lógica no lineal, se puede definir el grafo explícitamente:
     triggers:
       - "cambiar mi vuelo"
       - "modificar reserva"
-    
+
     # Control total: definición explícita del grafo
     graph:
       entry: get_booking
-      
+
       nodes:
         get_booking:
           type: slot_fill
           slots: [booking_ref]
           next: check_modifiable
-        
+
         check_modifiable:
           type: action
           action: check_booking_rules
@@ -186,7 +186,7 @@ Para flujos con lógica no lineal, se puede definir el grafo explícitamente:
             modifiable: choose_modification
             not_modifiable: explain_policy
             not_found: booking_not_found
-        
+
         choose_modification:
           type: choice
           prompt: "¿Qué quieres modificar?"
@@ -197,46 +197,46 @@ Para flujos con lógica no lineal, se puede definir el grafo explícitamente:
               next: change_passengers
             - label: "Cancelar reserva"
               next: cancel_flow
-        
+
         change_date:
           type: slot_fill
           slots: [new_date]
           next: calculate_fee
-        
+
         calculate_fee:
           type: action
           action: get_change_fee
           transitions:
             free: confirm_change
             paid: show_fee_and_confirm
-        
+
         show_fee_and_confirm:
           type: confirm
           template: "El cambio tiene un coste de {fee}€. ¿Procedo?"
           yes: execute_change
           no: end
-        
+
         confirm_change:
           type: confirm
           template: "¿Confirmas el cambio de fecha a {new_date}?"
           yes: execute_change
           no: end
-        
+
         execute_change:
           type: action
           action: modify_booking_api
           next: success_response
-        
+
         explain_policy:
           type: response
           template: "Esta reserva no se puede modificar: {reason}"
           next: end
-        
+
         booking_not_found:
           type: response
           template: "No encontré ninguna reserva con código {booking_ref}"
           next: end
-        
+
         success_response:
           type: response
           template: "Reserva modificada correctamente. Nueva fecha: {new_date}"
@@ -257,14 +257,14 @@ actions:
     response_mapping:
       count: "$.results.length"
       cheapest: "$.results[0].price"
-  
+
   # Acción Python personalizada
   check_booking_rules:
     type: python
     module: soni_actions.bookings
     function: check_modification_rules
     # Retorna: {status: 'modifiable'|'not_modifiable', reason: str}
-  
+
   # Acción con tool de LangChain
   get_weather:
     type: langchain_tool
@@ -277,10 +277,10 @@ fallback:
     response: "No he entendido. ¿Puedes reformularlo?"
     max_retries: 2
     then: handoff_human
-  
+
   out_of_scope:
     response: "Solo puedo ayudarte con reservas de vuelos."
-  
+
   action_error:
     response: "Ha ocurrido un error. ¿Quieres intentarlo de nuevo?"
     log_level: ERROR
@@ -312,7 +312,7 @@ from typing import Literal
 
 class DialogueUnderstanding(dspy.Signature):
     """Interpreta la intención del usuario en contexto del diálogo."""
-    
+
     user_message: str = dspy.InputField(
         desc="Último mensaje del usuario"
     )
@@ -328,7 +328,7 @@ class DialogueUnderstanding(dspy.Signature):
     current_flow: str = dspy.InputField(
         desc="Flujo activo actual o 'none'"
     )
-    
+
     structured_command: str = dspy.OutputField(
         desc="Comando: action_name(slot=value, ...) o NONE"
     )
@@ -344,11 +344,11 @@ class SoniDU(dspy.Module):
     def __init__(self, yaml_config: dict):
         self.config = yaml_config
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
-    
+
     def forward(self, state: dict) -> dict:
         # Construir lista de acciones válidas desde YAML
         valid_actions = self._get_valid_actions(state)
-        
+
         result = self.predictor(
             user_message=state['messages'][-1]['content'],
             dialogue_history=state['messages'][:-1],
@@ -356,7 +356,7 @@ class SoniDU(dspy.Module):
             available_actions=valid_actions,
             current_flow=state.get('current_flow', 'none')
         )
-        
+
         return {
             'command': result.structured_command,
             'slots': result.extracted_slots,
@@ -382,13 +382,13 @@ class SoniGraphBuilder:
         self.config = yaml.safe_load(open(config_path))
         self.graph = StateGraph(DialogueState)
         self.du_module = SoniDU(self.config)
-    
+
     def build(self) -> CompiledGraph:
         # Nodos base siempre presentes
         self.graph.add_node("understand", self._create_du_node())
         self.graph.add_node("route", self._create_router_node())
         self.graph.add_node("fallback", self._create_fallback_node())
-        
+
         # Construir nodos dinámicos desde YAML
         for flow_name, flow_cfg in self.config['flows'].items():
             if 'graph' in flow_cfg:
@@ -397,42 +397,42 @@ class SoniGraphBuilder:
             else:
                 # Nivel 2: Inferir grafo estándar
                 self._build_inferred_graph(flow_name, flow_cfg)
-        
+
         self.graph.set_entry_point("understand")
-        
+
         # Configurar persistencia
         checkpointer = self._get_checkpointer()
         return self.graph.compile(checkpointer=checkpointer)
-    
+
     def _build_inferred_graph(self, flow_name: str, cfg: dict):
         """Genera grafo estándar de slot-filling."""
-        
+
         # Nodo de slot-filling iterativo
         self.graph.add_node(
             f"{flow_name}_fill_slots",
             self._create_slot_filler(flow_name, cfg['slots'])
         )
-        
+
         # Nodo de validación de constraints
         if 'constraints' in cfg:
             self.graph.add_node(
                 f"{flow_name}_validate",
                 self._create_validator(cfg['constraints'])
             )
-        
+
         # Nodo de confirmación
         if cfg.get('on_complete', {}).get('confirm'):
             self.graph.add_node(
                 f"{flow_name}_confirm",
                 self._create_confirmation(cfg['on_complete'])
             )
-        
+
         # Nodo de ejecución de acción
         self.graph.add_node(
             f"{flow_name}_execute",
             self._create_action_executor(cfg['on_complete']['action'])
         )
-        
+
         # Configurar transiciones condicionales
         self.graph.add_conditional_edges(
             f"{flow_name}_fill_slots",

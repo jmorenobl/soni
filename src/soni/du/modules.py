@@ -1,8 +1,10 @@
 """DSPy modules for Dialogue Understanding"""
 
+from typing import Any
+
 import dspy
-from typing import Dict, Any, Optional
-from soni.core.interfaces import INLUProvider, IScopeManager
+
+from soni.core.interfaces import IScopeManager
 from soni.du.signatures import DialogueUnderstanding
 
 
@@ -12,7 +14,7 @@ class NLUResult:
     def __init__(
         self,
         command: str,
-        slots: Dict[str, Any],
+        slots: dict[str, Any],
         confidence: float,
         reasoning: str,
     ):
@@ -21,7 +23,7 @@ class NLUResult:
         self.confidence = confidence
         self.reasoning = reasoning
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "command": self.command,
@@ -39,7 +41,7 @@ class SoniDU(dspy.Module):
     and provides both sync (for optimization) and async (for runtime) interfaces.
     """
 
-    def __init__(self, scope_manager: Optional[IScopeManager] = None):
+    def __init__(self, scope_manager: IScopeManager | None = None):
         super().__init__()
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
         self.scope_manager = scope_manager
@@ -109,12 +111,12 @@ class SoniDU(dspy.Module):
             current_flow,
         )
 
-    async def predict(  # type: ignore[override]
+    async def predict(
         self,
         user_message: str,
         dialogue_history: str = "",
-        current_slots: Optional[Dict[str, Any]] = None,
-        available_actions: Optional[list] = None,
+        current_slots: dict[str, Any] | None = None,
+        available_actions: list | None = None,
         current_flow: str = "none",
     ) -> NLUResult:
         """
@@ -168,4 +170,3 @@ class SoniDU(dspy.Module):
             confidence=confidence,
             reasoning=prediction.reasoning or "",
         )
-

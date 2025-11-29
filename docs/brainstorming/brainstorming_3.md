@@ -1,8 +1,8 @@
 Gemini
 Mis cosas
 Chatbots Orientados a Tareas: Técnicas y Paradigmas
-Imagen de 
-Imagen de 
+Imagen de
+Imagen de
 
 Adobe Pro: Funciones y Automatización con Python
 Arquitectura Híbrida para Chatbots ToD
@@ -165,7 +165,7 @@ class DialogueSignature(dspy.Signature):
     history = dspy.InputField(desc="Historial de mensajes previos")
     user_input = dspy.InputField(desc="El último mensaje del usuario")
     config_context = dspy.InputField(desc="Definiciones de intents y slots del YAML")
-    
+
     parsed_output: NLUOutput = dspy.OutputField(desc="Objeto JSON estructurado")
 
 class DSPyInterpreter:
@@ -177,11 +177,11 @@ class DSPyInterpreter:
     def predict(self, history: str, user_input: str) -> NLUOutput:
         # Aquí DSPy hace su magia de optimización/inferencia
         pred = self.predictor(
-            history=history, 
-            user_input=user_input, 
+            history=history,
+            user_input=user_input,
             config_context=self.schema
         )
-        # En una implementación real, aquí añadiríamos lógica de 'Assert' 
+        # En una implementación real, aquí añadiríamos lógica de 'Assert'
         # de DSPy para reintentar si el JSON es inválido.
         return pred.parsed_output
 3. La Capa de Control y Política (LangGraph)
@@ -208,16 +208,16 @@ class DialogueGraph:
         """Nodo 1: Entender al usuario"""
         last_msg = state['history'][-1]
         history_str = "\n".join(state['history'][:-1])
-        
+
         # Llamada a DSPy
         result = self.nlu.predict(history_str, last_msg)
-        
+
         # Actualizamos slots (Merge de lo nuevo con lo viejo)
         updated_slots = state.get('current_slots', {}).copy()
         updated_slots.update(result.slots)
-        
+
         return {
-            "last_intent": result.intent, 
+            "last_intent": result.intent,
             "current_slots": updated_slots
         }
 
@@ -225,24 +225,24 @@ class DialogueGraph:
         """Nodo 2: Lógica Determinista (Router)"""
         # Aquí leemos el YAML para ver qué falta
         intent_config = self.config['intents'].get(state['last_intent'])
-        
+
         if not intent_config:
             return {"next_action": "default_fallback"}
-            
+
         required = set(intent_config['required_slots'])
         filled = set(state['current_slots'].keys())
         missing = required - filled
-        
+
         if missing:
             # Determinismo puro: Si falta X, pide X.
-            next_slot = list(missing)[0] 
+            next_slot = list(missing)[0]
             return {"next_action": f"ask_{next_slot}"}
         else:
             return {"next_action": "execute_transaction"}
 
     def _build_graph(self):
         workflow = StateGraph(AgentState)
-        
+
         # Definir Nodos
         workflow.add_node("nlu_processor", self._node_nlu)
         workflow.add_node("policy_engine", self._node_policy)
@@ -252,7 +252,7 @@ class DialogueGraph:
         workflow.set_entry_point("nlu_processor")
         workflow.add_edge("nlu_processor", "policy_engine")
         workflow.add_edge("policy_engine", END) # O loop de vuelta
-        
+
         return workflow.compile()
 4. Cómo se conecta todo (Main)
 Python
@@ -321,7 +321,7 @@ def _node_tools(state: AgentState):
     """
     action = state['next_action'] # Ej: "call_check_flight_availability"
     slots = state['current_slots']
-    
+
     # Mapeo simple de string a función (podría ser un Factory Pattern)
     if action == "call_check_flight_availability":
         # Ejecutamos la herramienta con los slots recolectados
@@ -330,12 +330,12 @@ def _node_tools(state: AgentState):
             "destination": slots.get("destination"),
             "date": slots.get("date")
         })
-        
+
         return {
             "history": [f"System Tool Output: {result}"], # Añadimos al historial para que DSPy lo vea después
             "next_action": "inform_user" # Devolvemos el control para generar respuesta
         }
-    
+
     return {"next_action": "error"}
 2. Human Handoff (Transferencia a Humano)
 La transferencia a un humano no es más que un cambio de estado en el grafo que redirige el flujo hacia un nodo terminal o de "pausa".
@@ -354,10 +354,10 @@ def _node_human_handoff(state: AgentState):
     Marca la conversación para atención humana y detiene al bot.
     """
     print(">>> ALERTA: Transfiriendo conversación a agente humano...")
-    
+
     # Aquí llamarías a tu sistema de ticketing (Zendesk, Salesforce, WebSocket)
     # external_system.notify_agent(chat_id=state['id'])
-    
+
     return {
         "next_action": "paused", # Estado especial
         "history": ["System: Transferencia realizada. Un agente entrará en breve."]
@@ -367,7 +367,7 @@ def _node_human_handoff(state: AgentState):
 def _router(state: AgentState):
     """Decide hacia qué nodo ir basándose en 'next_action'."""
     action = state['next_action']
-    
+
     if action == "human_handoff":
         return "human_node"
     elif action.startswith("call_"):
@@ -408,7 +408,7 @@ workflow.add_conditional_edges(
 )
 
 # Loop de vuelta desde las herramientas para que el bot "lea" el resultado
-workflow.add_edge("tools_node", "policy_engine") 
+workflow.add_edge("tools_node", "policy_engine")
 
 app = workflow.compile()
 Resumen de ventajas de este enfoque:
@@ -462,11 +462,11 @@ try:
     # Genera el diagrama en formato PNG
     diagrama = app.get_graph().draw_mermaid_png()
     display(Image(diagrama))
-    
+
     # Opcional: Guardarlo en disco para documentación
     with open("arquitectura_dialogo.png", "wb") as f:
         f.write(diagrama)
-        
+
 except Exception as e:
     print(f"No se pudo generar el gráfico. Asegúrate de tener graphviz/mermaid instalados: {e}")
 ¿Por qué esto es vital para tu ADR?
@@ -577,8 +577,8 @@ class DSPyNLUProvider(INLUProvider):
         pred = self.predictor(history=context.history_str, ...)
         # Mapping a entidad de dominio limpia
         return NLUResult(
-            intent=pred.intent, 
-            slots=pred.slots, 
+            intent=pred.intent,
+            slots=pred.slots,
             confidence=0.9 # Simulado o calculado
         )
 3. Configuración de LangGraph Studio (langgraph.json)
@@ -628,4 +628,3 @@ Podríamos usar DSPy no solo para el bot, sino crear un script en src/infrastruc
 
 
 Gemini puede cometer errores, incluso sobre personas, así que verifica sus respuestas. Tu privacidad y GeminiSe abre en una ventana nueva
-

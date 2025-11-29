@@ -1,14 +1,13 @@
 """Unit tests for Soni exceptions"""
 
-import pytest
 from soni.core.errors import (
-    SoniError,
-    NLUError,
-    ValidationError,
     ActionNotFoundError,
     CompilationError,
     ConfigurationError,
+    NLUError,
     PersistenceError,
+    SoniError,
+    ValidationError,
 )
 
 
@@ -72,4 +71,3 @@ def test_persistence_error():
     error = PersistenceError("Failed to save state", {"conversation_id": "123"})
     assert isinstance(error, SoniError)
     assert "Failed to save state" in str(error)
-

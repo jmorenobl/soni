@@ -1,9 +1,9 @@
 # Estrategia de Implementación - Soni Framework
 
-**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales  
-**Documento:** Estrategia de Implementación por Hitos  
-**Fecha:** 29 de Noviembre de 2025  
-**Versión:** 1.0  
+**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales
+**Documento:** Estrategia de Implementación por Hitos
+**Fecha:** 29 de Noviembre de 2025
+**Versión:** 1.0
 **Estado:** Aprobado
 
 ---
@@ -67,7 +67,7 @@ v0.1.0 ──┘             ├──> v0.3.0 ──┐
 
 ## Hito 0: Validación Técnica Pre-Desarrollo
 
-**Duración:** 1-2 semanas  
+**Duración:** 1-2 semanas
 **Estado:** ⚠️ **CRÍTICO - HACER PRIMERO**
 
 ### Objetivo
@@ -144,8 +144,8 @@ Validar que las tecnologías core (DSPy, LangGraph) funcionan para el caso de us
 
 ## Hito 1: Setup de Proyecto y Arquitectura Base
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 0 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 0 completado
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -161,7 +161,7 @@ Establecer estructura del proyecto, tooling básico y arquitectura de paquetes.
 
 #### 1.2 Gestión de Dependencias
 - [ ] Inicializar el proyecto con `uv` (creación de `pyproject.toml` y paquete `soni`)
-  - Desde la carpeta raíz del repo (donde solo tienes `docs/` y metadatos, pero aún no código):  
+  - Desde la carpeta raíz del repo (donde solo tienes `docs/` y metadatos, pero aún no código):
     `uv init --lib soni`
   - Esto creará la estructura base tipo librería bajo `src/soni/` y un `pyproject.toml` preparado para publicar el framework.
 - [ ] Añadir dependencias core con `uv add` (DSPy, LangGraph, FastAPI, etc.)
@@ -229,8 +229,8 @@ uv run mypy soni/
 
 ## Hito 2: Core Interfaces y State Management
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 1 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 1 completado
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -318,8 +318,8 @@ state = DialogueState(...)
 
 ## Hito 3: SoniDU - Módulo DSPy Base
 
-**Duración:** 2 semanas  
-**Dependencias:** Hito 2 completado  
+**Duración:** 2 semanas
+**Dependencias:** Hito 2 completado
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -338,7 +338,7 @@ class DialogueUnderstanding(dspy.Signature):
     current_slots: dict = dspy.InputField(...)
     available_actions: list[str] = dspy.InputField(...)
     current_flow: str = dspy.InputField(...)
-    
+
     structured_command: str = dspy.OutputField(...)
     extracted_slots: dict = dspy.OutputField(...)
     confidence: float = dspy.OutputField(...)
@@ -359,15 +359,15 @@ class SoniDU(dspy.Module):
         super().__init__()
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
         self.scope_manager = scope_manager
-    
+
     def forward(self, ...) -> dspy.Prediction:
         # Sync para optimizadores
         pass
-    
+
     async def aforward(self, ...) -> dspy.Prediction:
         # Async para runtime
         pass
-    
+
     async def predict(self, message: str, state: Dict) -> NLUResult:
         # Wrapper de conveniencia
         pass
@@ -424,8 +424,8 @@ assert result.structured_command is not None
 
 ## Hito 4: Optimización DSPy (MIPROv2)
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 3 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 3 completado
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -515,8 +515,8 @@ python -c "from soni.du.modules import SoniDU; du = SoniDU(); du.load('optimized
 
 ## Hito 5: YAML Parser y Configuración
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 4 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 4 completado
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -564,7 +564,7 @@ class ConfigLoader:
     def load(path: str) -> dict:
         # Cargar y validar YAML
         pass
-    
+
     @staticmethod
     def validate(config: dict) -> List[ValidationError]:
         # Validación básica
@@ -617,8 +617,8 @@ assert 'book_flight' in config['flows']
 
 ## Hito 6: LangGraph Runtime Básico
 
-**Duración:** 2 semanas  
-**Dependencias:** Hitos 3, 5 completados  
+**Duración:** 2 semanas
+**Dependencias:** Hitos 3, 5 completados
 **Versión Objetivo:** Pre-v0.1.0
 
 ### Objetivo
@@ -634,7 +634,7 @@ class SoniGraphBuilder:
     def __init__(self, config: dict):
         self.config = config
         self.graph = StateGraph(DialogueState)
-    
+
     def build_manual(self) -> CompiledGraph:
         # Construir grafo manualmente desde YAML
         # Para MVP: solo steps lineales
@@ -715,8 +715,8 @@ assert result['current_flow'] == 'book_flight'
 
 ## Hito 7: Runtime Loop y FastAPI Integration
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 6 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 6 completado
 **Versión Objetivo:** v0.1.0 (MVP)
 
 ### Objetivo
@@ -732,10 +732,10 @@ class RuntimeLoop:
     def __init__(self, config_path: str, optimized_du_path: str = None):
         # Inicializar grafo, DU, etc.
         pass
-    
+
     async def process_message(
-        self, 
-        user_msg: str, 
+        self,
+        user_msg: str,
         user_id: str
     ) -> str:
         # Procesar mensaje y retornar respuesta
@@ -817,8 +817,8 @@ curl -X POST http://localhost:8000/chat/user-1 \
 
 ## Hito 8: Ejemplo End-to-End y Documentación MVP
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 7 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 7 completado
 **Versión Objetivo:** v0.1.0 (MVP Release)
 
 ### Objetivo
@@ -888,7 +888,7 @@ uv run soni server --config soni.yaml
 
 ## Hito 9: Release v0.1.0 (MVP)
 
-**Duración:** 3 días  
+**Duración:** 3 días
 **Dependencias:** Hito 8 completado
 
 ### Objetivo
@@ -931,8 +931,8 @@ Preparar y publicar primera versión alpha del framework.
 
 ## Hito 10: Async Everything y Dynamic Scoping
 
-**Duración:** 2 semanas  
-**Dependencias:** Hito 9 completado  
+**Duración:** 2 semanas
+**Dependencias:** Hito 9 completado
 **Versión Objetivo:** v0.2.0
 
 ### Objetivo
@@ -982,8 +982,8 @@ class ScopeManager(IScopeManager):
 
 ## Hito 11: Normalization Layer
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 10 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 10 completado
 **Versión Objetivo:** v0.2.0
 
 ### Objetivo
@@ -1027,8 +1027,8 @@ class SlotNormalizer(INormalizer):
 
 ## Hito 12: Streaming y Performance
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 11 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 11 completado
 **Versión Objetivo:** v0.2.0
 
 ### Objetivo
@@ -1041,8 +1041,8 @@ Implementar streaming de tokens y optimizar performance.
 
 ```python
 async def process_message_stream(
-    self, 
-    user_msg: str, 
+    self,
+    user_msg: str,
     user_id: str
 ) -> AsyncGenerator[str, None]:
     # Streaming de tokens
@@ -1061,7 +1061,7 @@ async def chat_stream(user_id: str, message: str):
     async def generate():
         async for token in runtime.process_message_stream(message, user_id):
             yield f"data: {token}\n\n"
-    
+
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
@@ -1090,7 +1090,7 @@ async def chat_stream(user_id: str, message: str):
 
 ## Hito 13: Release v0.2.0
 
-**Duración:** 3 días  
+**Duración:** 3 días
 **Dependencias:** Hito 12 completado
 
 ### Objetivo
@@ -1111,8 +1111,8 @@ Publicar versión beta con mejoras de performance.
 
 ## Hito 14: Step Compiler (Parte 1 - Lineal)
 
-**Duración:** 2 semanas  
-**Dependencias:** Hito 13 completado  
+**Duración:** 2 semanas
+**Dependencias:** Hito 13 completado
 **Versión Objetivo:** v0.3.0
 
 ### Objetivo
@@ -1164,8 +1164,8 @@ class StepCompiler:
 
 ## Hito 15: Step Compiler (Parte 2 - Condicionales)
 
-**Duración:** 2 semanas  
-**Dependencias:** Hito 14 completado  
+**Duración:** 2 semanas
+**Dependencias:** Hito 14 completado
 **Versión Objetivo:** v0.3.0
 
 ### Objetivo
@@ -1222,7 +1222,7 @@ Añadir soporte para branches, jumps y condicionales.
 
 ## Hito 16: Release v0.3.0
 
-**Duración:** 3 días  
+**Duración:** 3 días
 **Dependencias:** Hito 15 completado
 
 ### Objetivo
@@ -1243,8 +1243,8 @@ Publicar versión con DSL Compiler completo.
 
 ## Hito 17: Action Registry (Zero-Leakage Part 1)
 
-**Duración:** 2 semanas  
-**Dependencias:** Hito 16 completado  
+**Duración:** 2 semanas
+**Dependencias:** Hito 16 completado
 **Versión Objetivo:** v0.4.0
 
 ### Objetivo
@@ -1261,7 +1261,7 @@ class ActionRegistry:
     def register(cls, name: str):
         # Decorador
         pass
-    
+
     @classmethod
     def get(cls, name: str) -> Callable:
         # Obtener acción
@@ -1308,8 +1308,8 @@ actions:
 
 ## Hito 18: Validator Registry (Zero-Leakage Part 2)
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 17 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 17 completado
 **Versión Objetivo:** v0.4.0
 
 ### Objetivo
@@ -1352,8 +1352,8 @@ class ValidatorRegistry:
 
 ## Hito 19: Output Mapping (Zero-Leakage Part 3)
 
-**Duración:** 1 semana  
-**Dependencias:** Hito 18 completado  
+**Duración:** 1 semana
+**Dependencias:** Hito 18 completado
 **Versión Objetivo:** v0.4.0
 
 ### Objetivo
@@ -1392,7 +1392,7 @@ map_outputs = step.get('map_outputs', {})
 
 ## Hito 20: Release v0.4.0
 
-**Duración:** 3 días  
+**Duración:** 3 días
 **Dependencias:** Hito 19 completado
 
 ### Objetivo
@@ -1413,8 +1413,8 @@ Publicar versión con arquitectura Zero-Leakage completa.
 
 ## Hito 21: Validación y Polish para v1.0.0
 
-**Duración:** 1-2 meses  
-**Dependencias:** Hito 20 completado  
+**Duración:** 1-2 meses
+**Dependencias:** Hito 20 completado
 **Versión Objetivo:** v1.0.0
 
 ### Objetivo
@@ -1455,7 +1455,7 @@ Validar completamente el ADR y preparar release estable.
 
 ## Hito 22: Release v1.0.0
 
-**Duración:** 1 semana  
+**Duración:** 1 semana
 **Dependencias:** Hito 21 completado
 
 ### Objetivo
@@ -1642,4 +1642,3 @@ Esta estrategia de implementación proporciona un camino claro y ejecutable desd
 ---
 
 **Fin del Documento**
-

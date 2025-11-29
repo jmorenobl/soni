@@ -1,9 +1,7 @@
 """Unit tests for Dialogue Understanding module"""
 
 import pytest
-import dspy
-from soni.du.modules import SoniDU, NLUResult
-from soni.du.signatures import DialogueUnderstanding
+from soni.du.modules import NLUResult, SoniDU
 
 
 def test_nlu_result():
@@ -33,6 +31,7 @@ def test_soni_du_initialization():
 
 def test_soni_du_with_scope_manager():
     """Test SoniDU with scope manager"""
+
     # Mock scope manager
     class MockScopeManager:
         def get_available_actions(self, state):
@@ -102,4 +101,3 @@ async def test_soni_du_predict():
     except Exception:
         # Expected if LM not configured
         pass
-

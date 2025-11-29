@@ -67,7 +67,7 @@ class DialogueUnderstanding(dspy.Signature):
     user_message: str = dspy.InputField()
     dialogue_state: dict = dspy.InputField(desc="Slots actuales y flujo activo")
     available_actions: list[str] = dspy.InputField(desc="Acciones válidas desde YAML")
-    
+
     structured_command: str = dspy.OutputField(desc="Acción estructurada: action_name(slot=value)")
 La clave está en pasar available_actions como input constrained desde el YAML. Esto reduce la alucinación del LLM porque le das un espacio cerrado de opciones.
 
@@ -194,23 +194,23 @@ class SoniGraphBuilder:
     def __init__(self, config_path: str):
         self.config = yaml.safe_load(open(config_path))
         self.graph = StateGraph(DialogueState)
-        
+
     def build(self) -> CompiledGraph:
         # Nodos base siempre presentes
         self.graph.add_node("understand", self._create_du_node())
         self.graph.add_node("route", self._create_router_node())
-        
+
         # Nodos dinámicos desde YAML
         for flow_name, flow_config in self.config["flows"].items():
             self._add_flow_nodes(flow_name, flow_config)
-            
+
         self.graph.set_entry_point("understand")
         return self.graph.compile(checkpointer=MemorySaver())
-    
+
     def _create_du_node(self):
         """Nodo que usa DSPy para interpretar"""
         du_module = dspy.ChainOfThought(DialogueUnderstanding)
-        
+
         def understand(state: DialogueState) -> DialogueState:
             result = du_module(
                 user_message=state["messages"][-1],
@@ -219,7 +219,7 @@ class SoniGraphBuilder:
             )
             state["pending_action"] = result.structured_command
             return state
-        
+
         return understand
 Lo que ganas con este enfoque
 
@@ -292,7 +292,7 @@ flows:
       - "quiero reservar un vuelo"
       - "necesito volar a {destination}"
       - "billete de avión"
-    
+
     slots:
       origin:
         entity: city
@@ -310,20 +310,20 @@ flows:
         entity: cabin_class
         required: false
         default: economy
-    
+
     # Validaciones entre slots
     constraints:
       - condition: "origin != destination"
         error: "El origen y destino no pueden ser iguales"
-    
+
     # Acción al completar slots
     on_complete:
       action: search_flights
       confirm: true  # Pide confirmación antes de ejecutar
       confirmation_template: |
-        Voy a buscar vuelos de {origin} a {destination} 
+        Voy a buscar vuelos de {origin} a {destination}
         para el {date} en clase {cabin}. ¿Confirmas?
-    
+
     # Respuestas según resultado
     responses:
       success: "He encontrado {count} vuelos. El más barato es {cheapest}."
@@ -352,17 +352,17 @@ flows:
     triggers:
       - "cambiar mi vuelo"
       - "modificar reserva"
-    
+
     # Cuando necesitas control total, defines el grafo
     graph:
       entry: get_booking
-      
+
       nodes:
         get_booking:
           type: slot_fill
           slots: [booking_ref]
           next: check_modifiable
-        
+
         check_modifiable:
           type: action
           action: check_booking_rules
@@ -370,7 +370,7 @@ flows:
             modifiable: choose_modification
             not_modifiable: explain_policy
             not_found: booking_not_found
-        
+
         choose_modification:
           type: choice
           prompt: "¿Qué quieres modificar?"
@@ -381,30 +381,30 @@ flows:
               next: change_passengers
             - label: "Cancelar"
               next: cancel_flow
-        
+
         change_date:
           type: slot_fill
           slots: [new_date]
           next: calculate_fee
-        
+
         calculate_fee:
           type: action
           action: get_change_fee
           transitions:
             free: confirm_change
             paid: show_fee_and_confirm
-        
+
         show_fee_and_confirm:
           type: confirm
           template: "El cambio tiene un coste de {fee}€. ¿Procedo?"
           yes: execute_change
           no: end
-        
+
         execute_change:
           type: action
           action: modify_booking_api
           next: end
-        
+
         explain_policy:
           type: response
           template: "Esta reserva no se puede modificar porque {reason}."
@@ -422,12 +422,12 @@ actions:
       from: "{origin}"
       to: "{destination}"
       date: "{date}"
-    
+
   get_booking_status:
     type: http
     method: GET
     url: "https://api.flights.com/bookings/{booking_ref}"
-  
+
   check_booking_rules:
     type: python
     module: soni_actions.bookings
@@ -441,7 +441,7 @@ fallback:
     response: "No he entendido. ¿Puedes reformularlo?"
     max_retries: 2
     then: handoff_human
-  
+
   out_of_scope:
     response: "Solo puedo ayudarte con reservas de vuelos."
 
@@ -534,7 +534,7 @@ Apéndice con un YAML completo funcional
 ¿Quieres que profundicemos en alguna sección específica o empezamos a prototipar algún componente?
 
 Adr 001 soni dspy langgraph
-Documento · DOCX 
+Documento · DOCX
 
 
 ¿Cómo puedo ayudarle hoy?
@@ -546,4 +546,4 @@ Documento · DOCX
 
 Artefactos
 Adr 001 soni dspy langgraph
-Documento · DOCX 
+Documento · DOCX

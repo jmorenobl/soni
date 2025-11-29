@@ -1,10 +1,10 @@
 # Análisis de Viabilidad - ADR-001: Soni Framework Architecture
 
-**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales  
-**Documento:** Análisis de Viabilidad Técnica  
-**Fecha de Análisis:** 29 de Noviembre de 2025  
-**Analista:** Jorge - AI Solutions Architect  
-**Versión:** 1.0  
+**Proyecto:** Soni - Framework Open Source para Asistentes Conversacionales
+**Documento:** Análisis de Viabilidad Técnica
+**Fecha de Análisis:** 29 de Noviembre de 2025
+**Analista:** Jorge - AI Solutions Architect
+**Versión:** 1.0
 **Estado:** Aprobado
 
 ---
@@ -98,7 +98,7 @@ optimizer = dspy.SIMBA(
     max_demos=10
 )
 optimized_program = optimizer.compile(
-    your_dspy_program, 
+    your_dspy_program,
     trainset=trainset
 )
 ```
@@ -165,7 +165,7 @@ GEPA está integrado en MLflow 3.0+ a través de `mlflow.genai.optimize_prompts(
 - DSPy 3.0 es estable pero el ecosistema sigue evolucionando
 - Breaking change menor en 3.0: retriever integration descontinuado (afecta a muy pocos usuarios)
 
-**Recomendación:** 
+**Recomendación:**
 - ✅ Usar como pilar central de la arquitectura
 - Pin versión: `dspy>=3.0.4,<4.0.0`
 - Tu propuesta de `SoniDU(dspy.Module)` es el approach correcto
@@ -250,7 +250,7 @@ async def chat_stream(message: str):
     async def generate():
         async for chunk in graph.astream({"messages": [message]}):
             yield chunk
-    
+
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
@@ -527,7 +527,7 @@ class SoniDU(dspy.Module):
 ```python
 class DynamicScoper:
     async def get_relevant_actions(
-        self, 
+        self,
         current_state: DialogueState,
         intent: str
     ) -> List[Action]:
@@ -774,8 +774,8 @@ async def search_flights_impl(...) -> dict:
 
 #### Riesgo 1: Complejidad del Step Compiler
 
-**Probabilidad:** Media  
-**Impacto:** Alto  
+**Probabilidad:** Media
+**Impacto:** Alto
 **Severidad:** ⚠️ MEDIO-ALTO
 
 **Descripción:**
@@ -794,17 +794,17 @@ class StepCompiler:
     def validate_yaml(self, yaml_config: dict) -> List[ValidationError]:
         """Validar antes de compilar"""
         pass
-    
+
     def compile(self, yaml_config: dict) -> StateGraph:
         """Compilar con validación"""
         errors = self.validate_yaml(yaml_config)
         if errors:
             raise CompilationError(errors)
-        
+
         graph = self._build_graph(yaml_config)
         self._validate_graph(graph)
         return graph
-    
+
     def visualize(self, graph: StateGraph) -> str:
         """Generar mermaid diagram para debugging"""
         pass
@@ -812,8 +812,8 @@ class StepCompiler:
 
 #### Riesgo 2: Rendimiento del Normalizer
 
-**Probabilidad:** Media  
-**Impacto:** Medio  
+**Probabilidad:** Media
+**Impacto:** Medio
 **Severidad:** ⚠️ MEDIO
 
 **Descripción:**
@@ -830,23 +830,23 @@ Llamadas LLM adicionales para normalización pueden aumentar latencia.
 class Normalizer:
     def __init__(self):
         self.cache = TTLCache(maxsize=1000, ttl=3600)
-    
+
     async def normalize(
-        self, 
-        value: str, 
+        self,
+        value: str,
         entity_type: str
     ) -> NormalizedValue:
         # 1. Check cache
         cache_key = f"{entity_type}:{value}"
         if cache_key in self.cache:
             return self.cache[cache_key]
-        
+
         # 2. Try heuristics
         heuristic_result = self.apply_heuristics(value, entity_type)
         if heuristic_result.confidence > 0.9:
             self.cache[cache_key] = heuristic_result
             return heuristic_result
-        
+
         # 3. Fallback to LLM
         llm_result = await self.llm_normalize(value, entity_type)
         self.cache[cache_key] = llm_result
@@ -855,8 +855,8 @@ class Normalizer:
 
 #### Riesgo 3: Breaking Changes en Dependencias
 
-**Probabilidad:** Media  
-**Impacto:** Alto  
+**Probabilidad:** Media
+**Impacto:** Alto
 **Severidad:** ⚠️ MEDIO-ALTO
 
 **Descripción:**
@@ -877,7 +877,7 @@ DSPy y LangGraph están en desarrollo activo. Breaking changes pueden romper Son
        """Verificar que dspy.Module API no ha cambiado"""
        assert hasattr(dspy.Module, 'forward')
        assert hasattr(dspy.Module, '__call__')
-   
+
    def test_langgraph_streaming():
        """Verificar que streaming API funciona"""
        # ...
@@ -895,8 +895,8 @@ DSPy y LangGraph están en desarrollo activo. Breaking changes pueden romper Son
 
 #### Riesgo 4: Over-Engineering
 
-**Probabilidad:** Alta  
-**Impacto:** Alto  
+**Probabilidad:** Alta
+**Impacto:** Alto
 **Severidad:** ⚠️⚠️ ALTO
 
 **Descripción:**
@@ -919,8 +919,8 @@ Ver sección 5 (Roadmap Revisado) para plan detallado.
 
 #### Riesgo 1: Rasa Pro Evoluciona Más Rápido
 
-**Probabilidad:** Media  
-**Impacto:** Medio  
+**Probabilidad:** Media
+**Impacto:** Medio
 **Severidad:** ⚠️ MEDIO
 
 **Descripción:**
@@ -934,8 +934,8 @@ Rasa tiene equipo grande y funding. Pueden innovar más rápido.
 
 #### Riesgo 2: Aparece Nuevo Competidor
 
-**Probabilidad:** Media  
-**Impacto:** Medio  
+**Probabilidad:** Media
+**Impacto:** Medio
 **Severidad:** ⚠️ MEDIO
 
 **Descripción:**
@@ -1019,7 +1019,7 @@ flows:
       - collect: destination
       - collect: date
       - action: search_flights
-    
+
 slots:
   origin:
     type: string
@@ -1074,13 +1074,13 @@ class SoniDU(dspy.Module):
     async def acall(self, input: str, context: Context) -> Command:
         # Dynamic scoping
         relevant_actions = await self.scoper.get_relevant(context)
-        
+
         # LLM call con contexto filtrado
         command = await self.predict(input, relevant_actions)
-        
+
         # Normalization
         normalized = await self.normalizer.normalize(command)
-        
+
         return normalized
 ```
 
@@ -1131,7 +1131,7 @@ flows:
             next: process_payment
       - step: process_payment
         on_success: send_confirmation
-        on_failure: 
+        on_failure:
           jump_to: payment_retry
 ```
 
@@ -1142,28 +1142,28 @@ class StepCompiler:
     def compile(self, yaml_config: dict) -> CompiledGraph:
         # Parse y validar
         validated = self.validator.validate(yaml_config)
-        
+
         # Build graph
         graph = StateGraph(DialogueState)
-        
+
         for flow_name, flow_def in validated.flows.items():
             self._compile_flow(graph, flow_name, flow_def)
-        
+
         return CompiledGraph(
             graph=graph,
             metadata=self._extract_metadata(yaml_config)
         )
-    
+
     def _compile_flow(self, graph, flow_name, flow_def):
         steps = flow_def['process']
-        
+
         for i, step in enumerate(steps):
             node_fn = self._create_node_fn(step)
             graph.add_node(f"{flow_name}_{i}", node_fn)
-            
+
             if i > 0:
                 self._add_edge(graph, steps[i-1], step)
-        
+
         # Handle conditions
         for step in steps:
             if 'conditions' in step:
@@ -1204,14 +1204,14 @@ class StepCompiler:
 # soni/registry.py
 class ActionRegistry:
     _actions: Dict[str, Callable] = {}
-    
+
     @classmethod
     def register(cls, name: str):
         def decorator(func: Callable):
             cls._actions[name] = func
             return func
         return decorator
-    
+
     @classmethod
     def get(cls, name: str) -> Callable:
         if name not in cls._actions:
@@ -1336,7 +1336,7 @@ class IntentExtraction(dspy.Signature):
 class SimpleNLU(dspy.Module):
     def __init__(self):
         self.predict = dspy.Predict(IntentExtraction)
-    
+
     def forward(self, message):
         return self.predict(message=message)
 
@@ -1409,12 +1409,12 @@ async def generate_response(state: State):
     # Simulate streaming LLM
     full_response = "This is a streaming response from LangGraph"
     chunks = full_response.split()
-    
+
     response = ""
     for chunk in chunks:
         await asyncio.sleep(0.1)  # Simulate latency
         response += chunk + " "
-    
+
     return {"response": response.strip()}
 
 # 3. Build graph
@@ -1436,7 +1436,7 @@ async def chat_stream(message: str):
         ):
             if "response" in chunk:
                 yield f"data: {chunk['response']}\n\n"
-    
+
     return StreamingResponse(
         generate(),
         media_type="text/event-stream"
@@ -1473,15 +1473,15 @@ async def test_persistence():
         graph.add_node("step1", lambda s: {"count": s.get("count", 0) + 1})
         graph.add_edge(START, "step1")
         graph.add_edge("step1", END)
-        
+
         app = graph.compile(checkpointer=checkpointer)
-        
+
         # 3. Run with thread_id for persistence
         config = {"configurable": {"thread_id": "test-conversation"}}
-        
+
         result1 = await app.ainvoke({"count": 0}, config)
         print(f"First run: {result1}")
-        
+
         # 4. Resume same conversation
         result2 = await app.ainvoke({}, config)
         print(f"Second run (resumed): {result2}")

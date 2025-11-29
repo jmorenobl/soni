@@ -1,6 +1,5 @@
 """Unit tests for DialogueState"""
 
-import pytest
 from soni.core.state import DialogueState
 
 
@@ -119,4 +118,3 @@ def test_serialization():
     restored_state = DialogueState.from_json(json_str)
     assert restored_state.current_flow == state.current_flow
     assert restored_state.slots == state.slots
-

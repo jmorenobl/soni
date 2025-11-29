@@ -1,7 +1,7 @@
 # ADR-002: Resultados de Validación Técnica Pre-Desarrollo
 
-**Fecha:** 29 de Noviembre de 2025  
-**Estado:** ✅ Completado  
+**Fecha:** 29 de Noviembre de 2025
+**Estado:** ✅ Completado
 **Decisión:** ✅ **GO INCONDICIONAL**
 
 ---
@@ -251,11 +251,10 @@ Si persistencia falla en producción:
 
 ## Firma y Aprobación
 
-**Autor:** Sistema de Validación Automática  
-**Fecha:** 29 de Noviembre de 2025  
+**Autor:** Sistema de Validación Automática
+**Fecha:** 29 de Noviembre de 2025
 **Estado:** Aprobado para continuar con Hito 1
 
 ---
 
 **Fin del Documento**
-

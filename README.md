@@ -84,4 +84,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ---
 
 **Built with ❤️ by the Soni Framework Contributors**
-

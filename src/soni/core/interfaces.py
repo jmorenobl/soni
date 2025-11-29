@@ -1,8 +1,8 @@
 """Core interfaces (Protocols) for Soni Framework following SOLID principles"""
 
 from __future__ import annotations
-from typing import Protocol, Dict, Any, List, Optional
-from typing_extensions import runtime_checkable
+
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -13,10 +13,10 @@ class INLUProvider(Protocol):
         self,
         user_message: str,
         dialogue_history: str = "",
-        current_slots: Optional[Dict[str, Any]] = None,
-        available_actions: Optional[List[str]] = None,
+        current_slots: dict[str, Any] | None = None,
+        available_actions: list[str] | None = None,
         current_flow: str = "none",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Predict intent, entities, and structured command from user message.
 
@@ -45,8 +45,8 @@ class IDialogueManager(Protocol):
         self,
         user_message: str,
         user_id: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:  # type: ignore[override]
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Process a single dialogue turn.
 
@@ -68,7 +68,7 @@ class INormalizer(Protocol):
     async def normalize(
         self,
         value: Any,
-        entity_config: Dict[str, Any],
+        entity_config: dict[str, Any],
     ) -> Any:
         """
         Normalize a slot/entity value.
@@ -90,7 +90,7 @@ class IScopeManager(Protocol):
     def get_available_actions(
         self,
         state: Any,  # DialogueState - using Any to avoid circular import
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get list of available actions based on current dialogue state.
 
@@ -101,4 +101,3 @@ class IScopeManager(Protocol):
             List of action names available in current context
         """
         ...
-

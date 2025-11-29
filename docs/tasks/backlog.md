@@ -1,9 +1,9 @@
 ## Backlog de Implementación - Soni Framework
 
-**Fuente:** `docs/strategy/Implementation-Strategy.md`  
-**Alcance:** Hitos 0 a 22  
+**Fuente:** `docs/strategy/Implementation-Strategy.md`
+**Alcance:** Hitos 0 a 22
 
-> Nota: Este backlog organiza las tareas por hito.  
+> Nota: Este backlog organiza las tareas por hito.
 > El detalle y explicación de cada elemento está en el documento de estrategia.
 
 ---
@@ -633,5 +633,3 @@
   - [ ] Publicar en PyPI la versión estable
   - [ ] Crear release en GitHub
   - [ ] Preparar anuncio para la comunidad (blog post, etc.)
-
-
