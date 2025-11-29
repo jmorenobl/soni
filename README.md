@@ -92,6 +92,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [DSPy](https://github.com/stanfordnlp/dspy) - For automatic prompt optimization
 - [LangGraph](https://github.com/langchain-ai/langgraph) - For dialogue management
 - [FastAPI](https://fastapi.tiangolo.com/) - For the API framework
+- [Typer](https://typer.tiangolo.com/) - For the CLI interface
 
 ---
 
