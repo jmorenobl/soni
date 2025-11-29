@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-01-XX
+
+### Fixed
+- Fixed concurrent graph initialization race condition that caused `RuntimeError: threads can only be started once`
+- Added `asyncio.Lock` to protect graph initialization from concurrent access
+- Fixed issue where multiple concurrent requests could fail when initializing AsyncSqliteSaver
+- Improved thread-safety in RuntimeLoop for concurrent message processing
+
+### Changed
+- Makefile now cleans `dist/` directory before building to prevent publishing old package versions
+
 ## [0.2.0] - 2025-01-XX
 
 ### Added
@@ -117,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/jmorenobl/soni/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jmorenobl/soni/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jmorenobl/soni/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/jmorenobl/soni/releases/tag/v0.0.1
