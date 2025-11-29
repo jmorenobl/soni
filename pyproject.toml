@@ -1,6 +1,6 @@
 [project]
 name = "soni"
-version = "0.1.0"
+version = "0.2.0"
 description = "Soni Framework - Open Source Conversational AI Framework with Auto-Optimization"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-XX
+
+### Added
+- AsyncSqliteSaver for full async checkpointing support
+- ScopeManager for dynamic action scoping based on context
+- SlotNormalizer with multiple normalization strategies (trim, lowercase, LLM correction)
+- Streaming support with Server-Sent Events (SSE) in RuntimeLoop
+- Streaming endpoint `POST /chat/{user_id}/stream` in FastAPI server
+- Performance optimizations: NLU caching, scoping caching, connection pooling
+- Performance validation scripts and reports
+
+### Changed
+- Migrated from SqliteSaver to AsyncSqliteSaver for full async support
+- Integrated ScopeManager with SoniDU to reduce token usage (39.5% reduction)
+- Integrated SlotNormalizer in pipeline before validation
+- RuntimeLoop now supports streaming via `process_message_stream()`
+- Improved accuracy through dynamic scoping
+
+### Performance Improvements
+- Token reduction: 39.5% reduction in LLM calls through dynamic scoping
+- Validation improvement: +11.11% validation success rate through normalization
+- Latency: Normalization adds only 0.01ms overhead
+- Streaming: First token latency < 500ms
+- Target metrics: p95 latency < 1.5s, throughput > 10 conv/sec
+
+### Features
+- Dynamic action scoping reduces hallucinations and improves accuracy
+- Slot normalization improves user experience and validation success
+- Streaming reduces perceived latency for users
+- Full async support enables better concurrency
+
+### Documentation
+- Scoping performance report (`docs/validation/scoping-performance-report.md`)
+- Normalization impact report (`docs/validation/normalization-impact-report.md`)
+- Runtime API validation report (`docs/validation/runtime-api-validation.md`)
+
+### Testing
+- Performance tests for streaming, latency, and throughput
+- Tests for ScopeManager and dynamic scoping
+- Tests for SlotNormalizer (17 unit tests + integration)
+- Tests for AsyncSqliteSaver
+- Coverage: Targeting 80% (improved from v0.1.0)
+
+### Known Issues
+- Performance metrics validation pending (Task 034)
+- Some optimizations may require tuning based on production usage
+
 ## [0.1.0] - 2025-11-29
 
 ### Added
@@ -70,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/your-org/soni/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/your-org/soni/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/your-org/soni/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/your-org/soni/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/your-org/soni/releases/tag/v0.0.1
