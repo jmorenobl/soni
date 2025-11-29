@@ -67,7 +67,9 @@ select = [
     "W",  # pycodestyle warnings
     "F",  # pyflakes
     "I",  # isort
-    "B",  # flake8-bugbear
+    "B",  # flake8-bugbear (includes some exception-related checks)
+    # Note: Ruff doesn't have BLE (flake8-blind-except) yet
+    # Consider using specific exception types instead of bare Exception
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
