@@ -1,0 +1,420 @@
+"""Configuration loading and validation for Soni Framework"""
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel, Field
+
+from soni.core.errors import ConfigurationError, ValidationError
+
+
+class ConfigLoader:
+    """
+    Loads and validates Soni configuration from YAML files.
+
+    This class handles:
+    - Loading YAML files safely
+    - Validating required fields
+    - Providing clear error messages
+    """
+
+    REQUIRED_FIELDS = ["version"]
+    REQUIRED_SECTIONS = ["settings", "flows", "slots", "actions"]
+
+    @staticmethod
+    def load(path: str | Path) -> dict[str, Any]:
+        """
+        Load configuration from a YAML file.
+
+        Args:
+            path: Path to the YAML configuration file
+
+        Returns:
+            Dictionary containing the parsed configuration
+
+        Raises:
+            ConfigurationError: If file cannot be loaded or parsed
+        """
+        path_obj = Path(path)
+
+        # Check if file exists
+        if not path_obj.exists():
+            raise ConfigurationError(
+                f"Configuration file not found: {path}",
+                context={"path": str(path)},
+            )
+
+        # Check if it's a file
+        if not path_obj.is_file():
+            raise ConfigurationError(
+                f"Path is not a file: {path}",
+                context={"path": str(path)},
+            )
+
+        # Load YAML
+        try:
+            with open(path_obj, encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ConfigurationError(
+                f"Invalid YAML syntax in {path}: {e}",
+                context={"path": str(path), "yaml_error": str(e)},
+            ) from e
+        except OSError as e:
+            raise ConfigurationError(
+                f"Error reading file {path}: {e}",
+                context={"path": str(path), "io_error": str(e)},
+            ) from e
+
+        # Validate basic structure
+        if config is None:
+            raise ConfigurationError(
+                f"Configuration file is empty: {path}",
+                context={"path": str(path)},
+            )
+
+        if not isinstance(config, dict):
+            raise ConfigurationError(
+                f"Configuration must be a dictionary, got {type(config).__name__}",
+                context={"path": str(path), "type": type(config).__name__},
+            )
+
+        return config
+
+    @staticmethod
+    def validate(config: dict[str, Any]) -> list[ValidationError]:
+        """
+        Validate configuration structure.
+
+        Args:
+            config: Configuration dictionary to validate
+
+        Returns:
+            List of ValidationError objects (empty if valid)
+        """
+        errors: list[ValidationError] = []
+
+        # Check required top-level fields
+        for field in ConfigLoader.REQUIRED_FIELDS:
+            if field not in config:
+                errors.append(
+                    ValidationError(
+                        f"Missing required field: '{field}'",
+                        field=field,
+                        context={"config_keys": list(config.keys())},
+                    ),
+                )
+
+        # Check required sections (warn if missing, but don't fail for MVP)
+        for section in ConfigLoader.REQUIRED_SECTIONS:
+            if section not in config:
+                errors.append(
+                    ValidationError(
+                        f"Missing recommended section: '{section}'",
+                        field=section,
+                        context={"config_keys": list(config.keys())},
+                    ),
+                )
+
+        # Validate version format
+        if "version" in config:
+            version = config["version"]
+            if not isinstance(version, str):
+                errors.append(
+                    ValidationError(
+                        f"Field 'version' must be a string, got {type(version).__name__}",
+                        field="version",
+                        value=version,
+                    ),
+                )
+
+        # Validate settings structure if present
+        if "settings" in config:
+            settings = config["settings"]
+            if not isinstance(settings, dict):
+                errors.append(
+                    ValidationError(
+                        f"Section 'settings' must be a dictionary, got {type(settings).__name__}",
+                        field="settings",
+                        value=settings,
+                    ),
+                )
+
+        # Validate flows structure if present
+        if "flows" in config:
+            flows = config["flows"]
+            if not isinstance(flows, dict):
+                errors.append(
+                    ValidationError(
+                        f"Section 'flows' must be a dictionary, got {type(flows).__name__}",
+                        field="flows",
+                        value=flows,
+                    ),
+                )
+
+        # Validate slots structure if present
+        if "slots" in config:
+            slots = config["slots"]
+            if not isinstance(slots, dict):
+                errors.append(
+                    ValidationError(
+                        f"Section 'slots' must be a dictionary, got {type(slots).__name__}",
+                        field="slots",
+                        value=slots,
+                    ),
+                )
+
+        # Validate actions structure if present
+        if "actions" in config:
+            actions = config["actions"]
+            if not isinstance(actions, dict):
+                errors.append(
+                    ValidationError(
+                        f"Section 'actions' must be a dictionary, got {type(actions).__name__}",
+                        field="actions",
+                        value=actions,
+                    ),
+                )
+
+        return errors
+
+    @staticmethod
+    def load_and_validate(path: str | Path) -> dict[str, Any]:
+        """
+        Load and validate configuration in one step.
+
+        Args:
+            path: Path to the YAML configuration file
+
+        Returns:
+            Validated configuration dictionary
+
+        Raises:
+            ConfigurationError: If file cannot be loaded
+            ConfigurationError: If validation fails (first error only)
+        """
+        config = ConfigLoader.load(path)
+        errors = ConfigLoader.validate(config)
+
+        if errors:
+            # Raise first error with context
+            first_error = errors[0]
+            raise ConfigurationError(
+                f"Configuration validation failed: {first_error.message}",
+                context={
+                    "path": str(path),
+                    "total_errors": len(errors),
+                    "errors": [str(e) for e in errors],
+                },
+            )
+
+        return config
+
+    @staticmethod
+    def load_validated(path: str | Path) -> "SoniConfig":
+        """
+        Load and validate configuration using Pydantic models.
+
+        Args:
+            path: Path to the YAML configuration file
+
+        Returns:
+            Validated SoniConfig instance
+
+        Raises:
+            ConfigurationError: If file cannot be loaded
+            pydantic.ValidationError: If validation fails
+        """
+        return SoniConfig.from_yaml(path)
+
+
+class ModelConfig(BaseModel):
+    """Configuration for a language model"""
+
+    provider: str = Field(..., description="Model provider (e.g., 'openai')")
+    model: str = Field(..., description="Model name (e.g., 'gpt-4o-mini')")
+    temperature: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=2.0,
+        description="Temperature for generation",
+    )
+
+
+class NLUModelConfig(ModelConfig):
+    """Configuration for NLU model"""
+
+    pass  # Can extend with NLU-specific fields later
+
+
+class GenerationModelConfig(ModelConfig):
+    """Configuration for generation model"""
+
+    max_tokens: int = Field(
+        default=500,
+        ge=1,
+        description="Maximum tokens to generate",
+    )
+
+
+class ModelsConfig(BaseModel):
+    """Configuration for all models"""
+
+    nlu: NLUModelConfig = Field(..., description="NLU model configuration")
+    generation: GenerationModelConfig | None = Field(
+        default=None,
+        description="Generation model configuration (optional in MVP)",
+    )
+
+
+class PersistenceConfig(BaseModel):
+    """Configuration for state persistence"""
+
+    backend: str = Field(
+        default="sqlite",
+        description="Backend type: sqlite, postgresql, redis",
+    )
+    path: str = Field(
+        default="./dialogue_state.db",
+        description="Path to database file (for sqlite)",
+    )
+
+
+class LoggingConfig(BaseModel):
+    """Configuration for logging"""
+
+    level: str = Field(
+        default="INFO",
+        description="Logging level: DEBUG, INFO, WARNING, ERROR",
+    )
+    trace_graphs: bool = Field(
+        default=False,
+        description="Whether to trace graph execution",
+    )
+
+
+class Settings(BaseModel):
+    """Global settings configuration"""
+
+    models: ModelsConfig = Field(..., description="Model configurations")
+    persistence: PersistenceConfig = Field(
+        default_factory=PersistenceConfig,
+        description="Persistence configuration",
+    )
+    logging: LoggingConfig = Field(
+        default_factory=LoggingConfig,
+        description="Logging configuration",
+    )
+
+
+class StepConfig(BaseModel):
+    """Configuration for a single step in a flow"""
+
+    step: str = Field(..., description="Step identifier")
+    type: str = Field(..., description="Step type: collect, action, branch")
+    slot: str | None = Field(
+        default=None,
+        description="Slot name (for collect steps)",
+    )
+    call: str | None = Field(
+        default=None,
+        description="Action name (for action steps)",
+    )
+    map_outputs: dict[str, str] | None = Field(
+        default=None,
+        description="Output mapping (for action steps)",
+    )
+
+
+class FlowConfig(BaseModel):
+    """Configuration for a dialogue flow"""
+
+    description: str = Field(..., description="Flow description")
+    steps: list[StepConfig] = Field(..., description="List of steps in the flow")
+
+
+class SlotConfig(BaseModel):
+    """Configuration for a slot/entity"""
+
+    type: str = Field(..., description="Slot type: string, number, date, etc.")
+    prompt: str = Field(..., description="Prompt to ask user for this slot")
+    required: bool = Field(
+        default=True,
+        description="Whether slot is required",
+    )
+    validator: str | None = Field(
+        default=None,
+        description="Validator name (optional in MVP)",
+    )
+
+
+class ActionConfig(BaseModel):
+    """Configuration for an action/handler"""
+
+    description: str | None = Field(
+        default=None,
+        description="Action description",
+    )
+    handler: str = Field(..., description="Python path to handler function")
+    inputs: list[str] = Field(
+        default_factory=list,
+        description="List of input slot names",
+    )
+    outputs: list[str] = Field(
+        default_factory=list,
+        description="List of output variable names",
+    )
+
+
+class SoniConfig(BaseModel):
+    """Root configuration model for Soni Framework"""
+
+    version: str = Field(..., description="Configuration version")
+    settings: Settings = Field(..., description="Global settings")
+    flows: dict[str, FlowConfig] = Field(
+        default_factory=dict,
+        description="Dialogue flows",
+    )
+    slots: dict[str, SlotConfig] = Field(
+        default_factory=dict,
+        description="Slot definitions",
+    )
+    actions: dict[str, ActionConfig] = Field(
+        default_factory=dict,
+        description="Action definitions",
+    )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SoniConfig":
+        """
+        Create SoniConfig from a dictionary.
+
+        Args:
+            data: Configuration dictionary
+
+        Returns:
+            Validated SoniConfig instance
+
+        Raises:
+            pydantic.ValidationError: If validation fails
+        """
+        return cls(**data)
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> "SoniConfig":
+        """
+        Load and validate configuration from YAML file.
+
+        Args:
+            path: Path to YAML configuration file
+
+        Returns:
+            Validated SoniConfig instance
+
+        Raises:
+            ConfigurationError: If file cannot be loaded
+            pydantic.ValidationError: If validation fails
+        """
+        raw_config = ConfigLoader.load(path)
+        return cls.from_dict(raw_config)

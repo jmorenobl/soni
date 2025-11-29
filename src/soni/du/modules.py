@@ -134,8 +134,8 @@ class SoniDU(dspy.Module):
             # For now, use available_actions as-is
             pass
 
-        # Get prediction
-        prediction = await self.aforward(
+        # Get prediction using acall() (DSPy's public async method)
+        prediction = await self.acall(
             user_message=user_message,
             dialogue_history=dialogue_history,
             current_slots=slots_str,

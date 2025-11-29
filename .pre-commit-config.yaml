@@ -25,11 +25,11 @@ repos:
     rev: v1.19.0
     hooks:
       - id: mypy
-        additional_dependencies: []
+        additional_dependencies: [types-PyYAML>=6.0.12]
         # Mypy only checks staged files (pre-commit passes files as arguments)
         # Pre-commit automatically passes only staged files to hooks
         # Mypy automatically reads configuration from pyproject.toml
         # Tests are checked but with relaxed rules (see pyproject.toml [tool.mypy.overrides])
-        exclude: ^experiments/
+        exclude: ^(experiments/|scripts/)
         # Note: Pre-commit by default only checks staged files when run as git hook
         # Use 'pre-commit run --all-files' to check all files manually

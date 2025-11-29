@@ -2,17 +2,24 @@
 
 import typer
 
+from soni.cli import optimize as optimize_module
+from soni.cli import server as server_module
+
 app = typer.Typer(
     name="soni",
     help="Soni Framework - Open Source Conversational AI Framework",
     add_completion=False,
 )
 
+# Register subcommands
+app.add_typer(optimize_module.app, name="optimize", help="Optimize NLU modules with DSPy")
+app.add_typer(server_module.app, name="server", help="Start the Soni API server")
+
 
 def version_callback(value: bool) -> None:
     """Print version and exit"""
     if value:
-        typer.echo("Soni Framework version 0.0.1")
+        typer.echo("Soni Framework version 0.1.0")
         raise typer.Exit()
 
 
@@ -29,18 +36,6 @@ def main(
 ) -> None:
     """Soni Framework - Open Source Conversational AI Framework"""
     pass
-
-
-@app.command()
-def optimize() -> None:
-    """Optimize NLU module using DSPy MIPROv2"""
-    typer.echo("Optimization command - Coming soon in Hito 4")
-
-
-@app.command()
-def server() -> None:
-    """Start the Soni API server"""
-    typer.echo("Server command - Coming soon in Hito 7")
 
 
 def cli() -> None:

@@ -1,0 +1,192 @@
+# Soni Framework Configuration - MVP Schema
+# Version: 0.1
+# This file defines a minimal viable configuration for a flight booking dialogue system
+#
+# Schema Structure:
+# - version: Required string indicating the configuration schema version
+# - settings: Global configuration for models, persistence, and logging
+# - flows: Dialogue flows with procedural steps (linear only in MVP)
+# - slots: Entity definitions that need to be collected from users
+# - actions: External action handlers with input/output contracts
+#
+# MVP Limitations:
+# - No branching logic (will be added in v0.3.0)
+# - No explicit jumps (will be added in v0.3.0)
+# - Validators referenced by name only (implementation in Hito 18)
+# - Action handlers referenced by Python path (will be abstracted in Hito 17)
+
+# Configuration schema version (required)
+# Must be a string. Current MVP version is "0.1"
+version: "0.1"
+
+# Global settings for models, persistence, logging, etc.
+# All fields in settings are optional with sensible defaults
+settings:
+  # NLU model configuration
+  # Defines which language model to use for dialogue understanding
+  models:
+    nlu:
+      # Provider: "openai", "anthropic", etc. (required if models.nlu is present)
+      provider: openai
+      # Model identifier: specific model name from the provider
+      # Examples: "gpt-4o-mini", "gpt-4", "claude-3-haiku"
+      model: gpt-4o-mini
+      # Temperature: controls randomness (0.0 = deterministic, 1.0 = creative)
+      # Range: 0.0 to 2.0, recommended: 0.1-0.3 for dialogue understanding
+      temperature: 0.1
+
+  # Persistence configuration
+  # Defines how dialogue state is persisted across turns
+  persistence:
+    # Backend: "sqlite" (development), "postgres" (production), "redis" (production)
+    # Required if persistence is present
+    backend: sqlite
+    # Path: file path for SQLite, connection string for Postgres/Redis
+    # For SQLite: relative or absolute path to .db file
+    path: ./dialogue_state.db
+
+  # Logging configuration
+  # Controls logging verbosity and tracing
+  logging:
+    # Level: "DEBUG", "INFO", "WARNING", "ERROR"
+    # Default: "INFO"
+    level: INFO
+    # Trace graphs: whether to log full graph execution traces
+    # Default: false (set to true for debugging)
+    trace_graphs: false
+
+# Dialogue flows - procedural steps for complex flows
+# Each flow defines a sequence of steps that guide the conversation
+# MVP supports only linear flows (no branches or conditional jumps)
+flows:
+  # Flow name: unique identifier for this flow
+  book_flight:
+    # Description: human-readable description of what this flow does
+    description: "Book a flight from origin to destination"
+
+    # Trigger: defines when this flow should be activated
+    trigger:
+      # Intents: list of intent names that trigger this flow
+      # Used for NLU optimization and flow routing
+      intents:
+        - book_flight
+        - i_want_to_book
+        - flight_booking
+
+    # Steps: ordered list of steps to execute in sequence
+    # Each step has a unique name, type, and type-specific configuration
+    steps:
+      # Step 1: Collect origin slot value from user
+      - step: collect_origin
+        # Type: "collect" - prompts user for a slot value
+        type: collect
+        # Slot: name of the slot to collect (must be defined in slots section)
+        slot: origin
+        # Prompt: optional custom prompt (uses slot prompt if not specified)
+        prompt: "Where would you like to fly from?"
+
+      # Step 2: Collect destination slot
+      - step: collect_destination
+        type: collect
+        slot: destination
+        prompt: "Where would you like to fly to?"
+
+      # Step 3: Collect departure date
+      - step: collect_date
+        type: collect
+        slot: departure_date
+        prompt: "When would you like to depart?"
+
+      # Step 4: Search for available flights
+      - step: search_flights
+        # Type: "action" - calls an external handler
+        type: action
+        # Call: name of the action to execute (must be defined in actions section)
+        call: search_available_flights
+        # Map outputs: maps action outputs to flat state variables
+        # Format: {state_variable: action_output_field}
+        # This decouples internal data structures from the flow definition
+        map_outputs:
+          flights: api_flights
+          price: api_price
+
+      # Step 5: Confirm booking
+      - step: confirm_booking
+        type: action
+        call: confirm_flight_booking
+        map_outputs:
+          booking_ref: api_booking_ref
+          confirmation: api_confirmation
+
+# Slot definitions - entities that need to be collected from users
+# Slots represent structured information extracted from natural language
+slots:
+  # Slot name: unique identifier used in flows
+  origin:
+    # Type: data type of the slot value
+    # MVP supports: "string", "integer", "float", "boolean", "date"
+    type: string
+    # Prompt: question to ask user when this slot is missing
+    # Used by the collect step to request the value
+    prompt: "Which city are you departing from?"
+    # Required: whether this slot must be collected before flow completion
+    # Default: false
+    required: true
+    # Validator: name of validator to use (must be registered in ValidatorRegistry)
+    # Validators are semantic names (e.g., "city_name") not regex patterns
+    # Implementation in Hito 18 (Validator Registry)
+    validator: city_name
+
+  destination:
+    type: string
+    prompt: "Where would you like to go?"
+    required: true
+    validator: city_name
+
+  departure_date:
+    type: string
+    prompt: "What is your departure date?"
+    required: true
+    validator: future_date_only
+
+# Action definitions - external handlers that perform business logic
+# Actions are decoupled from implementation: YAML defines contracts, Python implements
+# This allows changing implementation without modifying YAML (Zero-Leakage architecture)
+actions:
+  # Action name: unique identifier used in flow steps
+  search_available_flights:
+    # Description: human-readable description of what this action does
+    description: "Search for available flights between origin and destination"
+
+    # Handler: Python path to the handler function/class
+    # Format: "module.path.to.function"
+    # The handler must be registered in ActionRegistry (Hito 17)
+    # For MVP, this is a direct Python path that will be imported
+    handler: examples.flight_booking.handlers.search_available_flights
+
+    # Inputs: list of slot names that this action requires
+    # These slots must be collected before this action can execute
+    # The runtime will pass these as keyword arguments to the handler
+    inputs:
+      - origin
+      - destination
+      - departure_date
+
+    # Outputs: list of output field names this action produces
+    # These are used by map_outputs in flow steps
+    # The handler should return a dict with these keys
+    outputs:
+      - flights
+      - price
+
+  confirm_flight_booking:
+    description: "Confirm flight booking and generate booking reference"
+    handler: examples.flight_booking.handlers.confirm_flight_booking
+    inputs:
+      - flights
+      - origin
+      - destination
+      - departure_date
+    outputs:
+      - booking_ref
+      - confirmation

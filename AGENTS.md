@@ -137,7 +137,7 @@ src/soni/
 - **Unit tests**: `tests/unit/` - Isolated tests for individual functions/classes
 - **Integration tests**: `tests/integration/` - Integration tests between components
 - **Naming**: `test_*.py` for files, `test_*` for functions
-- **Coverage**: Minimum target 60% (configured in `pyproject.toml`)
+- **Coverage**: Minimum target 80% (configured in `pyproject.toml`)
 
 ### Testing Conventions
 
@@ -377,6 +377,27 @@ flows:
 - **Mypy**: Type checking (excludes experiments/).
 - **Tests**: Run relevant tests before commit.
 
+### Task Implementation Workflow
+
+The process for implementing tasks from the backlog (`docs/tasks/backlog/`) follows this workflow:
+
+1. **Start with the first task**: Move the first task from `docs/tasks/backlog/` to `docs/tasks/current/`.
+2. **Implement the task**: Execute the implementation according to the task specifications.
+3. **Quality checks and commit**: When all checks pass:
+   - `ruff check .` and `ruff format .` must pass
+   - `mypy src/soni` must pass
+   - All relevant tests must pass
+   - Make a commit following the conventional commits format
+4. **Move to done**: Move the completed task from `docs/tasks/current/` to `docs/tasks/done/`.
+5. **Repeat**: Start again with the next task from the backlog.
+6. **Continue**: Repeat this process until all tasks in the backlog are completed.
+
+This workflow ensures:
+- **Incremental progress**: One task at a time, fully completed before moving to the next
+- **Quality gates**: Code quality checks (ruff, mypy) and tests must pass before committing
+- **Clear tracking**: Tasks move through backlog → current → done, providing clear visibility of progress
+- **Atomic commits**: Each task results in a single, well-tested commit
+
 ## Performance and Optimization
 
 ### Latency
@@ -406,6 +427,10 @@ flows:
 - **LangGraph**: `>=1.0.4,<2.0.0` - Dialogue management
 - **FastAPI**: `>=0.122.0,<1.0.0` - Async web API
 - **Pydantic**: `>=2.12.5,<3.0.0` - Data validation
+
+### Reference Code
+
+- **`ref/` directory**: Contains the source code of the main libraries (DSPy and LangGraph) for reference purposes only. This code is available for consultation when implementing integrations or understanding library internals, but should not be modified or imported directly.
 
 ## Using `uv` Package Manager
 
@@ -574,6 +599,15 @@ uv run ruff format .
 uv run mypy src/soni
 ```
 
+**Validation scripts**:
+```bash
+# Validate configuration
+uv run python scripts/validate_config.py
+
+# Validate runtime (end-to-end)
+uv run python scripts/validate_runtime.py
+```
+
 ### Notes
 
 - `uv` automatically manages the virtual environment in `.venv/`
@@ -581,6 +615,72 @@ uv run mypy src/soni
 - The lock file `uv.lock` ensures reproducible installs
 - Always use `uv run` to execute commands in the project environment
 - Never manually activate `.venv` - `uv run` handles it automatically
+
+## Validation Scripts
+
+The project includes validation scripts in the `scripts/` directory for testing and validating different components of the framework.
+
+### Available Scripts
+
+#### `scripts/validate_config.py`
+
+Validates YAML configuration files to ensure they conform to the Soni configuration schema.
+
+**Usage:**
+```bash
+# Validate the example configuration
+uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
+
+# Validate any configuration file
+uv run python scripts/validate_config.py path/to/config.yaml
+```
+
+**What it validates:**
+- Configuration schema compliance
+- Required fields presence
+- Type validation
+- Flow, slot, and action definitions
+
+#### `scripts/validate_runtime.py`
+
+Validates the LangGraph runtime end-to-end, including graph construction, state management, and checkpointing integration.
+
+**Usage:**
+```bash
+# Run full runtime validation
+uv run python scripts/validate_runtime.py
+```
+
+**What it validates:**
+- Configuration loading from YAML
+- Graph construction from flow definitions
+- Checkpointer (SQLite) integration
+- State serialization/deserialization
+- Graph structure and node connectivity
+
+**Output:**
+- Detailed logging of each validation step
+- Success/failure status for each component
+- Summary report at the end
+- Exit code 0 on success, 1 on failure
+
+### When to Use Validation Scripts
+
+- **After configuration changes**: Run `validate_config.py` to ensure YAML changes are valid
+- **After runtime changes**: Run `validate_runtime.py` to verify the runtime still works end-to-end
+- **Before committing**: Use validation scripts as part of pre-commit checks
+- **During development**: Use to quickly test changes without running full test suite
+- **Debugging**: Use to isolate issues in specific components
+
+### Adding New Validation Scripts
+
+When adding new validation scripts:
+
+1. **Place in `scripts/` directory**: All validation scripts should be in `scripts/`
+2. **Follow naming convention**: Use `validate_<component>.py` format
+3. **Include logging**: Use structured logging with clear success/failure messages
+4. **Return exit codes**: Return 0 on success, 1 on failure for CI/CD integration
+5. **Document in AGENTS.md**: Add script description to this section
 
 ## Examples and Templates
 

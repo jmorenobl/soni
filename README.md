@@ -1,12 +1,20 @@
-# Soni Framework
+# 🤖 Soni Framework
 
-**Open Source Conversational AI Framework with Auto-Optimization**
+**Open Source Conversational AI Framework with Prompt Optimization**
 
-Soni is a modern framework for building task-oriented dialogue systems that combines the power of DSPy for automatic prompt optimization with LangGraph for robust dialogue management.
+Soni is a modern framework for building task-oriented dialogue systems that combines the power of DSPy for prompt optimization with LangGraph for robust dialogue management.
+
+## The Three Laws of Soni
+
+1. **Declarative First**: Define behavior, not implementation
+2. **Optimizable**: Learn from data through DSPy optimization
+3. **No Black Boxes**: Full transparency and explainability
+
+*Inspired by Asimov's vision of intelligent, helpful AI*
 
 ## Features
 
-- 🤖 **Automatic Prompt Optimization** - Uses DSPy's MIPROv2 to optimize NLU prompts automatically
+- 🤖 **Prompt Optimization** - Uses DSPy's MIPROv2 to optimize NLU prompts
 - 🔄 **Stateful Dialogue Management** - Built on LangGraph for reliable conversation flows
 - 📝 **YAML-Based Configuration** - Declarative DSL for defining dialogue flows
 - ⚡ **Async-First Architecture** - High-performance async/await throughout
@@ -15,69 +23,84 @@ Soni is a modern framework for building task-oriented dialogue systems that comb
 
 ## Quick Start
 
-> **Note:** Soni is currently in early development (v0.0.1). This quickstart will be updated as the framework matures.
-
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/soni.git
+git clone https://github.com/jmorenobl/soni.git
 cd soni
 
-# Install with uv (recommended)
+# Install dependencies
 uv sync
 
-# Or with pip
-pip install -e .
+# Install the package
+uv pip install -e .
+
+# Set API key
+export OPENAI_API_KEY="your-api-key-here"
 ```
 
-### Basic Usage
+### Start the Server
 
-```python
-from soni import RuntimeLoop
-
-# Initialize runtime with configuration
-runtime = RuntimeLoop(config_path="examples/flight_booking/soni.yaml")
-
-# Process a message
-response = await runtime.process_message(
-    user_msg="I want to book a flight to Paris",
-    user_id="user-123"
-)
-
-print(response)
+```bash
+# Run the example
+uv run soni server --config examples/flight_booking/soni.yaml
 ```
+
+### Test the API
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Start a conversation
+curl -X POST http://localhost:8000/chat/user-123 \
+  -H "Content-Type: application/json" \
+  -d '{"message": "I want to book a flight"}'
+```
+
+See [Quickstart Guide](docs/quickstart.md) for detailed instructions.
+
+## Example
+
+The flight booking example demonstrates a complete dialogue system:
+
+```yaml
+flows:
+  book_flight:
+    trigger:
+      intents: [book_flight, i_want_to_book]
+    steps:
+      - step: collect_origin
+        type: collect
+        slot: origin
+      - step: collect_destination
+        type: collect
+        slot: destination
+      - step: search_flights
+        type: action
+        call: search_available_flights
+```
+
+See [Flight Booking Example](examples/flight_booking/README.md) for a complete example.
 
 ## Documentation
 
-- [Quickstart Guide](docs/quickstart.md) - Get started in 10 minutes
-- [Architecture Overview](docs/architecture.md) - Understand Soni's design
+- [Quickstart Guide](docs/quickstart.md) - Get started in 5 minutes
+- [Architecture Guide](docs/architecture.md) - Understand how Soni works
 - [ADR-001: Framework Architecture](docs/adr/ADR-001-Soni-Framework-Architecture.md) - Detailed architecture decisions
-- [Implementation Strategy](docs/strategy/Implementation-Strategy.md) - Development roadmap
 
-## Project Status
+## Requirements
 
-**Current Version:** 0.0.1 (Pre-Alpha)
-
-**Status:** 🟢 Ready for Hito 4 (Optimization Pipeline)
-
-**Completed Milestones:**
-- ✅ **Hito 0:** Technical validation (DSPy, LangGraph, Persistence)
-- ✅ **Hito 1:** Project setup and architecture
-- ✅ **Hito 2:** Core interfaces and state management
-- ✅ **Hito 3:** SoniDU - DSPy module base
-
-**Next Up:**
-- 🚧 **Hito 4:** DSPy optimization pipeline (MIPROv2)
-
-See [Implementation Strategy](docs/strategy/Implementation-Strategy.md) for detailed roadmap.
+- Python 3.11+
+- OpenAI API key (or other supported LLM provider)
 
 ## Code Quality
 
-- **Coverage:** 98% (exceeds 85% target) 🎯
-- **Linting:** ✅ Ruff passes
-- **Type Checking:** ✅ Mypy passes
-- **Tests:** 28/28 passing
+- **Coverage:** 83% (exceeds 80% target) 🎯
+- **Linting:** ✅ Ruff passes (all checks)
+- **Type Checking:** ✅ Mypy passes (18 source files, no issues)
+- **Tests:** 139 passed, 14 skipped (0 failures)
 
 ## Contributing
 
@@ -87,9 +110,17 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
+## Why "Soni"?
+
+The name **Soni** is inspired by **Sonny**, the remarkable robot from Isaac Asimov's classic story collection "I, Robot". Like Sonny, who was special among robots—capable of learning, reasoning, and continuously optimizing his behavior—Soni represents a framework that learns and improves itself through automatic prompt optimization.
+
+Just as Sonny questioned and refined his own programming, Soni uses DSPy to optimize conversational AI systems through manual optimization runs, making them smarter with each optimization cycle. The framework embodies Asimov's vision of intelligent, helpful AI that can be improved to better serve its purpose.
+
+*"The Three Laws of Robotics are built into the very foundation of Soni's architecture: to assist, to optimize, and to improve—all while maintaining transparency and control."*
+
 ## Acknowledgments
 
-- [DSPy](https://github.com/stanfordnlp/dspy) - For automatic prompt optimization
+- [DSPy](https://github.com/stanfordnlp/dspy) - For prompt optimization
 - [LangGraph](https://github.com/langchain-ai/langgraph) - For dialogue management
 - [FastAPI](https://fastapi.tiangolo.com/) - For the API framework
 - [Typer](https://typer.tiangolo.com/) - For the CLI interface
