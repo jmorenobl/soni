@@ -22,6 +22,8 @@ async def test_builder_initialization():
 
     # Act
     builder = SoniGraphBuilder(config)
+    # Initialize checkpointer (lazy initialization)
+    await builder.initialize()
 
     # Assert
     assert builder.config == config

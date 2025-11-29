@@ -19,14 +19,15 @@ async def test_checkpointer_is_async():
 
     # Act
     builder = SoniGraphBuilder(config)
+    await builder.initialize()  # Initialize checkpointer first
     await builder.build_manual(flow_name="book_flight")
 
     # Assert
-    # Verify that checkpointer is SqliteSaver (which supports async methods)
+    # Verify that checkpointer is AsyncSqliteSaver (which supports async methods)
     assert builder.checkpointer is not None
-    # Check that it's SqliteSaver and has async methods
+    # Check that it's AsyncSqliteSaver and has async methods
     checkpointer_type = type(builder.checkpointer).__name__
-    assert checkpointer_type == "SqliteSaver"
+    assert checkpointer_type == "AsyncSqliteSaver"
     # Verify it has async methods
     assert hasattr(builder.checkpointer, "aget")
     assert hasattr(builder.checkpointer, "aput")
@@ -40,9 +41,10 @@ async def test_all_nodes_are_async():
     config_dict = ConfigLoader.load(config_path)
     config = SoniConfig(**config_dict)
     builder = SoniGraphBuilder(config)
+    await builder.initialize()  # Initialize checkpointer first
 
     # Act
-    graph = builder.build_manual(flow_name="book_flight")
+    graph = await builder.build_manual(flow_name="book_flight")
 
     # Assert
     # Verify that all nodes are async functions

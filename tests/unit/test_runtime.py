@@ -17,6 +17,8 @@ async def test_runtime_loop_initialization():
 
     # Act
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
 
     # Assert
     assert runtime.config is not None
@@ -44,6 +46,8 @@ async def test_process_message_simple():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-1"
     user_msg = "I want to book a flight"
 
@@ -98,6 +102,8 @@ async def test_process_message_multiple_conversations():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id_1 = "test-user-1"
     user_id_2 = "test-user-2"
     user_msg = "Hello"
@@ -127,6 +133,8 @@ async def test_process_message_updates_state():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-1"
     user_msg = "I want to book a flight"
 
@@ -152,6 +160,8 @@ async def test_process_message_handles_nlu_error():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-1"
     user_msg = "Invalid message"
 
@@ -174,6 +184,8 @@ async def test_process_message_handles_graph_error():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-1"
     user_msg = "Hello"
 
@@ -230,6 +242,8 @@ async def test_process_message_with_checkpoint_loading():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-checkpoint"
     user_msg = "I want to book a flight"
 
@@ -242,11 +256,12 @@ async def test_process_message_with_checkpoint_loading():
     }
 
     with (
-        patch.object(runtime.graph, "get_state") as mock_get_state,
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
         patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
     ):
-        # Mock get_state to return existing state
-        mock_get_state.return_value = type("StateSnapshot", (), {"values": existing_state})()
+        # Mock aget_state to return existing state
+        mock_state_snapshot = type("StateSnapshot", (), {"values": existing_state})()
+        mock_aget_state.return_value = mock_state_snapshot
 
         # Mock ainvoke to return response
         mock_ainvoke.return_value = {
@@ -259,7 +274,7 @@ async def test_process_message_with_checkpoint_loading():
         response = await runtime.process_message(user_msg, user_id)
 
         # Assert
-        mock_get_state.assert_called_once()
+        mock_aget_state.assert_called_once()
         assert response == "Where would you like to go?"
 
 
@@ -269,16 +284,18 @@ async def test_process_message_checkpoint_loading_error():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
+    # Initialize graph (lazy initialization)
+    await runtime._ensure_graph_initialized()
     user_id = "test-user-error"
     user_msg = "Hello"
 
-    # Mock get_state to raise error
+    # Mock aget_state to raise error
     with (
-        patch.object(runtime.graph, "get_state") as mock_get_state,
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
         patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
     ):
-        # Mock get_state to raise error
-        mock_get_state.side_effect = Exception("Checkpoint loading failed")
+        # Mock aget_state to raise error
+        mock_aget_state.side_effect = Exception("Checkpoint loading failed")
 
         # Mock ainvoke to return response
         mock_ainvoke.return_value = {
