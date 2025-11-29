@@ -24,6 +24,7 @@ help:
 # Build the package
 build:
 	@echo "Building package..."
+	@rm -rf dist/
 	uv build
 	@echo "Build complete! Files in dist/"
 
