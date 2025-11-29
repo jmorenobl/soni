@@ -230,7 +230,10 @@ async def test_concurrent_conversations():
         return await manager.save_state(state)
 
     # Save all conversations concurrently
-    tasks = [save_conversation(conv_id, random.uniform(0, 0.1)) for conv_id in conversation_ids]
+    tasks = [
+        save_conversation(conv_id, random.uniform(0, 0.1))
+        for conv_id in conversation_ids
+    ]
 
     start_time = time.time()
     results = await asyncio.gather(*tasks)
@@ -238,7 +241,7 @@ async def test_concurrent_conversations():
 
     if all(results):
         print(f"   ✓ {num_conversations} conversaciones guardadas concurrentemente")
-        print(f"   ✓ Tiempo total: {total_time*1000:.2f} ms")
+        print(f"   ✓ Tiempo total: {total_time * 1000:.2f} ms")
     else:
         print("   ✗ Algunas conversaciones fallaron al guardar")
         await manager.close()
@@ -277,7 +280,9 @@ async def test_race_conditions():
     conversation_id = "race-test"
 
     # Create initial state
-    initial_state = DialogueState(conversation_id=conversation_id, messages=[], turn_count=0)
+    initial_state = DialogueState(
+        conversation_id=conversation_id, messages=[], turn_count=0
+    )
     await manager.save_state(initial_state)
 
     # Concurrent updates with random delays
@@ -304,7 +309,9 @@ async def test_race_conditions():
     if final_state:
         # Verify final state is consistent (should have all updates)
         if len(final_state.messages) >= num_updates:
-            print(f"   ✓ Estado final consistente: {len(final_state.messages)} mensajes")
+            print(
+                f"   ✓ Estado final consistente: {len(final_state.messages)} mensajes"
+            )
             print("   ✓ No se detectaron race conditions evidentes")
             await manager.close()
             return True
@@ -426,7 +433,9 @@ async def main():
     print("RESUMEN DEL EXPERIMENTO")
     print("=" * 60)
     print(f"✓ Persistencia básica: {'Sí' if results['basic_persistence'] else 'No'}")
-    print(f"✓ Conversaciones concurrentes: {'Sí' if results['concurrent_conversations'] else 'No'}")
+    print(
+        f"✓ Conversaciones concurrentes: {'Sí' if results['concurrent_conversations'] else 'No'}"
+    )
     print(f"✓ Sin race conditions: {'Sí' if results['race_conditions'] else 'No'}")
     print(f"✓ Performance < 100ms: {'Sí' if results['performance_ok'] else 'No'}")
 

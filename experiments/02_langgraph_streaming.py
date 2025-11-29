@@ -63,7 +63,10 @@ async def generate_response_node(state: ConversationState) -> dict[str, Any]:
         # In real implementation, we'd yield chunks here
         # For this experiment, we accumulate and return
 
-    return {"response": response_text.strip(), "turn_count": state.get("turn_count", 0) + 1}
+    return {
+        "response": response_text.strip(),
+        "turn_count": state.get("turn_count", 0) + 1,
+    }
 
 
 def build_conversation_graph() -> StateGraph:
@@ -229,7 +232,9 @@ async def test_sse_compatibility():
         sse_lines.append(f"data: {json.dumps({'type': 'token', 'content': token})}\n\n")
 
     # Verify SSE format
-    valid_sse = all(line.startswith("data: ") and line.endswith("\n\n") for line in sse_lines)
+    valid_sse = all(
+        line.startswith("data: ") and line.endswith("\n\n") for line in sse_lines
+    )
 
     if valid_sse:
         print("   ✓ Formato SSE válido")

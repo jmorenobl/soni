@@ -66,6 +66,9 @@ experiments/results/*.json
 *.whl
 *.tar.gz
 
+# Dependency lock files (too large for git)
+uv.lock
+
 # Temporary files
 tmp/
 temp/

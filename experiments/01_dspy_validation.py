@@ -83,7 +83,11 @@ def create_trainset() -> list:
             confidence="0.95",
             reasoning="Clear intent to book flight with destination and date",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="Book me a flight to London next Friday",
@@ -96,7 +100,11 @@ def create_trainset() -> list:
             confidence="0.92",
             reasoning="Explicit booking request with destination and date",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="Cancel my reservation",
@@ -109,7 +117,11 @@ def create_trainset() -> list:
             confidence="0.98",
             reasoning="Clear cancellation intent with existing reservation context",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="I need help",
@@ -122,7 +134,11 @@ def create_trainset() -> list:
             confidence="0.99",
             reasoning="Explicit help request",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="What flights are available to Madrid?",
@@ -135,7 +151,11 @@ def create_trainset() -> list:
             confidence="0.88",
             reasoning="Search intent with destination entity",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="I'd like to go to Barcelona on Monday",
@@ -148,7 +168,11 @@ def create_trainset() -> list:
             confidence="0.90",
             reasoning="Booking intent with destination and day of week",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="Change my flight to next week",
@@ -161,7 +185,11 @@ def create_trainset() -> list:
             confidence="0.85",
             reasoning="Modification intent with new date",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
         dspy.Example(
             user_message="Show me flights",
@@ -174,7 +202,11 @@ def create_trainset() -> list:
             confidence="0.80",
             reasoning="Generic search request without specific parameters",
         ).with_inputs(
-            "user_message", "dialogue_history", "current_slots", "available_actions", "current_flow"
+            "user_message",
+            "dialogue_history",
+            "current_slots",
+            "available_actions",
+            "current_flow",
         ),
     ]
 
@@ -188,7 +220,11 @@ def create_trainset() -> list:
         ("I need a ticket to Berlin", "book_flight", '{"destination": "Berlin"}'),
         ("What can you do?", "help", "{}"),
         ("Modify reservation", "modify", "{}"),
-        ("Search for flights to Amsterdam", "search_flights", '{"destination": "Amsterdam"}'),
+        (
+            "Search for flights to Amsterdam",
+            "search_flights",
+            '{"destination": "Amsterdam"}',
+        ),
         (
             "Book flight to Dubai tomorrow",
             "book_flight",
@@ -226,13 +262,19 @@ def intent_accuracy_metric(example, prediction, trace=None) -> float:  # noqa: A
     """Calculate accuracy metric for intent extraction"""
     try:
         # Compare structured_command (intent)
-        intent_match = example.structured_command.lower() == prediction.structured_command.lower()
+        intent_match = (
+            example.structured_command.lower() == prediction.structured_command.lower()
+        )
 
         # Compare extracted slots (basic JSON comparison)
         try:
-            example_slots = json.loads(example.extracted_slots) if example.extracted_slots else {}
+            example_slots = (
+                json.loads(example.extracted_slots) if example.extracted_slots else {}
+            )
             pred_slots = (
-                json.loads(prediction.extracted_slots) if prediction.extracted_slots else {}
+                json.loads(prediction.extracted_slots)
+                if prediction.extracted_slots
+                else {}
             )
 
             # Check if key entities match (simplified)
@@ -249,7 +291,9 @@ def intent_accuracy_metric(example, prediction, trace=None) -> float:  # noqa: A
             slot_match = False
 
         # Weighted score: 70% intent, 30% slots
-        score = 0.7 * (1.0 if intent_match else 0.0) + 0.3 * (1.0 if slot_match else 0.0)
+        score = 0.7 * (1.0 if intent_match else 0.0) + 0.3 * (
+            1.0 if slot_match else 0.0
+        )
         return score
     except Exception as e:
         print(f"Error in metric calculation: {e}")
@@ -319,7 +363,9 @@ def main():
     split_idx = int(len(all_examples) * 0.7)
     trainset = all_examples[:split_idx]
     evalset = all_examples[split_idx:]
-    print(f"   ✓ Dataset creado: {len(trainset)} entrenamiento, {len(evalset)} evaluación")
+    print(
+        f"   ✓ Dataset creado: {len(trainset)} entrenamiento, {len(evalset)} evaluación"
+    )
 
     # Evaluate baseline
     print("\n3. Evaluando módulo baseline (sin optimización)...")
@@ -355,20 +401,28 @@ def main():
     if optimized_nlu:
         print("\n5. Evaluando módulo optimizado...")
         optimized_results = evaluate_module(optimized_nlu, evalset)
-        print(f"   ✓ Optimizado - Accuracy promedio: {optimized_results['average_score']:.3f}")
-        print(f"   ✓ Optimizado - Intent accuracy: {optimized_results['intent_accuracy']:.3f}")
+        print(
+            f"   ✓ Optimizado - Accuracy promedio: {optimized_results['average_score']:.3f}"
+        )
+        print(
+            f"   ✓ Optimizado - Intent accuracy: {optimized_results['intent_accuracy']:.3f}"
+        )
 
         # Compare results
         print("\n6. Comparación de resultados:")
         print(f"   Baseline accuracy:     {baseline_results['average_score']:.3f}")
         print(f"   Optimized accuracy:    {optimized_results['average_score']:.3f}")
-        improvement = optimized_results["average_score"] - baseline_results["average_score"]
+        improvement = (
+            optimized_results["average_score"] - baseline_results["average_score"]
+        )
         improvement_pct = (
             (improvement / baseline_results["average_score"] * 100)
             if baseline_results["average_score"] > 0
             else 0
         )
-        print(f"   Mejora:                 {improvement:+.3f} ({improvement_pct:+.1f}%)")
+        print(
+            f"   Mejora:                 {improvement:+.3f} ({improvement_pct:+.1f}%)"
+        )
 
         # Usar improvement_pct para comparación más precisa
         if improvement_pct >= 5.0:

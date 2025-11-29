@@ -16,7 +16,8 @@ class DialogueUnderstanding(dspy.Signature):
     dialogue_history = dspy.InputField(desc="Previous conversation context as a string", default="")
     current_slots = dspy.InputField(desc="Currently filled slots as a JSON string", default="{}")
     available_actions = dspy.InputField(
-        desc="List of available actions in current context as JSON array string", default="[]"
+        desc="List of available actions in current context as JSON array string",
+        default="[]",
     )
     current_flow = dspy.InputField(desc="Current dialogue flow name", default="none")
 
