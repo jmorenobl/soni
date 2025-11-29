@@ -1,11 +1,13 @@
 """DSPy modules for Dialogue Understanding"""
 
+import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass
 from typing import Any
 
 import dspy
+from cachetools import TTLCache  # type: ignore[import-untyped]
 
 from soni.core.interfaces import IScopeManager
 from soni.core.state import DialogueState
@@ -36,10 +38,21 @@ class SoniDU(dspy.Module):
     and provides both sync (for optimization) and async (for runtime) interfaces.
     """
 
-    def __init__(self, scope_manager: IScopeManager | None = None):
+    def __init__(
+        self,
+        scope_manager: IScopeManager | None = None,
+        cache_size: int = 1000,
+        cache_ttl: int = 300,
+    ):
         super().__init__()
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
         self.scope_manager = scope_manager
+
+        # Cache for NLU results
+        self.nlu_cache: TTLCache[str, NLUResult] = TTLCache(
+            maxsize=cache_size,  # Cache up to 1000 results
+            ttl=cache_ttl,  # 5 minutes TTL (300 seconds)
+        )
 
     def forward(
         self,
@@ -106,6 +119,40 @@ class SoniDU(dspy.Module):
             current_flow,
         )
 
+    def _get_cache_key(
+        self,
+        user_message: str,
+        dialogue_history: str,
+        current_slots: dict[str, Any],
+        available_actions: list[str],
+        current_flow: str,
+    ) -> str:
+        """
+        Generate cache key for NLU request.
+
+        Args:
+            user_message: User's input message
+            dialogue_history: Previous conversation context
+            current_slots: Currently filled slots
+            available_actions: Available actions list
+            current_flow: Current dialogue flow name
+
+        Returns:
+            Cache key as MD5 hash string
+        """
+        # Create hash of inputs
+        key_data = json.dumps(
+            {
+                "message": user_message,
+                "history": dialogue_history,
+                "slots": current_slots,
+                "actions": sorted(available_actions),  # Sort for consistency
+                "flow": current_flow,
+            },
+            sort_keys=True,
+        )
+        return hashlib.md5(key_data.encode()).hexdigest()
+
     async def predict(
         self,
         user_message: str,
@@ -140,6 +187,23 @@ class SoniDU(dspy.Module):
                 f"for flow '{current_flow}'"
             )
 
+        # Check cache first
+        cache_key = self._get_cache_key(
+            user_message,
+            dialogue_history,
+            current_slots or {},
+            available_actions or [],
+            current_flow,
+        )
+
+        if cache_key in self.nlu_cache:
+            logger.debug(f"NLU cache hit for key: {cache_key[:8]}...")
+            cached_result: NLUResult = self.nlu_cache[cache_key]
+            return cached_result
+
+        # Cache miss - call NLU
+        logger.debug("NLU cache miss, calling predictor")
+
         # Convert inputs to string format expected by signature
         slots_str = json.dumps(current_slots or {})
         actions_str = json.dumps(available_actions or [])
@@ -164,9 +228,15 @@ class SoniDU(dspy.Module):
         except (ValueError, AttributeError, TypeError):
             confidence = 0.0
 
-        return NLUResult(
+        nlu_result = NLUResult(
             command=prediction.structured_command or "",
             slots=slots,
             confidence=confidence,
             reasoning=prediction.reasoning or "",
         )
+
+        # Cache result
+        self.nlu_cache[cache_key] = nlu_result
+        logger.debug(f"Cached NLU result for key: {cache_key[:8]}...")
+
+        return nlu_result

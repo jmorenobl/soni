@@ -1,7 +1,11 @@
 """Dynamic action scoping for Soni Framework"""
 
+import hashlib
+import json
 import logging
 from typing import Any
+
+from cachetools import TTLCache  # type: ignore[import-untyped]
 
 from soni.core.config import SoniConfig
 from soni.core.interfaces import IScopeManager
@@ -20,12 +24,19 @@ class ScopeManager(IScopeManager):
     - Considers completed slots to determine relevant actions
     """
 
-    def __init__(self, config: SoniConfig | dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        config: SoniConfig | dict[str, Any] | None = None,
+        cache_size: int = 500,
+        cache_ttl: int = 60,
+    ) -> None:
         """
         Initialize ScopeManager.
 
         Args:
             config: SoniConfig or configuration dictionary
+            cache_size: Maximum number of cached scoping results
+            cache_ttl: Time-to-live for cache entries in seconds
         """
         if isinstance(config, SoniConfig):
             self.config = config
@@ -39,7 +50,36 @@ class ScopeManager(IScopeManager):
         # Global actions that are always available
         self.global_actions = ["help", "cancel", "restart"]
 
+        # Cache for scoped actions
+        self.scoping_cache: TTLCache[str, list[str]] = TTLCache(
+            maxsize=cache_size,  # Cache up to 500 results
+            ttl=cache_ttl,  # 1 minute TTL (60 seconds)
+        )
+
         logger.debug(f"ScopeManager initialized with {len(self.flows)} flows")
+
+    def _get_cache_key(
+        self,
+        state: DialogueState,
+    ) -> str:
+        """
+        Generate cache key for scoping request.
+
+        Args:
+            state: Current dialogue state
+
+        Returns:
+            Cache key as MD5 hash string
+        """
+        # Create hash based on flow and slots (main factors for scoping)
+        key_data = json.dumps(
+            {
+                "flow": state.current_flow,
+                "slots": state.slots,
+            },
+            sort_keys=True,
+        )
+        return hashlib.md5(key_data.encode()).hexdigest()
 
     def get_available_actions(
         self,
@@ -57,6 +97,16 @@ class ScopeManager(IScopeManager):
         # Convert dict to DialogueState if needed
         if isinstance(state, dict):
             state = DialogueState.from_dict(state)
+
+        # Check cache first
+        cache_key = self._get_cache_key(state)
+        if cache_key in self.scoping_cache:
+            logger.debug(f"Scoping cache hit for key: {cache_key[:8]}...")
+            cached_actions: list[str] = self.scoping_cache[cache_key]
+            return cached_actions
+
+        # Cache miss - compute actions
+        logger.debug("Scoping cache miss, computing actions")
 
         # Start with global actions (always available)
         actions: list[str] = self.global_actions.copy()
@@ -82,8 +132,14 @@ class ScopeManager(IScopeManager):
             for flow_name in self.flows.keys():
                 actions.append(f"start_{flow_name}")
 
-        # Remove duplicates and return
-        return list(set(actions))
+        # Remove duplicates
+        result = list(set(actions))
+
+        # Cache result
+        self.scoping_cache[cache_key] = result
+        logger.debug(f"Cached scoping result for key: {cache_key[:8]}...")
+
+        return result
 
     def _get_flow_actions(self, flow_config: Any) -> list[str]:
         """
