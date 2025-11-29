@@ -72,7 +72,58 @@ uv run python -m build
 
 ## Publishing to TestPyPI
 
-### Option 1: Using `uv` (Recommended)
+### Option 1: Using Makefile (Recommended for Local Development)
+
+The easiest way to publish is using the provided Makefile, which handles credential management and runs all checks automatically.
+
+#### Setup
+
+1. **Copy the environment template**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` and add your API tokens**:
+   - Get your TestPyPI token from [https://test.pypi.org/manage/account/token/](https://test.pypi.org/manage/account/token/)
+   - Get your PyPI token from [https://pypi.org/manage/account/token/](https://pypi.org/manage/account/token/)
+   - Replace the placeholder values in `.env` with your actual tokens
+
+3. **Publish to TestPyPI**:
+   ```bash
+   make publish-testpypi
+   ```
+
+   This command will:
+   - Run all checks (tests, linting, type checking)
+   - Build the package
+   - Validate credentials are configured
+   - Publish to TestPyPI
+
+4. **Publish to PyPI** (after testing on TestPyPI):
+   ```bash
+   make publish-pypi
+   ```
+
+#### Available Makefile Targets
+
+```bash
+make help              # Show all available targets
+make build             # Build the package
+make clean             # Clean build artifacts
+make check             # Run all checks (test, lint, type-check)
+make test              # Run tests
+make lint              # Run linting
+make type-check        # Run type checking
+make format            # Format code
+make publish-testpypi  # Publish to TestPyPI
+make publish-pypi      # Publish to PyPI
+make install-testpypi  # Install from TestPyPI (for testing)
+make verify            # Verify package contents
+```
+
+**Note**: The `.env` file is already in `.gitignore` and will not be committed to the repository. Only `.env.example` (the template) is tracked in git.
+
+### Option 2: Using `uv` (Manual)
 
 `uv` supports direct publishing to PyPI/TestPyPI:
 
@@ -96,7 +147,7 @@ export UV_PUBLISH_PASSWORD="pypi-<your-testpypi-token>"
 uv publish --publish-url https://test.pypi.org/legacy/ dist/*
 ```
 
-### Option 2: Using `twine` (Alternative)
+### Option 3: Using `twine` (Alternative)
 
 If you prefer to use `twine` (PyPI's standard tool):
 
@@ -115,7 +166,7 @@ uv run twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 # - Password: <your-testpypi-token>
 ```
 
-### Option 3: Configure Credentials in File
+### Option 4: Configure Credentials in File
 
 You can create a `.pypirc` file in your home directory (`~/.pypirc`):
 
