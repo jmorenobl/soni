@@ -141,18 +141,63 @@ src/soni/
 
 ### Testing Conventions
 
+- **AAA Pattern**: All tests must follow the Arrange-Act-Assert (AAA) pattern:
+  ```python
+  def test_function_name():
+      """Test description explaining what is being tested"""
+      # Arrange - Set up test data and conditions
+      user = User(name="John", age=30)
+
+      # Act - Execute the function being tested
+      result = user.get_greeting()
+
+      # Assert - Verify the expected outcome
+      assert result == "Hello, John!"
+  ```
+  - **Arrange**: Set up all test preconditions and inputs
+  - **Act**: Execute the function or method being tested
+  - **Assert**: Verify the outcome matches expectations
+  - Use `# Arrange`, `# Act`, `# Assert` comments to clearly separate phases
+  - For simple tests, combine phases: `# Arrange & Act` or `# Act & Assert`
+
 - **Async tests**: Use `pytest-asyncio` for async tests:
   ```python
   import pytest
 
   @pytest.mark.asyncio
   async def test_async_function():
-      result = await async_function()
+      # Arrange
+      input_data = "test"
+
+      # Act
+      result = await async_function(input_data)
+
+      # Assert
       assert result == expected
   ```
+
+- **Cleanup**: For tests with mocks or resources, use try/finally:
+  ```python
+  def test_with_mock():
+      """Test with cleanup section"""
+      # Arrange
+      original_function = module.function
+      module.function = mock_function
+
+      try:
+          # Act
+          result = perform_operation()
+
+          # Assert
+          assert result == expected
+      finally:
+          # Cleanup
+          module.function = original_function
+  ```
+
 - **Fixtures**: Use pytest fixtures for common setup.
 - **Mocks**: Use `unittest.mock` or `pytest-mock` to mock interfaces.
-- **Clear assertions**: Use descriptive messages in assertions.
+- **Descriptive docstrings**: Each test must have a clear docstring explaining what it validates.
 
 ### Relaxed Test Rules
 
@@ -605,13 +650,14 @@ class MyModule(dspy.Module):
 1. **Async-first**: Everything must be async. Do not create sync versions.
 2. **Type hints**: Mandatory for all public functions.
 3. **Docstrings**: Mandatory for all public functions and classes.
-4. **Tests**: Write tests for new functionality.
-5. **Semantic YAML**: YAML must not contain technical details.
-6. **Interfaces**: Use Protocols for decoupling.
-7. **Error handling**: Use appropriate exception hierarchy.
-8. **Logging**: Include relevant context in logs.
-9. **Conventional Commits**: Follow commit format.
-10. **Pre-commit**: Ensure hooks pass before committing.
+4. **Tests**: Write tests for new functionality following AAA pattern.
+5. **AAA Pattern**: All tests must use Arrange-Act-Assert structure with clear comments.
+6. **Semantic YAML**: YAML must not contain technical details.
+7. **Interfaces**: Use Protocols for decoupling.
+8. **Error handling**: Use appropriate exception hierarchy.
+9. **Logging**: Include relevant context in logs.
+10. **Conventional Commits**: Follow commit format.
+11. **Pre-commit**: Ensure hooks pass before committing.
 
 ---
 
