@@ -1,5 +1,6 @@
 """Runtime loop for Soni Framework"""
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncGenerator
@@ -49,6 +50,8 @@ class RuntimeLoop:
         # Graph will be built lazily on first use (requires async)
         self.graph: Any = None
         self._flow_name: str = list(self.config.flows.keys())[0]
+        # Lock to protect graph initialization from concurrent access
+        self._graph_init_lock = asyncio.Lock()
 
         # Initialize ScopeManager
         self.scope_manager = ScopeManager(config=self.config)
@@ -73,9 +76,13 @@ class RuntimeLoop:
         Ensure graph is initialized (lazy initialization).
 
         This method initializes the graph asynchronously if not already done.
+        Uses a lock to prevent concurrent initialization.
         """
         if self.graph is None:
-            self.graph = await self.builder.build_manual(self._flow_name)
+            async with self._graph_init_lock:
+                # Double-check pattern: another coroutine might have initialized it
+                if self.graph is None:
+                    self.graph = await self.builder.build_manual(self._flow_name)
 
     async def cleanup(self) -> None:
         """
