@@ -365,12 +365,14 @@ class SoniGraphBuilder:
         Note:
             SqliteSaver.from_conn_string() returns a context manager.
             We enter it and store the context manager for proper cleanup.
+            SqliteSaver supports async methods (aget, aput, etc.) for async operations.
         """
         persistence = self.config.settings.persistence
 
         if persistence.backend == "sqlite":
             try:
                 # from_conn_string returns a context manager
+                # SqliteSaver supports both sync and async methods
                 self._checkpointer_cm = SqliteSaver.from_conn_string(persistence.path)
                 # Enter the context manager and return the checkpointer
                 return self._checkpointer_cm.__enter__()
