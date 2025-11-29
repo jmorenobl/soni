@@ -1,5 +1,6 @@
 """FastAPI server for Soni Framework"""
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -7,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from soni.core.errors import NLUError, SoniError, ValidationError
@@ -195,3 +196,78 @@ async def chat(user_id: str, request: ChatRequest) -> ChatResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         ) from e
+
+
+@app.post("/chat/{user_id}/stream")
+async def chat_stream(user_id: str, request: ChatRequest) -> StreamingResponse:
+    """
+    Process a user message and stream response tokens as Server-Sent Events.
+
+    Args:
+        user_id: Unique identifier for user/conversation
+        request: Chat request with user message
+
+    Returns:
+        StreamingResponse with SSE-formatted tokens
+
+    Raises:
+        HTTPException: If processing fails
+    """
+    # Validate user_id
+    if not user_id or not user_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ID cannot be empty",
+        )
+
+    if runtime is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Runtime not initialized",
+        )
+
+    async def generate_stream():
+        """Generator function for SSE streaming"""
+        try:
+            logger.info(
+                f"Starting stream for user {user_id}",
+                extra={"user_id": user_id, "message_length": len(request.message)},
+            )
+
+            # Stream tokens from runtime
+            async for token in runtime.process_message_stream(
+                user_msg=request.message,
+                user_id=user_id,
+            ):
+                # Format as SSE: data: {content}\n\n
+                # For tokens, send as simple text
+                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            logger.info(f"Stream completed for user {user_id}")
+
+        except ValidationError as e:
+            logger.warning(f"Validation error in stream for user {user_id}: {e}")
+            # Send error in stream
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        except NLUError as e:
+            logger.error(f"NLU error in stream for user {user_id}: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Natural language understanding failed'})}\n\n"
+        except SoniError as e:
+            logger.error(f"Soni error in stream for user {user_id}: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Processing failed: {str(e)}'})}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected error in stream for user {user_id}: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Internal server error'})}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
