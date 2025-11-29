@@ -1,0 +1,179 @@
+"""Dynamic action scoping for Soni Framework"""
+
+import logging
+from typing import Any
+
+from soni.core.config import SoniConfig
+from soni.core.interfaces import IScopeManager
+from soni.core.state import DialogueState
+
+logger = logging.getLogger(__name__)
+
+
+class ScopeManager(IScopeManager):
+    """
+    Manages dynamic scoping of available actions based on dialogue state.
+
+    This class filters actions to reduce context noise for the LLM:
+    - Only includes actions relevant to current flow
+    - Always includes global actions (help, cancel, restart)
+    - Considers completed slots to determine relevant actions
+    """
+
+    def __init__(self, config: SoniConfig | dict[str, Any] | None = None) -> None:
+        """
+        Initialize ScopeManager.
+
+        Args:
+            config: SoniConfig or configuration dictionary
+        """
+        if isinstance(config, SoniConfig):
+            self.config = config
+            self.flows = config.flows
+        elif isinstance(config, dict):
+            # For backward compatibility, extract flows from dict
+            self.flows = config.get("flows", {})
+        else:
+            self.flows = {}
+
+        # Global actions that are always available
+        self.global_actions = ["help", "cancel", "restart"]
+
+        logger.debug(f"ScopeManager initialized with {len(self.flows)} flows")
+
+    def get_available_actions(
+        self,
+        state: DialogueState | dict[str, Any],
+    ) -> list[str]:
+        """
+        Get list of available actions based on current dialogue state.
+
+        Args:
+            state: Current dialogue state (DialogueState or dict)
+
+        Returns:
+            List of available action names
+        """
+        # Convert dict to DialogueState if needed
+        if isinstance(state, dict):
+            state = DialogueState.from_dict(state)
+
+        # Start with global actions (always available)
+        actions: list[str] = self.global_actions.copy()
+
+        current_flow = state.current_flow
+
+        if current_flow and current_flow != "none":
+            # We're in a flow - only include actions relevant to this flow
+            flow_config = self.flows.get(current_flow)
+            if flow_config:
+                # Add flow-specific actions
+                # Actions are defined in the flow configuration
+                flow_actions = self._get_flow_actions(flow_config)
+                actions.extend(flow_actions)
+
+                # Add slots that still need to be collected
+                pending_slots = self._get_pending_slots(flow_config, state)
+                for slot_name in pending_slots:
+                    actions.append(f"provide_{slot_name}")
+
+        else:
+            # No active flow - allow starting any flow
+            for flow_name in self.flows.keys():
+                actions.append(f"start_{flow_name}")
+
+        # Remove duplicates and return
+        return list(set(actions))
+
+    def _get_flow_actions(self, flow_config: Any) -> list[str]:
+        """
+        Extract action names from flow configuration.
+
+        Supports multiple flow configuration formats:
+        - Steps with type: action
+        - Process with steps
+        - Direct action references
+
+        Args:
+            flow_config: Flow configuration (FlowConfig or dict)
+
+        Returns:
+            List of action names used in this flow
+        """
+        actions: list[str] = []
+
+        # Handle FlowConfig (Pydantic model)
+        if hasattr(flow_config, "steps"):
+            # FlowConfig has steps attribute
+            for step in flow_config.steps:
+                if hasattr(step, "type") and step.type == "action":
+                    if hasattr(step, "call") and step.call:
+                        actions.append(step.call)
+        # Handle dict format
+        elif isinstance(flow_config, dict):
+            # Method 1: Check steps
+            steps = flow_config.get("steps", [])
+            for step in steps:
+                if isinstance(step, dict) and step.get("type") == "action":
+                    action_name = step.get("call") or step.get("action")
+                    if action_name:
+                        actions.append(action_name)
+
+            # Method 2: Check process steps
+            process = flow_config.get("process")
+            if isinstance(process, list):
+                for step in process:
+                    if isinstance(step, dict) and step.get("type") == "action":
+                        action_name = step.get("call") or step.get("action")
+                        if action_name:
+                            actions.append(action_name)
+
+            # Method 3: Direct actions list (if exists)
+            direct_actions = flow_config.get("actions", [])
+            if isinstance(direct_actions, list):
+                actions.extend(direct_actions)
+
+        return list(set(actions))  # Remove duplicates
+
+    def _get_pending_slots(self, flow_config: Any, state: DialogueState) -> list[str]:
+        """
+        Get list of slots that still need to be collected.
+
+        Args:
+            flow_config: Flow configuration (FlowConfig or dict)
+            state: Current dialogue state
+
+        Returns:
+            List of slot names that are not yet filled
+        """
+        pending: list[str] = []
+
+        # Handle FlowConfig (Pydantic model)
+        if hasattr(flow_config, "steps"):
+            # Extract slot names from collect steps
+            for step in flow_config.steps:
+                if hasattr(step, "type") and step.type == "collect":
+                    if hasattr(step, "slot") and step.slot:
+                        slot_name = step.slot
+                        if slot_name and slot_name not in state.slots:
+                            pending.append(slot_name)
+        # Handle dict format
+        elif isinstance(flow_config, dict):
+            # Get slots required by this flow from steps
+            steps = flow_config.get("steps", [])
+            for step in steps:
+                if isinstance(step, dict) and step.get("type") == "collect":
+                    slot_name = step.get("slot")
+                    if slot_name and slot_name not in state.slots:
+                        pending.append(slot_name)
+
+            # Also check process steps if they exist
+            process = flow_config.get("process")
+            if isinstance(process, list):
+                for step in process:
+                    if isinstance(step, dict) and step.get("type") == "collect":
+                        slot_name = step.get("slot")
+                        if slot_name and slot_name not in state.slots:
+                            pending.append(slot_name)
+
+        return pending
