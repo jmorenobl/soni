@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-XX
+
+### Added
+- Step Compiler for procedural flow definition
+- StepParser for parsing and validating flow steps
+- StepCompiler for generating LangGraph StateGraph from steps
+- Support for branch steps with conditional routing
+- Support for jump_to for explicit control flow
+- Graph validation (cycles, unreachable nodes, valid targets)
+- DAG intermediate representation for flow compilation
+- Advanced examples with retry loops and complex branching
+- DSL Guide documentation (`docs/dsl-guide.md`)
+
+### Changed
+- Procedural DSL with `process` section for complex flows
+- Simple linear flows still supported via `steps` array
+- Compiler generates StateGraph from procedural steps
+- Improved flow control with branches and jumps
+
+### Features
+- **Branches**: Conditional routing based on values
+- **Jumps**: Explicit control flow with `jump_to`
+- **Validation**: Automatic detection of cycles and unreachable nodes
+- **Compilation**: >95% success rate for valid YAML configurations
+
+### Documentation
+- DSL Guide with complete syntax and examples
+- Advanced examples (retry loops, complex branching)
+- Migration guide from v0.2.x to v0.3.0
+
+### Testing
+- 48+ tests for compiler (parser, builder, validation)
+- Tests for branches, jumps, and complex flows
+- Graph validation tests
+- Coverage: >80% for compiler module
+
+### Known Issues
+- Some edge cases in complex branching may require refinement
+- Performance optimization for large flows (planned for v0.4.0)
+
 ## [0.2.1] - 2025-01-XX
 
 ### Fixed
@@ -128,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jmorenobl/soni/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/jmorenobl/soni/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jmorenobl/soni/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jmorenobl/soni/compare/v0.0.1...v0.1.0
