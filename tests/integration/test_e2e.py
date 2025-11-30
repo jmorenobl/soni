@@ -16,9 +16,12 @@ def config_path():
 
 
 @pytest.fixture
-def runtime(config_path):
-    """Create RuntimeLoop instance for testing"""
-    return RuntimeLoop(config_path)
+async def runtime(config_path):
+    """Create RuntimeLoop instance for testing with automatic cleanup"""
+    runtime_instance = RuntimeLoop(config_path)
+    yield runtime_instance
+    # Cleanup connections after test
+    await runtime_instance.cleanup()
 
 
 @pytest.mark.asyncio

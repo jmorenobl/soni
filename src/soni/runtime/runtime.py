@@ -74,6 +74,8 @@ class RuntimeLoop:
         self._flow_name: str = list(self.config.flows.keys())[0]
         # Lock to protect graph initialization from concurrent access
         self._graph_init_lock = asyncio.Lock()
+        # Flag to track cleanup status
+        self._cleaned_up = False
 
         # Managers will be initialized after graph is built
         self.conversation_manager: ConversationManager | None = None
@@ -123,11 +125,13 @@ class RuntimeLoop:
         Cleanup resources, especially the graph builder's checkpointer.
 
         Should be called when the RuntimeLoop is no longer needed to ensure
-        proper resource cleanup.
+        proper resource cleanup. Idempotent - safe to call multiple times.
         """
-        if hasattr(self, "builder") and self.builder:
-            await self.builder.cleanup()
-            logger.info("RuntimeLoop cleanup completed")
+        if not self._cleaned_up:
+            if hasattr(self, "builder") and self.builder:
+                await self.builder.cleanup()
+                logger.info("RuntimeLoop cleanup completed")
+            self._cleaned_up = True
 
     def __del__(self) -> None:
         """

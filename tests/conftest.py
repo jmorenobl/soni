@@ -6,6 +6,7 @@ This module configures the test environment, including:
 - Shared fixtures
 """
 
+import importlib
 import os
 from pathlib import Path
 
@@ -65,16 +66,29 @@ def skip_without_api_key(has_api_key):
 
 
 @pytest.fixture(autouse=True)
-def clear_action_registry():
+def clear_registries():
     """
-    Automatically clear ActionRegistry before each test to avoid state leakage.
+    Automatically clear ActionRegistry and ValidatorRegistry before each test.
 
     This ensures tests don't interfere with each other through shared registry state.
+    Built-in validators are re-imported after clearing to ensure they're available.
     """
     from soni.actions.registry import ActionRegistry
+    from soni.validation.registry import ValidatorRegistry
 
-    # Clear before test
+    # Clear both registries before test
     ActionRegistry.clear()
+    ValidatorRegistry.clear()
+
+    # Re-import built-in validators to ensure they're registered
+    # This is needed because some tests depend on built-in validators
+    # Use reload() to force re-registration after clearing
+    import soni.validation.validators  # noqa: F401
+
+    importlib.reload(soni.validation.validators)
+
     yield
+
     # Clear after test (in case test registered something)
     ActionRegistry.clear()
+    ValidatorRegistry.clear()

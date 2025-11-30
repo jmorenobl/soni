@@ -18,8 +18,8 @@ def client():
 
 
 @pytest.fixture
-def mock_runtime(monkeypatch):
-    """Mock runtime for testing"""
+async def mock_runtime(monkeypatch):
+    """Mock runtime for testing with automatic cleanup"""
     config_path = Path("examples/flight_booking/soni.yaml")
     mock_runtime = RuntimeLoop(config_path)
 
@@ -30,7 +30,9 @@ def mock_runtime(monkeypatch):
         return f"Mock response to: {user_msg}"
 
     mock_runtime.process_message = mock_process_message
-    return mock_runtime
+    yield mock_runtime
+    # Cleanup connections after test
+    await mock_runtime.cleanup()
 
 
 def test_health_endpoint(client):

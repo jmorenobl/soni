@@ -141,15 +141,16 @@ def create_understand_node(
                     for slot_name, slot_value in normalized_slots.items():
                         if slot_name in context.config.slots:
                             slot_config = context.config.slots[slot_name]
+                            # Get normalization config safely (may not exist in SlotConfig)
+                            normalization_config = getattr(slot_config, "normalization", None)
                             entity_config = {
                                 "name": slot_name,
-                                "type": slot_config.type
-                                if hasattr(slot_config, "type")
-                                else "string",
-                                "normalization": slot_config.normalization.model_dump()
-                                if hasattr(slot_config, "normalization")
-                                and slot_config.normalization
-                                else {},
+                                "type": getattr(slot_config, "type", "string"),
+                                "normalization": (
+                                    normalization_config.model_dump()
+                                    if normalization_config is not None
+                                    else {}
+                                ),
                             }
                             try:
                                 normalized_value = await normalizer.normalize(

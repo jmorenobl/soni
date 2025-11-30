@@ -11,10 +11,13 @@ from soni.server.api import app
 
 
 @pytest.fixture
-def test_runtime():
-    """Create test runtime instance"""
+async def test_runtime():
+    """Create test runtime instance with automatic cleanup"""
     config_path = Path("examples/flight_booking/soni.yaml")
-    return RuntimeLoop(config_path)
+    runtime_instance = RuntimeLoop(config_path)
+    yield runtime_instance
+    # Cleanup connections after test
+    await runtime_instance.cleanup()
 
 
 @pytest.fixture
