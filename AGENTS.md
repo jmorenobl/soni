@@ -379,16 +379,16 @@ flows:
 
 ### Task Implementation Workflow
 
-The process for implementing tasks from the backlog (`docs/tasks/backlog/`) follows this workflow:
+The process for implementing tasks follows this workflow using the `workflow/` directory (which is gitignored for local task management):
 
-1. **Start with the first task**: Move the first task from `docs/tasks/backlog/` to `docs/tasks/current/`.
+1. **Start with the first task**: Move the first task from `workflow/tasks/backlog/` to `workflow/tasks/current/`.
 2. **Implement the task**: Execute the implementation according to the task specifications.
 3. **Quality checks and commit**: When all checks pass:
    - `ruff check .` and `ruff format .` must pass
    - `mypy src/soni` must pass
    - All relevant tests must pass
    - Make a commit following the conventional commits format
-4. **Move to done**: Move the completed task from `docs/tasks/current/` to `docs/tasks/done/`.
+4. **Move to done**: Move the completed task from `workflow/tasks/current/` to `workflow/tasks/done/`.
 5. **Repeat**: Start again with the next task from the backlog.
 6. **Continue**: Repeat this process until all tasks in the backlog are completed.
 
