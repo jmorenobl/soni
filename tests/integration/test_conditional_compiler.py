@@ -55,7 +55,9 @@ def conditional_config() -> SoniConfig:
         },
         slots={"booking_ref": {"type": "string", "prompt": "Booking ref?"}},
         actions={
-            "check_booking_rules": ActionConfig(description="Check", inputs=[], outputs=["status"]),
+            "check_booking_rules": ActionConfig(
+                description="Check", inputs=[], outputs=["api_status"]
+            ),
             "modify_booking": ActionConfig(description="Modify", inputs=[], outputs=[]),
             "explain_rejection": ActionConfig(description="Explain", inputs=[], outputs=[]),
             "handle_error": ActionConfig(description="Handle", inputs=[], outputs=[]),
