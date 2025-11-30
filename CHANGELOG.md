@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-01-XX
+
+### Added
+- **Zero-Leakage Architecture**: YAML configuration is completely semantic (no technical details)
+- **Action Registry Integration**: Complete integration of ActionRegistry in compiler
+  - Auto-discovery of actions from `actions.py` or `actions/__init__.py` in config directory
+  - Actions registered via `@ActionRegistry.register()` decorator
+  - No Python paths in YAML configuration
+- **Validator Registry Integration**: Complete integration of ValidatorRegistry in validation pipeline
+  - Validators registered via `@ValidatorRegistry.register()` decorator
+  - No regex patterns in YAML configuration
+  - Built-in validators: `city_name`, `future_date_only`, `iata_code`, `booking_reference`
+- **Output Mapping**: Complete implementation of `map_outputs` in action nodes
+  - Decouples technical data structures from flat state variables
+  - Actions can return complex structures that are mapped to simple variables
+  - Validation of map_outputs during compilation
+- Integration tests for ActionRegistry + Compiler
+- Integration tests for ValidatorRegistry + Pipeline
+- Integration tests for output mapping
+
+### Changed
+- **Breaking**: Action handlers must be registered via `@ActionRegistry.register()` (no Python paths in YAML)
+- **Breaking**: Validators must be registered via `@ValidatorRegistry.register()` (no regex patterns in YAML)
+- `ActionHandler.execute()` now uses `ActionRegistry` exclusively (removed `_load_handler()` method)
+- `create_action_node_factory()` now accepts `map_outputs` parameter for output mapping
+- All YAML examples updated to use semantic names only (no technical details)
+
+### Features
+- **Zero-Leakage Architecture**: YAML describes WHAT, Python implements HOW
+- **Auto-Discovery**: Runtime automatically imports actions from config directory
+- **Output Mapping**: Technical structures mapped to flat state variables
+- **Semantic Configuration**: All YAML uses semantic names (actions, validators)
+
+### Documentation
+- Updated architecture documentation with Zero-Leakage principles
+- Added examples of Action Registry and Validator Registry usage
+- Documented output mapping with examples
+- Updated DSL guide with output mapping details
+
+### Testing
+- Tests for ActionRegistry integration with compiler
+- Tests for ValidatorRegistry integration with pipeline
+- Tests for output mapping functionality
+- Validation that YAML contains no technical details (handler paths, regex patterns)
+
+### Migration Notes
+- **From v0.3.0**: Actions must be migrated to use `@ActionRegistry.register()` decorator
+- **From v0.3.0**: Validators must be migrated to use `@ValidatorRegistry.register()` decorator
+- **From v0.3.0**: Remove any `handler:` fields from YAML action definitions
+- **From v0.3.0**: Replace regex patterns in `validator:` fields with semantic validator names
+
 ## [0.3.0] - 2025-01-XX
 
 ### Added
@@ -168,7 +219,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jmorenobl/soni/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jmorenobl/soni/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jmorenobl/soni/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/jmorenobl/soni/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jmorenobl/soni/compare/v0.1.0...v0.2.0
