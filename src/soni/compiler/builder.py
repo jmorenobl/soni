@@ -293,6 +293,14 @@ class StepCompiler:
         node_id_set = {node.id for node in dag.nodes}
         invalid_targets: list[str] = []
 
+        # Check jump_to targets in node configs
+        for node in dag.nodes:
+            if "jump_to" in node.config:
+                jump_target = node.config["jump_to"]
+                if jump_target not in node_id_set and jump_target != "__end__":
+                    if jump_target not in invalid_targets:
+                        invalid_targets.append(jump_target)
+
         # Check jump_to targets in edges (stored in edge targets)
         for edge in dag.edges:
             if edge.target not in node_id_set and edge.target != "__end__":
