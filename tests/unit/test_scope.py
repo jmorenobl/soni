@@ -527,6 +527,160 @@ def test_get_pending_slots():
     assert "origin" not in pending  # Already filled
 
 
+def test_get_expected_slots_with_flow_name():
+    """Test getting expected slots for a specific flow"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [
+                    {"step": "collect_origin", "type": "collect", "slot": "origin"},
+                    {"step": "collect_destination", "type": "collect", "slot": "destination"},
+                    {"step": "collect_date", "type": "collect", "slot": "departure_date"},
+                ],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+
+    # Act
+    expected_slots = scope_manager.get_expected_slots("book_flight")
+
+    # Assert
+    assert "origin" in expected_slots
+    assert "destination" in expected_slots
+    assert "departure_date" in expected_slots
+    assert len(expected_slots) == 3
+
+
+def test_get_expected_slots_infer_from_actions():
+    """Test inferring flow from available actions"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [
+                    {"step": "collect_origin", "type": "collect", "slot": "origin"},
+                    {"step": "collect_destination", "type": "collect", "slot": "destination"},
+                ],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+    available_actions = ["start_book_flight", "help", "cancel"]
+
+    # Act
+    expected_slots = scope_manager.get_expected_slots(
+        flow_name=None, available_actions=available_actions
+    )
+
+    # Assert
+    assert "origin" in expected_slots
+    assert "destination" in expected_slots
+    assert len(expected_slots) == 2
+
+
+def test_get_expected_slots_flow_not_found():
+    """Test getting expected slots for non-existent flow"""
+    # Arrange
+    config = SoniConfig(
+        version="0.1",
+        settings={"models": {"nlu": {"provider": "openai", "model": "gpt-4o-mini"}}},
+        flows={},
+        slots={},
+        actions={},
+    )
+    scope_manager = ScopeManager(config)
+
+    # Act
+    expected_slots = scope_manager.get_expected_slots("nonexistent_flow")
+
+    # Assert
+    assert expected_slots == []
+
+
+def test_get_expected_slots_no_flow_no_actions():
+    """Test getting expected slots when no flow and no actions to infer"""
+    # Arrange
+    config = SoniConfig(
+        version="0.1",
+        settings={"models": {"nlu": {"provider": "openai", "model": "gpt-4o-mini"}}},
+        flows={},
+        slots={},
+        actions={},
+    )
+    scope_manager = ScopeManager(config)
+
+    # Act
+    expected_slots = scope_manager.get_expected_slots(flow_name=None, available_actions=[])
+
+    # Assert
+    assert expected_slots == []
+
+
+def test_get_expected_slots_with_none_flow_name():
+    """Test getting expected slots with None flow name"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [
+                    {"step": "collect_origin", "type": "collect", "slot": "origin"},
+                ],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+
+    # Act - No actions provided, should return empty
+    expected_slots = scope_manager.get_expected_slots(flow_name=None)
+
+    # Assert
+    assert expected_slots == []
+
+
 def test_get_cache_key():
     """Test cache key generation"""
     # Arrange

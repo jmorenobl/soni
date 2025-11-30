@@ -19,6 +19,7 @@ class INLUProvider(Protocol):
         current_slots: dict[str, Any] | None = None,
         available_actions: list[str] | None = None,
         current_flow: str = "none",
+        expected_slots: list[str] | None = None,
     ) -> dict[str, Any]:
         """Predict intent, entities, and structured command from user message.
 
@@ -28,6 +29,8 @@ class INLUProvider(Protocol):
             current_slots: Currently filled slots
             available_actions: List of available actions in current context
             current_flow: Current dialogue flow name
+            expected_slots: List of expected slot names for the current flow.
+                          NLU should use these exact names when extracting entities.
 
         Returns:
             Dictionary with keys:
@@ -98,6 +101,25 @@ class IScopeManager(Protocol):
 
         Returns:
             List of action names available in current context
+        """
+        ...
+
+    def get_expected_slots(
+        self,
+        flow_name: str | None,
+        available_actions: list[str] | None = None,
+    ) -> list[str]:
+        """Get list of expected slot names for a flow.
+
+        If flow_name is None or "none", attempts to infer the flow from
+        available_actions (e.g., "start_book_flight" suggests "book_flight").
+
+        Args:
+            flow_name: Name of the flow to get slots for, or None/"none" to infer
+            available_actions: Optional list of available actions for flow inference
+
+        Returns:
+            List of expected slot names for the flow, empty list if flow not found
         """
         ...
 

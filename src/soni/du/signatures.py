@@ -19,6 +19,14 @@ class DialogueUnderstanding(dspy.Signature):
         default="[]",
     )
     current_flow = dspy.InputField(desc="Current dialogue flow name", default="none")
+    expected_slots = dspy.InputField(
+        desc=(
+            "List of expected slot names for the current flow as JSON array string. "
+            "You MUST use these exact slot names when extracting entities. "
+            'Example: \'["origin", "destination", "departure_date"]\''
+        ),
+        default="[]",
+    )
 
     # Output fields
     structured_command = dspy.OutputField(
@@ -26,8 +34,9 @@ class DialogueUnderstanding(dspy.Signature):
     )
     extracted_slots = dspy.OutputField(
         desc=(
-            "Extracted entities as a JSON string "
-            '(e.g., {"destination": "Paris", "date": "tomorrow"})'
+            "Extracted entities as a JSON string using EXACT slot names from expected_slots. "
+            "Use the exact slot names provided in expected_slots, not variations. "
+            'Example: {"origin": "Madrid", "destination": "Barcelona", "departure_date": "2024-03-15"}'
         )
     )
     confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")

@@ -270,6 +270,57 @@ class ScopeManager(IScopeManager):
 
         return actions
 
+    def get_expected_slots(
+        self,
+        flow_name: str | None,
+        available_actions: list[str] | None = None,
+    ) -> list[str]:
+        """Get list of expected slot names for a flow.
+
+        If flow_name is None or "none", attempts to infer the flow from
+        available_actions (e.g., "start_book_flight" suggests "book_flight").
+
+        Args:
+            flow_name: Name of the flow to get slots for, or None/"none" to infer
+            available_actions: Optional list of available actions for flow inference
+
+        Returns:
+            List of expected slot names for the flow, empty list if flow not found
+        """
+        # Determine which flow to check
+        flow_to_check = flow_name
+
+        # If no flow specified, try to infer from available actions
+        if not flow_to_check or flow_to_check == "none":
+            if available_actions:
+                for action in available_actions:
+                    if action.startswith("start_"):
+                        potential_flow = action[6:]  # Remove "start_" prefix
+                        flow_to_check = potential_flow
+                        logger.debug(f"Inferred flow '{flow_to_check}' from action '{action}'")
+                        break
+
+        # If still no flow, return empty list
+        if not flow_to_check or flow_to_check == "none":
+            return []
+
+        # Get flow configuration
+        flow_config = self.flows.get(flow_to_check)
+        if not flow_config:
+            logger.warning(f"Flow '{flow_to_check}' not found in configuration")
+            return []
+
+        # Extract slots using existing private method
+        try:
+            expected_slots = self._extract_collect_slots(flow_config)
+            logger.debug(
+                f"Extracted {len(expected_slots)} expected slots from flow '{flow_to_check}': {expected_slots}"
+            )
+            return expected_slots
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.warning(f"Failed to extract expected slots from flow '{flow_to_check}': {e}")
+            return []
+
     def _get_pending_slots(self, flow_config: Any, state: DialogueState) -> list[str]:
         """
         Get list of slots that still need to be collected.

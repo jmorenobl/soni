@@ -62,6 +62,7 @@ class SoniDU(dspy.Module):
         current_slots: str = "{}",
         available_actions: str = "[]",
         current_flow: str = "none",
+        expected_slots: str = "[]",
     ) -> dspy.Prediction:
         """Forward pass (synchronous) for use with optimizers.
 
@@ -71,6 +72,7 @@ class SoniDU(dspy.Module):
             current_slots: Currently filled slots as JSON string
             available_actions: Available actions as JSON array string
             current_flow: Current dialogue flow name
+            expected_slots: Expected slot names as JSON array string
 
         Returns:
             DSPy Prediction object
@@ -81,6 +83,7 @@ class SoniDU(dspy.Module):
             current_slots=current_slots,
             available_actions=available_actions,
             current_flow=current_flow,
+            expected_slots=expected_slots,
         )
 
     async def aforward(
@@ -90,6 +93,7 @@ class SoniDU(dspy.Module):
         current_slots: str = "{}",
         available_actions: str = "[]",
         current_flow: str = "none",
+        expected_slots: str = "[]",
     ) -> dspy.Prediction:
         """Async forward pass for runtime use.
 
@@ -99,6 +103,7 @@ class SoniDU(dspy.Module):
             current_slots: Currently filled slots as JSON string
             available_actions: Available actions as JSON array string
             current_flow: Current dialogue flow name
+            expected_slots: Expected slot names as JSON array string
 
         Returns:
             DSPy Prediction object
@@ -116,6 +121,7 @@ class SoniDU(dspy.Module):
             current_slots,
             available_actions,
             current_flow,
+            expected_slots,
         )
 
     def _get_cache_key(
@@ -125,6 +131,7 @@ class SoniDU(dspy.Module):
         current_slots: dict[str, Any],
         available_actions: list[str],
         current_flow: str,
+        expected_slots: list[str] | None = None,
     ) -> str:
         """Generate cache key for NLU request.
 
@@ -134,6 +141,7 @@ class SoniDU(dspy.Module):
             current_slots: Currently filled slots
             available_actions: Available actions list
             current_flow: Current dialogue flow name
+            expected_slots: Expected slot names list
 
         Returns:
             Cache key as MD5 hash string
@@ -146,6 +154,7 @@ class SoniDU(dspy.Module):
                 "slots": current_slots,
                 "actions": sorted(available_actions),  # Sort for consistency
                 "flow": current_flow,
+                "expected_slots": sorted(expected_slots or []),  # Sort for consistency
             }
         )
 
@@ -156,6 +165,7 @@ class SoniDU(dspy.Module):
         current_slots: dict[str, Any] | None = None,
         available_actions: list | None = None,
         current_flow: str = "none",
+        expected_slots: list[str] | None = None,
     ) -> NLUResult:
         """High-level async predict method that returns NLUResult.
 
@@ -168,6 +178,8 @@ class SoniDU(dspy.Module):
             current_slots: Currently filled slots as dict
             available_actions: Available actions as list (scoped by caller)
             current_flow: Current dialogue flow name
+            expected_slots: Expected slot names for the current flow.
+                          NLU should use these exact names when extracting entities.
 
         Returns:
             NLUResult object
@@ -179,6 +191,7 @@ class SoniDU(dspy.Module):
             current_slots or {},
             available_actions or [],
             current_flow,
+            expected_slots,
         )
 
         if cache_key in self.nlu_cache:
@@ -192,6 +205,7 @@ class SoniDU(dspy.Module):
         # Convert inputs to string format expected by signature
         slots_str = json.dumps(current_slots or {})
         actions_str = json.dumps(available_actions or [])
+        expected_slots_str = json.dumps(expected_slots or [])
 
         # Get prediction using acall() (DSPy's public async method)
         prediction = await self.acall(
@@ -200,6 +214,7 @@ class SoniDU(dspy.Module):
             current_slots=slots_str,
             available_actions=actions_str,
             current_flow=current_flow,
+            expected_slots=expected_slots_str,
         )
 
         # Parse outputs

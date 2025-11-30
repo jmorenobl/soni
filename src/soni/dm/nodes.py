@@ -166,6 +166,13 @@ def create_understand_node(
             # Get scoped actions using injected scope_manager
             available_actions = scope_manager.get_available_actions(state)
 
+            # Get expected slots from flow configuration using scope_manager's public method
+            # This method handles flow inference and slot extraction internally
+            expected_slots = scope_manager.get_expected_slots(
+                flow_name=state.current_flow,
+                available_actions=available_actions,
+            )
+
             # Call NLU using injected provider
             nlu_result_raw = await nlu_provider.predict(
                 user_message=user_message,
@@ -173,6 +180,7 @@ def create_understand_node(
                 current_slots=state.slots,
                 available_actions=available_actions,
                 current_flow=state.current_flow,
+                expected_slots=expected_slots,
             )
 
             # Convert to NLUResult if needed

@@ -1,11 +1,11 @@
 {
   "latency": {
-    "mean": 0.9828502655029296,
-    "median": 0.008337259292602539,
-    "min": 0.00705718994140625,
-    "max": 2.7351818084716797,
-    "p95": 2.7351818084716797,
-    "p99": 2.7351818084716797,
+    "mean": 1.4754062175750733,
+    "median": 0.009975194931030273,
+    "min": 0.006855964660644531,
+    "max": 3.8673861026763916,
+    "p95": 3.8673861026763916,
+    "p99": 3.8673861026763916,
     "success_count": 0,
     "failure_count": 5,
     "success_rate": 0.0,
@@ -14,23 +14,23 @@
       "median": 0.0
     },
     "failed_latencies": {
-      "mean": 0.9828502655029296,
-      "median": 0.008337259292602539
+      "mean": 1.4754062175750733,
+      "median": 0.009975194931030273
     }
   },
   "throughput": {
-    "throughput_msg_per_sec": 1.8944604553042268,
-    "total_time": 2.6392738819122314,
-    "avg_latency": 2.1924588203430178,
+    "throughput_msg_per_sec": 1.8837784833475542,
+    "total_time": 2.6542398929595947,
+    "avg_latency": 2.5234446048736574,
     "success_count": 0,
     "failure_count": 5,
     "success_rate": 0.0
   },
   "streaming": {
-    "mean_first_token_latency": 0.6709616184234619,
-    "median_first_token_latency": 0.00311279296875,
-    "min_first_token_latency": 0.002131938934326172,
-    "max_first_token_latency": 2.0076401233673096,
+    "mean_first_token_latency": 1.1132699648539226,
+    "median_first_token_latency": 0.0030989646911621094,
+    "min_first_token_latency": 0.0017919540405273438,
+    "max_first_token_latency": 3.334918975830078,
     "success_count": 3,
     "failure_count": 0,
     "success_rate": 100.0
