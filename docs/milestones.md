@@ -159,9 +159,104 @@ This document tracks the progress of Soni Framework milestones from technical va
 
 ---
 
-## Phase 5: Validation and Stable Release (v1.0.0)
+## Phase 5: Developer Experience (v0.5.0)
 
-### ⏳ Milestone 21: Validation and Polish for v1.0.0
+### ⏳ Milestone 21: CLI Interactive Console
+**Status:** Pending
+
+**Goal:** Enable users to test the assistant in a simple interactive console.
+
+**Features:**
+- `soni chat --config <path>` command
+- Simple read-eval-print loop (REPL)
+- Basic input/output with user messages and assistant responses
+- Exit commands: `exit`, `quit`, `Ctrl+C`, `Ctrl+D`
+- Single user session (user_id can be auto-generated or provided)
+
+**Implementation Details:**
+- Use `RuntimeLoop` to process messages
+- Use `asyncio` for async message processing
+- Simple prompt: `You: ` for user input, `Assistant: ` for responses
+- Handle errors gracefully with clear messages
+
+**Acceptance Criteria:**
+- ✅ Can start interactive session with `soni chat -c examples/flight_booking/soni.yaml`
+- ✅ Can send messages and receive responses
+- ✅ Conversation state persists within session
+- ✅ Can exit cleanly with `exit` or `Ctrl+C`
+- ✅ Error messages are clear and helpful
+
+**Reference:** `workflow/strategy/cli-strategy.md` (Milestone 1)
+
+---
+
+### ⏳ Milestone 22: Event Architecture (Observer Pattern)
+**Status:** Pending
+
+**Goal:** Implement event-based architecture for complete decoupling between RuntimeLoop and external interfaces (TUI, WebUI, Analytics, etc.).
+
+**Features:**
+- `EventEmitter` core implementation in `src/soni/core/events.py`
+- Type-safe event dataclasses (MessageReceivedEvent, NLUResultEvent, StateUpdatedEvent, ResponseReadyEvent, ActionExecutedEvent, ErrorOccurredEvent)
+- Async-first event emission and handling
+- Zero-overhead when no subscribers
+- Error isolation: handler failures don't break RuntimeLoop
+
+**Implementation Details:**
+- EventEmitter with subscribe/unsubscribe/emit methods
+- Integration in RuntimeLoop to emit events at key points
+- All events are typed dataclasses
+- Fire-and-forget async handlers
+- Thread-safe with asyncio.Lock
+
+**Acceptance Criteria:**
+- ✅ EventEmitter implemented and tested
+- ✅ Overhead of emission without subscribers < 1µs
+- ✅ RuntimeLoop emits all defined events correctly
+- ✅ Type checking passes with mypy
+- ✅ No coupling: RuntimeLoop doesn't import external UI modules
+- ✅ Handler errors don't break RuntimeLoop
+
+**Reference:** `workflow/strategy/Event-Architecture-Strategy.md`
+
+---
+
+### ⏳ Milestone 23: TUI (Text User Interface)
+**Status:** Pending
+
+**Dependencies:** Milestone 22 (Event Architecture) must be completed first.
+
+**Goal:** Implement a modern async terminal interface using Textual for debugging and development.
+
+**Features:**
+- Interactive chat widget for user messages and bot responses
+- State visualization widget showing slots, intent, and current flow
+- Debug widget with system logs and events
+- Real-time metrics display (NLU confidence, turn count)
+- Event-driven updates (subscribes to RuntimeLoop events)
+
+**Implementation Details:**
+- Textual-based TUI application
+- Widgets: ChatWidget, StateWidget, DebugWidget
+- Event subscription to RuntimeLoop events
+- Async handlers for UI updates
+- Complete decoupling: TUI doesn't modify RuntimeLoop
+
+**Acceptance Criteria:**
+- ✅ Command `soni tui` launches the interface correctly
+- ✅ Can send messages and receive responses in TUI
+- ✅ State panel updates in real-time
+- ✅ Debug panel shows system events and logs
+- ✅ UI remains responsive during processing
+- ✅ No coupling: RuntimeLoop doesn't import TUI modules
+
+**Reference:** `workflow/strategy/TUI-Strategy.md`
+
+---
+
+## Phase 6: Validation and Stable Release (v1.0.0)
+
+### ⏳ Milestone 24: Validation and Polish for v1.0.0
 **Status:** Pending
 
 - Complete audit: review ADR vs implementation, feature checklist
@@ -169,7 +264,7 @@ This document tracks the progress of Soni Framework milestones from technical va
 - Final documentation: docs site, API reference, tutorials, migration guide
 - Real use case: production deployment, user validation, real metrics
 
-### ⏳ Milestone 22: Release v1.0.0
+### ⏳ Milestone 25: Release v1.0.0
 **Status:** Pending
 
 - Version `1.0.0`, complete release notes
@@ -186,8 +281,9 @@ This document tracks the progress of Soni Framework milestones from technical va
 | Phase 2: Performance (v0.2.0) | 4/4 | 4 | 100% ✅ |
 | Phase 3: DSL Compiler (v0.3.0) | 3/3 | 3 | 100% ✅ |
 | Phase 4: Zero-Leakage (v0.4.0) | 4/4 | 4 | 100% ✅ |
-| Phase 5: Stable (v1.0.0) | 0/2 | 2 | 0% ⏳ |
-| **TOTAL** | **21/23** | **23** | **91.3%** |
+| Phase 5: Developer Experience (v0.5.0) | 0/3 | 3 | 0% ⏳ |
+| Phase 6: Stable (v1.0.0) | 0/2 | 2 | 0% ⏳ |
+| **TOTAL** | **21/28** | **28** | **75.0%** |
 
 ---
 
@@ -204,13 +300,26 @@ This document tracks the progress of Soni Framework milestones from technical va
 
 ## Next Steps
 
-1. **Milestone 21**: Validation and Polish for v1.0.0
+1. **Milestone 21**: CLI Interactive Console
+   - Implement `soni chat` command with basic REPL
+   - Enable interactive testing of dialogue systems
+
+2. **Milestone 22**: Event Architecture (Observer Pattern)
+   - Implement EventEmitter core
+   - Integrate events in RuntimeLoop
+   - Enable decoupled external interfaces
+
+3. **Milestone 23**: TUI (Text User Interface)
+   - Implement Textual-based terminal interface
+   - Real-time state visualization and debugging
+
+4. **Milestone 24**: Validation and Polish for v1.0.0
    - Complete code audit
    - Exhaustive testing
    - Final documentation
    - Real use case in production
 
-2. **Milestone 22**: Release v1.0.0
+5. **Milestone 25**: Release v1.0.0
    - Stable release preparation
    - PyPI publication
    - Community announcement

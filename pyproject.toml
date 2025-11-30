@@ -189,4 +189,5 @@ dev = [
     # Utilities
     "anyio>=4.12.0,<5.0.0",
     "radon>=6.0.1",
+    "safety>=3.7.0",
 ]

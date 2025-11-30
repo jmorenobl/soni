@@ -21,6 +21,7 @@ from soni.core.interfaces import (
     IScopeManager,
 )
 from soni.core.scope import ScopeManager
+from soni.core.security import sanitize_user_id, sanitize_user_message
 from soni.core.state import DialogueState
 from soni.dm.graph import SoniGraphBuilder
 from soni.du.modules import SoniDU
@@ -191,24 +192,27 @@ class RuntimeLoop:
         # Resources will be cleaned up when context manager exits
         pass
 
-    def _validate_inputs(self, user_msg: str, user_id: str) -> None:
+    def _validate_inputs(self, user_msg: str, user_id: str) -> tuple[str, str]:
         """
-        Validate input parameters for message processing.
+        Validate and sanitize input parameters for message processing.
 
-        Validates that user message and user ID are non-empty strings.
-        Logs validation success with message preview and length.
+        Validates that user message and user ID are non-empty strings and sanitizes them
+        to prevent injection attacks and DoS. Logs validation success with message preview and length.
 
         Args:
             user_msg: User's input message (must be non-empty after stripping)
             user_id: Unique identifier for user/conversation (must be non-empty after stripping)
 
+        Returns:
+            Tuple of (sanitized_user_msg, sanitized_user_id)
+
         Raises:
-            ValidationError: If user_msg is empty or whitespace-only
-            ValidationError: If user_id is empty or whitespace-only
+            ValidationError: If user_msg is empty or invalid after sanitization
+            ValidationError: If user_id is empty or invalid after sanitization
 
         Example:
             >>> runtime._validate_inputs("Hello", "user123")
-            # No exception raised
+            ("Hello", "user123")
 
             >>> runtime._validate_inputs("", "user123")
             ValidationError: User message cannot be empty
@@ -216,20 +220,23 @@ class RuntimeLoop:
         Note:
             This method logs the validation success with structured logging,
             including user_id and message length for debugging and monitoring.
+            All inputs are sanitized to prevent security vulnerabilities.
         """
-        if not user_msg or not user_msg.strip():
-            raise ValidationError("User message cannot be empty")
+        # Sanitize user message (removes dangerous patterns, validates length)
+        sanitized_msg = sanitize_user_message(user_msg)
 
-        if not user_id or not user_id.strip():
-            raise ValidationError("User ID cannot be empty")
+        # Sanitize user ID (validates format, length)
+        sanitized_user_id = sanitize_user_id(user_id)
 
         logger.info(
-            f"Processing message for user {user_id}: {user_msg[:50]}...",
+            f"Processing message for user {sanitized_user_id}: {sanitized_msg[:50]}...",
             extra={
-                "user_id": user_id,
-                "message_length": len(user_msg),
+                "user_id": sanitized_user_id,
+                "message_length": len(sanitized_msg),
             },
         )
+
+        return sanitized_msg, sanitized_user_id
 
     async def _load_or_create_state(self, user_id: str, user_msg: str) -> DialogueState:
         """
@@ -443,22 +450,23 @@ class RuntimeLoop:
             SoniError: If processing fails
         """
         try:
-            # 1. Validate inputs
-            self._validate_inputs(user_msg, user_id)
+            # 1. Validate and sanitize inputs
+            sanitized_msg, sanitized_user_id = self._validate_inputs(user_msg, user_id)
 
             # 2. Ensure graph is initialized (lazy initialization)
             await self._ensure_graph_initialized()
 
-            # 3. Load or create state
-            state = await self._load_or_create_state(user_id, user_msg)
+            # 3. Load or create state (use sanitized values)
+            state = await self._load_or_create_state(sanitized_user_id, sanitized_msg)
 
-            # 4. Execute graph
-            result = await self._execute_graph(state, user_id)
+            # 4. Execute graph (use sanitized user_id)
+            result = await self._execute_graph(state, sanitized_user_id)
 
             # 5. Extract and return response
-            return self._extract_response(result, user_id)
+            return self._extract_response(result, sanitized_user_id)
 
         except ValidationError as e:
+            # Use original user_id for logging (before sanitization)
             logger.error(f"Validation error for user {user_id}: {e}")
             raise
         except (NLUError, ActionNotFoundError) as e:
@@ -508,14 +516,12 @@ class RuntimeLoop:
             ValidationError: If inputs are invalid
             SoniError: If processing fails
         """
-        # Validate inputs
-        if not user_msg or not user_msg.strip():
-            raise ValidationError("User message cannot be empty")
+        # Validate and sanitize inputs
+        sanitized_msg, sanitized_user_id = self._validate_inputs(user_msg, user_id)
 
-        if not user_id or not user_id.strip():
-            raise ValidationError("User ID cannot be empty")
-
-        logger.info(f"Processing message stream for user {user_id}: {user_msg[:50]}...")
+        logger.info(
+            f"Processing message stream for user {sanitized_user_id}: {sanitized_msg[:50]}..."
+        )
         start_time = time.time()
         first_token_sent = False
 
@@ -523,26 +529,26 @@ class RuntimeLoop:
             # Ensure graph is initialized (lazy initialization)
             await self._ensure_graph_initialized()
 
-            # Get or create state using ConversationManager
+            # Get or create state using ConversationManager (use sanitized values)
             if self.conversation_manager is None:
                 raise SoniError("ConversationManager not initialized")
-            state = await self.conversation_manager.get_or_create_state(user_id)
-            state.add_message("user", user_msg)
+            state = await self.conversation_manager.get_or_create_state(sanitized_user_id)
+            state.add_message("user", sanitized_msg)
 
             # Get scoped actions based on current state
             scoped_actions = self.scope_manager.get_available_actions(state)
             logger.debug(
-                f"Scoped actions for user {user_id}: {scoped_actions} "
+                f"Scoped actions for user {sanitized_user_id}: {scoped_actions} "
                 f"(total: {len(scoped_actions)})"
             )
 
-            # Stream graph execution using StreamingManager
+            # Stream graph execution using StreamingManager (use sanitized user_id)
             if self.streaming_manager is None:
                 raise SoniError("StreamingManager not initialized")
             async for event in self.streaming_manager.stream_response(
                 graph=self.graph,
                 state=state,
-                user_id=user_id,
+                user_id=sanitized_user_id,
             ):
                 # Extract response from event
                 # With stream_mode="updates", event is a dict where keys are node names
@@ -566,7 +572,7 @@ class RuntimeLoop:
                                             time.time() - start_time
                                         ) * 1000  # ms
                                         logger.info(
-                                            f"First token latency for user {user_id}: "
+                                            f"First token latency for user {sanitized_user_id}: "
                                             f"{first_token_latency:.2f}ms"
                                         )
                                         first_token_sent = True
@@ -578,7 +584,7 @@ class RuntimeLoop:
                                 yield "\n"
 
             # State is automatically saved by checkpointing
-            logger.info(f"Successfully processed message stream for user {user_id}")
+            logger.info(f"Successfully processed message stream for user {sanitized_user_id}")
 
         except ValidationError as e:
             logger.error(f"Validation error for user {user_id}: {e}")

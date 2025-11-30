@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from soni.core.errors import NLUError, SoniError, ValidationError
+from soni.core.security import sanitize_error_message, sanitize_user_id, sanitize_user_message
 from soni.runtime import RuntimeLoop
 
 logger = logging.getLogger(__name__)
@@ -112,9 +113,11 @@ async def validation_exception_handler(
 async def soni_error_handler(request: Request, exc: SoniError) -> JSONResponse:
     """Handle Soni framework errors"""
     logger.error(f"Soni error in {request.url.path}: {exc}")
+    # Sanitize error message before exposing to user
+    sanitized_detail = sanitize_error_message(str(exc))
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": str(exc)},
+        content={"detail": sanitized_detail},
     )
 
 
@@ -144,13 +147,6 @@ async def chat(user_id: str, request: ChatRequest) -> ChatResponse:
     Raises:
         HTTPException: If processing fails
     """
-    # Validate user_id
-    if not user_id or not user_id.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID cannot be empty",
-        )
-
     if runtime is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -158,22 +154,31 @@ async def chat(user_id: str, request: ChatRequest) -> ChatResponse:
         )
 
     try:
+        # Sanitize inputs (early validation at API layer)
+        # Runtime will also sanitize, but this provides defense in depth
+        sanitized_user_id = sanitize_user_id(user_id)
+        sanitized_message = sanitize_user_message(request.message)
+
         logger.info(
-            f"Processing message for user {user_id}",
-            extra={"user_id": user_id, "message_length": len(request.message)},
+            f"Processing message for user {sanitized_user_id}",
+            extra={
+                "user_id": sanitized_user_id,
+                "message_length": len(sanitized_message),
+            },
         )
 
-        # Process message
+        # Process message (runtime will also sanitize for additional safety)
         response_text = await runtime.process_message(
-            user_msg=request.message,
-            user_id=user_id,
+            user_msg=sanitized_message,
+            user_id=sanitized_user_id,
         )
 
-        logger.info(f"Successfully processed message for user {user_id}")
-        return ChatResponse(response=response_text, user_id=user_id)
+        logger.info(f"Successfully processed message for user {sanitized_user_id}")
+        return ChatResponse(response=response_text, user_id=sanitized_user_id)
 
     except ValidationError as e:
         logger.warning(f"Validation error for user {user_id}: {e}")
+        # Validation errors are safe to expose (they're user-facing messages)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -186,9 +191,11 @@ async def chat(user_id: str, request: ChatRequest) -> ChatResponse:
         ) from e
     except SoniError as e:
         logger.error(f"Soni error for user {user_id}: {e}")
+        # Sanitize error message before exposing
+        sanitized_detail = sanitize_error_message(f"Processing failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Processing failed: {str(e)}",
+            detail=sanitized_detail,
         ) from e
     except Exception as e:
         # Errores inesperados - 500 Internal Server Error
@@ -221,31 +228,37 @@ async def chat_stream(user_id: str, request: ChatRequest) -> StreamingResponse:
     Raises:
         HTTPException: If processing fails
     """
-    # Validate user_id
-    if not user_id or not user_id.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID cannot be empty",
-        )
-
     if runtime is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Runtime not initialized",
         )
 
+    # Sanitize inputs (early validation at API layer)
+    try:
+        sanitized_user_id = sanitize_user_id(user_id)
+        sanitized_message = sanitize_user_message(request.message)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
     async def generate_stream():
         """Generator function for SSE streaming"""
         try:
             logger.info(
-                f"Starting stream for user {user_id}",
-                extra={"user_id": user_id, "message_length": len(request.message)},
+                f"Starting stream for user {sanitized_user_id}",
+                extra={
+                    "user_id": sanitized_user_id,
+                    "message_length": len(sanitized_message),
+                },
             )
 
-            # Stream tokens from runtime
+            # Stream tokens from runtime (runtime will also sanitize for additional safety)
             async for token in runtime.process_message_stream(
-                user_msg=request.message,
-                user_id=user_id,
+                user_msg=sanitized_message,
+                user_id=sanitized_user_id,
             ):
                 # Format as SSE: data: {content}\n\n
                 # For tokens, send as simple text
@@ -254,21 +267,23 @@ async def chat_stream(user_id: str, request: ChatRequest) -> StreamingResponse:
             # Send completion signal
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-            logger.info(f"Stream completed for user {user_id}")
+            logger.info(f"Stream completed for user {sanitized_user_id}")
 
         except ValidationError as e:
-            logger.warning(f"Validation error in stream for user {user_id}: {e}")
-            # Send error in stream
+            logger.warning(f"Validation error in stream for user {sanitized_user_id}: {e}")
+            # Validation errors are safe to expose
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         except NLUError as e:
-            logger.error(f"NLU error in stream for user {user_id}: {e}")
+            logger.error(f"NLU error in stream for user {sanitized_user_id}: {e}")
             error_msg = json.dumps(
                 {"type": "error", "message": "Natural language understanding failed"}
             )
             yield f"data: {error_msg}\n\n"
         except SoniError as e:
-            logger.error(f"Soni error in stream for user {user_id}: {e}")
-            error_msg = json.dumps({"type": "error", "message": f"Processing failed: {str(e)}"})
+            logger.error(f"Soni error in stream for user {sanitized_user_id}: {e}")
+            # Sanitize error message before exposing
+            sanitized_msg = sanitize_error_message(f"Processing failed: {str(e)}")
+            error_msg = json.dumps({"type": "error", "message": sanitized_msg})
             yield f"data: {error_msg}\n\n"
         except Exception as e:
             # Errores inesperados en streaming

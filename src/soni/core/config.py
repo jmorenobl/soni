@@ -339,6 +339,35 @@ class LoggingConfig(BaseModel):
     )
 
 
+class SecurityConfig(BaseModel):
+    """Configuration for security guardrails"""
+
+    enable_guardrails: bool = Field(
+        default=True,
+        description="Whether to enable security guardrails",
+    )
+    allowed_actions: list[str] = Field(
+        default_factory=list,
+        description="List of allowed actions. Empty list means all actions are allowed.",
+    )
+    blocked_intents: list[str] = Field(
+        default_factory=list,
+        description="List of blocked intents",
+    )
+    max_confidence_threshold: float = Field(
+        default=0.95,
+        ge=0.0,
+        le=1.0,
+        description="Maximum confidence threshold (0.0 to 1.0)",
+    )
+    min_confidence_threshold: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Minimum confidence threshold (0.0 to 1.0)",
+    )
+
+
 class Settings(BaseModel):
     """Global settings configuration"""
 
@@ -350,6 +379,10 @@ class Settings(BaseModel):
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig,
         description="Logging configuration",
+    )
+    security: SecurityConfig = Field(
+        default_factory=SecurityConfig,
+        description="Security configuration",
     )
 
 

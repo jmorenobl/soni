@@ -6,7 +6,8 @@ from typing import Any
 
 from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
-from soni.core.errors import ActionNotFoundError
+from soni.core.errors import ActionNotFoundError, ValidationError
+from soni.core.security import SecurityGuardrails, validate_action_name
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,22 @@ class ActionHandler:
             config: Soni configuration containing action definitions
         """
         self.config = config
+        # Initialize security guardrails from config
+        security_config = config.settings.security
+        self.guardrails: SecurityGuardrails | None = (
+            SecurityGuardrails(
+                allowed_actions=security_config.allowed_actions
+                if security_config.allowed_actions
+                else None,
+                blocked_intents=security_config.blocked_intents
+                if security_config.blocked_intents
+                else None,
+                max_confidence_threshold=security_config.max_confidence_threshold,
+                min_confidence_threshold=security_config.min_confidence_threshold,
+            )
+            if security_config.enable_guardrails
+            else None
+        )
 
     async def execute(self, action_name: str, slots: dict[str, Any]) -> dict[str, Any]:
         """
@@ -41,10 +58,26 @@ class ActionHandler:
             Dictionary with action outputs
 
         Raises:
+            ValidationError: If action name is invalid
+            ValidationError: If action is blocked by guardrails
             ActionNotFoundError: If action is not found in config
             ActionNotFoundError: If handler cannot be loaded
             RuntimeError: If handler execution fails
         """
+        # Validate action name format (prevent injection)
+        try:
+            validate_action_name(action_name)
+        except ValidationError:
+            logger.warning(f"Invalid action name format: {action_name}")
+            raise
+
+        # Check security guardrails if enabled
+        if self.guardrails:
+            is_valid, error = self.guardrails.validate_action(action_name)
+            if not is_valid:
+                logger.warning(f"Action '{action_name}' blocked by guardrails: {error}")
+                raise ValidationError(f"Action execution blocked: {error}")
+
         # Get action config
         if action_name not in self.config.actions:
             raise ActionNotFoundError(

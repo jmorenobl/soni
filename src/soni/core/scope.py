@@ -7,6 +7,7 @@ from cachetools import TTLCache  # type: ignore[import-untyped]
 
 from soni.core.config import SoniConfig
 from soni.core.interfaces import IScopeManager
+from soni.core.security import SecurityGuardrails
 from soni.core.state import DialogueState
 from soni.utils.hashing import generate_cache_key_from_dict
 
@@ -40,11 +41,41 @@ class ScopeManager(IScopeManager):
         if isinstance(config, SoniConfig):
             self.config = config
             self.flows = config.flows
+            # Initialize security guardrails from config
+            security_config = config.settings.security
+            self.guardrails = (
+                SecurityGuardrails(
+                    allowed_actions=security_config.allowed_actions
+                    if security_config.allowed_actions
+                    else None,
+                    blocked_intents=security_config.blocked_intents
+                    if security_config.blocked_intents
+                    else None,
+                    max_confidence_threshold=security_config.max_confidence_threshold,
+                    min_confidence_threshold=security_config.min_confidence_threshold,
+                )
+                if security_config.enable_guardrails
+                else None
+            )
         elif isinstance(config, dict):
             # For backward compatibility, extract flows from dict
             self.flows = config.get("flows", {})
+            # Try to extract security config from dict
+            security_settings = config.get("settings", {}).get("security", {})
+            if security_settings.get("enable_guardrails", True):
+                self.guardrails = SecurityGuardrails(
+                    allowed_actions=security_settings.get("allowed_actions") or None,
+                    blocked_intents=security_settings.get("blocked_intents") or None,
+                    max_confidence_threshold=security_settings.get(
+                        "max_confidence_threshold", 0.95
+                    ),
+                    min_confidence_threshold=security_settings.get("min_confidence_threshold", 0.0),
+                )
+            else:
+                self.guardrails = None
         else:
             self.flows = {}
+            self.guardrails = None
 
         # Global actions that are always available
         self.global_actions = ["help", "cancel", "restart"]
@@ -55,7 +86,10 @@ class ScopeManager(IScopeManager):
             ttl=cache_ttl,  # 1 minute TTL (60 seconds)
         )
 
-        logger.debug(f"ScopeManager initialized with {len(self.flows)} flows")
+        logger.debug(
+            f"ScopeManager initialized with {len(self.flows)} flows, "
+            f"guardrails: {'enabled' if self.guardrails else 'disabled'}"
+        )
 
     def _get_cache_key(
         self,
@@ -147,6 +181,17 @@ class ScopeManager(IScopeManager):
 
         # Remove duplicates
         result = list(set(actions))
+
+        # Apply security guardrails if enabled
+        if self.guardrails:
+            filtered_actions = []
+            for action in result:
+                is_valid, error = self.guardrails.validate_action(action)
+                if is_valid:
+                    filtered_actions.append(action)
+                else:
+                    logger.debug(f"Action '{action}' filtered by guardrails: {error}")
+            result = filtered_actions
 
         # Cache result
         self.scoping_cache[cache_key] = result
