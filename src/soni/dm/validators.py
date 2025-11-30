@@ -60,11 +60,12 @@ class FlowValidator:
                 context={"flow_config": str(flow_config)},
             )
 
-        if not isinstance(flow_config.steps, list):
+        steps = flow_config.steps_or_process
+        if not isinstance(steps, list):
             raise ValidationError(
-                f"Flow 'steps' must be a list, got {type(flow_config.steps).__name__}",
+                f"Flow 'steps' or 'process' must be a list, got {type(steps).__name__}",
                 field="steps",
-                value=flow_config.steps,
+                value=steps,
             )
 
     def _validate_flow_slots(self, flow_config: Any) -> None:
@@ -77,7 +78,8 @@ class FlowValidator:
         Raises:
             ValidationError: If referenced slot is not defined
         """
-        for step in flow_config.steps:
+        steps = flow_config.steps_or_process
+        for step in steps:
             if step.type == "collect" and step.slot:
                 if step.slot not in self.config.slots:
                     raise ValidationError(
@@ -100,7 +102,8 @@ class FlowValidator:
         Raises:
             ValidationError: If referenced action is not defined
         """
-        for step in flow_config.steps:
+        steps = flow_config.steps_or_process
+        for step in steps:
             if step.type == "action" and step.call:
                 if step.call not in self.config.actions:
                     raise ValidationError(

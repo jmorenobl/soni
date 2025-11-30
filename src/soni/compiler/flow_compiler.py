@@ -76,10 +76,11 @@ class FlowCompiler:
             raise KeyError(f"Flow '{flow_name}' not found in configuration")
 
         flow_config = self.config.flows[flow_name]
-        logger.info(f"Compiling flow '{flow_name}' with {len(flow_config.steps)} steps")
+        steps = flow_config.steps_or_process
+        logger.info(f"Compiling flow '{flow_name}' with {len(steps)} steps")
 
         # Parse steps first
-        parsed_steps = self.parser.parse(flow_config.steps)
+        parsed_steps = self.parser.parse(steps)
 
         # Generate DAG using StepCompiler (for backward compatibility)
         dag = self.compiler._generate_dag(flow_name, parsed_steps)
@@ -129,10 +130,11 @@ class FlowCompiler:
             raise KeyError(f"Flow '{flow_name}' not found in configuration")
 
         flow_config = self.config.flows[flow_name]
-        logger.info(f"Compiling flow '{flow_name}' to graph with {len(flow_config.steps)} steps")
+        steps = flow_config.steps_or_process
+        logger.info(f"Compiling flow '{flow_name}' to graph with {len(steps)} steps")
 
         # Parse steps
-        parsed_steps = self.parser.parse(flow_config.steps)
+        parsed_steps = self.parser.parse(steps)
 
         # Compile to graph
         graph = self.compiler.compile(flow_name, parsed_steps)

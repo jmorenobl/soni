@@ -184,7 +184,7 @@ class ScopeManager(IScopeManager):
 
         # Handle FlowConfig (Pydantic model)
         if hasattr(flow_config, "steps"):
-            for step in flow_config.steps:
+            for step in flow_config.steps_or_process:
                 if hasattr(step, "type") and step.type == "action":
                     if hasattr(step, "call") and step.call:
                         actions.append(step.call)
@@ -253,7 +253,7 @@ class ScopeManager(IScopeManager):
 
         if hasattr(flow_config, "steps"):
             # FlowConfig (Pydantic model)
-            slots.extend(self._extract_from_flowconfig_steps(flow_config.steps))
+            slots.extend(self._extract_from_flowconfig_steps(flow_config.steps_or_process))
         elif isinstance(flow_config, dict):
             # Dict format
             slots.extend(self._extract_from_dict_steps(flow_config))

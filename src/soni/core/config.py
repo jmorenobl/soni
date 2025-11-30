@@ -388,7 +388,28 @@ class FlowConfig(BaseModel):
     """Configuration for a dialogue flow"""
 
     description: str = Field(..., description="Flow description")
-    steps: list[StepConfig] = Field(..., description="List of steps in the flow")
+    steps: list[StepConfig] | None = Field(
+        default=None, description="List of steps in the flow (legacy format)"
+    )
+    process: list[StepConfig] | None = Field(
+        default=None, description="List of steps in the flow (procedural DSL format)"
+    )
+
+    def model_post_init(self, __context: Any) -> None:
+        """Validate that either steps or process is provided."""
+        if self.steps is None and self.process is None:
+            raise ValueError("FlowConfig must have either 'steps' or 'process' field")
+        if self.steps is not None and self.process is not None:
+            raise ValueError("FlowConfig cannot have both 'steps' and 'process' fields")
+
+    @property
+    def steps_or_process(self) -> list[StepConfig]:
+        """Get steps or process, whichever is available."""
+        if self.process is not None:
+            return self.process
+        if self.steps is not None:
+            return self.steps
+        raise ValueError("FlowConfig must have either 'steps' or 'process' field")
 
 
 class SlotConfig(BaseModel):
