@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from langgraph.graph.graph import CompiledStateGraph
 
 from soni.actions.base import ActionHandler
-from soni.compiler.dag import FlowDAG, NodeType
+from soni.compiler.dag import DAGNode, FlowDAG, NodeType
 from soni.compiler.flow_compiler import FlowCompiler
 from soni.core.config import SoniConfig
 from soni.core.interfaces import (
@@ -222,17 +222,23 @@ class SoniGraphBuilder:
         return graph
 
     def _create_node_function_from_dag(
-        self, node: Any, context: RuntimeContext
-    ) -> Any:  # Node function type is complex, keep Any for now
+        self,
+        node: DAGNode,
+        context: RuntimeContext,
+    ) -> Any:
         """
         Create node function from DAG node.
 
         Args:
-            node: DAG node
-            context: Runtime context
+            node: DAG node from compiled flow
+            context: Runtime context with dependencies
 
         Returns:
-            Node function for LangGraph
+            Node function for LangGraph.
+            Type is Any because LangGraph's node types are complex internal types
+            (_Node, _NodeWithConfig, etc.) that are not easily expressible in type hints.
+            The actual return type is an async function that takes DialogueState | dict[str, Any]
+            and returns dict[str, Any] (state updates).
         """
         if node.type == NodeType.UNDERSTAND:
             return create_understand_node(
