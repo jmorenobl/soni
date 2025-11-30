@@ -1,220 +1,220 @@
-# Soni Framework - Progreso de Hitos
+# Soni Framework - Milestone Progress
 
-Este documento rastrea el progreso de los hitos del proyecto Soni Framework desde la validación técnica hasta el release estable v1.0.0.
+This document tracks the progress of Soni Framework milestones from technical validation to stable release v1.0.0.
 
-**Última actualización:** 2024-11-30
-
----
-
-## Fase 0: Validación Técnica
-
-### ✅ Hito 0: Validación Técnica Pre-Desarrollo
-**Estado:** Completado | **Versión:** v0.0.1
-
-- ✅ Experimento DSPy (MIPROv2): Validación completada
-- ✅ Experimento LangGraph Streaming: Validación completada
-- ✅ Experimento Persistencia Async: Validación completada
-- ✅ Reporte GO/NO-GO: Decisión GO para continuar
+**Last updated:** 2024-11-30
 
 ---
 
-## Fase 1: MVP (v0.1.0)
+## Phase 0: Technical Validation
 
-### ✅ Hito 1: Setup de Proyecto y Arquitectura Base
-**Estado:** Completado
+### ✅ Milestone 0: Pre-Development Technical Validation
+**Status:** Completed | **Version:** v0.0.1
 
-### ✅ Hito 2: Core Interfaces y State Management
-**Estado:** Completado
-
-### ✅ Hito 3: SoniDU - Módulo DSPy Base
-**Estado:** Completado
-
-### ✅ Hito 4: Optimización DSPy (MIPROv2)
-**Estado:** Completado
-
-### ✅ Hito 5: YAML Parser y Configuración
-**Estado:** Completado
-
-### ✅ Hito 6: LangGraph Runtime Básico
-**Estado:** Completado
-
-### ✅ Hito 7: Runtime Loop y FastAPI Integration
-**Estado:** Completado
-
-### ✅ Hito 8: Ejemplo End-to-End y Documentación MVP
-**Estado:** Completado
-
-### ✅ Hito 9: Release v0.1.0 (MVP)
-**Estado:** Completado | **Versión:** v0.1.0 | **Fecha:** 2025-11-29
+- ✅ DSPy Experiment (MIPROv2): Validation completed
+- ✅ LangGraph Streaming Experiment: Validation completed
+- ✅ Async Persistence Experiment: Validation completed
+- ✅ GO/NO-GO Report: GO decision to continue
 
 ---
 
-## Fase 2: Performance y Optimizaciones (v0.2.0)
+## Phase 1: MVP (v0.1.0)
 
-### ✅ Hito 10: Async Everything y Dynamic Scoping
-**Estado:** Completado
-- ✅ Task 027: Implementación AsyncSqliteSaver
-- ✅ Task 028: ScopeManager implementado
-- ✅ Task 029: Integración con SoniDU completada
-- ✅ Task 030: Validación de performance (39.5% reducción tokens)
+### ✅ Milestone 1: Project Setup and Base Architecture
+**Status:** Completed
 
-### ✅ Hito 11: Normalization Layer
-**Estado:** Completado
-- ✅ Task 023: SlotNormalizer implementado
-- ✅ Task 024: Integración en pipeline
-- ✅ Task 025: Tests completos (17 tests unitarios + integración)
-- ✅ Task 026: Validación de impacto (+11.11% validación, 0.01ms latencia)
+### ✅ Milestone 2: Core Interfaces and State Management
+**Status:** Completed
 
-### ✅ Hito 12: Streaming y Performance
-**Estado:** Completado
-- ✅ Task 031: Streaming en RuntimeLoop (SSE, <500ms primer token)
-- ✅ Task 032: Endpoint de streaming en FastAPI
-- ✅ Task 033: Optimizaciones de performance
-- ✅ Task 034: Tests de performance
+### ✅ Milestone 3: SoniDU - Base DSPy Module
+**Status:** Completed
 
-### ✅ Hito 13: Release v0.2.0
-**Estado:** Completado | **Versión:** v0.2.0
-- ✅ Task 035: Preparar Release v0.2.0
-- ✅ Task 036: Validación Final para v0.2.0
-- ✅ Task 037: Publicar Release v0.2.0
+### ✅ Milestone 4: DSPy Optimization (MIPROv2)
+**Status:** Completed
 
----
+### ✅ Milestone 5: YAML Parser and Configuration
+**Status:** Completed
 
-## Fase 3: DSL Compiler (v0.3.0)
+### ✅ Milestone 6: Basic LangGraph Runtime
+**Status:** Completed
 
-### ✅ Hito 14: Step Compiler (Parte 1 - Lineal)
-**Estado:** Completado
-- ✅ Task 054: Implementar StepParser para parsing de steps lineales
-- ✅ Task 055: Implementar StepCompiler para generar grafos lineales
-- ✅ Task 056: Tests del compilador lineal
+### ✅ Milestone 7: Runtime Loop and FastAPI Integration
+**Status:** Completed
 
-### ✅ Hito 15: Step Compiler (Parte 2 - Condicionales)
-**Estado:** Completado
-- ✅ Task 057: Soporte de branches en el compilador
-- ✅ Task 058: Soporte de jumps en el compilador
-- ✅ Task 059: Validación de grafo compilado
-- ✅ Task 060: Tests del compilador con condicionales
+### ✅ Milestone 8: End-to-End Example and MVP Documentation
+**Status:** Completed
 
-### ✅ Hito 16: Release v0.3.0
-**Estado:** Completado | **Versión:** v0.3.0 | **Fecha:** 2024-11-30
-- ✅ Task 073: Preparar Release v0.3.0
-- ✅ Task 074: Validación Final para v0.3.0
-- ✅ Task 075: Publicar Release v0.3.0
+### ✅ Milestone 9: Release v0.1.0 (MVP)
+**Status:** Completed | **Version:** v0.1.0 | **Date:** 2025-11-29
 
 ---
 
-## Fase 4: Zero-Leakage Architecture (v0.4.0)
+## Phase 2: Performance and Optimizations (v0.2.0)
 
-### ✅ Hito 17: Action Registry (Zero-Leakage Parte 1)
-**Estado:** Completado | **Versión:** v0.4.0
-- ✅ Task 076: Completar Integración de ActionRegistry en Compiler
-  - ActionRegistry integrado exclusivamente en compiler (sin fallbacks)
-  - Auto-discovery de acciones desde `actions.py` o `actions/__init__.py`
-  - YAML sin paths Python (solo nombres semánticos)
-  - Tests de integración completos
+### ✅ Milestone 10: Async Everything and Dynamic Scoping
+**Status:** Completed
+- ✅ Task 027: AsyncSqliteSaver implementation
+- ✅ Task 028: ScopeManager implemented
+- ✅ Task 029: Integration with SoniDU completed
+- ✅ Task 030: Performance validation (39.5% token reduction)
 
-### ✅ Hito 18: Validator Registry (Zero-Leakage Parte 2)
-**Estado:** Completado | **Versión:** v0.4.0
-- ✅ Task 077: Completar Integración de ValidatorRegistry en Pipeline
-  - ValidatorRegistry integrado en pipeline de validación
-  - YAML sin regex patterns (solo nombres semánticos)
-  - Validators built-in registrados: `city_name`, `future_date_only`, `iata_code`, `booking_reference`
-  - Tests de integración completos
+### ✅ Milestone 11: Normalization Layer
+**Status:** Completed
+- ✅ Task 023: SlotNormalizer implemented
+- ✅ Task 024: Pipeline integration
+- ✅ Task 025: Complete tests (17 unit tests + integration)
+- ✅ Task 026: Impact validation (+11.11% validation, 0.01ms latency)
 
-### ✅ Hito 19: Output Mapping (Zero-Leakage Parte 3)
-**Estado:** Completado | **Versión:** v0.4.0
-- ✅ Task 078: Implementar Output Mapping Completo en Nodos de Acción
-  - `map_outputs` implementado en `create_action_node_factory()`
-  - Desacoplamiento de estructuras técnicas a variables planas
-  - Validación de mapeos durante compilación
-  - Backward compatibility mantenida
-  - Tests de integración completos
+### ✅ Milestone 12: Streaming and Performance
+**Status:** Completed
+- ✅ Task 031: Streaming in RuntimeLoop (SSE, <500ms first token)
+- ✅ Task 032: Streaming endpoint in FastAPI
+- ✅ Task 033: Performance optimizations
+- ✅ Task 034: Performance tests
 
-### ✅ Hito 20: Release v0.4.0
-**Estado:** Completado | **Versión:** v0.4.0 | **Fecha:** 2024-11-30
-- ✅ Task 079: Preparar Release v0.4.0
-  - Versión actualizada a 0.4.0 en `pyproject.toml`
-  - CHANGELOG.md actualizado con entrada completa
-  - Tag `v0.4.0` creado en Git
-  - Documentación de Zero-Leakage Architecture actualizada
-- ✅ Task 080: Validación Final para v0.4.0
-  - Todos los tests pasan (371 passed)
-  - Coverage: 85.89% (objetivo: ≥85%)
-  - Linting y type checking pasan
-  - Validación Zero-Leakage: YAML sin detalles técnicos
-  - Ejemplos funcionan correctamente
-- ✅ Task 081: Publicar Release v0.4.0
-  - Paquete Python construido exitosamente
-  - Tag `v0.4.0` pusheado a remoto
-  - GitHub release creado con `gh` CLI
-  - Assets subidos: `soni-0.4.0-py3-none-any.whl` (66KB), `soni-0.4.0.tar.gz` (426KB)
-
-**Características Principales de v0.4.0:**
-- ✅ Zero-Leakage Architecture: YAML describe WHAT, Python implementa HOW
-- ✅ Action Registry: Registro semántico de acciones sin paths Python
-- ✅ Validator Registry: Validación semántica sin regex en YAML
-- ✅ Output Mapping: Desacoplamiento de estructuras técnicas
-- ✅ Auto-Discovery: Runtime importa acciones automáticamente
-- ✅ Documentación completa actualizada
+### ✅ Milestone 13: Release v0.2.0
+**Status:** Completed | **Version:** v0.2.0
+- ✅ Task 035: Prepare Release v0.2.0
+- ✅ Task 036: Final Validation for v0.2.0
+- ✅ Task 037: Publish Release v0.2.0
 
 ---
 
-## Fase 5: Validación y Release Stable (v1.0.0)
+## Phase 3: DSL Compiler (v0.3.0)
 
-### ⏳ Hito 21: Validación y Polish para v1.0.0
-**Estado:** Pendiente
+### ✅ Milestone 14: Step Compiler (Part 1 - Linear)
+**Status:** Completed
+- ✅ Task 054: Implement StepParser for parsing linear steps
+- ✅ Task 055: Implement StepCompiler for generating linear graphs
+- ✅ Task 056: Linear compiler tests
 
-- Auditoría completa: revisar ADR vs implementación, checklist features
-- Testing exhaustivo: coverage >80%, tests E2E, performance tests, security audit
-- Documentación final: docs site, API reference, tutoriales, migration guide
-- Caso de uso real: deployment producción, validación usuarios, métricas reales
+### ✅ Milestone 15: Step Compiler (Part 2 - Conditionals)
+**Status:** Completed
+- ✅ Task 057: Branch support in compiler
+- ✅ Task 058: Jump support in compiler
+- ✅ Task 059: Compiled graph validation
+- ✅ Task 060: Conditional compiler tests
 
-### ⏳ Hito 22: Release v1.0.0
-**Estado:** Pendiente
-
-- Versionar `1.0.0`, release notes completos
-- Publicación PyPI estable, GitHub Release, community announcement
+### ✅ Milestone 16: Release v0.3.0
+**Status:** Completed | **Version:** v0.3.0 | **Date:** 2024-11-30
+- ✅ Task 073: Prepare Release v0.3.0
+- ✅ Task 074: Final Validation for v0.3.0
+- ✅ Task 075: Publish Release v0.3.0
 
 ---
 
-## Resumen de Progreso
+## Phase 4: Zero-Leakage Architecture (v0.4.0)
 
-| Fase | Hitos Completados | Total | Progreso |
-|------|-------------------|-------|----------|
-| Fase 0: Validación Técnica | 1/1 | 1 | 100% ✅ |
-| Fase 1: MVP (v0.1.0) | 9/9 | 9 | 100% ✅ |
-| Fase 2: Performance (v0.2.0) | 4/4 | 4 | 100% ✅ |
-| Fase 3: DSL Compiler (v0.3.0) | 3/3 | 3 | 100% ✅ |
-| Fase 4: Zero-Leakage (v0.4.0) | 4/4 | 4 | 100% ✅ |
-| Fase 5: Stable (v1.0.0) | 0/2 | 2 | 0% ⏳ |
+### ✅ Milestone 17: Action Registry (Zero-Leakage Part 1)
+**Status:** Completed | **Version:** v0.4.0
+- ✅ Task 076: Complete ActionRegistry Integration in Compiler
+  - ActionRegistry integrated exclusively in compiler (no fallbacks)
+  - Auto-discovery of actions from `actions.py` or `actions/__init__.py`
+  - YAML without Python paths (semantic names only)
+  - Complete integration tests
+
+### ✅ Milestone 18: Validator Registry (Zero-Leakage Part 2)
+**Status:** Completed | **Version:** v0.4.0
+- ✅ Task 077: Complete ValidatorRegistry Integration in Pipeline
+  - ValidatorRegistry integrated in validation pipeline
+  - YAML without regex patterns (semantic names only)
+  - Built-in validators registered: `city_name`, `future_date_only`, `iata_code`, `booking_reference`
+  - Complete integration tests
+
+### ✅ Milestone 19: Output Mapping (Zero-Leakage Part 3)
+**Status:** Completed | **Version:** v0.4.0
+- ✅ Task 078: Implement Complete Output Mapping in Action Nodes
+  - `map_outputs` implemented in `create_action_node_factory()`
+  - Decoupling of technical structures to flat variables
+  - Mapping validation during compilation
+  - Backward compatibility maintained
+  - Complete integration tests
+
+### ✅ Milestone 20: Release v0.4.0
+**Status:** Completed | **Version:** v0.4.0 | **Date:** 2024-11-30
+- ✅ Task 079: Prepare Release v0.4.0
+  - Version updated to 0.4.0 in `pyproject.toml`
+  - CHANGELOG.md updated with complete entry
+  - Git tag `v0.4.0` created
+  - Zero-Leakage Architecture documentation updated
+- ✅ Task 080: Final Validation for v0.4.0
+  - All tests pass (371 passed)
+  - Coverage: 85.89% (target: ≥85%)
+  - Linting and type checking pass
+  - Zero-Leakage validation: YAML without technical details
+  - Examples work correctly
+- ✅ Task 081: Publish Release v0.4.0
+  - Python package built successfully
+  - Tag `v0.4.0` pushed to remote
+  - GitHub release created with `gh` CLI
+  - Assets uploaded: `soni-0.4.0-py3-none-any.whl` (66KB), `soni-0.4.0.tar.gz` (426KB)
+
+**Key Features of v0.4.0:**
+- ✅ Zero-Leakage Architecture: YAML describes WHAT, Python implements HOW
+- ✅ Action Registry: Semantic action registration without Python paths
+- ✅ Validator Registry: Semantic validation without regex in YAML
+- ✅ Output Mapping: Decoupling of technical structures
+- ✅ Auto-Discovery: Runtime automatically imports actions
+- ✅ Complete documentation updated
+
+---
+
+## Phase 5: Validation and Stable Release (v1.0.0)
+
+### ⏳ Milestone 21: Validation and Polish for v1.0.0
+**Status:** Pending
+
+- Complete audit: review ADR vs implementation, feature checklist
+- Exhaustive testing: coverage >80%, E2E tests, performance tests, security audit
+- Final documentation: docs site, API reference, tutorials, migration guide
+- Real use case: production deployment, user validation, real metrics
+
+### ⏳ Milestone 22: Release v1.0.0
+**Status:** Pending
+
+- Version `1.0.0`, complete release notes
+- Stable PyPI publication, GitHub Release, community announcement
+
+---
+
+## Progress Summary
+
+| Phase | Milestones Completed | Total | Progress |
+|-------|---------------------|-------|----------|
+| Phase 0: Technical Validation | 1/1 | 1 | 100% ✅ |
+| Phase 1: MVP (v0.1.0) | 9/9 | 9 | 100% ✅ |
+| Phase 2: Performance (v0.2.0) | 4/4 | 4 | 100% ✅ |
+| Phase 3: DSL Compiler (v0.3.0) | 3/3 | 3 | 100% ✅ |
+| Phase 4: Zero-Leakage (v0.4.0) | 4/4 | 4 | 100% ✅ |
+| Phase 5: Stable (v1.0.0) | 0/2 | 2 | 0% ⏳ |
 | **TOTAL** | **21/23** | **23** | **91.3%** |
 
 ---
 
-## Versiones Publicadas
+## Published Versions
 
 - ✅ **v0.4.0** (2024-11-30) - Zero-Leakage Architecture Release
 - ✅ **v0.3.0** (2024-11-30) - DSL Compiler Release
 - ✅ **v0.2.1** (2025-01-XX) - Bug fixes
-- ✅ **v0.2.0** (2025-01-XX) - Performance y Optimizaciones
+- ✅ **v0.2.0** (2025-01-XX) - Performance and Optimizations
 - ✅ **v0.1.0** (2025-11-29) - MVP Release
-- ✅ **v0.0.1** (2025-11-29) - Validación Técnica
+- ✅ **v0.0.1** (2025-11-29) - Technical Validation
 
 ---
 
-## Próximos Pasos
+## Next Steps
 
-1. **Hito 21**: Validación y Polish para v1.0.0
-   - Auditoría completa del código
-   - Testing exhaustivo
-   - Documentación final
-   - Caso de uso real en producción
+1. **Milestone 21**: Validation and Polish for v1.0.0
+   - Complete code audit
+   - Exhaustive testing
+   - Final documentation
+   - Real use case in production
 
-2. **Hito 22**: Release v1.0.0
-   - Preparación del release estable
-   - Publicación en PyPI
-   - Anuncio a la comunidad
+2. **Milestone 22**: Release v1.0.0
+   - Stable release preparation
+   - PyPI publication
+   - Community announcement
 
 ---
 
-**Nota:** Este documento se actualiza después de cada release. Para más detalles sobre cada hito, consulta `workflow/tasks/plan.plan.md` (archivo local, no versionado).
+**Note:** This document is updated after each release. For more details about each milestone, see `workflow/tasks/plan.plan.md` (local file, not versioned).
