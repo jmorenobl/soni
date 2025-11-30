@@ -159,6 +159,11 @@ class StepCompiler:
         # Connect START to understand node
         edges.append(DAGEdge(source="__start__", target=nodes[0].id))
 
+        # Connect understand to first step (if exists)
+        if len(parsed_steps) > 0:
+            first_step_node_id = nodes[1].id  # First step is at index 1
+            edges.append(DAGEdge(source=nodes[0].id, target=first_step_node_id))
+
         # Process each step to generate edges
         for i, parsed in enumerate(parsed_steps):
             node_index = i + 1  # +1 because nodes[0] is "understand"
@@ -189,20 +194,24 @@ class StepCompiler:
             # Check if step is a branch (handled separately with conditional edges)
             if parsed.step_type == "branch":
                 # Branch steps create conditional edges, not regular edges
-                # Mark edge with condition for later processing
-                # For now, we'll handle this in _build_graph
-                # But we still need to connect to next step if no explicit target
-                # Actually, branches should not have sequential edges - they route conditionally
-                # So we skip sequential edge creation for branches
+                # Branches route conditionally, so no sequential edge needed
+                # But we need to connect previous step to this branch
+                # (This is already handled by the sequential logic below for previous step)
                 continue
 
             # Default: sequential connection to next step
+            # But skip if next step is a branch (branches handle their own connections)
             if node_index < len(nodes) - 1:
-                # Connect to next node
-                next_node_id = nodes[node_index + 1].id
-                edges.append(DAGEdge(source=current_node_id, target=next_node_id))
+                next_node = nodes[node_index + 1]
+                # Check if next node is a branch - if so, connect to it
+                # (Branches will handle routing via conditional edges)
+                if next_node.type == NodeType.BRANCH:
+                    edges.append(DAGEdge(source=current_node_id, target=next_node.id))
+                else:
+                    # Regular sequential connection
+                    edges.append(DAGEdge(source=current_node_id, target=next_node.id))
             else:
-                # Last step, connect to END
+                # Last step, connect to END (if not a branch)
                 edges.append(DAGEdge(source=current_node_id, target="__end__"))
 
         return edges
@@ -393,6 +402,33 @@ class StepCompiler:
         for edge in dag.edges:
             if edge.source in adjacency:
                 adjacency[edge.source].append(edge.target)
+
+        # Add conditional edges from branches (all case targets are potentially reachable)
+        for node in dag.nodes:
+            if node.type == NodeType.BRANCH:
+                cases = node.config.get("cases", {})
+                for target in cases.values():
+                    # Resolve target
+                    resolved_target = target
+                    if target.startswith("jump_to_"):
+                        resolved_target = target.replace("jump_to_", "", 1)
+                    elif target == "continue":
+                        # Continue to next sequential node
+                        current_idx = next(
+                            (i for i, n in enumerate(dag.nodes) if n.id == node.id), None
+                        )
+                        if current_idx is not None and current_idx + 1 < len(dag.nodes):
+                            resolved_target = dag.nodes[current_idx + 1].id
+                        else:
+                            resolved_target = "__end__"
+                    else:
+                        # Direct node ID
+                        resolved_target = target
+
+                    # Add to adjacency (branch can reach this target)
+                    if node.id in adjacency:
+                        if resolved_target not in adjacency[node.id]:
+                            adjacency[node.id].append(resolved_target)
 
         # BFS from START to find all reachable nodes
         reachable: set[str] = set()
