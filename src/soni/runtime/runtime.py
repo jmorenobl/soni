@@ -141,6 +141,202 @@ class RuntimeLoop:
         # Resources will be cleaned up when context manager exits
         pass
 
+    def _validate_inputs(self, user_msg: str, user_id: str) -> None:
+        """
+        Validate input parameters.
+
+        Args:
+            user_msg: User's input message
+            user_id: Unique identifier for user/conversation
+
+        Raises:
+            ValidationError: If inputs are invalid
+        """
+        if not user_msg or not user_msg.strip():
+            raise ValidationError("User message cannot be empty")
+
+        if not user_id or not user_id.strip():
+            raise ValidationError("User ID cannot be empty")
+
+        logger.info(
+            f"Processing message for user {user_id}: {user_msg[:50]}...",
+            extra={
+                "user_id": user_id,
+                "message_length": len(user_msg),
+            },
+        )
+
+    async def _load_or_create_state(self, user_id: str, user_msg: str) -> DialogueState:
+        """
+        Load existing state from checkpoint or create new state.
+
+        Args:
+            user_id: Unique identifier for the user
+            user_msg: The user's message (for new state initialization)
+
+        Returns:
+            DialogueState instance (loaded or newly created)
+
+        Raises:
+            RuntimeError: If state loading fails unexpectedly
+        """
+        # Configure checkpointing with thread_id = user_id
+        config = {
+            "configurable": {
+                "thread_id": user_id,
+            }
+        }
+
+        # Try to load existing state from checkpoint
+        existing_state_snapshot = None
+        try:
+            # Use aget_state() to retrieve the current checkpoint for this thread (async)
+            if self.builder.checkpointer:
+                existing_state_snapshot = await self.graph.aget_state(config)
+                if existing_state_snapshot and existing_state_snapshot.values:
+                    logger.info(f"Loaded existing state for user {user_id}")
+                else:
+                    logger.info(f"No existing state found for user {user_id}, creating new")
+        except (OSError, ConnectionError, PersistenceError) as e:
+            # Errores esperados de persistencia
+            logger.warning(
+                f"Checkpoint load failed, creating new state: {e}",
+                extra={
+                    "user_id": user_id,
+                    "error_type": type(e).__name__,
+                },
+            )
+            existing_state_snapshot = None
+        except Exception as e:
+            # Errores inesperados - no ocultar
+            logger.error(
+                f"Unexpected checkpoint error: {e}",
+                exc_info=True,
+                extra={"user_id": user_id},
+            )
+            raise
+
+        # Create or update state with user message
+        if existing_state_snapshot and existing_state_snapshot.values:
+            # Load existing state from checkpoint
+            state = DialogueState.from_dict(existing_state_snapshot.values)
+            state.add_message("user", user_msg)
+            logger.debug(
+                f"Updated existing state: {len(state.messages)} messages, "
+                f"{len(state.slots)} slots, turn {state.turn_count}"
+            )
+        else:
+            # Create new state
+            state = DialogueState(
+                messages=[{"role": "user", "content": user_msg}],
+                current_flow="none",
+                slots={},
+            )
+            logger.debug("Created new state for new conversation")
+
+        return state
+
+    async def _execute_graph(
+        self,
+        state: DialogueState,
+        user_id: str,
+    ) -> dict[str, Any]:
+        """
+        Execute LangGraph with the given state.
+
+        Args:
+            state: Current dialogue state
+            user_id: Unique identifier for the user
+
+        Returns:
+            Graph execution result (final state dict)
+
+        Raises:
+            NLUError: If NLU processing fails
+            ValidationError: If validation fails
+            ActionNotFoundError: If action not found
+            SoniError: If graph execution fails unexpectedly
+        """
+        # Get scoped actions based on current state
+        # Note: state.config hack removed - nodes now use RuntimeContext
+        scoped_actions = self.scope_manager.get_available_actions(state)
+        logger.debug(
+            f"Scoped actions for user {user_id}: {scoped_actions} (total: {len(scoped_actions)})"
+        )
+
+        # Log scoping metrics
+        total_actions = len(self.config.actions) if hasattr(self.config, "actions") else 0
+        scoped_count = len(scoped_actions)
+        if total_actions > 0:
+            reduction = (
+                ((total_actions - scoped_count) / total_actions * 100) if total_actions > 0 else 0
+            )
+            logger.info(
+                f"Action scoping for user {user_id}: "
+                f"{scoped_count}/{total_actions} actions ({reduction:.1f}% reduction)",
+                extra={
+                    "user_id": user_id,
+                    "total_actions": total_actions,
+                    "scoped_actions": scoped_count,
+                    "reduction_percent": reduction,
+                    "current_flow": state.current_flow,
+                },
+            )
+
+        # Execute graph
+        config = {"configurable": {"thread_id": user_id}}
+        result_raw = await self.graph.ainvoke(
+            state.to_dict(),
+            config=config,
+        )
+
+        # Type assertion: graph.ainvoke returns dict-like state
+        result: dict[str, Any] = dict(result_raw) if isinstance(result_raw, dict) else {}
+
+        logger.info(
+            f"Graph execution completed for user {user_id}",
+            extra={
+                "user_id": user_id,
+                "turn_count": state.turn_count + 1,
+                "current_flow": result.get("current_flow"),
+            },
+        )
+
+        return result
+
+    def _extract_response(
+        self,
+        result: dict[str, Any],
+        user_id: str,
+    ) -> str:
+        """
+        Extract response from graph execution result.
+
+        Args:
+            result: Graph execution result (final state dict)
+            user_id: Unique identifier for the user
+
+        Returns:
+            Response message string
+
+        Raises:
+            ValueError: If response cannot be extracted
+        """
+        # Extract response from result
+        # The graph should update state with last_response
+        response_raw = result.get("last_response", "I'm sorry, I didn't understand that.")
+        response = str(response_raw) if response_raw else "I'm sorry, I didn't understand that."
+
+        logger.info(
+            f"Successfully processed message for user {user_id}",
+            extra={
+                "user_id": user_id,
+                "response_length": len(response),
+            },
+        )
+
+        return response
+
     async def process_message(
         self,
         user_msg: str,
@@ -149,12 +345,8 @@ class RuntimeLoop:
         """
         Process a user message and return response.
 
-        This method:
-        1. Loads or creates dialogue state for user
-        2. Adds user message to state
-        3. Executes graph with state
-        4. Extracts response from final state
-        5. Saves updated state
+        High-level orchestrator that delegates to helper methods.
+        Each step is separated for clarity and testability.
 
         Args:
             user_msg: User's input message
@@ -165,119 +357,25 @@ class RuntimeLoop:
 
         Raises:
             ValidationError: If inputs are invalid
+            NLUError: If NLU processing fails
+            ActionNotFoundError: If action not found
             SoniError: If processing fails
         """
-        # Validate inputs
-        if not user_msg or not user_msg.strip():
-            raise ValidationError("User message cannot be empty")
-
-        if not user_id or not user_id.strip():
-            raise ValidationError("User ID cannot be empty")
-
-        logger.info(f"Processing message for user {user_id}: {user_msg[:50]}...")
-
         try:
-            # Ensure graph is initialized (lazy initialization)
+            # 1. Validate inputs
+            self._validate_inputs(user_msg, user_id)
+
+            # 2. Ensure graph is initialized (lazy initialization)
             await self._ensure_graph_initialized()
 
-            # Configure checkpointing with thread_id = user_id
-            config = {
-                "configurable": {
-                    "thread_id": user_id,
-                }
-            }
+            # 3. Load or create state
+            state = await self._load_or_create_state(user_id, user_msg)
 
-            # Try to load existing state from checkpoint
-            existing_state_snapshot = None
-            try:
-                # Use aget_state() to retrieve the current checkpoint for this thread (async)
-                if self.builder.checkpointer:
-                    existing_state_snapshot = await self.graph.aget_state(config)
-                    if existing_state_snapshot and existing_state_snapshot.values:
-                        logger.info(f"Loaded existing state for user {user_id}")
-                    else:
-                        logger.info(f"No existing state found for user {user_id}, creating new")
-            except (OSError, ConnectionError, PersistenceError) as e:
-                # Errores esperados de persistencia
-                logger.warning(
-                    f"Checkpoint load failed, creating new state: {e}",
-                    extra={
-                        "user_id": user_id,
-                        "error_type": type(e).__name__,
-                    },
-                )
-                existing_state_snapshot = None
-            except Exception as e:
-                # Errores inesperados - no ocultar
-                logger.error(
-                    f"Unexpected checkpoint error: {e}",
-                    exc_info=True,
-                    extra={"user_id": user_id},
-                )
-                raise
+            # 4. Execute graph
+            result = await self._execute_graph(state, user_id)
 
-            # Create or update state with user message
-            if existing_state_snapshot and existing_state_snapshot.values:
-                # Load existing state from checkpoint
-                state = DialogueState.from_dict(existing_state_snapshot.values)
-                state.add_message("user", user_msg)
-                logger.debug(
-                    f"Updated existing state: {len(state.messages)} messages, "
-                    f"{len(state.slots)} slots, turn {state.turn_count}"
-                )
-            else:
-                # Create new state
-                state = DialogueState(
-                    messages=[{"role": "user", "content": user_msg}],
-                    current_flow="none",
-                    slots={},
-                )
-                logger.debug("Created new state for new conversation")
-
-            # Get scoped actions based on current state
-            # Note: state.config hack removed - nodes now use RuntimeContext
-            scoped_actions = self.scope_manager.get_available_actions(state)
-            logger.debug(
-                f"Scoped actions for user {user_id}: {scoped_actions} "
-                f"(total: {len(scoped_actions)})"
-            )
-
-            # Log scoping metrics
-            total_actions = len(self.config.actions) if hasattr(self.config, "actions") else 0
-            scoped_count = len(scoped_actions)
-            if total_actions > 0:
-                reduction = (
-                    ((total_actions - scoped_count) / total_actions * 100)
-                    if total_actions > 0
-                    else 0
-                )
-                logger.info(
-                    f"Action scoping for user {user_id}: "
-                    f"{scoped_count}/{total_actions} actions ({reduction:.1f}% reduction)",
-                    extra={
-                        "user_id": user_id,
-                        "total_actions": total_actions,
-                        "scoped_actions": scoped_count,
-                        "reduction_percent": reduction,
-                        "current_flow": state.current_flow,
-                    },
-                )
-
-            # Execute graph
-            config = {"configurable": {"thread_id": user_id}}
-            result = await self.graph.ainvoke(
-                state.to_dict(),
-                config=config,
-            )
-
-            # Extract response from result
-            # The graph should update state with last_response
-            response_raw = result.get("last_response", "I'm sorry, I didn't understand that.")
-            response = str(response_raw) if response_raw else "I'm sorry, I didn't understand that."
-
-            # State is automatically saved by checkpointing
-            logger.info(f"Successfully processed message for user {user_id}")
-            return response
+            # 5. Extract and return response
+            return self._extract_response(result, user_id)
 
         except ValidationError as e:
             logger.error(f"Validation error for user {user_id}: {e}")
@@ -299,9 +397,6 @@ class RuntimeLoop:
                 exc_info=True,
                 extra={
                     "user_id": user_id,
-                    "graph_state": state.get("current_flow")
-                    if isinstance(state, dict)
-                    else getattr(state, "current_flow", None),
                 },
             )
             raise SoniError(f"Failed to process message: {e}") from e
