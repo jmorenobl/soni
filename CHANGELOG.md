@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-01-XX
+## [0.4.0] - 2024-11-30
 
 ### Added
 - **Zero-Leakage Architecture**: YAML configuration is completely semantic (no technical details)
