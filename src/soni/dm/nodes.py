@@ -97,8 +97,7 @@ def create_understand_node(
     nlu_provider: INLUProvider,
     context: RuntimeContext,
 ) -> Any:  # Returns: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
-    """
-    Create understand node factory function.
+    """Create understand node factory function.
 
     This factory creates an async node function that processes NLU,
     normalizes slots, and updates dialogue state.
@@ -129,8 +128,7 @@ def create_understand_node(
     """
 
     async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-        """
-        Understand user message using SoniDU.
+        """Understand user message using SoniDU.
 
         This node:
         1. Extracts the last user message from state

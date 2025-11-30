@@ -109,8 +109,7 @@ class RuntimeLoop:
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
 
     def _auto_import_actions(self, config_path: str | Path) -> None:
-        """
-        Auto-discover and import actions module from config directory.
+        """Auto-discover and import actions module from config directory.
 
         Looks for:
         - actions.py in config directory
@@ -152,8 +151,7 @@ class RuntimeLoop:
                 sys.path[:] = original_path
 
     async def _ensure_graph_initialized(self) -> None:
-        """
-        Ensure graph is initialized (lazy initialization).
+        """Ensure graph is initialized (lazy initialization).
 
         This method initializes the graph asynchronously if not already done.
         Uses a lock to prevent concurrent initialization.
@@ -168,8 +166,7 @@ class RuntimeLoop:
                     self.streaming_manager = StreamingManager()
 
     async def cleanup(self) -> None:
-        """
-        Cleanup resources, especially the graph builder's checkpointer.
+        """Cleanup resources, especially the graph builder's checkpointer.
 
         Should be called when the RuntimeLoop is no longer needed to ensure
         proper resource cleanup. Idempotent - safe to call multiple times.
@@ -181,8 +178,7 @@ class RuntimeLoop:
             self._cleaned_up = True
 
     def __del__(self) -> None:
-        """
-        Destructor to ensure cleanup is called when object is garbage collected.
+        """Destructor to ensure cleanup is called when object is garbage collected.
 
         Note: Relying on __del__ is not ideal, but provides a safety net.
         Since cleanup() is now async, __del__ cannot call it directly.
@@ -193,8 +189,7 @@ class RuntimeLoop:
         pass
 
     def _validate_inputs(self, user_msg: str, user_id: str) -> tuple[str, str]:
-        """
-        Validate and sanitize input parameters for message processing.
+        """Validate and sanitize input parameters for message processing.
 
         Validates that user message and user ID are non-empty strings and sanitizes them
         to prevent injection attacks and DoS. Logs validation success with message preview and length.
@@ -239,8 +234,7 @@ class RuntimeLoop:
         return sanitized_msg, sanitized_user_id
 
     async def _load_or_create_state(self, user_id: str, user_msg: str) -> DialogueState:
-        """
-        Load existing state from checkpoint or create new state.
+        """Load existing state from checkpoint or create new state.
 
         Args:
             user_id: Unique identifier for the user

@@ -1,4 +1,4 @@
-"""Core interfaces (Protocols) for Soni Framework following SOLID principles"""
+"""Core interfaces (Protocols) for Soni Framework following SOLID principles."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class INLUProvider(Protocol):
-    """Protocol for Natural Language Understanding providers"""
+    """Protocol for Natural Language Understanding providers."""
 
     async def predict(
         self,
@@ -20,8 +20,7 @@ class INLUProvider(Protocol):
         available_actions: list[str] | None = None,
         current_flow: str = "none",
     ) -> dict[str, Any]:
-        """
-        Predict intent, entities, and structured command from user message.
+        """Predict intent, entities, and structured command from user message.
 
         Args:
             user_message: The user's input message
@@ -42,7 +41,7 @@ class INLUProvider(Protocol):
 
 @runtime_checkable
 class IDialogueManager(Protocol):
-    """Protocol for Dialogue Management"""
+    """Protocol for Dialogue Management."""
 
     async def process_turn(
         self,
@@ -50,8 +49,7 @@ class IDialogueManager(Protocol):
         user_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Process a single dialogue turn.
+        """Process a single dialogue turn.
 
         Args:
             user_message: User's input message
@@ -66,15 +64,14 @@ class IDialogueManager(Protocol):
 
 @runtime_checkable
 class INormalizer(Protocol):
-    """Protocol for slot/entity normalization"""
+    """Protocol for slot/entity normalization."""
 
     async def normalize(
         self,
         value: Any,
         entity_config: dict[str, Any],
     ) -> Any:
-        """
-        Normalize a slot/entity value.
+        """Normalize a slot/entity value.
 
         Args:
             value: Raw value to normalize
@@ -88,14 +85,13 @@ class INormalizer(Protocol):
 
 @runtime_checkable
 class IScopeManager(Protocol):
-    """Protocol for dynamic action scoping"""
+    """Protocol for dynamic action scoping."""
 
     def get_available_actions(
         self,
         state: DialogueState,
     ) -> list[str]:
-        """
-        Get list of available actions based on current dialogue state.
+        """Get list of available actions based on current dialogue state.
 
         Args:
             state: Current dialogue state
@@ -108,8 +104,7 @@ class IScopeManager(Protocol):
 
 @runtime_checkable
 class IActionHandler(Protocol):
-    """
-    Protocol for action handler implementations.
+    """Protocol for action handler implementations.
 
     Action handlers execute business logic for actions defined in flows.
     They load and execute Python functions/classes based on configuration.
@@ -120,8 +115,7 @@ class IActionHandler(Protocol):
         action_name: str,
         slots: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Execute an action handler.
+        """Execute an action handler.
 
         Args:
             action_name: Name of the action to execute

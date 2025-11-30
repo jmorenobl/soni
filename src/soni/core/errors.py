@@ -1,17 +1,24 @@
-"""Domain-specific exceptions for Soni Framework"""
+"""Domain-specific exceptions for Soni Framework."""
 
 from typing import Any
 
 
 class SoniError(Exception):
-    """Base exception for all Soni Framework errors"""
+    """Base exception for all Soni Framework errors."""
 
     def __init__(self, message: str, context: dict | None = None):
+        """Initialize SoniError.
+
+        Args:
+            message: Error message.
+            context: Optional context dictionary.
+        """
         super().__init__(message)
         self.message = message
         self.context = context or {}
 
     def __str__(self) -> str:
+        """Return string representation of error."""
         if self.context:
             context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
             return f"{self.message} ({context_str})"
@@ -19,13 +26,13 @@ class SoniError(Exception):
 
 
 class NLUError(SoniError):
-    """Error during Natural Language Understanding"""
+    """Error during Natural Language Understanding."""
 
     pass
 
 
 class ValidationError(SoniError):
-    """Error during slot/entity validation"""
+    """Error during slot/entity validation."""
 
     def __init__(
         self,
@@ -40,7 +47,7 @@ class ValidationError(SoniError):
 
 
 class ActionNotFoundError(SoniError):
-    """Error when an action is not found"""
+    """Error when an action is not found."""
 
     def __init__(self, action_name: str, context: dict | None = None):
         message = f"Action '{action_name}' not found"

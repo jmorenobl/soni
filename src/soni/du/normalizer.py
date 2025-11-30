@@ -1,4 +1,4 @@
-"""Slot normalization layer for Soni Framework"""
+"""Slot normalization layer for Soni Framework."""
 
 import logging
 from typing import Any
@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class SlotNormalizer(INormalizer):
-    """
-    Normalizes slot values before validation.
+    """Normalizes slot values before validation.
 
     This class implements the INormalizer protocol and provides:
     - Basic normalization strategies (trim, lowercase)
@@ -29,8 +28,7 @@ class SlotNormalizer(INormalizer):
         cache_size: int = 1000,
         cache_ttl: int = 3600,
     ) -> None:
-        """
-        Initialize SlotNormalizer.
+        """Initialize SlotNormalizer.
 
         Args:
             config: SoniConfig or configuration dictionary
@@ -71,8 +69,7 @@ class SlotNormalizer(INormalizer):
         value: Any,
         entity_config: dict[str, Any],
     ) -> Any:
-        """
-        Normalize a slot/entity value.
+        """Normalize a slot/entity value.
 
         Args:
             value: Raw value to normalize
@@ -127,8 +124,7 @@ class SlotNormalizer(INormalizer):
         value: Any,
         entity_config: dict[str, Any],
     ) -> str:
-        """
-        Use LLM to correct/normalize value.
+        """Use LLM to correct/normalize value.
 
         Args:
             value: Raw value to correct
@@ -193,8 +189,7 @@ Return only the normalized value, nothing else."""
         slot_name: str,
         value: Any,
     ) -> Any:
-        """
-        Normalize a slot value using its configuration.
+        """Normalize a slot value using its configuration.
 
         Args:
             slot_name: Name of the slot to normalize
@@ -224,8 +219,7 @@ Return only the normalized value, nothing else."""
         return await self.normalize(value, entity_config)
 
     async def process(self, slots: dict[str, Any]) -> dict[str, Any]:
-        """
-        Normalize multiple slots using their configurations.
+        """Normalize multiple slots using their configurations.
 
         Args:
             slots: Dictionary of slot_name -> raw_value

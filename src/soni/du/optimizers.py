@@ -1,4 +1,4 @@
-"""DSPy optimization pipeline for SoniDU modules"""
+"""DSPy optimization pipeline for SoniDU modules."""
 
 import logging
 import time
@@ -21,8 +21,7 @@ def optimize_soni_du(
     timeout_seconds: int = 600,
     output_dir: Path | str | None = None,
 ) -> tuple[SoniDU, dict[str, Any]]:
-    """
-    Optimize a SoniDU module using DSPy optimizers.
+    """Optimize a SoniDU module using DSPy optimizers.
 
     Args:
         trainset: List of dspy.Example instances for training
@@ -122,8 +121,7 @@ def optimize_soni_du(
 
 
 def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
-    """
-    Evaluate a module on a trainset.
+    """Evaluate a module on a trainset.
 
     Args:
         module: SoniDU module to evaluate
@@ -164,8 +162,7 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
 
 
 def load_optimized_module(module_path: Path | str) -> SoniDU:
-    """
-    Load a previously optimized SoniDU module from disk.
+    """Load a previously optimized SoniDU module from disk.
 
     Args:
         module_path: Path to the saved module JSON file

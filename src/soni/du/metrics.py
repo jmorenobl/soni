@@ -1,4 +1,4 @@
-"""Metrics for evaluating DSPy NLU modules"""
+"""Metrics for evaluating DSPy NLU modules."""
 
 import json
 import logging
@@ -14,8 +14,7 @@ def intent_accuracy_metric(
     prediction: dspy.Prediction,
     trace: Any = None,  # noqa: ARG001
 ) -> float:
-    """
-    Calculate accuracy metric for intent extraction and slot filling.
+    """Calculate accuracy metric for intent extraction and slot filling.
 
     This metric combines:
     - Intent accuracy (70% weight): Exact match of structured_command

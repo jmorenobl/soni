@@ -1,4 +1,4 @@
-"""Security utilities and guardrails for Soni Framework"""
+"""Security utilities and guardrails for Soni Framework."""
 
 import logging
 import re
@@ -24,8 +24,7 @@ USER_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
 
 def sanitize_user_message(message: str, max_length: int = MAX_MESSAGE_LENGTH) -> str:
-    """
-    Sanitize user message to prevent injection attacks and DoS.
+    """Sanitize user message to prevent injection attacks and DoS.
 
     This function:
     - Strips dangerous HTML/JavaScript patterns
@@ -90,8 +89,7 @@ def sanitize_user_message(message: str, max_length: int = MAX_MESSAGE_LENGTH) ->
 
 
 def sanitize_user_id(user_id: str, max_length: int = MAX_USER_ID_LENGTH) -> str:
-    """
-    Sanitize and validate user ID format.
+    """Sanitize and validate user ID format.
 
     User IDs must:
     - Be non-empty

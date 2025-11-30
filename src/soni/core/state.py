@@ -1,4 +1,4 @@
-"""Dialogue state management for Soni Framework"""
+"""Dialogue state management for Soni Framework."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ else:
 
 @dataclass
 class DialogueState:
-    """Represents the state of a dialogue conversation"""
+    """Represents the state of a dialogue conversation."""
 
     messages: list[dict[str, str]] = field(default_factory=list)
     current_flow: str = "none"
@@ -28,16 +28,16 @@ class DialogueState:
     summary: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert state to dictionary for serialization"""
+        """Convert state to dictionary for serialization."""
         return asdict(self)
 
     def to_json(self) -> str:
-        """Serialize state to JSON string"""
+        """Serialize state to JSON string."""
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DialogueState:
-        """Create DialogueState from dictionary"""
+        """Create DialogueState from dictionary."""
         return cls(
             messages=data.get("messages", []),
             current_flow=data.get("current_flow", "none"),
@@ -51,51 +51,50 @@ class DialogueState:
 
     @classmethod
     def from_json(cls, json_str: str) -> DialogueState:
-        """Create DialogueState from JSON string"""
+        """Create DialogueState from JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
 
     def add_message(self, role: str, content: str) -> None:
-        """Add a message to the conversation history"""
+        """Add a message to the conversation history."""
         self.messages.append({"role": role, "content": content})
 
     def get_user_messages(self) -> list[str]:
-        """Get all user messages"""
+        """Get all user messages."""
         return [msg["content"] for msg in self.messages if msg.get("role") == "user"]
 
     def get_assistant_messages(self) -> list[str]:
-        """Get all assistant messages"""
+        """Get all assistant messages."""
         return [msg["content"] for msg in self.messages if msg.get("role") == "assistant"]
 
     def get_slot(self, slot_name: str, default: Any = None) -> Any:
-        """Get a slot value by name"""
+        """Get a slot value by name."""
         return self.slots.get(slot_name, default)
 
     def set_slot(self, slot_name: str, value: Any) -> None:
-        """Set a slot value"""
+        """Set a slot value."""
         self.slots[slot_name] = value
 
     def has_slot(self, slot_name: str) -> bool:
-        """Check if a slot is filled"""
+        """Check if a slot is filled."""
         return slot_name in self.slots and self.slots[slot_name] is not None
 
     def clear_slots(self) -> None:
-        """Clear all slots"""
+        """Clear all slots."""
         self.slots.clear()
 
     def increment_turn(self) -> None:
-        """Increment turn counter"""
+        """Increment turn counter."""
         self.turn_count += 1
 
     def add_trace(self, event: str, data: dict[str, Any]) -> None:
-        """Add a trace event for debugging"""
+        """Add a trace event for debugging."""
         self.trace.append({"event": event, "data": data})
 
 
 @dataclass
 class RuntimeContext:
-    """
-    Runtime context containing configuration and dependencies.
+    """Runtime context containing configuration and dependencies.
 
     This class separates configuration and dependencies from dialogue state,
     maintaining clean separation of concerns and enabling proper serialization.
@@ -115,8 +114,7 @@ class RuntimeContext:
     du: INLUProvider
 
     def get_slot_config(self, slot_name: str) -> Any:
-        """
-        Get configuration for a specific slot.
+        """Get configuration for a specific slot.
 
         Args:
             slot_name: Name of the slot
@@ -130,8 +128,7 @@ class RuntimeContext:
         return self.config.slots[slot_name]
 
     def get_action_config(self, action_name: str) -> Any:
-        """
-        Get configuration for a specific action.
+        """Get configuration for a specific action.
 
         Args:
             action_name: Name of the action
@@ -145,8 +142,7 @@ class RuntimeContext:
         return self.config.actions[action_name]
 
     def get_flow_config(self, flow_name: str) -> Any:
-        """
-        Get configuration for a specific flow.
+        """Get configuration for a specific flow.
 
         Args:
             flow_name: Name of the flow

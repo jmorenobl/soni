@@ -1,11 +1,10 @@
-"""DSPy signatures for Dialogue Understanding"""
+"""DSPy signatures for Dialogue Understanding."""
 
 import dspy
 
 
 class DialogueUnderstanding(dspy.Signature):
-    """
-    Extract user intent and entities from message with dialogue context.
+    """Extract user intent and entities from message with dialogue context.
 
     This signature defines the input-output structure for the NLU module
     that will be optimized using DSPy's MIPROv2 optimizer.

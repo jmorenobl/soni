@@ -1,4 +1,4 @@
-"""DSPy modules for Dialogue Understanding"""
+"""DSPy modules for Dialogue Understanding."""
 
 import json
 import logging
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class NLUResult:
-    """Result from NLU prediction"""
+    """Result from NLU prediction."""
 
     command: str
     slots: dict[str, Any]
@@ -24,13 +24,12 @@ class NLUResult:
     reasoning: str
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary"""
+        """Convert to dictionary."""
         return asdict(self)
 
 
 class SoniDU(dspy.Module):
-    """
-    Soni Dialogue Understanding module using DSPy.
+    """Soni Dialogue Understanding module using DSPy.
 
     This module can be optimized using DSPy optimizers (e.g., MIPROv2)
     and provides both sync (for optimization) and async (for runtime) interfaces.
@@ -41,6 +40,12 @@ class SoniDU(dspy.Module):
         cache_size: int = 1000,
         cache_ttl: int = 300,
     ):
+        """Initialize SoniDU module.
+
+        Args:
+            cache_size: Maximum number of cached NLU results.
+            cache_ttl: Time-to-live for cache entries in seconds.
+        """
         super().__init__()
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
 
@@ -58,8 +63,7 @@ class SoniDU(dspy.Module):
         available_actions: str = "[]",
         current_flow: str = "none",
     ) -> dspy.Prediction:
-        """
-        Forward pass (synchronous) for use with optimizers.
+        """Forward pass (synchronous) for use with optimizers.
 
         Args:
             user_message: User's input message
@@ -87,8 +91,7 @@ class SoniDU(dspy.Module):
         available_actions: str = "[]",
         current_flow: str = "none",
     ) -> dspy.Prediction:
-        """
-        Async forward pass for runtime use.
+        """Async forward pass for runtime use.
 
         Args:
             user_message: User's input message
@@ -123,8 +126,7 @@ class SoniDU(dspy.Module):
         available_actions: list[str],
         current_flow: str,
     ) -> str:
-        """
-        Generate cache key for NLU request.
+        """Generate cache key for NLU request.
 
         Args:
             user_message: User's input message
@@ -155,8 +157,7 @@ class SoniDU(dspy.Module):
         available_actions: list | None = None,
         current_flow: str = "none",
     ) -> NLUResult:
-        """
-        High-level async predict method that returns NLUResult.
+        """High-level async predict method that returns NLUResult.
 
         Scoping of available_actions should be done by the caller
         (e.g., understand_node applies scoping via IScopeManager).

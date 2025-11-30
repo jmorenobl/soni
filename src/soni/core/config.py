@@ -1,4 +1,4 @@
-"""Configuration loading and validation for Soni Framework"""
+"""Configuration loading and validation for Soni Framework."""
 
 from pathlib import Path
 from typing import Any
@@ -10,8 +10,7 @@ from soni.core.errors import ConfigurationError, ValidationError
 
 
 class ConfigLoader:
-    """
-    Loads and validates Soni configuration from YAML files.
+    """Loads and validates Soni configuration from YAML files.
 
     This class handles:
     - Loading YAML files safely
@@ -24,8 +23,7 @@ class ConfigLoader:
 
     @staticmethod
     def load(path: str | Path) -> dict[str, Any]:
-        """
-        Load configuration from a YAML file.
+        """Load configuration from a YAML file.
 
         Args:
             path: Path to the YAML configuration file
@@ -84,8 +82,7 @@ class ConfigLoader:
 
     @staticmethod
     def validate(config: dict[str, Any]) -> list[ValidationError]:
-        """
-        Validate configuration structure.
+        """Validate configuration structure.
 
         Args:
             config: Configuration dictionary to validate
@@ -226,8 +223,7 @@ class ConfigLoader:
 
     @staticmethod
     def load_and_validate(path: str | Path) -> dict[str, Any]:
-        """
-        Load and validate configuration in one step.
+        """Load and validate configuration in one step.
 
         Args:
             path: Path to the YAML configuration file
@@ -258,8 +254,7 @@ class ConfigLoader:
 
     @staticmethod
     def load_validated(path: str | Path) -> "SoniConfig":
-        """
-        Load and validate configuration using Pydantic models.
+        """Load and validate configuration using Pydantic models.
 
         Args:
             path: Path to the YAML configuration file
@@ -275,7 +270,7 @@ class ConfigLoader:
 
 
 class ModelConfig(BaseModel):
-    """Configuration for a language model"""
+    """Configuration for a language model."""
 
     provider: str = Field(..., description="Model provider (e.g., 'openai')")
     model: str = Field(..., description="Model name (e.g., 'gpt-4o-mini')")
@@ -288,13 +283,13 @@ class ModelConfig(BaseModel):
 
 
 class NLUModelConfig(ModelConfig):
-    """Configuration for NLU model"""
+    """Configuration for NLU model."""
 
     pass  # Can extend with NLU-specific fields later
 
 
 class GenerationModelConfig(ModelConfig):
-    """Configuration for generation model"""
+    """Configuration for generation model."""
 
     max_tokens: int = Field(
         default=500,
@@ -304,7 +299,7 @@ class GenerationModelConfig(ModelConfig):
 
 
 class ModelsConfig(BaseModel):
-    """Configuration for all models"""
+    """Configuration for all models."""
 
     nlu: NLUModelConfig = Field(..., description="NLU model configuration")
     generation: GenerationModelConfig | None = Field(
@@ -314,7 +309,7 @@ class ModelsConfig(BaseModel):
 
 
 class PersistenceConfig(BaseModel):
-    """Configuration for state persistence"""
+    """Configuration for state persistence."""
 
     backend: str = Field(
         default="sqlite",
@@ -327,7 +322,7 @@ class PersistenceConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
-    """Configuration for logging"""
+    """Configuration for logging."""
 
     level: str = Field(
         default="INFO",
@@ -340,7 +335,7 @@ class LoggingConfig(BaseModel):
 
 
 class SecurityConfig(BaseModel):
-    """Configuration for security guardrails"""
+    """Configuration for security guardrails."""
 
     enable_guardrails: bool = Field(
         default=True,
@@ -369,7 +364,7 @@ class SecurityConfig(BaseModel):
 
 
 class Settings(BaseModel):
-    """Global settings configuration"""
+    """Global settings configuration."""
 
     models: ModelsConfig = Field(..., description="Model configurations")
     persistence: PersistenceConfig = Field(
@@ -387,7 +382,7 @@ class Settings(BaseModel):
 
 
 class StepConfig(BaseModel):
-    """Configuration for a single step in a flow"""
+    """Configuration for a single step in a flow."""
 
     step: str = Field(..., description="Step identifier")
     type: str = Field(..., description="Step type: collect, action, branch")
@@ -418,7 +413,7 @@ class StepConfig(BaseModel):
 
 
 class FlowConfig(BaseModel):
-    """Configuration for a dialogue flow"""
+    """Configuration for a dialogue flow."""
 
     description: str = Field(..., description="Flow description")
     steps: list[StepConfig] | None = Field(
@@ -446,7 +441,7 @@ class FlowConfig(BaseModel):
 
 
 class SlotConfig(BaseModel):
-    """Configuration for a slot/entity"""
+    """Configuration for a slot/entity."""
 
     type: str = Field(..., description="Slot type: string, number, date, etc.")
     prompt: str = Field(..., description="Prompt to ask user for this slot")
@@ -461,8 +456,7 @@ class SlotConfig(BaseModel):
 
 
 class ActionConfig(BaseModel):
-    """
-    Configuration for an action.
+    """Configuration for an action.
 
     Actions should be registered in Python using ActionRegistry.register()
     instead of using the deprecated 'handler' field.
@@ -502,7 +496,7 @@ class ActionConfig(BaseModel):
 
 
 class SoniConfig(BaseModel):
-    """Root configuration model for Soni Framework"""
+    """Root configuration model for Soni Framework."""
 
     version: str = Field(..., description="Configuration version")
     settings: Settings = Field(..., description="Global settings")
@@ -521,8 +515,7 @@ class SoniConfig(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SoniConfig":
-        """
-        Create SoniConfig from a dictionary.
+        """Create SoniConfig from a dictionary.
 
         Args:
             data: Configuration dictionary
@@ -537,8 +530,7 @@ class SoniConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "SoniConfig":
-        """
-        Load and validate configuration from YAML file.
+        """Load and validate configuration from YAML file.
 
         Args:
             path: Path to YAML configuration file
