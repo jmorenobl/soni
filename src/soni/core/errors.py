@@ -56,11 +56,19 @@ class CompilationError(SoniError):
         message: str,
         yaml_path: str | None = None,
         line: int | None = None,
+        step_index: int | None = None,
+        step_name: str | None = None,
+        flow_name: str | None = None,
+        node_id: str | None = None,
         context: dict | None = None,
     ):
         super().__init__(message, context)
         self.yaml_path = yaml_path
         self.line = line
+        self.step_index = step_index
+        self.step_name = step_name
+        self.flow_name = flow_name
+        self.node_id = node_id
 
 
 class ConfigurationError(SoniError):
