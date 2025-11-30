@@ -86,7 +86,7 @@ class RuntimeLoop:
         self.scope_manager = scope_manager or ScopeManager(config=self.config)
         self.normalizer = normalizer or SlotNormalizer(config=self.config)
 
-        # Initialize DU module with scope_manager
+        # Initialize DU module
         if nlu_provider is not None:
             self.du = nlu_provider
             logger.info("Using injected NLU provider")
@@ -96,7 +96,7 @@ class RuntimeLoop:
             self.du = load_optimized_module(optimized_du_path)
             logger.info(f"Loaded optimized DU from {optimized_du_path}")
         else:
-            self.du = SoniDU(scope_manager=self.scope_manager)
+            self.du = SoniDU()
             logger.info("Using default (non-optimized) DU module")
 
         # Store action_handler for future use (will be used in Task 040)

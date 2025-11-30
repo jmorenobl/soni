@@ -8,8 +8,6 @@ from typing import Any
 import dspy
 from cachetools import TTLCache  # type: ignore[import-untyped]
 
-from soni.core.interfaces import IScopeManager
-from soni.core.state import DialogueState
 from soni.du.signatures import DialogueUnderstanding
 from soni.utils.hashing import generate_cache_key_from_dict
 
@@ -40,13 +38,11 @@ class SoniDU(dspy.Module):
 
     def __init__(
         self,
-        scope_manager: IScopeManager | None = None,
         cache_size: int = 1000,
         cache_ttl: int = 300,
     ):
         super().__init__()
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
-        self.scope_manager = scope_manager
 
         # Cache for NLU results
         self.nlu_cache: TTLCache[str, NLUResult] = TTLCache(
@@ -162,29 +158,19 @@ class SoniDU(dspy.Module):
         """
         High-level async predict method that returns NLUResult.
 
+        Scoping of available_actions should be done by the caller
+        (e.g., understand_node applies scoping via IScopeManager).
+
         Args:
             user_message: User's input message
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots as dict
-            available_actions: Available actions as list
+            available_actions: Available actions as list (scoped by caller)
             current_flow: Current dialogue flow name
 
         Returns:
             NLUResult object
         """
-        # Apply scoping if scope_manager is available and available_actions not provided
-        if self.scope_manager and available_actions is None:
-            # Create minimal state for scoping
-            scoping_state = DialogueState(
-                current_flow=current_flow,
-                slots=current_slots or {},
-            )
-            available_actions = self.scope_manager.get_available_actions(scoping_state)
-            logger.debug(
-                f"Applied scoping: {len(available_actions)} actions available "
-                f"for flow '{current_flow}'"
-            )
-
         # Check cache first
         cache_key = self._get_cache_key(
             user_message,

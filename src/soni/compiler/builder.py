@@ -628,5 +628,4 @@ class StepCompiler:
         """Create default NLU provider."""
         from soni.du.modules import SoniDU
 
-        scope_manager = self.scope_manager or self._create_default_scope_manager()
-        return SoniDU(scope_manager=scope_manager)
+        return SoniDU()

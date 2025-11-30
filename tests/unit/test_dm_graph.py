@@ -184,7 +184,7 @@ async def test_collect_slot_node_prompts_user():
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,
@@ -225,7 +225,7 @@ async def test_action_node_executes_handler():
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,
@@ -384,7 +384,7 @@ async def test_understand_node_no_messages():
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,
@@ -425,7 +425,7 @@ async def test_collect_slot_node_already_filled():
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,
@@ -459,7 +459,7 @@ async def test_collect_slot_node_missing_slot_config():
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,
@@ -496,7 +496,7 @@ async def test_action_node_missing_input_slot():
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
-    du = SoniDU(scope_manager=scope_manager)
+    du = SoniDU()
 
     context = RuntimeContext(
         config=config,

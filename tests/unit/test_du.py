@@ -35,24 +35,7 @@ def test_soni_du_initialization():
 
     # Assert
     assert du.predictor is not None
-    assert du.scope_manager is None
-
-
-def test_soni_du_with_scope_manager():
-    """Test SoniDU accepts and stores a scope manager"""
-
-    # Arrange - Create mock scope manager
-    class MockScopeManager:
-        def get_available_actions(self, state):
-            return ["book_flight", "help"]
-
-    scope_manager = MockScopeManager()
-
-    # Act
-    du = SoniDU(scope_manager=scope_manager)
-
-    # Assert
-    assert du.scope_manager is not None
+    assert du.nlu_cache is not None
 
 
 def test_soni_du_forward_signature():

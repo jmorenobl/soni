@@ -1,10 +1,12 @@
 """Node factories for dialogue graph nodes"""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
+from soni.compiler.dag import DAGNode, NodeType
 from soni.core.interfaces import INLUProvider, INormalizer, IScopeManager
 from soni.core.state import DialogueState, RuntimeContext
+from soni.dm.node_factory_registry import NodeFactoryRegistry
 from soni.du.modules import NLUResult
 from soni.validation.registry import ValidatorRegistry
 
@@ -43,6 +45,50 @@ def _ensure_dialogue_state(
     if isinstance(state, dict):
         return DialogueState.from_dict(state)
     return state
+
+
+def _get_trace_safely(state: DialogueState | dict[str, Any]) -> list[dict[str, Any]]:
+    """
+    Safely extract trace from state, handling all error cases.
+
+    This function handles cases where:
+    - State might not be converted yet
+    - State might be missing trace attribute
+    - Trace access might fail for various reasons
+
+    Args:
+        state: Current dialogue state (dict or DialogueState)
+
+    Returns:
+        Trace list (empty list if extraction fails)
+
+    Example:
+        >>> state = DialogueState(trace=[{"event": "test"}])
+        >>> _get_trace_safely(state)
+        [{"event": "test"}]
+
+        >>> state_dict = {"trace": [{"event": "test"}]}
+        >>> _get_trace_safely(state_dict)
+        [{"event": "test"}]
+
+        >>> invalid_state = {}
+        >>> _get_trace_safely(invalid_state)
+        []
+    """
+    try:
+        state_obj = _ensure_dialogue_state(state)
+        return state_obj.trace
+    except Exception as e:
+        # Log at debug level - this is expected in error scenarios
+        logger.debug(
+            f"Error accessing trace safely: {e}",
+            exc_info=True,
+            extra={"state_type": type(state).__name__},
+        )
+        # Fallback to direct attribute/dict access
+        if isinstance(state, dict):
+            return cast(list[dict[str, Any]], state.get("trace", []))
+        return cast(list[dict[str, Any]], getattr(state, "trace", []))
 
 
 def create_understand_node(
@@ -157,8 +203,9 @@ def create_understand_node(
                 try:
                     normalized_dict: dict[str, Any] = {}
                     for slot_name, slot_value in normalized_slots.items():
-                        if slot_name in context.config.slots:
-                            slot_config = context.config.slots[slot_name]
+                        try:
+                            # Use type-safe config accessor
+                            slot_config = context.get_slot_config(slot_name)
                             # Get normalization config safely (may not exist in SlotConfig)
                             normalization_config = getattr(slot_config, "normalization", None)
                             entity_config = {
@@ -194,7 +241,8 @@ def create_understand_node(
                                         "error": str(e),
                                     }
                                 )
-                        else:
+                        except KeyError:
+                            # Slot not configured - use raw value
                             normalized_dict[slot_name] = slot_value
                     normalized_slots = normalized_dict
                     logger.info(f"Normalized slots: {normalized_slots}")
@@ -392,35 +440,12 @@ async def collect_slot_node(
         return updates
 
     except KeyError as e:
-        # Slot no encontrado - retornar mensaje de error
+        # Slot not found in configuration
         logger.warning(
             f"Slot '{slot_name}' not found in configuration: {e}",
             extra={"slot_name": slot_name},
         )
-        # Get trace safely (state might not be converted if error occurred early)
-        try:
-            state_obj = _ensure_dialogue_state(state)
-            trace = state_obj.trace
-        except (AttributeError, KeyError, TypeError) as trace_err:
-            logger.debug(
-                f"Error accessing state trace: {trace_err}",
-                exc_info=True,
-                extra={"state_type": type(state).__name__},
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
-        except Exception as trace_err:
-            # Errores inesperados al acceder trace
-            logger.warning(
-                f"Unexpected error accessing state trace: {trace_err}",
-                exc_info=True,
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
+        trace = _get_trace_safely(state)
         return {
             "last_response": f"Error: Slot '{slot_name}' not found in configuration.",
             "trace": trace
@@ -432,79 +457,21 @@ async def collect_slot_node(
             ],
         }
     except (ValueError, AttributeError, TypeError) as e:
-        # Errores esperados en collect_slot_node
+        # Expected errors in collect_slot_node - re-raise for upstream handling
         logger.error(
             f"Error in collect_slot_node: {e}",
             exc_info=True,
             extra={"slot_name": slot_name, "error_type": type(e).__name__},
         )
-        # Get trace safely (state might not be converted if error occurred early)
-        try:
-            state_obj = _ensure_dialogue_state(state)
-            trace = state_obj.trace
-        except (AttributeError, KeyError, TypeError) as trace_err:
-            logger.debug(
-                f"Error accessing state trace: {trace_err}",
-                exc_info=True,
-                extra={"state_type": type(state).__name__},
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
-        except Exception as trace_err:
-            # Errores inesperados al acceder trace
-            logger.warning(
-                f"Unexpected error accessing state trace: {trace_err}",
-                exc_info=True,
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
         raise
     except Exception as e:
-        # Errores inesperados
+        # Unexpected errors - re-raise for upstream handling
         logger.error(
             f"Unexpected error in collect_slot_node: {e}",
             exc_info=True,
             extra={"slot_name": slot_name, "error_type": type(e).__name__},
         )
-        # Get trace safely (state might not be converted if error occurred early)
-        try:
-            state_obj = _ensure_dialogue_state(state)
-            trace = state_obj.trace
-        except (AttributeError, KeyError, TypeError) as trace_err:
-            logger.debug(
-                f"Error accessing state trace: {trace_err}",
-                exc_info=True,
-                extra={"state_type": type(state).__name__},
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
-        except Exception as trace_err:
-            # Errores inesperados al acceder trace
-            logger.warning(
-                f"Unexpected error accessing state trace: {trace_err}",
-                exc_info=True,
-            )
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
         raise
-        return {
-            "last_response": f"I encountered an error collecting {slot_name}. Please try again.",
-            "trace": trace
-            + [
-                {
-                    "event": "error",
-                    "data": {"error": str(e), "slot": slot_name},
-                }
-            ],
-        }
 
 
 def create_collect_node_factory(
@@ -622,3 +589,56 @@ def create_action_node_factory(
         return updates
 
     return action_node_wrapper
+
+
+# Register default node factories
+@NodeFactoryRegistry.register(NodeType.UNDERSTAND)
+def create_understand_factory(node: DAGNode, context: RuntimeContext) -> Any:
+    """
+    Factory for UNDERSTAND nodes.
+
+    Args:
+        node: DAG node (config not used for understand nodes)
+        context: Runtime context with dependencies
+
+    Returns:
+        Understand node function
+    """
+    return create_understand_node(
+        scope_manager=context.scope_manager,
+        normalizer=context.normalizer,
+        nlu_provider=context.du,
+        context=context,
+    )
+
+
+@NodeFactoryRegistry.register(NodeType.COLLECT)
+def create_collect_factory(node: DAGNode, context: RuntimeContext) -> Any:
+    """
+    Factory for COLLECT nodes.
+
+    Args:
+        node: DAG node with slot_name in config
+        context: Runtime context with dependencies
+
+    Returns:
+        Collect node function
+    """
+    slot_name = node.config["slot_name"]
+    return create_collect_node_factory(slot_name, context)
+
+
+@NodeFactoryRegistry.register(NodeType.ACTION)
+def create_action_factory(node: DAGNode, context: RuntimeContext) -> Any:
+    """
+    Factory for ACTION nodes.
+
+    Args:
+        node: DAG node with action_name in config
+        context: Runtime context with dependencies
+
+    Returns:
+        Action node function
+    """
+    action_name = node.config["action_name"]
+    return create_action_node_factory(action_name, context)

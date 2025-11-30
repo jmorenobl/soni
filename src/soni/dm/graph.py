@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from langgraph.graph.graph import CompiledStateGraph
 
 from soni.actions.base import ActionHandler
-from soni.compiler.dag import DAGNode, FlowDAG, NodeType
+from soni.compiler.dag import DAGNode, FlowDAG
 from soni.compiler.flow_compiler import FlowCompiler
 from soni.core.config import SoniConfig
 from soni.core.interfaces import (
@@ -25,11 +25,6 @@ from soni.core.interfaces import (
 )
 from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState, RuntimeContext
-from soni.dm.nodes import (
-    create_action_node_factory,
-    create_collect_node_factory,
-    create_understand_node,
-)
 from soni.dm.persistence import CheckpointerFactory
 from soni.dm.validators import FlowValidator
 from soni.du.modules import SoniDU
@@ -75,7 +70,7 @@ class SoniGraphBuilder:
         # Use provided implementations or create defaults
         self.scope_manager = scope_manager or ScopeManager(config=self.config)
         self.normalizer = normalizer or SlotNormalizer(config=self.config)
-        self.nlu_provider = nlu_provider or SoniDU(scope_manager=self.scope_manager)
+        self.nlu_provider = nlu_provider or SoniDU()
         # action_handler must be provided or created, cannot be None
         if action_handler is None:
             self.action_handler: IActionHandler = ActionHandler(config=self.config)
@@ -268,9 +263,9 @@ class SoniGraphBuilder:
         context: RuntimeContext,
     ) -> Any:  # Returns: LangGraph node function (complex internal type)
         """
-        Create node function from DAG node.
+        Create node function from DAG node using NodeFactoryRegistry.
 
-        This method creates node functions using factory functions from nodes.py.
+        This method delegates to registered node factory functions.
         All factory functions require RuntimeContext to provide:
         - Configuration for validation and normalization
         - Dependencies (scope_manager, normalizer, action_handler, etc.)
@@ -285,6 +280,9 @@ class SoniGraphBuilder:
             Type: Complex LangGraph internal type (annotated as Any)
             Function signature: (DialogueState | dict[str, Any]) -> Awaitable[dict[str, Any]]
 
+        Raises:
+            ValueError: If node type is not registered in NodeFactoryRegistry
+
         Note:
             Return type is `Any` because LangGraph's node types are complex
             internal types (_Node, _NodeWithConfig, etc.) that are not easily
@@ -292,18 +290,8 @@ class SoniGraphBuilder:
             that takes DialogueState | dict[str, Any] and returns dict[str, Any]
             (state updates).
         """
-        if node.type == NodeType.UNDERSTAND:
-            return create_understand_node(
-                scope_manager=context.scope_manager,
-                normalizer=context.normalizer,
-                nlu_provider=context.du,
-                context=context,  # Always required
-            )
-        elif node.type == NodeType.COLLECT:
-            slot_name = node.config["slot_name"]
-            return create_collect_node_factory(slot_name, context)  # Always required
-        elif node.type == NodeType.ACTION:
-            action_name = node.config["action_name"]
-            return create_action_node_factory(action_name, context)  # Always required
-        else:
-            raise ValueError(f"Unsupported node type: {node.type}")
+        from soni.dm.node_factory_registry import NodeFactoryRegistry
+
+        # Get factory from registry and create node
+        factory = NodeFactoryRegistry.get(node.type)
+        return factory(node, context)
