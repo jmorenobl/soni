@@ -176,6 +176,15 @@ class SoniGraphBuilder:
         """
         Build a linear graph manually from flow configuration.
 
+        This method uses FlowCompiler to compile the flow to a DAG,
+        then builds the StateGraph from the DAG with RuntimeContext.
+
+        Why use compile_flow() + _build_from_dag() instead of compile_flow_to_graph()?
+        - SoniGraphBuilder needs to inject RuntimeContext into nodes
+        - _build_from_dag() allows custom node creation with context
+        - This separation allows SoniGraphBuilder to control graph construction
+          while FlowCompiler handles YAML-to-DAG translation
+
         Args:
             flow_name: Name of the flow to build
 
@@ -192,7 +201,11 @@ class SoniGraphBuilder:
         # Validate flow using validator
         self.validator.validate_flow(flow_name)
 
-        # Compile flow to DAG
+        # Compile flow to DAG (intermediate representation)
+        # We use compile_flow() instead of compile_flow_to_graph() because:
+        # 1. We need the DAG to build StateGraph with RuntimeContext
+        # 2. _build_from_dag() allows us to inject context into nodes
+        # 3. This separation keeps FlowCompiler focused on YAML-to-DAG translation
         dag = self.compiler.compile_flow(flow_name)
         logger.info(
             f"Compiled flow '{flow_name}' to DAG with {len(dag.nodes)} nodes "

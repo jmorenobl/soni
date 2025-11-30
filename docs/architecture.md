@@ -45,6 +45,27 @@ The DM module uses LangGraph to manage dialogue state and flow.
 3. State is managed by LangGraph checkpointing
 4. Nodes execute steps (collect slots, call actions)
 
+### Compiler Architecture
+
+The compiler has two main components:
+
+1. **FlowCompiler** (`compiler/flow_compiler.py`):
+   - `compile_flow()`: Compiles YAML to intermediate DAG representation
+     - Use when you need the DAG for validation, transformation, or inspection
+     - Returns `FlowDAG` intermediate representation
+   - `compile_flow_to_graph()`: Compiles YAML directly to StateGraph
+     - Use when you need a ready-to-use StateGraph for execution
+     - Returns `StateGraph[DialogueState]` ready for compilation
+
+2. **SoniGraphBuilder** (`dm/graph.py`):
+   - Uses `compile_flow()` + `_build_from_dag()` to inject RuntimeContext
+   - Controls graph construction with dependencies (checkpointer, context)
+   - Separates YAML-to-DAG translation from graph construction
+   - Why not use `compile_flow_to_graph()` directly?
+     - Needs to inject RuntimeContext into nodes
+     - Requires custom node creation with context
+     - Maintains separation of concerns (compiler vs builder)
+
 ### 3. Runtime Loop
 
 The runtime loop orchestrates DU and DM to process conversations.

@@ -45,7 +45,18 @@ class FlowCompiler:
 
     def compile_flow(self, flow_name: str) -> FlowDAG:
         """
-        Compile a flow to DAG.
+        Compile a flow to intermediate DAG representation.
+
+        This method compiles a YAML flow configuration to a FlowDAG,
+        which is an intermediate representation that can be used for:
+        - Graph validation and analysis
+        - Transformation before building StateGraph
+        - Debugging and visualization
+
+        Use this method when you need:
+        - The intermediate DAG representation
+        - To inspect or modify the DAG before building StateGraph
+        - To validate the flow structure independently
 
         Args:
             flow_name: Name of the flow to compile
@@ -55,6 +66,11 @@ class FlowCompiler:
 
         Raises:
             KeyError: If flow_name is not found in config
+
+        Example:
+            >>> compiler = FlowCompiler(config)
+            >>> dag = compiler.compile_flow("booking")
+            >>> print(f"Flow has {len(dag.nodes)} nodes")
         """
         if flow_name not in self.config.flows:
             raise KeyError(f"Flow '{flow_name}' not found in configuration")
@@ -73,18 +89,37 @@ class FlowCompiler:
     def compile_flow_to_graph(
         self,
         flow_name: str,
-    ) -> Any:  # StateGraph[DialogueState]
+    ) -> Any:  # Returns: StateGraph[DialogueState]
         """
         Compile flow directly to LangGraph StateGraph.
+
+        This method compiles a YAML flow configuration directly to a
+        LangGraph StateGraph, skipping the intermediate DAG representation.
+
+        Use this method when you need:
+        - A ready-to-use StateGraph for execution
+        - Direct compilation without intermediate steps
+        - Simpler code path (one method call)
+
+        Note:
+            This method internally uses `compile_flow()` and then builds
+            the StateGraph from the DAG. If you need the DAG for validation
+            or transformation, use `compile_flow()` instead.
 
         Args:
             flow_name: Name of the flow to compile
 
         Returns:
-            Compiled StateGraph ready for execution
+            Compiled StateGraph ready for execution.
+            Type: StateGraph[DialogueState] (annotated as Any due to LangGraph internals)
 
         Raises:
             KeyError: If flow_name is not found in config
+
+        Example:
+            >>> compiler = FlowCompiler(config)
+            >>> graph = compiler.compile_flow_to_graph("booking")
+            >>> compiled = graph.compile(checkpointer=checkpointer)
         """
         if flow_name not in self.config.flows:
             raise KeyError(f"Flow '{flow_name}' not found in configuration")
