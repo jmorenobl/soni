@@ -1,0 +1,21 @@
+{
+  "latency": {
+    "mean": 0.004745197296142578,
+    "median": 0.0038530826568603516,
+    "min": 0.0036771297454833984,
+    "max": 0.008557796478271484,
+    "p95": 0.008557796478271484,
+    "p99": 0.008557796478271484
+  },
+  "throughput": {
+    "throughput_msg_per_sec": 245.8935124931115,
+    "total_time": 0.02033400535583496,
+    "avg_latency": 0.019902944564819336
+  },
+  "streaming": {
+    "mean_first_token_latency": 0.0011487007141113281,
+    "median_first_token_latency": 0.0013151168823242188,
+    "min_first_token_latency": 0.00061798095703125,
+    "max_first_token_latency": 0.0015130043029785156
+  }
+}

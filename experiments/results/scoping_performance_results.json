@@ -1,0 +1,34 @@
+{
+  "test_cases_count": 5,
+  "tokens_with_scoping": {
+    "total_tokens": 112,
+    "avg_tokens": 22.4,
+    "avg_actions": 6.0,
+    "scoped_actions_samples": [
+      4,
+      8,
+      6,
+      7,
+      5
+    ]
+  },
+  "tokens_without_scoping": {
+    "total_tokens": 185,
+    "avg_tokens": 37,
+    "avg_actions": 9
+  },
+  "token_reduction_percent": 39.45945945945946,
+  "accuracy_impact": {
+    "avg_reduction_percent": -200.0,
+    "significant_reductions": 0,
+    "total_cases": 5
+  },
+  "objectives": {
+    "target_token_reduction": 30.0,
+    "target_accuracy_improvement": 5.0
+  },
+  "status": {
+    "token_reduction_met": true,
+    "accuracy_improvement_estimated": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "average_score": 0.8333333333333334,
+    "intent_accuracy": 0.8333333333333334,
+    "total_examples": 6,
+    "correct_intents": 5
+  },
+  "optimized": {
+    "average_score": 0.8833333333333333,
+    "intent_accuracy": 0.8333333333333334,
+    "total_examples": 6,
+    "correct_intents": 5
+  },
+  "improvement": 0.04999999999999993,
+  "improvement_pct": 5.999999999999991,
+  "optimization_time_seconds": 91.42106699943542,
+  "criteria_met": {
+    "optimization_complete": true,
+    "time_under_10min": true,
+    "improvement_ge_5pct": false,
+    "serialization_works": true
+  }
+}

@@ -233,3 +233,8 @@ workflow/
 # Database files
 *.db
 *.db-*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
