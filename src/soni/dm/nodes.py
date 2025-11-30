@@ -50,7 +50,7 @@ def create_understand_node(
     normalizer: INormalizer,
     nlu_provider: INLUProvider,
     context: RuntimeContext,
-) -> Any:
+) -> Any:  # Returns: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
     """
     Create understand node factory function.
 
@@ -66,12 +66,16 @@ def create_understand_node(
                  and other runtime dependencies.
 
     Returns:
-        Async node function that takes DialogueState | dict[str, Any] and returns state updates.
-        Type is Any because LangGraph's node function type is a complex internal type.
-        The actual return type is an async function that takes DialogueState | dict[str, Any]
-        and returns dict[str, Any] (state updates).
+        Async node function.
+        Type: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
+        (annotated as Any due to LangGraph internals)
 
     Note:
+        Return type is `Any` because LangGraph's node function type is
+        a complex internal type. The actual return type is an async function
+        that takes DialogueState | dict[str, Any] and returns dict[str, Any]
+        (state updates).
+
         RuntimeContext is required because:
         - Nodes need access to config for normalization settings
         - Provides consistent way to pass all runtime dependencies
@@ -503,7 +507,9 @@ async def collect_slot_node(
         }
 
 
-def create_collect_node_factory(slot_name: str, context: RuntimeContext) -> Any:
+def create_collect_node_factory(
+    slot_name: str, context: RuntimeContext
+) -> Any:  # Returns: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
     """
     Create collect node factory function.
 
@@ -515,9 +521,14 @@ def create_collect_node_factory(slot_name: str, context: RuntimeContext) -> Any:
 
     Returns:
         Async node function that collects a slot value.
-        Type is Any because LangGraph's node function type is a complex internal type.
-        The actual return type is an async function that takes DialogueState | dict[str, Any]
-        and returns dict[str, Any] (state updates).
+        Type: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
+        (annotated as Any due to LangGraph internals)
+
+    Note:
+        Return type is `Any` because LangGraph's node function type is
+        a complex internal type. The actual return type is an async function
+        that takes DialogueState | dict[str, Any] and returns dict[str, Any]
+        (state updates).
     """
 
     async def collect_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
@@ -530,7 +541,9 @@ def create_collect_node_factory(slot_name: str, context: RuntimeContext) -> Any:
     return collect_node
 
 
-def create_action_node_factory(action_name: str, context: RuntimeContext) -> Any:
+def create_action_node_factory(
+    action_name: str, context: RuntimeContext
+) -> Any:  # Returns: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
     """
     Create action node factory function.
 
@@ -541,9 +554,14 @@ def create_action_node_factory(action_name: str, context: RuntimeContext) -> Any
 
     Returns:
         Async node function that executes an action.
-        Type is Any because LangGraph's node function type is a complex internal type.
-        The actual return type is an async function that takes DialogueState | dict[str, Any]
-        and returns dict[str, Any] (state updates).
+        Type: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
+        (annotated as Any due to LangGraph internals)
+
+    Note:
+        Return type is `Any` because LangGraph's node function type is
+        a complex internal type. The actual return type is an async function
+        that takes DialogueState | dict[str, Any] and returns dict[str, Any]
+        (state updates).
     """
     # Capture dependencies in closure
     action_handler = context.action_handler

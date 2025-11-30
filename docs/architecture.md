@@ -286,6 +286,55 @@ This enables:
 - Limited jump support - *Planned for v0.4.0*
 - Basic procedural DSL - *Full Zero-Leakage in v0.4.0*
 
+## Type Hints Guidelines
+
+### When to use `Any`
+
+The framework uses `Any` in type hints when:
+- LangGraph internal types that are not publicly exposed
+- Complex function types that are difficult to express in Python
+- The actual type is documented in comments/docstrings
+
+### Best Practices
+
+1. **Always add a comment explaining the real type:**
+   ```python
+   def function() -> Any:  # Returns: StateGraph[DialogueState]
+   ```
+
+2. **Document the type in docstring:**
+   ```python
+   """
+   Returns:
+       StateGraph ready for execution.
+       Type: StateGraph[DialogueState] (annotated as Any due to LangGraph internals)
+   """
+   ```
+
+3. **Use TypeAlias for reusable complex types (if applicable):**
+   ```python
+   from typing import TypeAlias
+
+   # Type alias for LangGraph node function return type
+   StateUpdate: TypeAlias = dict[str, Any]
+   ```
+
+4. **Use `TYPE_CHECKING` for imports only used in type hints:**
+   ```python
+   from typing import TYPE_CHECKING
+
+   if TYPE_CHECKING:
+       from langgraph.graph import StateGraph
+   ```
+
+### Examples in Codebase
+
+- `FlowCompiler.compile_flow_to_graph()`: Returns `StateGraph[DialogueState]` (annotated as `Any`)
+- `create_understand_node()`: Returns async function (annotated as `Any`)
+- `_create_node_function_from_dag()`: Returns LangGraph node function (annotated as `Any`)
+
+All these cases include comments and docstrings explaining the actual return type.
+
 ## Future Architecture
 
 See [ADR-001](adr/ADR-001-Soni-Framework-Architecture.md) for the complete architecture vision, including:

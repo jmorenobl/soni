@@ -557,8 +557,16 @@ class StepCompiler:
         self,
         node: DAGNode,
         context: RuntimeContext,
-    ) -> Any:
-        """Create node function from DAG node."""
+    ) -> Any:  # Returns: LangGraph node function (complex internal type)
+        """
+        Create node function from DAG node.
+
+        Note:
+            Return type is `Any` because LangGraph's node types are complex
+            internal types that are not easily expressible in type hints.
+            The actual return type is an async function that takes
+            DialogueState | dict[str, Any] and returns dict[str, Any] (state updates).
+        """
         from soni.dm.nodes import (
             create_action_node_factory,
             create_collect_node_factory,

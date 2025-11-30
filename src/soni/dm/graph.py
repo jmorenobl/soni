@@ -266,7 +266,7 @@ class SoniGraphBuilder:
         self,
         node: DAGNode,
         context: RuntimeContext,
-    ) -> Any:
+    ) -> Any:  # Returns: LangGraph node function (complex internal type)
         """
         Create node function from DAG node.
 
@@ -282,10 +282,15 @@ class SoniGraphBuilder:
 
         Returns:
             Node function for LangGraph.
-            Type is Any because LangGraph's node types are complex internal types
-            (_Node, _NodeWithConfig, etc.) that are not easily expressible in type hints.
-            The actual return type is an async function that takes DialogueState | dict[str, Any]
-            and returns dict[str, Any] (state updates).
+            Type: Complex LangGraph internal type (annotated as Any)
+            Function signature: (DialogueState | dict[str, Any]) -> Awaitable[dict[str, Any]]
+
+        Note:
+            Return type is `Any` because LangGraph's node types are complex
+            internal types (_Node, _NodeWithConfig, etc.) that are not easily
+            expressible in type hints. The actual return type is an async function
+            that takes DialogueState | dict[str, Any] and returns dict[str, Any]
+            (state updates).
         """
         if node.type == NodeType.UNDERSTAND:
             return create_understand_node(

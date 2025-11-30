@@ -106,6 +106,10 @@ class FlowCompiler:
             the StateGraph from the DAG. If you need the DAG for validation
             or transformation, use `compile_flow()` instead.
 
+            Return type is `Any` because LangGraph's `StateGraph` type is
+            a complex internal type that is not easily expressible in Python
+            type hints. The actual return type is `StateGraph[DialogueState]`.
+
         Args:
             flow_name: Name of the flow to compile
 
