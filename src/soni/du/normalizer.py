@@ -161,8 +161,21 @@ Return only the normalized value, nothing else."""
             logger.info(f"LLM corrected '{value}' -> '{corrected}' for entity '{entity_name}'")
             return corrected
 
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            # Errores esperados de LLM correction
+            logger.error(
+                f"LLM correction failed for '{value}': {e}",
+                extra={"entity_name": entity_name, "error_type": type(e).__name__},
+            )
+            # Fallback to trim
+            return self._trim(value)
         except Exception as e:
-            logger.error(f"LLM correction failed for '{value}': {e}")
+            # Errores inesperados
+            logger.error(
+                f"Unexpected error in LLM correction for '{value}': {e}",
+                exc_info=True,
+                extra={"entity_name": entity_name},
+            )
             # Fallback to trim
             return self._trim(value)
 

@@ -71,7 +71,12 @@ def optimize_soni_du(
             max_labeled_demos=16,
         )
         optimization_time = time.time() - optimization_start
+    except (ValueError, TypeError, AttributeError, RuntimeError) as e:
+        # Errores esperados de optimización
+        raise RuntimeError(f"Optimization failed: {e}") from e
     except Exception as e:
+        # Errores inesperados
+        logger.error(f"Unexpected optimization error: {e}", exc_info=True)
         raise RuntimeError(f"Optimization failed: {e}") from e
 
     if optimization_time > timeout_seconds:
@@ -139,7 +144,14 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
             )
             score = intent_accuracy_metric(example, prediction)
             scores.append(score)
+        except (AttributeError, KeyError, TypeError, ValueError) as e:
+            # Errores esperados en evaluación
+            logger.warning(f"Error evaluating example: {e}")
+            scores.append(0.0)
         except Exception as e:
+            # Errores inesperados
+            logger.error(f"Unexpected error evaluating example: {e}", exc_info=True)
+            scores.append(0.0)
             # If prediction fails, score is 0
             logger.warning(
                 f"Prediction failed for example in optimization: {e}",
@@ -173,5 +185,11 @@ def load_optimized_module(module_path: Path | str) -> SoniDU:
         module = SoniDU()
         module.load(str(path))
         return module
+    except (FileNotFoundError, OSError, ValueError, AttributeError) as e:
+        # Errores esperados al cargar módulo
+        raise RuntimeError(f"Failed to load module from {module_path}: {e}") from e
     except Exception as e:
+        # Errores inesperados
+        logger.error(f"Unexpected error loading module: {e}", exc_info=True)
+        raise RuntimeError(f"Failed to load module from {module_path}: {e}") from e
         raise RuntimeError(f"Failed to load module: {e}") from e

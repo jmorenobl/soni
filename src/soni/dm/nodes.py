@@ -139,9 +139,25 @@ def create_understand_node(
                             normalized_dict[slot_name] = slot_value
                     normalized_slots = normalized_dict
                     logger.info(f"Normalized slots: {normalized_slots}")
-                except Exception as e:
-                    logger.warning(f"Normalization failed, using original slots: {e}")
+                except (ValueError, TypeError, KeyError, AttributeError) as e:
+                    # Errores esperados de normalización
+                    logger.warning(
+                        f"Slot normalization failed, using original values: {e}",
+                        extra={
+                            "slots": list(normalized_slots.keys()) if normalized_slots else [],
+                        },
+                    )
                     normalized_slots = nlu_result.slots
+                except Exception as e:
+                    # Errores inesperados - re-raise para debugging
+                    logger.error(
+                        f"Unexpected normalization error: {e}",
+                        exc_info=True,
+                        extra={
+                            "slots": list(normalized_slots.keys()) if normalized_slots else [],
+                        },
+                    )
+                    raise
 
             # Update state with NLU results (using normalized slots)
             updated_slots = state.slots.copy()
@@ -172,16 +188,45 @@ def create_understand_node(
 
             return updates
 
-        except Exception as e:
-            logger.error(f"Error in understand_node: {e}", exc_info=True)
+        except (ImportError, AttributeError, RuntimeError, TypeError) as e:
+            # Errores esperados de NLU
             from soni.core.errors import NLUError
 
             error_user_message: str | None = None
             if "user_messages" in locals() and user_messages:
                 error_user_message = user_messages[-1]
+            logger.error(
+                f"NLU processing failed: {e}",
+                exc_info=True,
+                extra={
+                    "user_message": error_user_message,
+                    "error_type": type(e).__name__,
+                },
+            )
             raise NLUError(
-                f"Failed to understand user message: {e}",
+                f"NLU processing failed: {e}",
                 context={"user_message": error_user_message},
+            ) from e
+        except Exception as e:
+            # Errores inesperados
+            from soni.core.errors import NLUError
+
+            # Reuse error_user_message from outer scope if available
+            if "user_messages" in locals() and user_messages:
+                error_user_msg = user_messages[-1]
+            else:
+                error_user_msg = None
+            logger.error(
+                f"Unexpected NLU error: {e}",
+                exc_info=True,
+                extra={
+                    "user_message": error_user_msg,
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise NLUError(
+                f"Unexpected NLU error: {e}",
+                context={"user_message": error_user_msg},
             ) from e
 
     return understand_node
@@ -277,13 +322,17 @@ async def collect_slot_node(
 
         return updates
 
-    except Exception as e:
-        logger.error(f"Error in collect_slot_node: {e}", exc_info=True)
+    except KeyError as e:
+        # Slot no encontrado - retornar mensaje de error
+        logger.warning(
+            f"Slot '{slot_name}' not found in configuration: {e}",
+            extra={"slot_name": slot_name},
+        )
         # Get trace safely (state might not be converted if error occurred early)
         try:
             state_obj = _ensure_dialogue_state(state)
             trace = state_obj.trace
-        except Exception as trace_err:
+        except (AttributeError, KeyError, TypeError) as trace_err:
             logger.debug(
                 f"Error accessing state trace: {trace_err}",
                 exc_info=True,
@@ -293,6 +342,90 @@ async def collect_slot_node(
                 trace = state.get("trace", [])
             else:
                 trace = getattr(state, "trace", [])
+        except Exception as trace_err:
+            # Errores inesperados al acceder trace
+            logger.warning(
+                f"Unexpected error accessing state trace: {trace_err}",
+                exc_info=True,
+            )
+            if isinstance(state, dict):
+                trace = state.get("trace", [])
+            else:
+                trace = getattr(state, "trace", [])
+        return {
+            "last_response": f"Error: Slot '{slot_name}' not found in configuration.",
+            "trace": trace
+            + [
+                {
+                    "event": "error",
+                    "data": {"slot": slot_name, "error": str(e)},
+                }
+            ],
+        }
+    except (ValueError, AttributeError, TypeError) as e:
+        # Errores esperados en collect_slot_node
+        logger.error(
+            f"Error in collect_slot_node: {e}",
+            exc_info=True,
+            extra={"slot_name": slot_name, "error_type": type(e).__name__},
+        )
+        # Get trace safely (state might not be converted if error occurred early)
+        try:
+            state_obj = _ensure_dialogue_state(state)
+            trace = state_obj.trace
+        except (AttributeError, KeyError, TypeError) as trace_err:
+            logger.debug(
+                f"Error accessing state trace: {trace_err}",
+                exc_info=True,
+                extra={"state_type": type(state).__name__},
+            )
+            if isinstance(state, dict):
+                trace = state.get("trace", [])
+            else:
+                trace = getattr(state, "trace", [])
+        except Exception as trace_err:
+            # Errores inesperados al acceder trace
+            logger.warning(
+                f"Unexpected error accessing state trace: {trace_err}",
+                exc_info=True,
+            )
+            if isinstance(state, dict):
+                trace = state.get("trace", [])
+            else:
+                trace = getattr(state, "trace", [])
+        raise
+    except Exception as e:
+        # Errores inesperados
+        logger.error(
+            f"Unexpected error in collect_slot_node: {e}",
+            exc_info=True,
+            extra={"slot_name": slot_name, "error_type": type(e).__name__},
+        )
+        # Get trace safely (state might not be converted if error occurred early)
+        try:
+            state_obj = _ensure_dialogue_state(state)
+            trace = state_obj.trace
+        except (AttributeError, KeyError, TypeError) as trace_err:
+            logger.debug(
+                f"Error accessing state trace: {trace_err}",
+                exc_info=True,
+                extra={"state_type": type(state).__name__},
+            )
+            if isinstance(state, dict):
+                trace = state.get("trace", [])
+            else:
+                trace = getattr(state, "trace", [])
+        except Exception as trace_err:
+            # Errores inesperados al acceder trace
+            logger.warning(
+                f"Unexpected error accessing state trace: {trace_err}",
+                exc_info=True,
+            )
+            if isinstance(state, dict):
+                trace = state.get("trace", [])
+            else:
+                trace = getattr(state, "trace", [])
+        raise
         return {
             "last_response": f"I encountered an error collecting {slot_name}. Please try again.",
             "trace": trace

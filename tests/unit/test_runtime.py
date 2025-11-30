@@ -168,16 +168,16 @@ async def test_process_message_handles_nlu_error():
     user_msg = "Invalid message"
 
     # Mock graph to raise NLUError
-    # Note: RuntimeLoop wraps NLUError in SoniError
+    # Note: RuntimeLoop now re-raises NLUError directly (not wrapped)
     with patch.object(runtime.graph, "ainvoke") as mock_ainvoke:
         mock_ainvoke.side_effect = NLUError("Failed to understand message")
 
         # Act & Assert
-        # RuntimeLoop wraps exceptions in SoniError
-        with pytest.raises(SoniError) as exc_info:
+        # RuntimeLoop re-raises NLUError directly
+        with pytest.raises(NLUError) as exc_info:
             await runtime.process_message(user_msg, user_id)
 
-        assert "Failed to process message" in str(exc_info.value)
+        assert "Failed to understand message" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -296,8 +296,9 @@ async def test_process_message_checkpoint_loading_error():
         patch.object(runtime.graph, "aget_state") as mock_aget_state,
         patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
     ):
-        # Mock aget_state to raise error
-        mock_aget_state.side_effect = Exception("Checkpoint loading failed")
+        # Mock aget_state to raise expected persistence error (OSError)
+        # This should be caught and handled gracefully (create new state)
+        mock_aget_state.side_effect = OSError("Checkpoint loading failed")
 
         # Mock ainvoke to return response
         mock_ainvoke.return_value = {

@@ -296,7 +296,14 @@ Este plan organiza la ejecución de **23 hitos** (0-22) del backlog, desde valid
   - [x] Task 036: Validación Final para v0.2.0 (tests, coverage 85%, métricas performance)
   - [x] Task 037: Publicar Release v0.2.0 (build, GitHub releases v0.1.0 y v0.2.0)
 - [ ] Hito 14: Step Compiler Parte 1 - StepParser lineal, StepCompiler, tests parsing/compilación
+  - [ ] Task 054: Implementar StepParser para parsing de steps lineales
+  - [ ] Task 055: Implementar StepCompiler para generar grafos lineales
+  - [ ] Task 056: Tests del compilador lineal
 - [ ] Hito 15: Step Compiler Parte 2 - Branches, jumps, validación grafo, tests condicionales
+  - [ ] Task 057: Soporte de branches en el compilador
+  - [ ] Task 058: Soporte de jumps en el compilador
+  - [ ] Task 059: Validación de grafo compilado
+  - [ ] Task 060: Tests del compilador con condicionales
 - [ ] Hito 16: Release v0.3.0 - Versionar, documentar DSL, ejemplos avanzados, publicación
 - [ ] Hito 17: Action Registry - ActionRegistry con decorador, integración compiler, YAML semántico
 - [ ] Hito 18: Validator Registry - ValidatorRegistry, integración pipeline, YAML sin regex

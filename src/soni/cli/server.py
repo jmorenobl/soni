@@ -115,6 +115,11 @@ def start(
         )
     except KeyboardInterrupt:
         typer.echo("\n\n👋 Shutting down Soni server...")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
+        # Errores esperados al iniciar servidor
         typer.echo(f"\n❌ Error starting server: {e}", err=True)
+        raise typer.Exit(1) from e
+    except Exception as e:
+        # Errores inesperados
+        typer.echo(f"\n❌ Unexpected error starting server: {e}", err=True)
         raise typer.Exit(1) from e

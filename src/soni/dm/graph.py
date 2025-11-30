@@ -116,8 +116,18 @@ class SoniGraphBuilder:
             try:
                 await self._checkpointer_cm.__aexit__(None, None, None)
                 logger.info("Checkpointer context manager closed successfully")
+            except (OSError, ConnectionError, RuntimeError) as e:
+                # Errores esperados al cerrar checkpointer
+                logger.warning(
+                    f"Error closing checkpointer context manager: {e}",
+                    extra={"error_type": type(e).__name__},
+                )
             except Exception as e:
-                logger.warning(f"Error closing checkpointer context manager: {e}")
+                # Errores inesperados
+                logger.error(
+                    f"Unexpected error closing checkpointer: {e}",
+                    exc_info=True,
+                )
             finally:
                 self._checkpointer_cm = None
                 self.checkpointer = None

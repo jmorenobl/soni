@@ -106,8 +106,13 @@ def optimize(
     typer.echo(f"Loading trainset from: {trainset_path}")
     try:
         trainset = _load_trainset_from_file(trainset_path)
-    except Exception as e:
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as e:
+        # Errores esperados al cargar trainset
         typer.echo(f"Error loading trainset: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        # Errores inesperados
+        typer.echo(f"Unexpected error loading trainset: {e}", err=True)
         raise typer.Exit(1)
 
     typer.echo(f"Loaded {len(trainset)} training examples")
@@ -124,8 +129,13 @@ def optimize(
             timeout_seconds=timeout,
             output_dir=output_dir,
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError) as e:
+        # Errores esperados de optimización
         typer.echo(f"Optimization failed: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        # Errores inesperados
+        typer.echo(f"Unexpected error during optimization: {e}", err=True)
         raise typer.Exit(1)
 
     # Print summary
@@ -163,6 +173,11 @@ def load(
         module = load_optimized_module(module_path)
         typer.echo("✅ Module loaded successfully")
         typer.echo(f"Module type: {type(module).__name__}")
-    except Exception as e:
+    except (FileNotFoundError, OSError, RuntimeError, ValueError) as e:
+        # Errores esperados al cargar módulo
         typer.echo(f"Error loading module: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        # Errores inesperados
+        typer.echo(f"Unexpected error loading module: {e}", err=True)
         raise typer.Exit(1)

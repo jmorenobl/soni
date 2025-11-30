@@ -108,10 +108,28 @@ class ActionHandler:
 
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, run_sync)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            # Errores esperados de ejecución de acción
             logger.error(
                 f"Error executing action '{action_name}': {e}",
                 exc_info=True,
+                extra={
+                    "action_name": action_name,
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise RuntimeError(
+                f"Action '{action_name}' execution failed: {e}",
+            ) from e
+        except Exception as e:
+            # Errores inesperados
+            logger.error(
+                f"Unexpected error executing action '{action_name}': {e}",
+                exc_info=True,
+                extra={
+                    "action_name": action_name,
+                    "error_type": type(e).__name__,
+                },
             )
             raise RuntimeError(
                 f"Action '{action_name}' execution failed: {e}",

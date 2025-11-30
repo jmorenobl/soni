@@ -191,7 +191,15 @@ async def chat(user_id: str, request: ChatRequest) -> ChatResponse:
             detail=f"Processing failed: {str(e)}",
         ) from e
     except Exception as e:
-        logger.error(f"Unexpected error for user {user_id}: {e}", exc_info=True)
+        # Errores inesperados - 500 Internal Server Error
+        logger.error(
+            f"Unexpected error for user {user_id}: {e}",
+            exc_info=True,
+            extra={
+                "user_id": user_id,
+                "user_message": request.message,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
@@ -263,7 +271,15 @@ async def chat_stream(user_id: str, request: ChatRequest) -> StreamingResponse:
             error_msg = json.dumps({"type": "error", "message": f"Processing failed: {str(e)}"})
             yield f"data: {error_msg}\n\n"
         except Exception as e:
-            logger.error(f"Unexpected error in stream for user {user_id}: {e}", exc_info=True)
+            # Errores inesperados en streaming
+            logger.error(
+                f"Unexpected error in stream for user {user_id}: {e}",
+                exc_info=True,
+                extra={
+                    "user_id": user_id,
+                    "message_length": len(request.message),
+                },
+            )
             yield f"data: {json.dumps({'type': 'error', 'message': 'Internal server error'})}\n\n"
 
     return StreamingResponse(

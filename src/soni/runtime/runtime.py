@@ -7,7 +7,13 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
-from soni.core.errors import SoniError, ValidationError
+from soni.core.errors import (
+    ActionNotFoundError,
+    NLUError,
+    PersistenceError,
+    SoniError,
+    ValidationError,
+)
 from soni.core.interfaces import (
     IActionHandler,
     INLUProvider,
@@ -191,10 +197,24 @@ class RuntimeLoop:
                         logger.info(f"Loaded existing state for user {user_id}")
                     else:
                         logger.info(f"No existing state found for user {user_id}, creating new")
-            except Exception as e:
-                # No existing state or error loading, create new
-                logger.warning(f"Could not load checkpoint for user {user_id}: {e}")
+            except (OSError, ConnectionError, PersistenceError) as e:
+                # Errores esperados de persistencia
+                logger.warning(
+                    f"Checkpoint load failed, creating new state: {e}",
+                    extra={
+                        "user_id": user_id,
+                        "error_type": type(e).__name__,
+                    },
+                )
                 existing_state_snapshot = None
+            except Exception as e:
+                # Errores inesperados - no ocultar
+                logger.error(
+                    f"Unexpected checkpoint error: {e}",
+                    exc_info=True,
+                    extra={"user_id": user_id},
+                )
+                raise
 
             # Create or update state with user message
             if existing_state_snapshot and existing_state_snapshot.values:
@@ -262,10 +282,27 @@ class RuntimeLoop:
         except ValidationError as e:
             logger.error(f"Validation error for user {user_id}: {e}")
             raise
+        except (NLUError, ActionNotFoundError) as e:
+            # Errores esperados del diálogo
+            logger.warning(
+                f"Dialogue processing failed: {e}",
+                extra={
+                    "user_id": user_id,
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise
         except Exception as e:
+            # Errores inesperados del grafo
             logger.error(
-                f"Unexpected error processing message for user {user_id}: {e}",
+                f"Unexpected graph execution error: {e}",
                 exc_info=True,
+                extra={
+                    "user_id": user_id,
+                    "graph_state": state.get("current_flow")
+                    if isinstance(state, dict)
+                    else getattr(state, "current_flow", None),
+                },
             )
             raise SoniError(f"Failed to process message: {e}") from e
 

@@ -38,9 +38,18 @@ class CheckpointerFactory:
                 # Enter the async context manager and return the checkpointer
                 checkpointer = await checkpointer_cm.__aenter__()
                 return checkpointer, checkpointer_cm
-            except Exception as e:
+            except (OSError, ConnectionError, ImportError) as e:
+                # Errores esperados al crear checkpointer
                 logger.warning(
-                    f"Failed to create SQLite checkpointer: {e}. Using in-memory state only."
+                    f"Failed to create SQLite checkpointer: {e}. Using in-memory state only.",
+                    extra={"error_type": type(e).__name__},
+                )
+                return None, None
+            except Exception as e:
+                # Errores inesperados
+                logger.error(
+                    f"Unexpected error creating checkpointer: {e}",
+                    exc_info=True,
                 )
                 return None, None
         elif backend == "none":

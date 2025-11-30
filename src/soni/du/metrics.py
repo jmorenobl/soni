@@ -79,7 +79,12 @@ def intent_accuracy_metric(
         # Weighted score: 70% intent, 30% slots
         score = 0.7 * (1.0 if intent_match else 0.0) + 0.3 * (1.0 if slot_match else 0.0)
         return score
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        # Errores esperados en cálculo de métrica
+        logger.warning(
+            f"Error calculating metric: {e}",
+            extra={"error_type": type(e).__name__},
+        )
         # Return 0.0 for any error in metric calculation
         predicted_intent = (
             prediction.structured_command if hasattr(prediction, "structured_command") else None
