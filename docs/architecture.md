@@ -197,26 +197,55 @@ async def my_action(param: str) -> dict:
     return {"result": f"Processed {param}"}
 ```
 
-### Adding Validators
+### Adding Validators (Zero-Leakage Architecture)
 
-Validators check slot values using the ValidatorRegistry:
+Validators check slot values using the ValidatorRegistry. This follows zero-leakage architecture: YAML uses semantic names, regex patterns live in Python code.
+
+**Registering Validators:**
 
 ```python
 from soni.validation.registry import ValidatorRegistry
+import re
 
-@ValidatorRegistry.register("my_validator")
-def validate_my_field(value: str) -> bool:
-    return value.startswith("prefix")
+@ValidatorRegistry.register("city_name")
+def validate_city(value: str) -> bool:
+    """Validate city name format."""
+    # Regex lives here, not in YAML
+    return bool(re.match(r"^[A-Za-z\s]+$", value)) and len(value) >= 2
 ```
 
-Validators are automatically registered when imported. Reference them in YAML by name:
+**YAML Configuration (Semantic, No Regex Patterns):**
 
 ```yaml
 slots:
-  my_slot:
+  origin:
     type: string
-    validator: my_validator
+    prompt: "Which city?"
+    # Semantic validator name, not regex pattern
+    # Zero-leakage: YAML only describes WHAT, not HOW
+    validator: city_name
 ```
+
+**Built-in Validators:**
+
+The framework includes common validators (automatically registered):
+- `city_name`: Validates city name format
+- `future_date_only`: Validates date is in the future
+- `iata_code`: Validates IATA airport code (3 uppercase letters)
+- `booking_reference`: Validates booking reference format (6 alphanumeric)
+
+**Custom Validators:**
+
+Create custom validators by registering them:
+
+```python
+@ValidatorRegistry.register("my_custom_validator")
+def validate_custom(value: str) -> bool:
+    """Custom validation logic."""
+    return len(value) > 10
+```
+
+Validators are automatically registered when the module is imported. Reference them in YAML by semantic name only.
 
 ### Adding Actions (Zero-Leakage Architecture)
 
