@@ -114,7 +114,8 @@ src/soni/
 
 - **Base**: `SoniError` (in `core/errors.py`)
 - **Specific**: `NLUError`, `ValidationError`, `ActionNotFoundError`, `CompilationError`, `ConfigurationError`, `PersistenceError`
-- **Context**: Always include relevant context in exceptions:
+- **Language**: All error messages must be in English.
+- **Context**: Always include relevant context in exceptions (in English):
   ```python
   raise ValidationError(
       "Invalid slot value",
@@ -128,7 +129,7 @@ src/soni/
 
 - **Validate inputs**: All external inputs must be validated before processing.
 - **Sanitize**: Sanitize user inputs to prevent injections.
-- **Clear messages**: Error messages must be clear and useful for debugging.
+- **Clear messages**: Error messages must be clear, useful for debugging, and in English.
 
 ## Testing
 
@@ -316,6 +317,7 @@ flows:
 ### Logging
 
 - **Structured**: Use structured logging for debugging and auditing.
+- **Language**: All log messages must be in English.
 - **Levels**: DEBUG, INFO, WARNING, ERROR as appropriate.
 - **Context**: Include relevant context (user_id, flow, turn_count) in logs.
 
