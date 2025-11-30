@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from soni.core.state import DialogueState
 
 
 @runtime_checkable
@@ -89,7 +92,7 @@ class IScopeManager(Protocol):
 
     def get_available_actions(
         self,
-        state: Any,  # DialogueState - using Any to avoid circular import
+        state: DialogueState,
     ) -> list[str]:
         """
         Get list of available actions based on current dialogue state.
@@ -99,5 +102,36 @@ class IScopeManager(Protocol):
 
         Returns:
             List of action names available in current context
+        """
+        ...
+
+
+@runtime_checkable
+class IActionHandler(Protocol):
+    """
+    Protocol for action handler implementations.
+
+    Action handlers execute business logic for actions defined in flows.
+    They load and execute Python functions/classes based on configuration.
+    """
+
+    async def execute(
+        self,
+        action_name: str,
+        slots: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Execute an action handler.
+
+        Args:
+            action_name: Name of the action to execute
+            slots: Dictionary of slot values to pass as inputs
+
+        Returns:
+            Dictionary with action outputs
+
+        Raises:
+            ActionNotFoundError: If action is not found in config
+            RuntimeError: If handler execution fails
         """
         ...

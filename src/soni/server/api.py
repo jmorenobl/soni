@@ -254,10 +254,14 @@ async def chat_stream(user_id: str, request: ChatRequest) -> StreamingResponse:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         except NLUError as e:
             logger.error(f"NLU error in stream for user {user_id}: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': 'Natural language understanding failed'})}\n\n"
+            error_msg = json.dumps(
+                {"type": "error", "message": "Natural language understanding failed"}
+            )
+            yield f"data: {error_msg}\n\n"
         except SoniError as e:
             logger.error(f"Soni error in stream for user {user_id}: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Processing failed: {str(e)}'})}\n\n"
+            error_msg = json.dumps({"type": "error", "message": f"Processing failed: {str(e)}"})
+            yield f"data: {error_msg}\n\n"
         except Exception as e:
             logger.error(f"Unexpected error in stream for user {user_id}: {e}", exc_info=True)
             yield f"data: {json.dumps({'type': 'error', 'message': 'Internal server error'})}\n\n"

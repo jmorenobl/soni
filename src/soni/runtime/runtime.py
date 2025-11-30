@@ -7,13 +7,21 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
-from soni.core.config import ConfigLoader, SoniConfig
 from soni.core.errors import SoniError, ValidationError
+from soni.core.interfaces import (
+    IActionHandler,
+    INLUProvider,
+    INormalizer,
+    IScopeManager,
+)
 from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState
 from soni.dm.graph import SoniGraphBuilder
 from soni.du.modules import SoniDU
 from soni.du.normalizer import SlotNormalizer
+from soni.runtime.config_manager import ConfigurationManager
+from soni.runtime.conversation_manager import ConversationManager
+from soni.runtime.streaming_manager import StreamingManager
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +41,10 @@ class RuntimeLoop:
         self,
         config_path: str | Path,
         optimized_du_path: str | Path | None = None,
+        scope_manager: IScopeManager | None = None,
+        normalizer: INormalizer | None = None,
+        nlu_provider: INLUProvider | None = None,
+        action_handler: IActionHandler | None = None,
     ) -> None:
         """
         Initialize RuntimeLoop with configuration.
@@ -40,10 +52,14 @@ class RuntimeLoop:
         Args:
             config_path: Path to YAML configuration file
             optimized_du_path: Optional path to optimized SoniDU module (JSON)
+            scope_manager: Optional scope manager (defaults to ScopeManager)
+            normalizer: Optional normalizer (defaults to SlotNormalizer)
+            nlu_provider: Optional NLU provider (defaults to SoniDU)
+            action_handler: Optional action handler (defaults to ActionHandler)
         """
-        # Load configuration
-        config_dict = ConfigLoader.load(config_path)
-        self.config = SoniConfig(**config_dict)
+        # Load configuration using ConfigurationManager
+        self.config_manager = ConfigurationManager(config_path)
+        self.config = self.config_manager.load()
 
         # Build graph (checkpointer will be initialized lazily in build_manual)
         self.builder = SoniGraphBuilder(self.config)
@@ -53,14 +69,20 @@ class RuntimeLoop:
         # Lock to protect graph initialization from concurrent access
         self._graph_init_lock = asyncio.Lock()
 
-        # Initialize ScopeManager
-        self.scope_manager = ScopeManager(config=self.config)
+        # Managers will be initialized after graph is built
+        self.conversation_manager: ConversationManager | None = None
+        self.streaming_manager: StreamingManager | None = None
 
-        # Initialize normalizer
-        self.normalizer = SlotNormalizer(config=self.config)
+        # Initialize dependencies with dependency injection
+        # Use provided implementations or create defaults
+        self.scope_manager = scope_manager or ScopeManager(config=self.config)
+        self.normalizer = normalizer or SlotNormalizer(config=self.config)
 
         # Initialize DU module with scope_manager
-        if optimized_du_path and Path(optimized_du_path).exists():
+        if nlu_provider is not None:
+            self.du = nlu_provider
+            logger.info("Using injected NLU provider")
+        elif optimized_du_path and Path(optimized_du_path).exists():
             from soni.du.optimizers import load_optimized_module
 
             self.du = load_optimized_module(optimized_du_path)
@@ -68,6 +90,9 @@ class RuntimeLoop:
         else:
             self.du = SoniDU(scope_manager=self.scope_manager)
             logger.info("Using default (non-optimized) DU module")
+
+        # Store action_handler for future use (will be used in Task 040)
+        self.action_handler = action_handler
 
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
 
@@ -83,6 +108,9 @@ class RuntimeLoop:
                 # Double-check pattern: another coroutine might have initialized it
                 if self.graph is None:
                     self.graph = await self.builder.build_manual(self._flow_name)
+                    # Initialize managers after graph is built
+                    self.conversation_manager = ConversationManager(self.graph)
+                    self.streaming_manager = StreamingManager()
 
     async def cleanup(self) -> None:
         """
@@ -186,11 +214,8 @@ class RuntimeLoop:
                 )
                 logger.debug("Created new state for new conversation")
 
-            # Inject config into state for node access
-            # Note: This is a workaround for MVP
-            state.config = self.config  # type: ignore[attr-defined]
-
             # Get scoped actions based on current state
+            # Note: state.config hack removed - nodes now use RuntimeContext
             scoped_actions = self.scope_manager.get_available_actions(state)
             logger.debug(
                 f"Scoped actions for user {user_id}: {scoped_actions} "
@@ -219,6 +244,7 @@ class RuntimeLoop:
                 )
 
             # Execute graph
+            config = {"configurable": {"thread_id": user_id}}
             result = await self.graph.ainvoke(
                 state.to_dict(),
                 config=config,
@@ -284,49 +310,11 @@ class RuntimeLoop:
             # Ensure graph is initialized (lazy initialization)
             await self._ensure_graph_initialized()
 
-            # Configure checkpointing with thread_id = user_id
-            config = {
-                "configurable": {
-                    "thread_id": user_id,
-                }
-            }
-
-            # Try to load existing state from checkpoint
-            existing_state_snapshot = None
-            try:
-                # Use aget_state() to retrieve the current checkpoint for this thread (async)
-                if self.builder.checkpointer:
-                    existing_state_snapshot = await self.graph.aget_state(config)
-                    if existing_state_snapshot and existing_state_snapshot.values:
-                        logger.info(f"Loaded existing state for user {user_id}")
-                    else:
-                        logger.info(f"No existing state found for user {user_id}, creating new")
-            except Exception as e:
-                # No existing state or error loading, create new
-                logger.warning(f"Could not load checkpoint for user {user_id}: {e}")
-                existing_state_snapshot = None
-
-            # Create or update state with user message
-            if existing_state_snapshot and existing_state_snapshot.values:
-                # Load existing state from checkpoint
-                state = DialogueState.from_dict(existing_state_snapshot.values)
-                state.add_message("user", user_msg)
-                logger.debug(
-                    f"Updated existing state: {len(state.messages)} messages, "
-                    f"{len(state.slots)} slots, turn {state.turn_count}"
-                )
-            else:
-                # Create new state
-                state = DialogueState(
-                    messages=[{"role": "user", "content": user_msg}],
-                    current_flow="none",
-                    slots={},
-                )
-                logger.debug("Created new state for new conversation")
-
-            # Inject config into state for node access
-            # Note: This is a workaround for MVP
-            state.config = self.config  # type: ignore[attr-defined]
+            # Get or create state using ConversationManager
+            if self.conversation_manager is None:
+                raise SoniError("ConversationManager not initialized")
+            state = await self.conversation_manager.get_or_create_state(user_id)
+            state.add_message("user", user_msg)
 
             # Get scoped actions based on current state
             scoped_actions = self.scope_manager.get_available_actions(state)
@@ -335,11 +323,13 @@ class RuntimeLoop:
                 f"(total: {len(scoped_actions)})"
             )
 
-            # Stream graph execution
-            async for event in self.graph.astream(
-                state.to_dict(),
-                config=config,
-                stream_mode="updates",
+            # Stream graph execution using StreamingManager
+            if self.streaming_manager is None:
+                raise SoniError("StreamingManager not initialized")
+            async for event in self.streaming_manager.stream_response(
+                graph=self.graph,
+                state=state,
+                user_id=user_id,
             ):
                 # Extract response from event
                 # With stream_mode="updates", event is a dict where keys are node names

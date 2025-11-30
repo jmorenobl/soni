@@ -6,11 +6,12 @@ import pytest
 
 from soni.core.config import SoniConfig
 from soni.core.state import DialogueState
-from soni.dm.graph import (
-    SoniGraphBuilder,
-    action_node,
+from soni.dm.graph import SoniGraphBuilder
+from soni.dm.nodes import (
     collect_slot_node,
-    understand_node,
+    create_action_node_factory,
+    create_collect_node_factory,
+    create_understand_node,
 )
 
 
@@ -52,9 +53,14 @@ async def test_build_manual_nonexistent_flow():
     # Arrange
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
+    await builder.initialize()
 
     # Act & Assert
-    with pytest.raises(ValueError, match="Flow 'nonexistent' not found"):
+    # FlowCompiler raises KeyError, but validator raises ValidationError first
+    # So we check for ValidationError (from validator)
+    from soni.core.errors import ValidationError
+
+    with pytest.raises(ValidationError):
         await builder.build_manual("nonexistent")
 
 
@@ -105,43 +111,78 @@ async def test_build_manual_validates_actions():
 async def test_understand_node_with_message():
     """Test understand_node processes user message"""
     # Arrange
+    from soni.core.scope import ScopeManager
+    from soni.du.normalizer import SlotNormalizer
+
+    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(
         messages=[{"role": "user", "content": "I want to book a flight to Paris"}],
         slots={},
         current_flow="book_flight",
     )
 
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.return_value = MagicMock(
-            command="book_flight",
-            slots={"destination": "Paris"},
-            confidence=0.95,
-            reasoning="User wants to book flight",
-        )
+    # Create mock NLU provider
+    mock_du = AsyncMock()
+    # Create NLUResult-like object
+    from soni.du.modules import NLUResult
 
-        # Act
-        result = await understand_node(state)
+    nlu_result = NLUResult(
+        command="book_flight",
+        slots={"destination": "Paris"},
+        confidence=0.95,
+        reasoning="User wants to book flight",
+    )
+    mock_du.predict = AsyncMock(return_value=nlu_result)
 
-        # Assert
-        assert "slots" in result
-        assert result["slots"]["destination"] == "Paris"
-        assert result["pending_action"] == "book_flight"
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+
+    # Create understand node using factory
+    understand_fn = create_understand_node(
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        nlu_provider=mock_du,
+    )
+
+    # Act
+    result = await understand_fn(state)
+
+    # Assert
+    assert "slots" in result
+    assert result["slots"]["destination"] == "Paris"
+    assert result["pending_action"] == "book_flight"
 
 
 @pytest.mark.asyncio
 async def test_collect_slot_node_prompts_user():
     """Test collect_slot_node prompts when slot is missing"""
     # Arrange
+    from soni.actions.base import ActionHandler
+    from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(
         slots={},
     )
-    state.config = config  # Inject config
+
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+    du = SoniDU(scope_manager=scope_manager)
+
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
 
     # Act
-    result = await collect_slot_node(state, "origin")
+    result = await collect_slot_node(state, "origin", context=context)
 
     # Assert
     assert "last_response" in result
@@ -155,25 +196,42 @@ async def test_collect_slot_node_prompts_user():
 async def test_action_node_executes_handler():
     """Test action_node executes action handler"""
     # Arrange
+    from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(
         slots={"origin": "NYC", "destination": "Paris", "departure_date": "2025-12-01"},
     )
-    state.config = config
 
-    # Mock ActionHandler (will be implemented in Task 008)
-    with patch("soni.actions.base.ActionHandler") as mock_handler_class:
-        mock_handler = AsyncMock()
-        mock_handler_class.return_value = mock_handler
-        mock_handler.execute.return_value = {"flights": ["FL123", "FL456"], "price": 299.99}
+    # Mock ActionHandler
+    mock_handler = AsyncMock()
+    mock_handler.execute.return_value = {"flights": ["FL123", "FL456"], "price": 299.99}
 
-        # Act
-        result = await action_node(state, "search_available_flights")
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    du = SoniDU(scope_manager=scope_manager)
 
-        # Assert
-        mock_handler.execute.assert_called_once()
-        assert "slots" in result
-        assert "flights" in result["slots"]
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=mock_handler,
+        du=du,
+    )
+
+    # Create action node factory
+    action_fn = create_action_node_factory("search_available_flights", context)
+
+    # Act
+    result = await action_fn(state)
+
+    # Assert
+    mock_handler.execute.assert_called_once()
+    assert "slots" in result
+    assert "flights" in result["slots"]
 
 
 @pytest.mark.asyncio
@@ -253,10 +311,25 @@ async def test_checkpointer_creation_unsupported_backend():
 async def test_understand_node_no_messages():
     """Test understand_node handles state with no messages"""
     # Arrange
+    from soni.core.scope import ScopeManager
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
+    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(messages=[], slots={})
 
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    du = SoniDU(scope_manager=scope_manager)
+
+    understand_fn = create_understand_node(
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        nlu_provider=du,
+    )
+
     # Act
-    result = await understand_node(state)
+    result = await understand_fn(state)
 
     # Assert
     assert "last_response" in result
@@ -267,12 +340,30 @@ async def test_understand_node_no_messages():
 async def test_collect_slot_node_already_filled():
     """Test collect_slot_node skips when slot is already filled"""
     # Arrange
+    from soni.actions.base import ActionHandler
+    from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(slots={"origin": "NYC"})
-    state.config = config
+
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+    du = SoniDU(scope_manager=scope_manager)
+
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
 
     # Act
-    result = await collect_slot_node(state, "origin")
+    result = await collect_slot_node(state, "origin", context=context)
 
     # Assert
     # Should return empty dict (no updates) since slot is already filled
@@ -283,15 +374,33 @@ async def test_collect_slot_node_already_filled():
 async def test_collect_slot_node_missing_slot_config():
     """Test collect_slot_node handles missing slot configuration"""
     # Arrange
+    from soni.actions.base import ActionHandler
+    from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(slots={})
-    state.config = config
+
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+    du = SoniDU(scope_manager=scope_manager)
+
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
 
     # Act
-    result = await collect_slot_node(state, "nonexistent_slot")
+    result = await collect_slot_node(state, "nonexistent_slot", context=context)
 
     # Assert
-    # Should return error message in response
+    # Function catches KeyError and returns error message
     assert "last_response" in result
     assert "error" in result["last_response"].lower()
 
@@ -300,16 +409,32 @@ async def test_collect_slot_node_missing_slot_config():
 async def test_action_node_missing_input_slot():
     """Test action_node handles missing required input slot"""
     # Arrange
+    from soni.actions.base import ActionHandler
+    from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     state = DialogueState(
         slots={"origin": "NYC"}  # Missing destination and departure_date
     )
-    state.config = config
 
-    # Act
-    result = await action_node(state, "search_available_flights")
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+    du = SoniDU(scope_manager=scope_manager)
 
-    # Assert
-    # Should return error message
-    assert "last_response" in result
-    assert "error" in result["last_response"].lower()
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
+
+    action_fn = create_action_node_factory("search_available_flights", context)
+
+    # Act & Assert - should raise ValueError for missing input slot
+    with pytest.raises(ValueError, match="Required input slot"):
+        await action_fn(state)

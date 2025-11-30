@@ -83,27 +83,62 @@ def test_sqlite_saver_has_async_methods():
 
 
 def test_understand_node_is_async():
-    """Test that understand_node is async"""
+    """Test that understand_node factory returns async function"""
     # Arrange
-    from soni.dm.graph import understand_node
+    from unittest.mock import MagicMock
+
+    from soni.dm.nodes import create_understand_node
+
+    mock_scope = MagicMock()
+    mock_normalizer = MagicMock()
+    mock_nlu = MagicMock()
+
+    # Act
+    understand_node = create_understand_node(
+        scope_manager=mock_scope,
+        normalizer=mock_normalizer,
+        nlu_provider=mock_nlu,
+    )
 
     # Assert
     assert inspect.iscoroutinefunction(understand_node)
 
 
 def test_collect_slot_node_is_async():
-    """Test that collect_slot_node is async"""
+    """Test that collect_slot_node factory returns async function"""
     # Arrange
-    from soni.dm.graph import collect_slot_node
+    from unittest.mock import MagicMock
+
+    from soni.core.state import RuntimeContext
+    from soni.dm.nodes import create_collect_node_factory
+
+    mock_context = MagicMock(spec=RuntimeContext)
+
+    # Act
+    collect_node = create_collect_node_factory(
+        context=mock_context,
+        slot_name="test_slot",
+    )
 
     # Assert
-    assert inspect.iscoroutinefunction(collect_slot_node)
+    assert inspect.iscoroutinefunction(collect_node)
 
 
 def test_action_node_is_async():
-    """Test that action_node is async"""
+    """Test that action_node factory returns async function"""
     # Arrange
-    from soni.dm.graph import action_node
+    from unittest.mock import MagicMock
+
+    from soni.dm.nodes import create_action_node_factory
+
+    mock_context = MagicMock()
+    mock_context.action_handler = MagicMock()
+
+    # Act
+    action_node = create_action_node_factory(
+        context=mock_context,
+        action_name="test_action",
+    )
 
     # Assert
     assert inspect.iscoroutinefunction(action_node)

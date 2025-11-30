@@ -1,8 +1,17 @@
 """Dialogue state management for Soni Framework"""
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from soni.core.config import SoniConfig
+    from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
+else:
+    # Import for runtime (mypy needs these at runtime for type checking)
+    from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
 
 
 @dataclass
@@ -27,7 +36,7 @@ class DialogueState:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DialogueState":
+    def from_dict(cls, data: dict[str, Any]) -> DialogueState:
         """Create DialogueState from dictionary"""
         return cls(
             messages=data.get("messages", []),
@@ -41,7 +50,7 @@ class DialogueState:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "DialogueState":
+    def from_json(cls, json_str: str) -> DialogueState:
         """Create DialogueState from JSON string"""
         data = json.loads(json_str)
         return cls.from_dict(data)
@@ -81,3 +90,71 @@ class DialogueState:
     def add_trace(self, event: str, data: dict[str, Any]) -> None:
         """Add a trace event for debugging"""
         self.trace.append({"event": event, "data": data})
+
+
+@dataclass
+class RuntimeContext:
+    """
+    Runtime context containing configuration and dependencies.
+
+    This class separates configuration and dependencies from dialogue state,
+    maintaining clean separation of concerns and enabling proper serialization.
+
+    Attributes:
+        config: Soni configuration
+        scope_manager: Scope manager for action filtering
+        normalizer: Slot normalizer for value normalization
+        action_handler: Handler for executing actions
+        du: NLU provider for dialogue understanding
+    """
+
+    config: SoniConfig  # Use string annotation to avoid circular import
+    scope_manager: IScopeManager
+    normalizer: INormalizer
+    action_handler: IActionHandler
+    du: INLUProvider
+
+    def get_slot_config(self, slot_name: str) -> Any:
+        """
+        Get configuration for a specific slot.
+
+        Args:
+            slot_name: Name of the slot
+
+        Returns:
+            Slot configuration
+
+        Raises:
+            KeyError: If slot not found in config
+        """
+        return self.config.slots[slot_name]
+
+    def get_action_config(self, action_name: str) -> Any:
+        """
+        Get configuration for a specific action.
+
+        Args:
+            action_name: Name of the action
+
+        Returns:
+            Action configuration
+
+        Raises:
+            KeyError: If action not found in config
+        """
+        return self.config.actions[action_name]
+
+    def get_flow_config(self, flow_name: str) -> Any:
+        """
+        Get configuration for a specific flow.
+
+        Args:
+            flow_name: Name of the flow
+
+        Returns:
+            Flow configuration
+
+        Raises:
+            KeyError: If flow not found in config
+        """
+        return self.config.flows[flow_name]

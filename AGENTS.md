@@ -14,9 +14,9 @@ This document defines the rules and conventions for developing the Soni framewor
 ### SOLID Principles
 
 - **Abstract Interfaces**: Use Python `Protocol` to define contracts (see `core/interfaces.py`).
-- **Dependency Inversion**: Depend on abstractions (`INLUProvider`, `IDialogueManager`), not concrete implementations.
-- **Single Responsibility**: Each module has a single, well-defined responsibility.
-- **Decoupling**: Code must be testable through interface mocking.
+- **Dependency Inversion**: Depend on abstractions (`INLUProvider`, `IDialogueManager`, `IActionHandler`, `IScopeManager`, `INormalizer`), not concrete implementations. All constructors accept Protocols as optional parameters.
+- **Single Responsibility**: Each module has a single, well-defined responsibility. God Objects have been eliminated through refactoring.
+- **Decoupling**: Code must be testable through interface mocking. Use `RuntimeContext` to pass dependencies to nodes, not `state.config`.
 
 ### Async-First Architecture
 
@@ -708,7 +708,7 @@ async def my_action(param1: str, param2: int) -> dict[str, Any]:
 ### New Validator
 
 ```python
-from soni.validation import ValidatorRegistry
+from soni.validation.registry import ValidatorRegistry
 
 @ValidatorRegistry.register("my_validator")
 def validate_my_field(value: str) -> bool:
@@ -724,6 +724,8 @@ def validate_my_field(value: str) -> bool:
     # Validation logic
     return bool(re.match(r"^pattern$", value))
 ```
+
+**Note:** Import the module containing your validators in your application entry point to auto-register them.
 
 ### New DSPy Module
 

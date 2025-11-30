@@ -1,339 +1,44 @@
 """LangGraph graph builder and nodes for Soni Framework"""
 
-import logging
-from typing import Any
+from __future__ import annotations
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+import logging
+from typing import TYPE_CHECKING, Any
+
 from langgraph.graph import END, START, StateGraph
 
+if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+    from langgraph.graph.graph import CompiledStateGraph
+
+from soni.actions.base import ActionHandler
+from soni.compiler.dag import FlowDAG, NodeType
+from soni.compiler.flow_compiler import FlowCompiler
 from soni.core.config import SoniConfig
-from soni.core.errors import NLUError
-from soni.core.state import DialogueState
-from soni.du.modules import NLUResult, SoniDU
+from soni.core.interfaces import (
+    IActionHandler,
+    INLUProvider,
+    INormalizer,
+    IScopeManager,
+)
+from soni.core.scope import ScopeManager
+from soni.core.state import DialogueState, RuntimeContext
+from soni.dm.nodes import (
+    create_action_node_factory,
+    create_collect_node_factory,
+    create_understand_node,
+)
+from soni.dm.persistence import CheckpointerFactory
+from soni.dm.validators import FlowValidator
+from soni.du.modules import SoniDU
+from soni.du.normalizer import SlotNormalizer
 
 logger = logging.getLogger(__name__)
 
-
-def _ensure_dialogue_state(
-    state: DialogueState | dict[str, Any],
-) -> DialogueState:
-    """
-    Ensure state is a DialogueState instance.
-
-    Args:
-        state: State as dict or DialogueState
-
-    Returns:
-        DialogueState instance
-    """
-    if isinstance(state, dict):
-        return DialogueState.from_dict(state)
-    return state
-
-
-async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-    """
-    Understand user message using SoniDU.
-
-    This node:
-    1. Extracts the last user message from state
-    2. Calls SoniDU to get NLU result
-    3. Updates state with extracted slots and command
-
-    Args:
-        state: Current dialogue state (dict or DialogueState)
-
-    Returns:
-        Dictionary with state updates
-    """
-    try:
-        # Convert dict to DialogueState if needed
-        state = _ensure_dialogue_state(state)
-
-        # Get last user message
-        user_messages = state.get_user_messages()
-        if not user_messages:
-            logger.warning("No user messages in state")
-            return {
-                "last_response": "I didn't receive any message. Please try again.",
-            }
-
-        user_message = user_messages[-1]
-
-        # Build dialogue history
-        dialogue_history = "\n".join(
-            [f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in state.messages[:-1]]
-        )
-
-        # Get scoped actions using ScopeManager if available
-        # Otherwise, use all actions from config
-        available_actions: list[str] = []
-        if hasattr(state, "config"):
-            # Try to get scope_manager from config or create one
-            # For now, create ScopeManager on the fly (will be optimized later)
-            from soni.core.scope import ScopeManager
-
-            scope_manager = ScopeManager(config=state.config)
-            available_actions = scope_manager.get_available_actions(state)
-        else:
-            available_actions = []
-
-        # Initialize SoniDU with scope_manager
-        # In future, this will be injected via builder
-        from soni.core.scope import ScopeManager
-
-        scope_manager_for_du = (
-            ScopeManager(config=state.config) if hasattr(state, "config") else None
-        )
-        du = SoniDU(scope_manager=scope_manager_for_du)
-
-        # Call NLU
-        nlu_result: NLUResult = await du.predict(
-            user_message=user_message,
-            dialogue_history=dialogue_history,
-            current_slots=state.slots,
-            available_actions=available_actions,
-            current_flow=state.current_flow,
-        )
-
-        # Normalize extracted slots before updating state
-        normalized_slots = nlu_result.slots
-        if normalized_slots and hasattr(state, "config"):
-            try:
-                from soni.du.normalizer import SlotNormalizer
-
-                normalizer = SlotNormalizer(config=state.config)
-                logger.debug(f"Normalizing {len(normalized_slots)} extracted slots")
-                normalized_slots = await normalizer.process(normalized_slots)
-                logger.info(f"Normalized slots: {normalized_slots}")
-            except Exception as e:
-                logger.warning(f"Normalization failed, using original slots: {e}")
-                # Continue with original slots if normalization fails
-                normalized_slots = nlu_result.slots
-
-        # Update state with NLU results (using normalized slots)
-        updated_slots = state.slots.copy()
-        updated_slots.update(normalized_slots)
-
-        updates = {
-            "slots": updated_slots,
-            "pending_action": nlu_result.command if nlu_result.command else None,
-            "trace": state.trace
-            + [
-                {
-                    "event": "nlu_result",
-                    "data": {
-                        "command": nlu_result.command,
-                        "slots": nlu_result.slots,
-                        "confidence": nlu_result.confidence,
-                        "reasoning": nlu_result.reasoning,
-                    },
-                }
-            ],
-        }
-
-        logger.info(
-            f"NLU result: command={nlu_result.command}, "
-            f"confidence={nlu_result.confidence:.2f}, "
-            f"slots={normalized_slots}"
-        )
-
-        return updates
-
-    except Exception as e:
-        logger.error(f"Error in understand_node: {e}", exc_info=True)
-        error_user_message: str | None = None
-        if "user_messages" in locals() and user_messages:
-            error_user_message = user_messages[-1]
-        raise NLUError(
-            f"Failed to understand user message: {e}",
-            context={"user_message": error_user_message},
-        ) from e
-
-
-async def collect_slot_node(
-    state: DialogueState | dict[str, Any], slot_name: str
-) -> dict[str, Any]:
-    """
-    Collect a slot value from user.
-
-    This node:
-    1. Checks if slot is already filled
-    2. If not, prompts user for the slot
-    3. Updates state with slot value (if provided in message)
-
-    Args:
-        state: Current dialogue state (dict or DialogueState)
-        slot_name: Name of slot to collect
-
-    Returns:
-        Dictionary with state updates
-    """
-    try:
-        # Convert dict to DialogueState if needed
-        state = _ensure_dialogue_state(state)
-
-        # Get slot config
-        if not hasattr(state, "config") or slot_name not in state.config.slots:
-            raise ValueError(f"Slot '{slot_name}' not found in configuration")
-
-        slot_config = state.config.slots[slot_name]  # type: ignore[attr-defined]
-
-        # Check if slot is already filled
-        if state.has_slot(slot_name) and state.get_slot(slot_name):
-            logger.info(f"Slot '{slot_name}' already filled: {state.get_slot(slot_name)}")
-            return {}
-
-        # Get prompt for this slot
-        prompt = slot_config.prompt
-
-        # Check if user provided the value in the last message
-        # For MVP, we assume the NLU already extracted it
-        # In future, we might need to re-parse or ask explicitly
-        slot_value = state.get_slot(slot_name)
-
-        if slot_value:
-            # Slot was extracted by NLU
-            logger.info(f"Slot '{slot_name}' collected: {slot_value}")
-            return {}
-
-        # Slot not filled, need to prompt user
-        response = prompt
-
-        updates = {
-            "last_response": response,
-            "trace": state.trace
-            + [
-                {
-                    "event": "slot_collection",
-                    "data": {"slot": slot_name, "prompt": prompt},
-                }
-            ],
-        }
-
-        logger.info(f"Prompting for slot '{slot_name}': {prompt}")
-
-        return updates
-
-    except Exception as e:
-        logger.error(f"Error in collect_slot_node: {e}", exc_info=True)
-        # Get trace safely (state might not be converted if error occurred early)
-        try:
-            state_obj = _ensure_dialogue_state(state)
-            trace = state_obj.trace
-        except Exception:
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
-        return {
-            "last_response": f"I encountered an error collecting {slot_name}. Please try again.",
-            "trace": trace
-            + [
-                {
-                    "event": "error",
-                    "data": {"error": str(e), "slot": slot_name},
-                }
-            ],
-        }
-
-
-async def action_node(state: DialogueState | dict[str, Any], action_name: str) -> dict[str, Any]:
-    """
-    Execute an external action.
-
-    This node:
-    1. Gets action config
-    2. Collects required input slots
-    3. Calls ActionHandler to execute action
-    4. Updates state with action outputs
-
-    Args:
-        state: Current dialogue state (dict or DialogueState)
-        action_name: Name of action to execute
-
-    Returns:
-        Dictionary with state updates
-    """
-    try:
-        # Convert dict to DialogueState if needed
-        state = _ensure_dialogue_state(state)
-
-        # Get action config
-        if not hasattr(state, "config") or action_name not in state.config.actions:
-            raise ValueError(f"Action '{action_name}' not found in configuration")
-
-        action_config = state.config.actions[action_name]  # type: ignore[attr-defined]
-
-        # Collect input slots
-        inputs = {}
-        for input_slot in action_config.inputs:
-            slot_value = state.get_slot(input_slot)
-            if slot_value is None:
-                raise ValueError(
-                    f"Required input slot '{input_slot}' not filled for action '{action_name}'"
-                )
-            inputs[input_slot] = slot_value
-
-        # Execute action using ActionHandler
-        # ActionHandler will be implemented in Task 008
-        # For now, we import it
-        from soni.actions.base import ActionHandler
-
-        handler = ActionHandler(state.config)  # type: ignore[attr-defined]
-        result = await handler.execute(action_name, inputs)
-
-        # Update state with outputs
-        # For MVP, we assume outputs match the action_config.outputs
-        updates = {
-            "trace": state.trace
-            + [
-                {
-                    "event": "action_executed",
-                    "data": {
-                        "action": action_name,
-                        "inputs": inputs,
-                        "outputs": result,
-                    },
-                }
-            ],
-        }
-
-        # Map outputs to state slots/variables
-        # For MVP, we store outputs directly in slots
-        # In future, map_outputs will be handled here
-        output_slots: dict[str, Any] = {}
-        for output_name in action_config.outputs:
-            if output_name in result:
-                output_slots[output_name] = result[output_name]
-        if output_slots:
-            updates["slots"] = output_slots  # type: ignore[assignment]
-
-        logger.info(f"Action '{action_name}' executed successfully")
-
-        return updates
-
-    except Exception as e:
-        logger.error(f"Error in action_node: {e}", exc_info=True)
-        # Get trace safely (state might not be converted if error occurred early)
-        try:
-            state_obj = _ensure_dialogue_state(state)
-            trace = state_obj.trace
-        except Exception:
-            if isinstance(state, dict):
-                trace = state.get("trace", [])
-            else:
-                trace = getattr(state, "trace", [])
-        return {
-            "last_response": f"I encountered an error executing {action_name}. Please try again.",
-            "trace": trace
-            + [
-                {
-                    "event": "error",
-                    "data": {"error": str(e), "action": action_name},
-                }
-            ],
-        }
+# Node functions moved to dm/nodes.py
+# All node creation is now done through nodes.py factories
 
 
 class SoniGraphBuilder:
@@ -344,16 +49,46 @@ class SoniGraphBuilder:
     Future versions will support branches and jumps.
     """
 
-    def __init__(self, config: SoniConfig):
+    def __init__(
+        self,
+        config: SoniConfig,
+        scope_manager: IScopeManager | None = None,
+        normalizer: INormalizer | None = None,
+        nlu_provider: INLUProvider | None = None,
+        action_handler: IActionHandler | None = None,
+    ):
         """
         Initialize the graph builder.
 
         Args:
             config: Validated Soni configuration
+            scope_manager: Optional scope manager (defaults to ScopeManager)
+            normalizer: Optional normalizer (defaults to SlotNormalizer)
+            nlu_provider: Optional NLU provider (defaults to SoniDU)
+            action_handler: Optional action handler (defaults to ActionHandler)
         """
         self.config = config
-        self._checkpointer_cm: Any = None  # Context manager for proper cleanup
-        self.checkpointer: Any = None  # Will be initialized in initialize() method
+        self._checkpointer_cm: AbstractAsyncContextManager[BaseCheckpointSaver] | None = None
+        self.checkpointer: BaseCheckpointSaver | None = None
+
+        # Initialize dependencies with dependency injection
+        # Use provided implementations or create defaults
+        self.scope_manager = scope_manager or ScopeManager(config=self.config)
+        self.normalizer = normalizer or SlotNormalizer(config=self.config)
+        self.nlu_provider = nlu_provider or SoniDU(scope_manager=self.scope_manager)
+        # action_handler must be provided or created, cannot be None
+        if action_handler is None:
+            self.action_handler: IActionHandler = ActionHandler(config=self.config)
+        else:
+            self.action_handler = action_handler
+
+        # Initialize flow validator and compiler
+        self.validator = FlowValidator(config=self.config)
+        self.compiler = FlowCompiler(config=self.config)
+
+        # Understand node will be created in build_manual with RuntimeContext
+        # This allows it to access config for normalization
+        self._understand_node = None
 
     async def initialize(self) -> None:
         """
@@ -366,7 +101,9 @@ class SoniGraphBuilder:
             Exception: If checkpointer initialization fails
         """
         if self.checkpointer is None:
-            self.checkpointer = await self._create_checkpointer()
+            self.checkpointer, self._checkpointer_cm = await CheckpointerFactory.create(
+                self.config.settings.persistence
+            )
 
     async def cleanup(self) -> None:
         """
@@ -397,43 +134,7 @@ class SoniGraphBuilder:
         # Resources will be cleaned up when context manager exits
         pass
 
-    async def _create_checkpointer(self) -> Any:
-        """
-        Create checkpointer for state persistence using AsyncSqliteSaver.
-
-        Returns:
-            AsyncSqliteSaver instance or None if persistence is disabled
-
-        Note:
-            AsyncSqliteSaver.from_conn_string() returns an async context manager.
-            We enter it and store the context manager for proper cleanup.
-            AsyncSqliteSaver supports async methods (aget, aput, etc.) for async operations.
-        """
-        persistence = self.config.settings.persistence
-
-        if persistence.backend == "sqlite":
-            try:
-                # from_conn_string returns an async context manager
-                # AsyncSqliteSaver requires aiosqlite and supports async methods
-                self._checkpointer_cm = AsyncSqliteSaver.from_conn_string(persistence.path)
-                # Enter the async context manager and return the checkpointer
-                return await self._checkpointer_cm.__aenter__()
-            except Exception as e:
-                logger.warning(
-                    f"Failed to create SQLite checkpointer: {e}. Using in-memory state only."
-                )
-                self._checkpointer_cm = None
-                return None
-        elif persistence.backend == "none":
-            return None
-        else:
-            logger.warning(
-                f"Unsupported persistence backend: {persistence.backend}. "
-                "Using in-memory state only."
-            )
-            return None
-
-    async def build_manual(self, flow_name: str) -> Any:
+    async def build_manual(self, flow_name: str) -> CompiledStateGraph:
         """
         Build a linear graph manually from flow configuration.
 
@@ -450,68 +151,29 @@ class SoniGraphBuilder:
         if self.checkpointer is None:
             await self.initialize()
 
-        if flow_name not in self.config.flows:
-            raise ValueError(f"Flow '{flow_name}' not found in configuration")
+        # Validate flow using validator
+        self.validator.validate_flow(flow_name)
 
-        flow = self.config.flows[flow_name]
-        logger.info(f"Building graph for flow '{flow_name}' with {len(flow.steps)} steps")
+        # Compile flow to DAG
+        dag = self.compiler.compile_flow(flow_name)
+        logger.info(
+            f"Compiled flow '{flow_name}' to DAG with {len(dag.nodes)} nodes "
+            f"and {len(dag.edges)} edges"
+        )
 
-        graph = StateGraph(DialogueState)
+        # Create runtime context with all dependencies
+        context = RuntimeContext(
+            config=self.config,
+            scope_manager=self.scope_manager,
+            normalizer=self.normalizer,
+            action_handler=self.action_handler,
+            du=self.nlu_provider,
+        )
 
-        # Validate that all referenced slots and actions exist
-        self._validate_flow(flow)
+        # Build StateGraph from DAG
+        graph = self._build_from_dag(dag, context)
 
-        # Add nodes for each step
-        # Note: Node implementations will be in Task 007
-        # For now, we create placeholder nodes
-        previous_node = START
-
-        for step in flow.steps:
-            node_name = step.step
-
-            if step.type == "collect":
-                if not step.slot:
-                    raise ValueError(f"Step '{node_name}' of type 'collect' must specify a 'slot'")
-                # Validate slot exists
-                if step.slot not in self.config.slots:
-                    raise ValueError(
-                        f"Step '{node_name}' references slot '{step.slot}' "
-                        "which is not defined in configuration"
-                    )
-                # Collect slot node
-                graph.add_node(
-                    node_name,
-                    self._create_collect_node(step.slot),
-                )
-            elif step.type == "action":
-                if not step.call:
-                    raise ValueError(f"Step '{node_name}' of type 'action' must specify a 'call'")
-                # Validate action exists
-                if step.call not in self.config.actions:
-                    raise ValueError(
-                        f"Step '{node_name}' references action '{step.call}' "
-                        "which is not defined in configuration"
-                    )
-                # Action node
-                graph.add_node(
-                    node_name,
-                    self._create_action_node(step.call),
-                )
-            else:
-                raise ValueError(f"Unsupported step type: {step.type}")
-
-            # Connect previous node to current node
-            if previous_node == START:
-                graph.add_edge(START, node_name)
-            else:
-                graph.add_edge(previous_node, node_name)
-
-            previous_node = node_name
-
-        # Connect last node to END
-        graph.add_edge(previous_node, END)
-
-        logger.info(f"Graph built successfully with {len(flow.steps)} nodes")
+        logger.info(f"Graph built successfully with {len(dag.nodes)} nodes")
 
         # Compile graph with checkpointer
         if self.checkpointer:
@@ -519,66 +181,61 @@ class SoniGraphBuilder:
         else:
             return graph.compile()
 
-    def _validate_flow(self, flow: Any) -> None:
+    def _build_from_dag(self, dag: FlowDAG, context: RuntimeContext) -> StateGraph:
         """
-        Validate that all referenced slots and actions exist in config.
+        Build LangGraph StateGraph from DAG.
 
         Args:
-            flow: Flow configuration to validate
-
-        Raises:
-            ValueError: If validation fails
-        """
-        for step in flow.steps:
-            if step.type == "collect" and step.slot:
-                if step.slot not in self.config.slots:
-                    raise ValueError(f"Flow references slot '{step.slot}' which is not defined")
-            elif step.type == "action" and step.call:
-                if step.call not in self.config.actions:
-                    raise ValueError(f"Flow references action '{step.call}' which is not defined")
-
-    def _create_collect_node(self, slot_name: str):
-        """
-        Create a collect slot node.
-
-        Args:
-            slot_name: Name of slot to collect
+            dag: FlowDAG intermediate representation
+            context: Runtime context with dependencies
 
         Returns:
-            Node function
+            StateGraph ready for compilation
         """
+        graph = StateGraph(DialogueState)
 
-        async def collect_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-            # Convert dict to DialogueState if needed
-            state = _ensure_dialogue_state(state)
+        # Add nodes from DAG
+        for node in dag.nodes:
+            node_fn = self._create_node_function_from_dag(node, context)
+            graph.add_node(node.id, node_fn)
 
-            # Inject config into state for node access
-            # Note: This is a workaround for MVP. Better approach in future
-            if not hasattr(state, "config"):
-                state.config = self.config  # type: ignore[attr-defined]
-            return await collect_slot_node(state, slot_name)
+        # Add edges from DAG
+        for edge in dag.edges:
+            if edge.source == "__start__":
+                graph.add_edge(START, edge.target)
+            elif edge.target == "__end__":
+                graph.add_edge(edge.source, END)
+            else:
+                # Regular edge
+                graph.add_edge(edge.source, edge.target)
 
-        return collect_node
+        return graph
 
-    def _create_action_node(self, action_name: str):
+    def _create_node_function_from_dag(
+        self, node: Any, context: RuntimeContext
+    ) -> Any:  # Node function type is complex, keep Any for now
         """
-        Create an action node.
+        Create node function from DAG node.
 
         Args:
-            action_name: Name of action to execute
+            node: DAG node
+            context: Runtime context
 
         Returns:
-            Node function
+            Node function for LangGraph
         """
-
-        async def action_node_wrapper(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-            # Convert dict to DialogueState if needed
-            if isinstance(state, dict):
-                state = DialogueState.from_dict(state)
-
-            # Inject config into state for node access
-            if not hasattr(state, "config"):
-                state.config = self.config  # type: ignore[attr-defined]
-            return await action_node(state, action_name)
-
-        return action_node_wrapper
+        if node.type == NodeType.UNDERSTAND:
+            return create_understand_node(
+                scope_manager=context.scope_manager,
+                normalizer=context.normalizer,
+                nlu_provider=context.du,
+                context=context,
+            )
+        elif node.type == NodeType.COLLECT:
+            slot_name = node.config["slot_name"]
+            return create_collect_node_factory(slot_name, context)
+        elif node.type == NodeType.ACTION:
+            action_name = node.config["action_name"]
+            return create_action_node_factory(action_name, context)
+        else:
+            raise ValueError(f"Unsupported node type: {node.type}")

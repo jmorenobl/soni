@@ -1,5 +1,6 @@
 """DSPy optimization pipeline for SoniDU modules"""
 
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,8 @@ from dspy.teleprompt import MIPROv2
 
 from soni.du.metrics import intent_accuracy_metric
 from soni.du.modules import SoniDU
+
+logger = logging.getLogger(__name__)
 
 
 def optimize_soni_du(
@@ -125,7 +128,7 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
         Average accuracy score (0.0 to 1.0)
     """
     scores = []
-    for example in trainset:
+    for example_idx, example in enumerate(trainset):
         try:
             prediction = module.forward(
                 user_message=example.user_message,
@@ -136,8 +139,13 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
             )
             score = intent_accuracy_metric(example, prediction)
             scores.append(score)
-        except Exception:
+        except Exception as e:
             # If prediction fails, score is 0
+            logger.warning(
+                f"Prediction failed for example in optimization: {e}",
+                exc_info=False,
+                extra={"example_index": example_idx},
+            )
             scores.append(0.0)
 
     return sum(scores) / len(scores) if scores else 0.0

@@ -1,11 +1,13 @@
 """Tests for RuntimeLoop"""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from soni.core.errors import NLUError, SoniError, ValidationError
+from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
 from soni.runtime import RuntimeLoop
 
 
@@ -309,3 +311,69 @@ async def test_process_message_checkpoint_loading_error():
 
         # Assert
         assert response == "Hello!"
+
+
+@pytest.mark.asyncio
+async def test_runtime_loop_dependency_injection():
+    """Test that RuntimeLoop accepts injected dependencies"""
+    # Arrange
+    config_path = Path("examples/flight_booking/soni.yaml")
+
+    # Create mock implementations
+    mock_scope_manager = MagicMock(spec=IScopeManager)
+    mock_scope_manager.get_available_actions.return_value = ["action1", "action2"]
+
+    mock_normalizer = MagicMock(spec=INormalizer)
+    mock_normalizer.normalize = AsyncMock(return_value="normalized_value")
+
+    mock_nlu_provider = MagicMock(spec=INLUProvider)
+    mock_nlu_provider.predict = AsyncMock(
+        return_value={
+            "structured_command": "test",
+            "extracted_slots": {},
+            "confidence": 0.9,
+            "reasoning": "test",
+        }
+    )
+
+    mock_action_handler = MagicMock(spec=IActionHandler)
+    mock_action_handler.execute = AsyncMock(return_value={"result": "test"})
+
+    # Act
+    runtime = RuntimeLoop(
+        config_path,
+        scope_manager=mock_scope_manager,
+        normalizer=mock_normalizer,
+        nlu_provider=mock_nlu_provider,
+        action_handler=mock_action_handler,
+    )
+
+    # Assert
+    assert runtime.scope_manager is mock_scope_manager
+    assert runtime.normalizer is mock_normalizer
+    assert runtime.du is mock_nlu_provider
+    assert runtime.action_handler is mock_action_handler
+
+
+@pytest.mark.asyncio
+async def test_runtime_loop_default_dependencies():
+    """Test that RuntimeLoop creates default dependencies when not provided"""
+    # Arrange
+    config_path = Path("examples/flight_booking/soni.yaml")
+
+    # Act
+    runtime = RuntimeLoop(config_path)
+
+    # Assert
+    # Should create default implementations
+    assert runtime.scope_manager is not None
+    assert runtime.normalizer is not None
+    assert runtime.du is not None
+    # action_handler can be None (not used yet)
+    from soni.core.scope import ScopeManager
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
+
+    assert isinstance(runtime.scope_manager, ScopeManager)
+    assert isinstance(runtime.normalizer, SlotNormalizer)
+    assert isinstance(runtime.du, SoniDU)

@@ -1,0 +1,61 @@
+"""Conversation state management for multi-user dialogues"""
+
+import logging
+from typing import Any
+
+from soni.core.state import DialogueState
+
+logger = logging.getLogger(__name__)
+
+
+class ConversationManager:
+    """Manages multi-user conversation state."""
+
+    def __init__(self, graph: Any):
+        """
+        Initialize ConversationManager.
+
+        Args:
+            graph: Compiled LangGraph StateGraph with checkpointer
+        """
+        self.graph = graph
+
+    async def get_or_create_state(
+        self,
+        user_id: str,
+    ) -> DialogueState:
+        """
+        Get existing state or create new one.
+
+        Args:
+            user_id: Unique identifier for the user/conversation
+
+        Returns:
+            DialogueState instance (existing or new)
+        """
+        config = {"configurable": {"thread_id": user_id}}
+        snapshot = await self.graph.aget_state(config)
+
+        if snapshot and snapshot.values:
+            state = DialogueState.from_dict(snapshot.values)
+            logger.debug(f"Loaded existing state for user {user_id}")
+            return state
+        else:
+            logger.debug(f"Creating new state for user {user_id}")
+            return DialogueState()
+
+    async def save_state(
+        self,
+        user_id: str,
+        state: DialogueState,
+    ) -> None:
+        """
+        Save conversation state.
+
+        Args:
+            user_id: Unique identifier for the user/conversation
+            state: DialogueState to save
+        """
+        config = {"configurable": {"thread_id": user_id}}
+        await self.graph.aupdate_state(config, state.to_dict())
+        logger.debug(f"Saved state for user {user_id}")

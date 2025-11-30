@@ -158,16 +158,25 @@ class ScopeManager(IScopeManager):
         """
         actions: list[str] = []
 
+        # Try different configuration formats
+        actions.extend(self._extract_actions_from_steps(flow_config))
+        actions.extend(self._extract_actions_from_process(flow_config))
+        actions.extend(self._extract_actions_from_direct_list(flow_config))
+
+        return list(set(actions))  # Remove duplicates
+
+    def _extract_actions_from_steps(self, flow_config: Any) -> list[str]:
+        """Extract actions from procedural steps."""
+        actions: list[str] = []
+
         # Handle FlowConfig (Pydantic model)
         if hasattr(flow_config, "steps"):
-            # FlowConfig has steps attribute
             for step in flow_config.steps:
                 if hasattr(step, "type") and step.type == "action":
                     if hasattr(step, "call") and step.call:
                         actions.append(step.call)
         # Handle dict format
         elif isinstance(flow_config, dict):
-            # Method 1: Check steps
             steps = flow_config.get("steps", [])
             for step in steps:
                 if isinstance(step, dict) and step.get("type") == "action":
@@ -175,7 +184,13 @@ class ScopeManager(IScopeManager):
                     if action_name:
                         actions.append(action_name)
 
-            # Method 2: Check process steps
+        return actions
+
+    def _extract_actions_from_process(self, flow_config: Any) -> list[str]:
+        """Extract actions from process steps (dict format only)."""
+        actions: list[str] = []
+
+        if isinstance(flow_config, dict):
             process = flow_config.get("process")
             if isinstance(process, list):
                 for step in process:
@@ -184,12 +199,18 @@ class ScopeManager(IScopeManager):
                         if action_name:
                             actions.append(action_name)
 
-            # Method 3: Direct actions list (if exists)
+        return actions
+
+    def _extract_actions_from_direct_list(self, flow_config: Any) -> list[str]:
+        """Extract actions from direct actions list (dict format only)."""
+        actions: list[str] = []
+
+        if isinstance(flow_config, dict):
             direct_actions = flow_config.get("actions", [])
             if isinstance(direct_actions, list):
                 actions.extend(direct_actions)
 
-        return list(set(actions))  # Remove duplicates
+        return actions
 
     def _get_pending_slots(self, flow_config: Any, state: DialogueState) -> list[str]:
         """
@@ -204,32 +225,57 @@ class ScopeManager(IScopeManager):
         """
         pending: list[str] = []
 
-        # Handle FlowConfig (Pydantic model)
-        if hasattr(flow_config, "steps"):
-            # Extract slot names from collect steps
-            for step in flow_config.steps:
-                if hasattr(step, "type") and step.type == "collect":
-                    if hasattr(step, "slot") and step.slot:
-                        slot_name = step.slot
-                        if slot_name and slot_name not in state.slots:
-                            pending.append(slot_name)
-        # Handle dict format
-        elif isinstance(flow_config, dict):
-            # Get slots required by this flow from steps
-            steps = flow_config.get("steps", [])
-            for step in steps:
-                if isinstance(step, dict) and step.get("type") == "collect":
-                    slot_name = step.get("slot")
-                    if slot_name and slot_name not in state.slots:
-                        pending.append(slot_name)
-
-            # Also check process steps if they exist
-            process = flow_config.get("process")
-            if isinstance(process, list):
-                for step in process:
-                    if isinstance(step, dict) and step.get("type") == "collect":
-                        slot_name = step.get("slot")
-                        if slot_name and slot_name not in state.slots:
-                            pending.append(slot_name)
+        # Extract slots from flow steps
+        collect_slots = self._extract_collect_slots(flow_config)
+        for slot_name in collect_slots:
+            # Check if slot is already filled
+            if slot_name and slot_name not in state.slots:
+                pending.append(slot_name)
 
         return pending
+
+    def _extract_collect_slots(self, flow_config: Any) -> list[str]:
+        """Extract slot names from collect steps."""
+        slots: list[str] = []
+
+        if hasattr(flow_config, "steps"):
+            # FlowConfig (Pydantic model)
+            slots.extend(self._extract_from_flowconfig_steps(flow_config.steps))
+        elif isinstance(flow_config, dict):
+            # Dict format
+            slots.extend(self._extract_from_dict_steps(flow_config))
+            slots.extend(self._extract_from_dict_process(flow_config))
+
+        return slots
+
+    def _extract_from_flowconfig_steps(self, steps: Any) -> list[str]:
+        """Extract slots from FlowConfig steps."""
+        slots: list[str] = []
+        for step in steps:
+            if hasattr(step, "type") and step.type == "collect":
+                if hasattr(step, "slot") and step.slot:
+                    slots.append(step.slot)
+        return slots
+
+    def _extract_from_dict_steps(self, flow_config: dict[str, Any]) -> list[str]:
+        """Extract slots from dict steps."""
+        slots: list[str] = []
+        steps = flow_config.get("steps", [])
+        for step in steps:
+            if isinstance(step, dict) and step.get("type") == "collect":
+                slot_name = step.get("slot")
+                if slot_name:
+                    slots.append(slot_name)
+        return slots
+
+    def _extract_from_dict_process(self, flow_config: dict[str, Any]) -> list[str]:
+        """Extract slots from dict process steps."""
+        slots: list[str] = []
+        process = flow_config.get("process")
+        if isinstance(process, list):
+            for step in process:
+                if isinstance(step, dict) and step.get("type") == "collect":
+                    slot_name = step.get("slot")
+                    if slot_name:
+                        slots.append(slot_name)
+        return slots

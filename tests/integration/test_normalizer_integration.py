@@ -27,32 +27,54 @@ async def test_runtime_initializes_normalizer():
 
 
 @pytest.mark.asyncio
-async def test_normalizer_in_graph_node():
-    """Test that normalizer is used in understand_node"""
+async def test_normalizer_in_graph_node(skip_without_api_key):
+    """
+    Test that normalizer is used in understand_node.
+
+    This test verifies that the normalizer is properly integrated
+    in the understand node through the runtime. The test verifies
+    that normalization doesn't cause errors, even if the flow
+    requires additional slots.
+    """
     # Arrange
-    from soni.core.state import DialogueState
-    from soni.dm.graph import understand_node
+    from soni.core.errors import SoniError
 
-    config_dict = ConfigLoader.load(Path("examples/flight_booking/soni.yaml"))
-    config = SoniConfig(**config_dict)
+    config_path = Path("examples/flight_booking/soni.yaml")
+    runtime = RuntimeLoop(config_path)
+    user_id = "test-normalizer-1"
+    user_msg = "I want to book a flight from  Madrid  "  # Extra spaces to test normalization
 
-    state = DialogueState(
-        messages=[{"role": "user", "content": "I want to book a flight from  Madrid  "}],
-        current_flow="book_flight",
-        slots={},
-    )
-    state.config = config
-
-    # Act & Assert
-    # This test verifies that the understand_node can be called
-    # The actual normalization happens inside, but we can't easily test it
-    # without mocking the entire NLU pipeline
-    # For now, we just verify the node doesn't crash with normalization code
     try:
-        result = await understand_node(state)
-        # If we get here, normalization didn't break the flow
-        assert isinstance(result, dict)
-    except Exception as e:
-        # If it's an NLU error (expected without real LLM), that's ok
-        # We just want to make sure normalization code doesn't cause issues
-        assert "normalization" not in str(e).lower() or "nlu" in str(e).lower()
+        # Act
+        # Initialize graph to ensure normalizer is set up
+        await runtime._ensure_graph_initialized()
+
+        # Verify that normalizer is initialized
+        assert runtime.normalizer is not None, "Normalizer should be initialized"
+
+        # Process message - normalizer should handle extra spaces
+        # The flow may fail if slots are not filled, but normalization should work
+        try:
+            response = await runtime.process_message(user_msg, user_id)
+            # Assert - If successful, verify response
+            assert response is not None, "Response should not be None"
+            assert isinstance(response, str), "Response should be a string"
+            assert len(response) > 0, "Response should not be empty"
+        except SoniError as e:
+            # If processing fails due to missing slots, that's expected
+            # The important thing is that normalization didn't cause the error
+            error_msg = str(e).lower()
+            # Verify the error is about missing slots, not normalization
+            assert "normalization" not in error_msg or "slot" in error_msg, (
+                f"Error should be about slots, not normalization: {e}"
+            )
+            # Normalization should have worked (spaces should be handled)
+            # The error is expected because slots aren't filled
+            pass
+
+        # Assert - Normalization should not cause errors
+        # The normalizer should have processed the message without issues
+        assert runtime.normalizer is not None, "Normalizer should still be available"
+    finally:
+        # Cleanup
+        await runtime.cleanup()

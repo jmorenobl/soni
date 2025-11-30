@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
 from soni.core.errors import ActionNotFoundError
 
@@ -55,8 +56,34 @@ class ActionHandler:
 
         action_config = self.config.actions[action_name]
 
-        # Load handler (with caching)
-        handler = self._load_handler(action_config.handler)
+        # Try to get handler from registry first (zero-leakage)
+        # Fallback to Python path for backward compatibility
+        handler = None
+        if ActionRegistry.is_registered(action_name):
+            try:
+                handler = ActionRegistry.get(action_name)
+                logger.debug(f"Using registered action handler: {action_name}")
+            except ValueError as e:
+                logger.warning(
+                    f"Action '{action_name}' not found in registry: {e}. "
+                    "Falling back to Python path."
+                )
+
+        # Fallback to loading from Python path (backward compatibility)
+        if handler is None:
+            if hasattr(action_config, "handler") and action_config.handler:
+                handler = self._load_handler(action_config.handler)
+            else:
+                raise ActionNotFoundError(
+                    action_name=action_name,
+                    context={
+                        "error": (
+                            "Action not registered and no handler path provided. "
+                            f"Register with @ActionRegistry.register('{action_name}') "
+                            "or provide handler path in YAML."
+                        ),
+                    },
+                )
 
         # Prepare inputs from slots
         inputs = {}

@@ -26,7 +26,10 @@ class DialogueUnderstanding(dspy.Signature):
         desc="User's intent/command (e.g., book_flight, cancel, help, search_flights)"
     )
     extracted_slots = dspy.OutputField(
-        desc='Extracted entities as a JSON string (e.g., {"destination": "Paris", "date": "tomorrow"})'
+        desc=(
+            "Extracted entities as a JSON string "
+            '(e.g., {"destination": "Paris", "date": "tomorrow"})'
+        )
     )
     confidence = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
     reasoning = dspy.OutputField(desc="Brief reasoning for the extraction")

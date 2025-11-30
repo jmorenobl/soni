@@ -1,9 +1,12 @@
 """Metrics for evaluating DSPy NLU modules"""
 
 import json
+import logging
 from typing import Any
 
 import dspy
+
+logger = logging.getLogger(__name__)
 
 
 def intent_accuracy_metric(
@@ -76,6 +79,18 @@ def intent_accuracy_metric(
         # Weighted score: 70% intent, 30% slots
         score = 0.7 * (1.0 if intent_match else 0.0) + 0.3 * (1.0 if slot_match else 0.0)
         return score
-    except Exception:
+    except Exception as e:
         # Return 0.0 for any error in metric calculation
+        predicted_intent = (
+            prediction.structured_command if hasattr(prediction, "structured_command") else None
+        )
+        gold_intent = example.structured_command if hasattr(example, "structured_command") else None
+        logger.warning(
+            f"Error calculating metric: {e}",
+            exc_info=True,
+            extra={
+                "predicted_intent": predicted_intent,
+                "gold_intent": gold_intent,
+            },
+        )
         return 0.0

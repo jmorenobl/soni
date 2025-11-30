@@ -95,6 +95,21 @@ class ConfigLoader:
         """
         errors: list[ValidationError] = []
 
+        # Delegate to specialized validation methods
+        errors.extend(ConfigLoader._validate_required_fields(config))
+        errors.extend(ConfigLoader._validate_version(config))
+        errors.extend(ConfigLoader._validate_settings(config))
+        errors.extend(ConfigLoader._validate_flows(config))
+        errors.extend(ConfigLoader._validate_slots(config))
+        errors.extend(ConfigLoader._validate_actions(config))
+
+        return errors
+
+    @staticmethod
+    def _validate_required_fields(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate required top-level fields."""
+        errors: list[ValidationError] = []
+
         # Check required top-level fields
         for field in ConfigLoader.REQUIRED_FIELDS:
             if field not in config:
@@ -117,7 +132,13 @@ class ConfigLoader:
                     ),
                 )
 
-        # Validate version format
+        return errors
+
+    @staticmethod
+    def _validate_version(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate version field."""
+        errors: list[ValidationError] = []
+
         if "version" in config:
             version = config["version"]
             if not isinstance(version, str):
@@ -129,7 +150,13 @@ class ConfigLoader:
                     ),
                 )
 
-        # Validate settings structure if present
+        return errors
+
+    @staticmethod
+    def _validate_settings(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate settings section."""
+        errors: list[ValidationError] = []
+
         if "settings" in config:
             settings = config["settings"]
             if not isinstance(settings, dict):
@@ -141,7 +168,13 @@ class ConfigLoader:
                     ),
                 )
 
-        # Validate flows structure if present
+        return errors
+
+    @staticmethod
+    def _validate_flows(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate flows section."""
+        errors: list[ValidationError] = []
+
         if "flows" in config:
             flows = config["flows"]
             if not isinstance(flows, dict):
@@ -153,7 +186,13 @@ class ConfigLoader:
                     ),
                 )
 
-        # Validate slots structure if present
+        return errors
+
+    @staticmethod
+    def _validate_slots(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate slots section."""
+        errors: list[ValidationError] = []
+
         if "slots" in config:
             slots = config["slots"]
             if not isinstance(slots, dict):
@@ -165,7 +204,13 @@ class ConfigLoader:
                     ),
                 )
 
-        # Validate actions structure if present
+        return errors
+
+    @staticmethod
+    def _validate_actions(config: dict[str, Any]) -> list[ValidationError]:
+        """Validate actions section."""
+        errors: list[ValidationError] = []
+
         if "actions" in config:
             actions = config["actions"]
             if not isinstance(actions, dict):

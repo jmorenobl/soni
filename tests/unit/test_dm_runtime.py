@@ -56,10 +56,12 @@ async def test_build_graph_with_checkpointer(sample_config):
 async def test_build_graph_nonexistent_flow(sample_config):
     """Test that building non-existent flow raises error"""
     # Arrange
+    from soni.core.errors import ValidationError
+
     builder = SoniGraphBuilder(sample_config)
 
     # Act & Assert
-    with pytest.raises(ValueError, match="Flow 'nonexistent' not found"):
+    with pytest.raises(ValidationError, match="Flow 'nonexistent' not found"):
         await builder.build_manual("nonexistent")
 
 
