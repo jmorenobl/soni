@@ -1,6 +1,5 @@
 """DSPy modules for Dialogue Understanding"""
 
-import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -12,6 +11,7 @@ from cachetools import TTLCache  # type: ignore[import-untyped]
 from soni.core.interfaces import IScopeManager
 from soni.core.state import DialogueState
 from soni.du.signatures import DialogueUnderstanding
+from soni.utils.hashing import generate_cache_key_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -141,17 +141,15 @@ class SoniDU(dspy.Module):
             Cache key as MD5 hash string
         """
         # Create hash of inputs
-        key_data = json.dumps(
+        return generate_cache_key_from_dict(
             {
                 "message": user_message,
                 "history": dialogue_history,
                 "slots": current_slots,
                 "actions": sorted(available_actions),  # Sort for consistency
                 "flow": current_flow,
-            },
-            sort_keys=True,
+            }
         )
-        return hashlib.md5(key_data.encode()).hexdigest()
 
     async def predict(
         self,

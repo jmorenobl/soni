@@ -1,6 +1,5 @@
 """Slot normalization layer for Soni Framework"""
 
-import hashlib
 import logging
 from typing import Any
 
@@ -9,6 +8,7 @@ from cachetools import TTLCache  # type: ignore[import-untyped]
 
 from soni.core.config import SoniConfig
 from soni.core.interfaces import INormalizer
+from soni.utils.hashing import generate_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -186,8 +186,7 @@ Return only the normalized value, nothing else."""
         value_str = str(value).lower().strip() if value is not None else ""
 
         # Create hash for cache key
-        key_data = f"{strategy}:{entity_name}:{value_str}"
-        return hashlib.md5(key_data.encode()).hexdigest()
+        return generate_cache_key(strategy, entity_name, value_str)
 
     async def normalize_slot(
         self,

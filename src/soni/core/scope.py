@@ -1,7 +1,5 @@
 """Dynamic action scoping for Soni Framework"""
 
-import hashlib
-import json
 import logging
 from typing import Any
 
@@ -10,6 +8,7 @@ from cachetools import TTLCache  # type: ignore[import-untyped]
 from soni.core.config import SoniConfig
 from soni.core.interfaces import IScopeManager
 from soni.core.state import DialogueState
+from soni.utils.hashing import generate_cache_key_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +71,12 @@ class ScopeManager(IScopeManager):
             Cache key as MD5 hash string
         """
         # Create hash based on flow and slots (main factors for scoping)
-        key_data = json.dumps(
+        return generate_cache_key_from_dict(
             {
                 "flow": state.current_flow,
                 "slots": state.slots,
-            },
-            sort_keys=True,
+            }
         )
-        return hashlib.md5(key_data.encode()).hexdigest()
 
     def get_available_actions(
         self,
