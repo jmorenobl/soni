@@ -61,7 +61,8 @@ flows:
 
 actions:
   greet_user:
-    handler: my_handlers.greet
+    description: "Greet the user"
+    # No handler path needed - registered via @ActionRegistry.register()
     inputs: []
     outputs:
       - message
@@ -69,12 +70,18 @@ actions:
 
 ### 2. Create Handlers
 
-Create `my_handlers.py`:
+Create `my_handlers.py` in the same directory as your YAML file:
 
 ```python
+from soni.actions.registry import ActionRegistry
+
+@ActionRegistry.register("greet_user")
 async def greet() -> dict:
+    """Greet the user with a friendly message."""
     return {"message": "Hello! How can I help you?"}
 ```
+
+**Note:** The runtime automatically discovers and imports `my_handlers.py` from the config directory, so actions are registered automatically when the server starts.
 
 ### 3. Start the Server
 

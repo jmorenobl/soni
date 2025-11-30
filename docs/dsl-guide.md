@@ -2,7 +2,9 @@
 
 ## Overview
 
-Soni Framework v0.3.0 introduces a procedural DSL for defining complex dialogue flows with branching logic and explicit control flow. The compiler translates YAML procedural steps into LangGraph StateGraph for execution.
+Soni Framework v0.4.0 introduces a procedural DSL for defining complex dialogue flows with branching logic and explicit control flow. The compiler translates YAML procedural steps into LangGraph StateGraph for execution.
+
+**Zero-Leakage Architecture (v0.4.0):** YAML configuration is completely semantic - no technical details (Python paths, regex patterns) in YAML. Actions and validators are registered via decorators in Python code.
 
 ## Step Types
 
@@ -227,7 +229,66 @@ flows:
         call: process_input
 ```
 
-## Validation
+## Slots and Validators
+
+### Slot Definition
+
+Slots define entities that need to be collected from users:
+
+```yaml
+slots:
+  origin:
+    type: string
+    prompt: "Which city are you departing from?"
+    required: true
+    validator: city_name  # Semantic validator name
+```
+
+**Fields:**
+- `type`: Data type (`string`, `integer`, `float`, `boolean`, `date`)
+- `prompt`: Question to ask when slot is missing
+- `required`: Whether slot must be collected (default: `false`)
+- `validator`: (Optional) Semantic validator name (not regex pattern)
+
+### Validators (Zero-Leakage Architecture)
+
+Validators are registered using `@ValidatorRegistry.register()` decorator in Python code. YAML uses semantic names only:
+
+```yaml
+slots:
+  origin:
+    type: string
+    prompt: "Which city?"
+    validator: city_name  # Semantic name, not regex pattern
+```
+
+**Built-in Validators:**
+- `city_name`: Validates city name format
+- `future_date_only`: Validates date is in the future
+- `iata_code`: Validates IATA airport code (3 uppercase letters)
+- `booking_reference`: Validates booking reference format (6 alphanumeric)
+
+**Custom Validators:**
+
+Create custom validators by registering them in Python:
+
+```python
+from soni.validation.registry import ValidatorRegistry
+import re
+
+@ValidatorRegistry.register("my_custom_validator")
+def validate_custom(value: str) -> bool:
+    """Custom validation logic."""
+    # Regex lives here, not in YAML
+    return bool(re.match(r"^[A-Z]{2,3}\d{3,4}$", value))
+```
+
+**Important:**
+- YAML uses semantic names only (e.g., `city_name`)
+- Regex patterns live in Python code, not in YAML
+- This implements zero-leakage architecture: YAML describes WHAT, Python implements HOW
+
+## Compiler Validation
 
 The compiler automatically validates:
 
@@ -346,6 +407,36 @@ flows:
         cases:
           ok: continue
           error: jump_to_retry
+```
+
+**v0.4.0 (Zero-Leakage Architecture):**
+
+```yaml
+# Actions: No handler paths, use ActionRegistry
+actions:
+  search_flights:
+    description: "Search for flights"
+    # No handler: field - registered via @ActionRegistry.register()
+    inputs: [origin, destination]
+    outputs: [api_flights, api_price]
+
+# Slots: Semantic validator names, not regex
+slots:
+  origin:
+    type: string
+    prompt: "Which city?"
+    validator: city_name  # Semantic name, not regex pattern
+
+# Steps: Output mapping for zero-leakage
+flows:
+  book_flight:
+    process:
+      - step: search
+        type: action
+        call: search_flights
+        map_outputs:
+          flights: api_flights  # Map technical field to flat variable
+          price: api_price
 ```
 
 Simple linear flows continue to work with the `steps` array, but new procedural features require the `process` section.
