@@ -1,12 +1,23 @@
-"""Registry for action handlers"""
+"""Thread-safe registry for action handlers"""
 
+import logging
 from collections.abc import Callable
+from threading import Lock
+
+logger = logging.getLogger(__name__)
+
+# Estado global con lock para thread-safety
+_actions: dict[str, Callable] = {}
+_actions_lock = Lock()
 
 
 class ActionRegistry:
-    """Registry for action handlers."""
+    """
+    Thread-safe registry for action handlers.
 
-    _actions: dict[str, Callable] = {}
+    All mutations are protected by a lock to ensure thread-safety
+    in concurrent environments.
+    """
 
     @classmethod
     def register(cls, name: str) -> Callable:
@@ -29,7 +40,17 @@ class ActionRegistry:
         """
 
         def decorator(func: Callable) -> Callable:
-            cls._actions[name] = func
+            with _actions_lock:  # Thread-safe mutation
+                if name in _actions:
+                    logger.warning(
+                        f"Action '{name}' already registered, overwriting",
+                        extra={"action_name": name},
+                    )
+                _actions[name] = func
+                logger.debug(
+                    f"Registered action '{name}'",
+                    extra={"action_name": name},
+                )
             return func
 
         return decorator
@@ -37,7 +58,7 @@ class ActionRegistry:
     @classmethod
     def get(cls, name: str) -> Callable:
         """
-        Get action handler by name.
+        Get action handler by name (thread-safe read).
 
         Args:
             name: Action name
@@ -48,26 +69,28 @@ class ActionRegistry:
         Raises:
             ValueError: If action is not registered
         """
-        if name not in cls._actions:
-            raise ValueError(
-                f"Action '{name}' not registered. Available: {list(cls._actions.keys())}"
-            )
-        return cls._actions[name]
+        with _actions_lock:  # Thread-safe read
+            if name not in _actions:
+                raise ValueError(
+                    f"Action '{name}' not registered. Available: {list(_actions.keys())}"
+                )
+            return _actions[name]
 
     @classmethod
     def list_actions(cls) -> list[str]:
         """
-        List all registered action names.
+        List all registered action names (thread-safe).
 
         Returns:
             List of action names
         """
-        return list(cls._actions.keys())
+        with _actions_lock:  # Thread-safe read
+            return list(_actions.keys())
 
     @classmethod
     def is_registered(cls, name: str) -> bool:
         """
-        Check if an action is registered.
+        Check if an action is registered (thread-safe).
 
         Args:
             name: Action name
@@ -75,23 +98,36 @@ class ActionRegistry:
         Returns:
             True if registered, False otherwise
         """
-        return name in cls._actions
+        with _actions_lock:  # Thread-safe read
+            return name in _actions
 
     @classmethod
     def clear(cls) -> None:
         """
-        Clear all registered actions.
+        Clear all registered actions (thread-safe).
 
-        Useful for testing to reset state between tests.
+        Warning: This is primarily for testing. Use with caution.
         """
-        cls._actions.clear()
+        with _actions_lock:  # Thread-safe mutation
+            count = len(_actions)
+            _actions.clear()
+            logger.debug(
+                f"Cleared {count} registered action(s)",
+                extra={"count": count},
+            )
 
     @classmethod
     def unregister(cls, name: str) -> None:
         """
-        Unregister a specific action.
+        Unregister a specific action (thread-safe).
 
         Args:
             name: Action name to unregister
         """
-        cls._actions.pop(name, None)
+        with _actions_lock:  # Thread-safe mutation
+            if name in _actions:
+                _actions.pop(name, None)
+                logger.debug(
+                    f"Unregistered action '{name}'",
+                    extra={"action_name": name},
+                )
