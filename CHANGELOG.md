@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **From v0.3.0**: Remove any `handler:` fields from YAML action definitions
 - **From v0.3.0**: Replace regex patterns in `validator:` fields with semantic validator names
 
-## [0.3.0] - 2025-01-XX
+## [0.3.0] - 2024-11-30
 
 ### Added
 - Step Compiler for procedural flow definition
