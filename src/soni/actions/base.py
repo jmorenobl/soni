@@ -56,34 +56,24 @@ class ActionHandler:
 
         action_config = self.config.actions[action_name]
 
-        # Try to get handler from registry first (zero-leakage)
-        # Fallback to Python path for backward compatibility
-        handler = None
-        if ActionRegistry.is_registered(action_name):
-            try:
-                handler = ActionRegistry.get(action_name)
-                logger.debug(f"Using registered action handler: {action_name}")
-            except ValueError as e:
-                logger.warning(
-                    f"Action '{action_name}' not found in registry: {e}. "
-                    "Falling back to Python path."
-                )
-
-        # Fallback to loading from Python path (backward compatibility)
-        if handler is None:
-            if hasattr(action_config, "handler") and action_config.handler:
-                handler = self._load_handler(action_config.handler)
-            else:
-                raise ActionNotFoundError(
-                    action_name=action_name,
-                    context={
-                        "error": (
-                            "Action not registered and no handler path provided. "
-                            f"Register with @ActionRegistry.register('{action_name}') "
-                            "or provide handler path in YAML."
-                        ),
-                    },
-                )
+        # Get handler from ActionRegistry (zero-leakage architecture)
+        # Actions must be registered using @ActionRegistry.register()
+        try:
+            handler = ActionRegistry.get(action_name)
+            logger.debug(f"Using registered action handler: {action_name}")
+        except ValueError as e:
+            # No fallback - require ActionRegistry
+            available = ActionRegistry.list_actions()
+            raise ActionNotFoundError(
+                action_name=action_name,
+                context={
+                    "error": (
+                        f"Action '{action_name}' not found in registry. "
+                        f"Available actions: {', '.join(sorted(available))}. "
+                        f"Register actions using @ActionRegistry.register('{action_name}')"
+                    ),
+                },
+            ) from e
 
         # Prepare inputs from slots
         inputs = {}

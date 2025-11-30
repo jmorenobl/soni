@@ -158,11 +158,8 @@ actions:
     # Description: human-readable description of what this action does
     description: "Search for available flights between origin and destination"
 
-    # Handler: Python path to the handler function/class
-    # Format: "module.path.to.function"
-    # The handler must be registered in ActionRegistry (Hito 17)
-    # For MVP, this is a direct Python path that will be imported
-    handler: examples.flight_booking.handlers.search_available_flights
+    # Handler removed - registered in handlers.py using @ActionRegistry.register()
+    # Import handlers.py to auto-register actions
 
     # Inputs: list of slot names that this action requires
     # These slots must be collected before this action can execute
@@ -181,7 +178,8 @@ actions:
 
   confirm_flight_booking:
     description: "Confirm flight booking and generate booking reference"
-    handler: examples.flight_booking.handlers.confirm_flight_booking
+    # Handler removed - registered in handlers.py using @ActionRegistry.register()
+    # Import handlers.py to auto-register actions
     inputs:
       - flights
       - origin

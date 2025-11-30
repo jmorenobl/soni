@@ -3,9 +3,12 @@
 import logging
 from typing import Any
 
+from soni.actions.registry import ActionRegistry
+
 logger = logging.getLogger(__name__)
 
 
+@ActionRegistry.register("search_available_flights")
 async def search_available_flights(
     origin: str,
     destination: str,
@@ -50,6 +53,7 @@ async def search_available_flights(
     }
 
 
+@ActionRegistry.register("confirm_flight_booking")
 async def confirm_flight_booking(
     flights: list[dict[str, Any]],
     origin: str,
