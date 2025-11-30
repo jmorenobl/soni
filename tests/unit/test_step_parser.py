@@ -81,15 +81,15 @@ def test_parser_rejects_unsupported_type():
     """Test parser rejects unsupported step type"""
     # Arrange
     parser = StepParser()
-    steps = [StepConfig(step="branch_step", type="branch", slot=None)]
+    steps = [StepConfig(step="invalid_step", type="invalid_type", slot=None)]
 
     # Act & Assert
     with pytest.raises(CompilationError) as exc_info:
         parser.parse(steps)
 
-    assert "Unsupported step type 'branch'" in str(exc_info.value)
+    assert "Unsupported step type 'invalid_type'" in str(exc_info.value)
     assert exc_info.value.step_index == 1
-    assert exc_info.value.step_name == "branch_step"
+    assert exc_info.value.step_name == "invalid_step"
 
 
 def test_parser_rejects_collect_without_slot():

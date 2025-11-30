@@ -87,17 +87,20 @@ def test_understand_node_is_async():
     # Arrange
     from unittest.mock import MagicMock
 
+    from soni.core.state import RuntimeContext
     from soni.dm.nodes import create_understand_node
 
     mock_scope = MagicMock()
     mock_normalizer = MagicMock()
     mock_nlu = MagicMock()
+    mock_context = MagicMock(spec=RuntimeContext)
 
     # Act
     understand_node = create_understand_node(
         scope_manager=mock_scope,
         normalizer=mock_normalizer,
         nlu_provider=mock_nlu,
+        context=mock_context,
     )
 
     # Assert

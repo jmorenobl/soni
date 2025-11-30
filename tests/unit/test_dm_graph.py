@@ -112,7 +112,9 @@ async def test_build_manual_validates_actions():
 async def test_understand_node_with_message():
     """Test understand_node processes user message"""
     # Arrange
+    from soni.actions.base import ActionHandler
     from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
     from soni.du.normalizer import SlotNormalizer
 
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
@@ -137,12 +139,22 @@ async def test_understand_node_with_message():
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=mock_du,
+    )
 
     # Create understand node using factory
     understand_fn = create_understand_node(
         scope_manager=scope_manager,
         normalizer=normalizer,
         nlu_provider=mock_du,
+        context=context,
     )
 
     # Act
@@ -360,7 +372,9 @@ async def test_checkpointer_creation_unsupported_backend():
 async def test_understand_node_no_messages():
     """Test understand_node handles state with no messages"""
     # Arrange
+    from soni.actions.base import ActionHandler
     from soni.core.scope import ScopeManager
+    from soni.core.state import RuntimeContext
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
@@ -369,12 +383,22 @@ async def test_understand_node_no_messages():
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
     du = SoniDU(scope_manager=scope_manager)
+
+    context = RuntimeContext(
+        config=config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
 
     understand_fn = create_understand_node(
         scope_manager=scope_manager,
         normalizer=normalizer,
         nlu_provider=du,
+        context=context,
     )
 
     # Act
