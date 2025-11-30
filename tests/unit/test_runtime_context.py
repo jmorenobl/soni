@@ -160,3 +160,62 @@ def test_dialogue_state_is_serializable():
     assert deserialized.slots == state.slots
     assert deserialized.current_flow == state.current_flow
     assert not hasattr(deserialized, "config")
+
+
+def test_node_factories_require_runtime_context():
+    """Test that node factories require RuntimeContext"""
+    from soni.dm.nodes import (
+        create_action_node_factory,
+        create_collect_node_factory,
+        create_understand_node,
+    )
+
+    # Arrange
+    config = SoniConfig(
+        version="1.0",
+        settings={"models": {"nlu": {"provider": "openai", "model": "gpt-4o-mini"}}},
+        flows={},
+        slots={"test_slot": {"type": "string", "prompt": "Enter value"}},
+        actions={"test_action": {"inputs": [], "outputs": []}},
+    )
+    mock_scope = MagicMock()
+    mock_normalizer = MagicMock()
+    mock_handler = MagicMock()
+    mock_du = MagicMock()
+    context = RuntimeContext(
+        config=config,
+        scope_manager=mock_scope,
+        normalizer=mock_normalizer,
+        action_handler=mock_handler,
+        du=mock_du,
+    )
+
+    # Act & Assert - Should work with context
+    node_fn = create_understand_node(
+        scope_manager=mock_scope,
+        normalizer=mock_normalizer,
+        nlu_provider=mock_du,
+        context=context,
+    )
+    assert callable(node_fn)
+
+    collect_fn = create_collect_node_factory("test_slot", context)
+    assert callable(collect_fn)
+
+    action_fn = create_action_node_factory("test_action", context)
+    assert callable(action_fn)
+
+    # Act & Assert - Should fail without context (TypeError for missing required arg)
+    with pytest.raises(TypeError):
+        create_understand_node(
+            scope_manager=mock_scope,
+            normalizer=mock_normalizer,
+            nlu_provider=mock_du,
+            # context missing - should raise TypeError
+        )
+
+    with pytest.raises(TypeError):
+        create_collect_node_factory("test_slot")  # context missing
+
+    with pytest.raises(TypeError):
+        create_action_node_factory("test_action")  # context missing

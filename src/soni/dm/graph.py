@@ -270,9 +270,15 @@ class SoniGraphBuilder:
         """
         Create node function from DAG node.
 
+        This method creates node functions using factory functions from nodes.py.
+        All factory functions require RuntimeContext to provide:
+        - Configuration for validation and normalization
+        - Dependencies (scope_manager, normalizer, action_handler, etc.)
+        - Consistent way to pass runtime state to nodes
+
         Args:
             node: DAG node from compiled flow
-            context: Runtime context with dependencies
+            context: Runtime context with dependencies (always required)
 
         Returns:
             Node function for LangGraph.
@@ -286,13 +292,13 @@ class SoniGraphBuilder:
                 scope_manager=context.scope_manager,
                 normalizer=context.normalizer,
                 nlu_provider=context.du,
-                context=context,
+                context=context,  # Always required
             )
         elif node.type == NodeType.COLLECT:
             slot_name = node.config["slot_name"]
-            return create_collect_node_factory(slot_name, context)
+            return create_collect_node_factory(slot_name, context)  # Always required
         elif node.type == NodeType.ACTION:
             action_name = node.config["action_name"]
-            return create_action_node_factory(action_name, context)
+            return create_action_node_factory(action_name, context)  # Always required
         else:
             raise ValueError(f"Unsupported node type: {node.type}")

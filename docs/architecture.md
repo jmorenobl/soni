@@ -139,6 +139,20 @@ v0.3.0 introduces `RuntimeContext` to cleanly separate state from configuration:
 - Contains: config, scope_manager, normalizer, action_handler, du (NLU provider)
 - Passed to node factories via closures
 - Never serialized - exists only during graph execution
+- **Always required** in node factory functions
+
+**Usage Pattern:**
+
+1. `SoniGraphBuilder` creates `RuntimeContext` with all dependencies
+2. Factory functions in `nodes.py` receive `RuntimeContext` as required parameter
+3. Nodes access config and dependencies through `RuntimeContext`
+
+**Why Always Required?**
+
+- Simplifies code (no need to handle None case)
+- Makes dependencies explicit
+- Consistent with Dependency Injection pattern
+- Provides access to config for normalization and validation
 
 **Example:**
 ```python
@@ -151,8 +165,13 @@ context = RuntimeContext(
     du=nlu_provider,
 )
 
-# Using in node factory
-def create_my_node(context: RuntimeContext):
+# Using in node factory (context is always required)
+def create_my_node(
+    scope_manager: IScopeManager,
+    normalizer: INormalizer,
+    nlu_provider: INLUProvider,
+    context: RuntimeContext,  # Always required
+):
     async def my_node(state: DialogueState) -> DialogueState:
         # Access config via context
         slot_config = context.get_slot_config("my_slot")

@@ -49,19 +49,33 @@ def create_understand_node(
     scope_manager: IScopeManager,
     normalizer: INormalizer,
     nlu_provider: INLUProvider,
-    context: RuntimeContext | None = None,
+    context: RuntimeContext,
 ) -> Any:
     """
-    Create an understand node factory that captures dependencies.
+    Create understand node factory function.
+
+    This factory creates an async node function that processes NLU,
+    normalizes slots, and updates dialogue state.
 
     Args:
-        scope_manager: Scope manager for action scoping
+        scope_manager: Scope manager for action filtering
         normalizer: Normalizer for slot normalization
-        nlu_provider: NLU provider for understanding
-        context: Optional runtime context for normalization
+        nlu_provider: NLU provider for understanding user messages
+        context: Runtime context with configuration and dependencies.
+                 Always required - provides access to config for normalization
+                 and other runtime dependencies.
 
     Returns:
-        Node function
+        Async node function that takes DialogueState | dict[str, Any] and returns state updates.
+        Type is Any because LangGraph's node function type is a complex internal type.
+        The actual return type is an async function that takes DialogueState | dict[str, Any]
+        and returns dict[str, Any] (state updates).
+
+    Note:
+        RuntimeContext is required because:
+        - Nodes need access to config for normalization settings
+        - Provides consistent way to pass all runtime dependencies
+        - Simplifies node creation (no need to handle None case)
     """
 
     async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
@@ -135,7 +149,7 @@ def create_understand_node(
             # Normalize extracted slots before updating state using injected normalizer
             normalized_slots = nlu_result.slots
             failed_slots: list[dict[str, Any]] = []
-            if normalized_slots and context is not None:
+            if normalized_slots:
                 try:
                     normalized_dict: dict[str, Any] = {}
                     for slot_name, slot_value in normalized_slots.items():
@@ -286,7 +300,7 @@ def create_understand_node(
 async def collect_slot_node(
     state: DialogueState | dict[str, Any],
     slot_name: str,
-    context: RuntimeContext | None = None,
+    context: RuntimeContext,
 ) -> dict[str, Any]:
     """
     Collect a slot value from user.
@@ -299,7 +313,9 @@ async def collect_slot_node(
     Args:
         state: Current dialogue state (dict or DialogueState)
         slot_name: Name of slot to collect
-        context: Optional runtime context
+        context: Runtime context with configuration and dependencies.
+                 Always required - provides access to config for slot validation
+                 and other runtime dependencies.
 
     Returns:
         Dictionary with state updates
@@ -309,8 +325,6 @@ async def collect_slot_node(
         state = _ensure_dialogue_state(state)
 
         # Get slot config from context
-        if context is None:
-            raise ValueError(f"Slot '{slot_name}' not found: context is required")
 
         slot_config = context.get_slot_config(slot_name)
 
@@ -491,14 +505,19 @@ async def collect_slot_node(
 
 def create_collect_node_factory(slot_name: str, context: RuntimeContext) -> Any:
     """
-    Create a collect slot node factory with injected dependencies.
+    Create collect node factory function.
 
     Args:
-        slot_name: Name of slot to collect
-        context: Runtime context with config and dependencies
+        slot_name: Name of the slot to collect
+        context: Runtime context with configuration and dependencies.
+                 Always required - provides access to config for slot validation
+                 and other runtime dependencies.
 
     Returns:
-        Node function
+        Async node function that collects a slot value.
+        Type is Any because LangGraph's node function type is a complex internal type.
+        The actual return type is an async function that takes DialogueState | dict[str, Any]
+        and returns dict[str, Any] (state updates).
     """
 
     async def collect_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
@@ -513,14 +532,18 @@ def create_collect_node_factory(slot_name: str, context: RuntimeContext) -> Any:
 
 def create_action_node_factory(action_name: str, context: RuntimeContext) -> Any:
     """
-    Create an action node factory with injected dependencies.
+    Create action node factory function.
 
     Args:
-        action_name: Name of action to execute
-        context: Runtime context with config and dependencies
+        action_name: Name of the action to execute
+        context: Runtime context with configuration and dependencies.
+                 Always required - provides access to action handler and config.
 
     Returns:
-        Node function
+        Async node function that executes an action.
+        Type is Any because LangGraph's node function type is a complex internal type.
+        The actual return type is an async function that takes DialogueState | dict[str, Any]
+        and returns dict[str, Any] (state updates).
     """
     # Capture dependencies in closure
     action_handler = context.action_handler
