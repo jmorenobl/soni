@@ -90,6 +90,9 @@ class SoniGraphBuilder:
         # This allows it to access config for normalization
         self._understand_node = None
 
+        # Track cleanup status to warn if resources not properly cleaned up
+        self._cleaned_up = False
+
     async def initialize(self) -> None:
         """
         Initialize the checkpointer asynchronously.
@@ -109,40 +112,65 @@ class SoniGraphBuilder:
         """
         Cleanup resources, especially the checkpointer context manager.
 
-        Should be called when the builder is no longer needed to ensure
-        proper resource cleanup (file descriptors, database connections, etc.).
-        """
-        if self._checkpointer_cm is not None:
+        IMPORTANT: Must be called explicitly when the builder is no longer needed
+        to ensure proper resource cleanup (file descriptors, database connections, etc.).
+
+        Example:
+            # Option 1: Explicit cleanup
+            builder = SoniGraphBuilder(config)
             try:
-                await self._checkpointer_cm.__aexit__(None, None, None)
-                logger.info("Checkpointer context manager closed successfully")
-            except (OSError, ConnectionError, RuntimeError) as e:
-                # Errores esperados al cerrar checkpointer
-                logger.warning(
-                    f"Error closing checkpointer context manager: {e}",
-                    extra={"error_type": type(e).__name__},
-                )
-            except Exception as e:
-                # Errores inesperados
-                logger.error(
-                    f"Unexpected error closing checkpointer: {e}",
-                    exc_info=True,
-                )
+                graph = await builder.build_manual("flow_name")
+                # Use graph
             finally:
-                self._checkpointer_cm = None
-                self.checkpointer = None
+                await builder.cleanup()
+
+        Note:
+            This method is idempotent: calling it multiple times is safe.
+            Sets _cleaned_up flag to prevent ResourceWarning in __del__.
+        """
+        if not self._cleaned_up:
+            if self._checkpointer_cm is not None:
+                try:
+                    await self._checkpointer_cm.__aexit__(None, None, None)
+                    logger.info("Checkpointer context manager closed successfully")
+                except (OSError, ConnectionError, RuntimeError) as e:
+                    # Errores esperados al cerrar checkpointer
+                    logger.warning(
+                        f"Error closing checkpointer context manager: {e}",
+                        extra={"error_type": type(e).__name__},
+                    )
+                except Exception as e:
+                    # Errores inesperados
+                    logger.error(
+                        f"Unexpected error closing checkpointer: {e}",
+                        exc_info=True,
+                    )
+                finally:
+                    self._checkpointer_cm = None
+                    self.checkpointer = None
+            self._cleaned_up = True
 
     def __del__(self) -> None:
         """
-        Destructor to ensure cleanup is called when object is garbage collected.
+        Destructor that warns if cleanup was not called.
 
-        Note: Relying on __del__ is not ideal, but provides a safety net.
-        Since cleanup() is now async, __del__ cannot call it directly.
-        Explicit cleanup() calls are preferred.
+        Since cleanup() is async, __del__ cannot call it directly.
+        Instead, this method emits a ResourceWarning if cleanup() was not called,
+        alerting developers to potential resource leaks.
+
+        Note:
+            This is a safety net. Explicit cleanup() calls are preferred.
+            The warning helps identify code paths where cleanup is forgotten.
         """
-        # Note: Cannot call async cleanup() from __del__
-        # Resources will be cleaned up when context manager exits
-        pass
+        if not self._cleaned_up:
+            import warnings
+
+            warnings.warn(
+                f"{self.__class__.__name__} was not cleaned up properly. "
+                "Call 'await builder.cleanup()' to release resources (checkpointer, etc.).",
+                ResourceWarning,
+                stacklevel=2,
+            )
 
     async def build_manual(self, flow_name: str) -> CompiledStateGraph:
         """

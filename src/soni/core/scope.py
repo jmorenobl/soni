@@ -64,11 +64,27 @@ class ScopeManager(IScopeManager):
         """
         Generate cache key for scoping request.
 
+        Cache key format: MD5 hash of JSON-serialized dict containing flow and slots.
+        This ensures scoping is recalculated when dialogue context changes.
+
         Args:
-            state: Current dialogue state
+            state: Current dialogue state containing flow and slots
 
         Returns:
-            Cache key as MD5 hash string
+            32-character hexadecimal MD5 hash string
+
+        Example:
+            >>> state = DialogueState(
+            ...     current_flow="booking", slots={"origin": "NYC", "destination": "LAX"}
+            ... )
+            >>> manager._get_cache_key(state)
+            'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+
+        Note:
+            Cache key changes when:
+            - current_flow changes (different flow context)
+            - slots change (different dialogue state)
+            This ensures scoped actions are recalculated for different contexts.
         """
         # Create hash based on flow and slots (main factors for scoping)
         return generate_cache_key_from_dict(

@@ -143,14 +143,29 @@ class RuntimeLoop:
 
     def _validate_inputs(self, user_msg: str, user_id: str) -> None:
         """
-        Validate input parameters.
+        Validate input parameters for message processing.
+
+        Validates that user message and user ID are non-empty strings.
+        Logs validation success with message preview and length.
 
         Args:
-            user_msg: User's input message
-            user_id: Unique identifier for user/conversation
+            user_msg: User's input message (must be non-empty after stripping)
+            user_id: Unique identifier for user/conversation (must be non-empty after stripping)
 
         Raises:
-            ValidationError: If inputs are invalid
+            ValidationError: If user_msg is empty or whitespace-only
+            ValidationError: If user_id is empty or whitespace-only
+
+        Example:
+            >>> runtime._validate_inputs("Hello", "user123")
+            # No exception raised
+
+            >>> runtime._validate_inputs("", "user123")
+            ValidationError: User message cannot be empty
+
+        Note:
+            This method logs the validation success with structured logging,
+            including user_id and message length for debugging and monitoring.
         """
         if not user_msg or not user_msg.strip():
             raise ValidationError("User message cannot be empty")
@@ -310,17 +325,33 @@ class RuntimeLoop:
         user_id: str,
     ) -> str:
         """
-        Extract response from graph execution result.
+        Extract response message from graph execution result.
+
+        Extracts the 'last_response' field from the final state dictionary
+        returned by the graph execution. If not present, returns a default
+        fallback message.
 
         Args:
-            result: Graph execution result (final state dict)
-            user_id: Unique identifier for the user
+            result: Graph execution result dictionary containing final state
+                (should have 'last_response' key set by graph nodes)
+            user_id: Unique identifier for the user (for logging)
 
         Returns:
-            Response message string
+            Response message string (never empty, always has fallback)
 
-        Raises:
-            ValueError: If response cannot be extracted
+        Example:
+            >>> result = {"last_response": "Flight booked successfully!"}
+            >>> runtime._extract_response(result, "user123")
+            'Flight booked successfully!'
+
+            >>> result = {}  # No response set
+            >>> runtime._extract_response(result, "user123")
+            "I'm sorry, I didn't understand that."
+
+        Note:
+            - Always returns a non-empty string (fallback if missing)
+            - Logs successful extraction with response length
+            - The 'last_response' field is set by graph nodes (collect, action, etc.)
         """
         # Extract response from result
         # The graph should update state with last_response

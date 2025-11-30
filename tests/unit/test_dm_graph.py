@@ -1,5 +1,6 @@
 """Tests for SoniGraphBuilder and graph nodes"""
 
+import warnings
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -291,6 +292,54 @@ async def test_builder_cleanup_called_twice():
 
     # Assert
     assert builder.checkpointer is None
+
+
+@pytest.mark.asyncio
+async def test_builder_warns_if_not_cleaned_up():
+    """Test SoniGraphBuilder warns if cleanup() not called"""
+    # Arrange
+    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+
+    # Act - create builder without cleanup
+    builder = SoniGraphBuilder(config)
+    await builder.initialize()  # Initialize checkpointer
+    # Don't call cleanup()
+    # Verify flag is False (not cleaned up)
+    assert builder._cleaned_up is False
+
+    # Note: __del__ may not be called immediately during test execution
+    # The ResourceWarning will be emitted when Python garbage collects the object
+    # This test verifies the flag mechanism is in place
+
+
+@pytest.mark.asyncio
+async def test_builder_no_warning_after_cleanup():
+    """Test SoniGraphBuilder doesn't warn if cleanup() called"""
+    # Arrange
+    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+
+    # Act
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        builder = SoniGraphBuilder(config)
+        await builder.initialize()
+        await builder.cleanup()  # Proper cleanup
+        assert builder._cleaned_up is True
+
+        del builder
+        import gc
+
+        gc.collect()
+
+        # Assert - no resource warnings about cleanup
+        resource_warnings = [
+            warning
+            for warning in w
+            if issubclass(warning.category, ResourceWarning)
+            and "not cleaned up" in str(warning.message)
+        ]
+        assert len(resource_warnings) == 0
 
 
 @pytest.mark.asyncio

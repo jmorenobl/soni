@@ -17,11 +17,28 @@ def _ensure_dialogue_state(
     """
     Ensure state is a DialogueState instance.
 
+    Converts dict state to DialogueState if needed. This is necessary because
+    LangGraph may pass state as a dict in some contexts, but our node functions
+    expect DialogueState for type safety and convenience methods.
+
     Args:
-        state: State as dict or DialogueState
+        state: State as dict (from LangGraph) or DialogueState instance
 
     Returns:
-        DialogueState instance
+        DialogueState instance (converted from dict if needed)
+
+    Example:
+        >>> state_dict = {"messages": [], "slots": {}, "current_flow": "booking"}
+        >>> _ensure_dialogue_state(state_dict)
+        DialogueState(messages=[], slots={}, current_flow='booking', ...)
+
+        >>> state_obj = DialogueState(current_flow="booking")
+        >>> _ensure_dialogue_state(state_obj) is state_obj
+        True
+
+    Note:
+        This function is idempotent: if state is already a DialogueState,
+        it is returned unchanged. No side effects.
     """
     if isinstance(state, dict):
         return DialogueState.from_dict(state)
