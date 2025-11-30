@@ -95,19 +95,25 @@ class StepCompiler:
     def _parsed_to_dag_node(self, parsed: ParsedStep) -> DAGNode:
         """Convert ParsedStep to DAGNode."""
         if parsed.step_type == "collect":
+            config: dict[str, Any] = {"slot_name": parsed.config["slot_name"]}
+            if "jump_to" in parsed.config:
+                config["jump_to"] = parsed.config["jump_to"]
             return DAGNode(
                 id=parsed.step_id,
                 type=NodeType.COLLECT,
-                config={"slot_name": parsed.config["slot_name"]},
+                config=config,
             )
         elif parsed.step_type == "action":
+            config = {
+                "action_name": parsed.config["action_name"],
+                "map_outputs": parsed.config.get("map_outputs", {}),
+            }
+            if "jump_to" in parsed.config:
+                config["jump_to"] = parsed.config["jump_to"]
             return DAGNode(
                 id=parsed.step_id,
                 type=NodeType.ACTION,
-                config={
-                    "action_name": parsed.config["action_name"],
-                    "map_outputs": parsed.config.get("map_outputs", {}),
-                },
+                config=config,
             )
         elif parsed.step_type == "branch":
             return DAGNode(

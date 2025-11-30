@@ -113,10 +113,15 @@ class StepParser:
                 raise ValueError(
                     f"Step '{step.step}' of type 'branch' must have 'cases' as a dictionary"
                 )
+            # Branches cannot use jump_to (they use cases)
+            if step.jump_to:
+                raise ValueError(
+                    f"Step '{step.step}' of type 'branch' cannot use 'jump_to'. Use 'cases' instead."
+                )
             config["input"] = step.input
             config["cases"] = step.cases
 
-        # Parse jump_to for any step type
+        # Parse jump_to for collect and action steps (not branch)
         if step.jump_to:
             if not step.jump_to.strip():
                 raise ValueError(f"Step '{step.step}' has empty 'jump_to' field")
