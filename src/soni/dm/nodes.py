@@ -117,6 +117,7 @@ def create_understand_node(
 
             # Normalize extracted slots before updating state using injected normalizer
             normalized_slots = nlu_result.slots
+            failed_slots: list[dict[str, Any]] = []
             if normalized_slots and context is not None:
                 try:
                     normalized_dict: dict[str, Any] = {}
@@ -133,23 +134,39 @@ def create_understand_node(
                                 and slot_config.normalization
                                 else {},
                             }
-                            normalized_value = await normalizer.normalize(slot_value, entity_config)
-                            normalized_dict[slot_name] = normalized_value
+                            try:
+                                normalized_value = await normalizer.normalize(
+                                    slot_value, entity_config
+                                )
+                                normalized_dict[slot_name] = normalized_value
+                            except (ValueError, TypeError, KeyError, AttributeError) as e:
+                                # Normalización falló para este slot específico
+                                logger.warning(
+                                    f"Normalization failed for slot '{slot_name}': {e}",
+                                    extra={
+                                        "slot_name": slot_name,
+                                        "slot_value": str(slot_value),
+                                        "error": str(e),
+                                    },
+                                )
+                                # Usar valor original
+                                normalized_dict[slot_name] = slot_value
+                                failed_slots.append(
+                                    {
+                                        "slot_name": slot_name,
+                                        "value": str(slot_value),
+                                        "error": str(e),
+                                    }
+                                )
                         else:
                             normalized_dict[slot_name] = slot_value
                     normalized_slots = normalized_dict
                     logger.info(f"Normalized slots: {normalized_slots}")
-                except (ValueError, TypeError, KeyError, AttributeError) as e:
-                    # Errores esperados de normalización
-                    logger.warning(
-                        f"Slot normalization failed, using original values: {e}",
-                        extra={
-                            "slots": list(normalized_slots.keys()) if normalized_slots else [],
-                        },
-                    )
-                    normalized_slots = nlu_result.slots
+
+                    # Marcar en metadata si alguna normalización falló
+                    # Metadata will be included in updates dict below
                 except Exception as e:
-                    # Errores inesperados - re-raise para debugging
+                    # Errores inesperados en todo el proceso de normalización
                     logger.error(
                         f"Unexpected normalization error: {e}",
                         exc_info=True,
@@ -157,13 +174,15 @@ def create_understand_node(
                             "slots": list(normalized_slots.keys()) if normalized_slots else [],
                         },
                     )
+                    # Re-raise para debugging (no ocultar errores inesperados)
                     raise
 
             # Update state with NLU results (using normalized slots)
             updated_slots = state.slots.copy()
             updated_slots.update(normalized_slots)
 
-            updates = {
+            # Prepare updates dict
+            updates: dict[str, Any] = {
                 "slots": updated_slots,
                 "pending_action": nlu_result.command if nlu_result.command else None,
                 "trace": state.trace
@@ -179,6 +198,20 @@ def create_understand_node(
                     }
                 ],
             }
+
+            # Add normalization metadata if any slots failed
+            if failed_slots:
+                # Store metadata in trace for persistence
+                updates["trace"][-1]["data"]["normalization_failed"] = True
+                updates["trace"][-1]["data"]["failed_slots"] = failed_slots
+
+                logger.warning(
+                    f"Normalization failed for {len(failed_slots)} slot(s)",
+                    extra={
+                        "failed_count": len(failed_slots),
+                        "failed_slots": [s["slot_name"] for s in failed_slots],
+                    },
+                )
 
             logger.info(
                 f"NLU result: command={nlu_result.command}, "
