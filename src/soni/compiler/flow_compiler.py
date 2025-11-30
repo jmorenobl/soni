@@ -1,10 +1,13 @@
 """Flow compiler that translates YAML flow configuration to DAG"""
 
 import logging
+from typing import Any
 
-from soni.compiler.dag import DAGEdge, DAGNode, FlowDAG, NodeType
-from soni.compiler.parser import ParsedStep, StepParser
+from soni.compiler.builder import StepCompiler
+from soni.compiler.dag import FlowDAG
+from soni.compiler.parser import StepParser
 from soni.core.config import SoniConfig
+from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
 
 logger = logging.getLogger(__name__)
 
@@ -12,15 +15,33 @@ logger = logging.getLogger(__name__)
 class FlowCompiler:
     """Compiles YAML flow configuration to intermediate DAG."""
 
-    def __init__(self, config: SoniConfig):
+    def __init__(
+        self,
+        config: SoniConfig,
+        nlu_provider: INLUProvider | None = None,
+        normalizer: INormalizer | None = None,
+        scope_manager: IScopeManager | None = None,
+        action_handler: IActionHandler | None = None,
+    ):
         """
         Initialize FlowCompiler with configuration.
 
         Args:
             config: Soni configuration containing flows
+            nlu_provider: Optional NLU provider
+            normalizer: Optional normalizer
+            scope_manager: Optional scope manager
+            action_handler: Optional action handler
         """
         self.config = config
         self.parser = StepParser()
+        self.compiler = StepCompiler(
+            config=config,
+            nlu_provider=nlu_provider,
+            normalizer=normalizer,
+            scope_manager=scope_manager,
+            action_handler=action_handler,
+        )
 
     def compile_flow(self, flow_name: str) -> FlowDAG:
         """
@@ -44,99 +65,37 @@ class FlowCompiler:
         # Parse steps first
         parsed_steps = self.parser.parse(flow_config.steps)
 
-        # Extract nodes and edges from parsed steps
-        nodes = self._compile_nodes_from_parsed(parsed_steps)
-        edges = self._compile_edges(nodes)
+        # Generate DAG using StepCompiler (for backward compatibility)
+        dag = self.compiler._generate_dag(flow_name, parsed_steps)
 
-        return FlowDAG(
-            name=flow_name,
-            nodes=nodes,
-            edges=edges,
-            entry_point="understand",
-        )
+        return dag
 
-    def _compile_nodes_from_parsed(self, parsed_steps: list[ParsedStep]) -> list[DAGNode]:
+    def compile_flow_to_graph(
+        self,
+        flow_name: str,
+    ) -> Any:  # StateGraph[DialogueState]
         """
-        Compile parsed steps to DAG nodes.
+        Compile flow directly to LangGraph StateGraph.
 
         Args:
-            parsed_steps: List of ParsedStep objects
+            flow_name: Name of the flow to compile
 
         Returns:
-            List of DAG nodes
-        """
-        # Always start with understand node
-        nodes: list[DAGNode] = [DAGNode(id="understand", type=NodeType.UNDERSTAND, config={})]
-
-        # Compile each parsed step to a node
-        for parsed in parsed_steps:
-            node = self._compile_parsed_step(parsed)
-            nodes.append(node)
-
-        return nodes
-
-    def _compile_parsed_step(self, parsed: ParsedStep) -> DAGNode:
-        """
-        Compile a parsed step to DAG node.
-
-        Args:
-            parsed: ParsedStep object
-
-        Returns:
-            DAG node
+            Compiled StateGraph ready for execution
 
         Raises:
-            ValueError: If step type is unsupported
+            KeyError: If flow_name is not found in config
         """
-        if parsed.step_type == "collect":
-            return DAGNode(
-                id=parsed.step_id,
-                type=NodeType.COLLECT,
-                config={"slot_name": parsed.config["slot_name"]},
-            )
-        elif parsed.step_type == "action":
-            return DAGNode(
-                id=parsed.step_id,
-                type=NodeType.ACTION,
-                config={
-                    "action_name": parsed.config["action_name"],
-                    "map_outputs": parsed.config.get("map_outputs", {}),
-                },
-            )
-        else:
-            raise ValueError(f"Unsupported parsed step type: {parsed.step_type}")
+        if flow_name not in self.config.flows:
+            raise KeyError(f"Flow '{flow_name}' not found in configuration")
 
-    def _compile_edges(self, nodes: list[DAGNode]) -> list[DAGEdge]:
-        """
-        Compile edges connecting nodes sequentially.
+        flow_config = self.config.flows[flow_name]
+        logger.info(f"Compiling flow '{flow_name}' to graph with {len(flow_config.steps)} steps")
 
-        Args:
-            nodes: List of DAG nodes
+        # Parse steps
+        parsed_steps = self.parser.parse(flow_config.steps)
 
-        Returns:
-            List of DAG edges
-        """
-        edges: list[DAGEdge] = []
+        # Compile to graph
+        graph = self.compiler.compile(flow_name, parsed_steps)
 
-        if len(nodes) < 2:
-            # Only understand node, no edges needed
-            return edges
-
-        # Connect nodes sequentially by default
-        # START -> understand -> step1 -> step2 -> ... -> END
-        # First edge: START -> understand
-        edges.append(DAGEdge(source="__start__", target=nodes[0].id))
-
-        # Connect nodes sequentially
-        for i in range(len(nodes) - 1):
-            edges.append(
-                DAGEdge(
-                    source=nodes[i].id,
-                    target=nodes[i + 1].id,
-                )
-            )
-
-        # Last edge: last node -> END
-        edges.append(DAGEdge(source=nodes[-1].id, target="__end__"))
-
-        return edges
+        return graph
