@@ -342,17 +342,26 @@ flows:
 
 ## Documentation
 
+### Language
+
+- **English Only**: All documentation, code comments, commit messages, and user-facing text must be in English.
+- **Global Audience**: This is an open-source project with a global community. English ensures accessibility for all contributors and users.
+- **Consistency**: Use clear, professional English throughout the project.
+
 ### Code Documentation
 
-- **Docstrings**: All public functions and classes must have docstrings.
-- **Examples**: Include usage examples in docstrings when useful.
+- **Docstrings**: All public functions and classes must have docstrings in English.
+- **Examples**: Include usage examples in docstrings when useful (in English).
 - **Type hints**: Type hints are documentation, use them consistently.
+- **Comments**: Code comments must be in English and explain "why" not "what".
 
 ### Project Documentation
 
-- **ADRs**: Document important architectural decisions in `docs/adr/`.
-- **README**: Keep README.md updated with setup and basic usage.
-- **Examples**: Provide complete examples in `examples/`.
+- **ADRs**: Document important architectural decisions in `docs/adr/` (in English).
+- **README**: Keep README.md updated with setup and basic usage (in English).
+- **Examples**: Provide complete examples in `examples/` with English documentation.
+- **Release Notes**: All release notes and changelog entries must be in English.
+- **User Guides**: All user-facing documentation must be in English.
 
 ## Git and Commits
 
@@ -360,7 +369,8 @@ flows:
 
 - **Format**: `type: description`
 - **Types**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
-- **Body**: Include details in commit body when necessary.
+- **Language**: All commit messages must be in English.
+- **Body**: Include details in commit body when necessary (in English).
 - **Example**:
   ```
   feat: add streaming support to RuntimeLoop
@@ -749,17 +759,18 @@ class MyModule(dspy.Module):
 
 ## Important Reminders
 
-1. **Async-first**: Everything must be async. Do not create sync versions.
-2. **Type hints**: Mandatory for all public functions.
-3. **Docstrings**: Mandatory for all public functions and classes.
-4. **Tests**: Write tests for new functionality following AAA pattern.
-5. **AAA Pattern**: All tests must use Arrange-Act-Assert structure with clear comments.
-6. **Semantic YAML**: YAML must not contain technical details.
-7. **Interfaces**: Use Protocols for decoupling.
-8. **Error handling**: Use appropriate exception hierarchy.
-9. **Logging**: Include relevant context in logs.
-10. **Conventional Commits**: Follow commit format.
-11. **Pre-commit**: Ensure hooks pass before committing.
+1. **English Only**: All documentation, code comments, commit messages, error messages, and user-facing text must be in English.
+2. **Async-first**: Everything must be async. Do not create sync versions.
+3. **Type hints**: Mandatory for all public functions.
+4. **Docstrings**: Mandatory for all public functions and classes (in English).
+5. **Tests**: Write tests for new functionality following AAA pattern.
+6. **AAA Pattern**: All tests must use Arrange-Act-Assert structure with clear comments (in English).
+7. **Semantic YAML**: YAML must not contain technical details.
+8. **Interfaces**: Use Protocols for decoupling.
+9. **Error handling**: Use appropriate exception hierarchy with English messages.
+10. **Logging**: Include relevant context in logs (in English).
+11. **Conventional Commits**: Follow commit format (in English).
+12. **Pre-commit**: Ensure hooks pass before committing.
 
 ---
 
