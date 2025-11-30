@@ -1,9 +1,7 @@
 """Action handlers for Soni Framework"""
 
-import importlib
 import inspect
 import logging
-from collections.abc import Callable
 from typing import Any
 
 from soni.actions.registry import ActionRegistry
@@ -17,8 +15,9 @@ class ActionHandler:
     """
     Handles execution of external action handlers.
 
-    This class loads and executes Python functions/classes
-    that implement business logic for actions.
+    This class executes Python functions registered via ActionRegistry.
+    Actions must be registered using @ActionRegistry.register() decorator.
+    This implements zero-leakage architecture: no Python paths in YAML.
     """
 
     def __init__(self, config: SoniConfig):
@@ -29,7 +28,6 @@ class ActionHandler:
             config: Soni configuration containing action definitions
         """
         self.config = config
-        self._handler_cache: dict[str, Callable] = {}
 
     async def execute(self, action_name: str, slots: dict[str, Any]) -> dict[str, Any]:
         """
@@ -150,66 +148,3 @@ class ActionHandler:
         logger.info(f"Action '{action_name}' executed successfully. Outputs: {list(result.keys())}")
 
         return result  # type: ignore[no-any-return]
-
-    def _load_handler(self, handler_path: str) -> Callable:
-        """
-        Load a handler function from Python path.
-
-        Args:
-            handler_path: Python path to handler (e.g., "handlers.flights.search")
-
-        Returns:
-            Callable handler function
-
-        Raises:
-            ActionNotFoundError: If handler cannot be loaded
-        """
-        # Check cache
-        if handler_path in self._handler_cache:
-            return self._handler_cache[handler_path]
-
-        try:
-            # Split path into module and function name
-            parts = handler_path.split(".")
-            if len(parts) < 2:
-                raise ValueError(
-                    f"Invalid handler path: {handler_path}. "
-                    "Expected format: 'module.path.to.function'"
-                )
-
-            module_path = ".".join(parts[:-1])
-            function_name = parts[-1]
-
-            # Import module
-            module = importlib.import_module(module_path)
-
-            # Get function
-            if not hasattr(module, function_name):
-                raise AttributeError(
-                    f"Module '{module_path}' does not have attribute '{function_name}'"
-                )
-
-            handler = getattr(module, function_name)
-
-            # Validate it's callable
-            if not callable(handler):
-                raise TypeError(
-                    f"Handler '{handler_path}' is not callable. Got type: {type(handler)}"
-                )
-
-            # Cache and return
-            self._handler_cache[handler_path] = handler
-            logger.info(f"Loaded handler: {handler_path}")
-
-            return handler  # type: ignore[no-any-return]
-
-        except ImportError as e:
-            raise ActionNotFoundError(
-                action_name=handler_path,
-                context={"import_error": str(e)},
-            ) from e
-        except (AttributeError, TypeError, ValueError) as e:
-            raise ActionNotFoundError(
-                action_name=handler_path,
-                context={"error": str(e)},
-            ) from e

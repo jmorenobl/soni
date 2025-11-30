@@ -218,28 +218,54 @@ slots:
     validator: my_validator
 ```
 
-### Adding Actions
+### Adding Actions (Zero-Leakage Architecture)
 
-Actions implement business logic using the ActionRegistry:
+Actions implement business logic using the ActionRegistry. This follows zero-leakage architecture: YAML defines contracts (inputs/outputs), Python implements handlers.
+
+**Registering Actions:**
 
 ```python
 from soni.actions.registry import ActionRegistry
+from typing import Any
 
 @ActionRegistry.register("my_action")
 async def my_action(param: str) -> dict[str, Any]:
+    """Process user input."""
     return {"result": f"Processed {param}"}
 ```
 
-Actions are automatically registered when imported. Reference them in YAML by name:
+**YAML Configuration (Semantic, No Python Paths):**
 
 ```yaml
 actions:
   my_action:
+    description: "Process user input"
+    # No handler path needed - registered via decorator
+    # Zero-leakage: YAML only describes WHAT, not HOW
     inputs:
       - param
     outputs:
       - result
 ```
+
+**Auto-Discovery:**
+
+The runtime automatically discovers and imports action modules from the config directory:
+- `actions.py` in the config directory
+- `actions/__init__.py` in the config directory
+
+Simply import your actions module (e.g., `import handlers`), and actions will be registered automatically via the `@ActionRegistry.register()` decorator.
+
+**Example Structure:**
+
+```
+examples/my_app/
+  ├── soni.yaml          # Config with action contracts
+  ├── handlers.py        # Actions registered via decorator
+  └── __init__.py        # Optional: imports handlers
+```
+
+When `RuntimeLoop` is initialized with `config_path="examples/my_app/soni.yaml"`, it automatically imports `handlers.py` and registers all actions.
 
 ### Dependency Injection
 

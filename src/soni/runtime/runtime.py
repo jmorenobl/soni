@@ -102,7 +102,53 @@ class RuntimeLoop:
         # Store action_handler for future use (will be used in Task 040)
         self.action_handler = action_handler
 
+        # Auto-discover and import actions from config directory
+        self._auto_import_actions(config_path)
+
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
+
+    def _auto_import_actions(self, config_path: str | Path) -> None:
+        """
+        Auto-discover and import actions module from config directory.
+
+        Looks for:
+        - actions.py in config directory
+        - actions/__init__.py in config directory
+
+        Actions are automatically registered via @ActionRegistry.register() decorator
+        when the module is imported.
+
+        Args:
+            config_path: Path to YAML configuration file
+        """
+        config_dir = Path(config_path).parent
+
+        # Try actions.py
+        actions_file = config_dir / "actions.py"
+        if actions_file.exists():
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location("user_actions", actions_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                logger.info(f"Auto-imported actions from {actions_file}")
+                return
+
+        # Try actions/ package
+        actions_dir = config_dir / "actions"
+        if actions_dir.exists() and (actions_dir / "__init__.py").exists():
+            # Add parent to sys.path temporarily
+            import importlib
+            import sys
+
+            original_path = sys.path[:]
+            try:
+                sys.path.insert(0, str(config_dir))
+                importlib.import_module("actions")
+                logger.info(f"Auto-imported actions package from {actions_dir}")
+            finally:
+                sys.path[:] = original_path
 
     async def _ensure_graph_initialized(self) -> None:
         """
