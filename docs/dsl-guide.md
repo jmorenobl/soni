@@ -39,6 +39,10 @@ Calls an action handler:
 - `type`: Must be `action`
 - `call`: Name of the action to call (must be defined in `actions` section)
 - `map_outputs`: (Optional) Maps action outputs to flat state variables
+  - Format: `{state_variable: action_output_field}`
+  - Example: `{"flights": "api_flights", "price": "api_price"}`
+  - Implements zero-leakage: actions can return technical structures that are mapped to simple state variables
+  - If omitted, action outputs are used directly (backward compatible)
 
 ### Branch Step
 

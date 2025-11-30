@@ -509,18 +509,24 @@ def create_collect_node_factory(
 
 
 def create_action_node_factory(
-    action_name: str, context: RuntimeContext
+    action_name: str,
+    context: RuntimeContext,
+    map_outputs: dict[str, str] | None = None,
 ) -> Any:  # Returns: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
     """
-    Create action node factory function.
+    Create action node factory function with output mapping support.
 
     Args:
         action_name: Name of the action to execute
         context: Runtime context with configuration and dependencies.
                  Always required - provides access to action handler and config.
+        map_outputs: Optional mapping from action output fields to state variables.
+                    Format: {state_variable: action_output_field}
+                    Example: {"flights": "api_flights", "price": "api_price"}
+                    If None, uses backward-compatible behavior (direct output mapping).
 
     Returns:
-        Async node function that executes an action.
+        Async node function that executes an action and applies output mapping.
         Type: Callable[[DialogueState | dict[str, Any]], Awaitable[dict[str, Any]]]
         (annotated as Any due to LangGraph internals)
 
@@ -529,6 +535,10 @@ def create_action_node_factory(
         a complex internal type. The actual return type is an async function
         that takes DialogueState | dict[str, Any] and returns dict[str, Any]
         (state updates).
+
+        Output mapping implements zero-leakage architecture: actions can return
+        technical structures (e.g., API responses) that are mapped to flat
+        state variables, decoupling implementation details from flow definition.
     """
     # Capture dependencies in closure
     action_handler = context.action_handler
@@ -555,9 +565,36 @@ def create_action_node_factory(
             inputs[input_slot] = slot_value
 
         # Execute action using injected handler
-        result = await action_handler.execute(action_name, inputs)
+        raw_result = await action_handler.execute(action_name, inputs)
 
-        # Update state with outputs
+        # Apply output mapping (Zero-Leakage: decouple technical structure from flat state)
+        mapped_outputs: dict[str, Any] = {}
+
+        if map_outputs:
+            # Explicit mapping: action_output_field -> state_variable
+            for state_var, action_field in map_outputs.items():
+                if action_field not in raw_result:
+                    logger.warning(
+                        f"Output mapping: action '{action_name}' did not return field '{action_field}'",
+                        extra={
+                            "action_name": action_name,
+                            "expected_field": action_field,
+                            "available_fields": list(raw_result.keys()),
+                            "state_variable": state_var,
+                        },
+                    )
+                    # Continue with None (could be configurable to raise error)
+                    mapped_outputs[state_var] = None
+                else:
+                    mapped_outputs[state_var] = raw_result[action_field]
+        else:
+            # No mapping: use action outputs directly (backward compatibility)
+            # Only include outputs defined in action config
+            for output_name in action_config.outputs:
+                if output_name in raw_result:
+                    mapped_outputs[output_name] = raw_result[output_name]
+
+        # Update state with mapped outputs (flat variables, not nested structures)
         updates: dict[str, Any] = {
             "trace": state.trace
             + [
@@ -566,25 +603,26 @@ def create_action_node_factory(
                     "data": {
                         "action": action_name,
                         "inputs": inputs,
-                        "outputs": result,
+                        "raw_outputs": raw_result,  # Keep raw for debugging
+                        "mapped_outputs": mapped_outputs,  # Mapped outputs
                     },
                 }
             ],
         }
 
-        # Map outputs to state slots/variables
-        output_slots: dict[str, Any] = {}
-        for output_name in action_config.outputs:
-            if output_name in result:
-                output_slots[output_name] = result[output_name]
-
-        if output_slots:
-            updates["slots"] = {**state.slots, **output_slots}
+        if mapped_outputs:
+            updates["slots"] = {**state.slots, **mapped_outputs}
 
         # Generate response (for MVP, simple confirmation)
         updates["last_response"] = f"Action '{action_name}' executed successfully."
 
-        logger.info(f"Action '{action_name}' executed. Outputs: {list(result.keys())}")
+        logger.info(
+            f"Action '{action_name}' executed. Mapped outputs: {list(mapped_outputs.keys())}",
+            extra={
+                "action_name": action_name,
+                "mapped_outputs": list(mapped_outputs.keys()),
+            },
+        )
 
         return updates
 
@@ -631,14 +669,23 @@ def create_collect_factory(node: DAGNode, context: RuntimeContext) -> Any:
 @NodeFactoryRegistry.register(NodeType.ACTION)
 def create_action_factory(node: DAGNode, context: RuntimeContext) -> Any:
     """
-    Factory for ACTION nodes.
+    Factory for ACTION nodes with output mapping support.
 
     Args:
-        node: DAG node with action_name in config
+        node: DAG node with action_name and optional map_outputs in config
         context: Runtime context with dependencies
 
     Returns:
-        Action node function
+        Action node function with output mapping applied
     """
     action_name = node.config["action_name"]
-    return create_action_node_factory(action_name, context)
+    map_outputs = node.config.get("map_outputs")
+    if map_outputs and not isinstance(map_outputs, dict):
+        raise ValueError(
+            f"map_outputs must be a dict, got {type(map_outputs)} for action '{action_name}'"
+        )
+    return create_action_node_factory(
+        action_name=action_name,
+        context=context,
+        map_outputs=map_outputs,
+    )

@@ -289,6 +289,9 @@ class StepCompiler:
                 flow_name=dag.name,
             )
 
+        # Validate map_outputs for action nodes
+        self._validate_map_outputs(dag)
+
     def _validate_targets(self, dag: FlowDAG) -> list[str]:
         """
         Validate that all jump_to and branch case targets exist.
@@ -449,6 +452,53 @@ class StepCompiler:
         unreachable = all_node_ids - reachable
 
         return list(unreachable)
+
+    def _validate_map_outputs(self, dag: FlowDAG) -> None:
+        """
+        Validate that map_outputs references valid action outputs.
+
+        Args:
+            dag: FlowDAG to validate
+
+        Raises:
+            CompilationError: If map_outputs references invalid action outputs
+        """
+        for node in dag.nodes:
+            if node.type == NodeType.ACTION:
+                action_name = node.config.get("action_name")
+                map_outputs = node.config.get("map_outputs")
+
+                if not action_name:
+                    continue
+
+                if not map_outputs:
+                    continue
+
+                if not isinstance(map_outputs, dict):
+                    raise CompilationError(
+                        f"map_outputs must be a dict for action '{action_name}', got {type(map_outputs)}",
+                        flow_name=dag.name,
+                    )
+
+                # Get action config
+                if action_name not in self.config.actions:
+                    # Action not found - will be caught by other validation
+                    continue
+
+                action_config = self.config.actions[action_name]
+
+                # Check that all mapped action fields exist in action outputs
+                invalid_fields = []
+                for state_var, action_field in map_outputs.items():
+                    if action_field not in action_config.outputs:
+                        invalid_fields.append(f"{action_field} (mapped to {state_var})")
+
+                if invalid_fields:
+                    raise CompilationError(
+                        f"Action '{action_name}' map_outputs references invalid output fields: {', '.join(invalid_fields)}. "
+                        f"Available outputs: {', '.join(action_config.outputs)}",
+                        flow_name=dag.name,
+                    )
 
     def _build_graph(self, dag: FlowDAG) -> StateGraph[DialogueState]:
         """Build LangGraph StateGraph from DAG."""
