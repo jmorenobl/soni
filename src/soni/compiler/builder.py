@@ -82,8 +82,8 @@ class StepCompiler:
             node = self._parsed_to_dag_node(parsed)
             nodes.append(node)
 
-        # Generate linear edges
-        edges = self._generate_linear_edges(nodes)
+        # Generate edges with branches and jumps
+        edges = self._generate_edges_with_branches(nodes, parsed_steps)
 
         return FlowDAG(
             name=flow_name,
@@ -109,6 +109,15 @@ class StepCompiler:
                     "map_outputs": parsed.config.get("map_outputs", {}),
                 },
             )
+        elif parsed.step_type == "branch":
+            return DAGNode(
+                id=parsed.step_id,
+                type=NodeType.BRANCH,
+                config={
+                    "input": parsed.config["input"],
+                    "cases": parsed.config["cases"],
+                },
+            )
         else:
             raise CompilationError(
                 f"Unsupported step type in compilation: {parsed.step_type}",
@@ -116,33 +125,94 @@ class StepCompiler:
                 flow_name="",
             )
 
-    def _generate_linear_edges(self, nodes: list[DAGNode]) -> list[DAGEdge]:
-        """Generate linear edges connecting nodes sequentially."""
+    def _generate_edges_with_branches(
+        self, nodes: list[DAGNode], parsed_steps: list[ParsedStep]
+    ) -> list[DAGEdge]:
+        """
+        Generate edges with support for branches and jumps.
+
+        Args:
+            nodes: List of DAG nodes (including understand node)
+            parsed_steps: List of parsed steps (for accessing jump_to and branch info)
+
+        Returns:
+            List of DAG edges
+        """
         edges: list[DAGEdge] = []
 
         if len(nodes) < 2:
             # Only understand node, no edges needed
             return edges
 
-        # Connect nodes sequentially
-        # START -> understand -> step1 -> step2 -> ... -> END
+        # Map step_id to node index (skip understand node at index 0)
+        step_id_to_index: dict[str, int] = {}
+        for i, parsed in enumerate(parsed_steps):
+            # Node index is i+1 because nodes[0] is "understand"
+            step_id_to_index[parsed.step_id] = i + 1
+
+        # Connect START to understand node
         edges.append(DAGEdge(source="__start__", target=nodes[0].id))
 
-        for i in range(len(nodes) - 1):
-            edges.append(
-                DAGEdge(
-                    source=nodes[i].id,
-                    target=nodes[i + 1].id,
-                )
-            )
+        # Process each step to generate edges
+        for i, parsed in enumerate(parsed_steps):
+            node_index = i + 1  # +1 because nodes[0] is "understand"
+            current_node_id = nodes[node_index].id
 
-        edges.append(DAGEdge(source=nodes[-1].id, target="__end__"))
+            # Check if step has jump_to (explicit jump breaks sequentiality)
+            if "jump_to" in parsed.config:
+                jump_target = parsed.config["jump_to"]
+                # Resolve target: could be step_id or special value
+                if jump_target in step_id_to_index:
+                    target_node_id = nodes[step_id_to_index[jump_target]].id
+                    edges.append(DAGEdge(source=current_node_id, target=target_node_id))
+                else:
+                    # Could be special target like "__end__" or invalid
+                    if jump_target == "__end__":
+                        edges.append(DAGEdge(source=current_node_id, target="__end__"))
+                    else:
+                        # Will be validated later, but create edge anyway
+                        # Target might be in a different flow or invalid
+                        logger.warning(
+                            f"Jump target '{jump_target}' not found in current flow steps"
+                        )
+                        # Still create edge - validation will catch it
+                        edges.append(DAGEdge(source=current_node_id, target=jump_target))
+                # Don't create sequential edge if jump_to exists
+                continue
+
+            # Check if step is a branch (handled separately with conditional edges)
+            if parsed.step_type == "branch":
+                # Branch steps create conditional edges, not regular edges
+                # Mark edge with condition for later processing
+                # For now, we'll handle this in _build_graph
+                # But we still need to connect to next step if no explicit target
+                # Actually, branches should not have sequential edges - they route conditionally
+                # So we skip sequential edge creation for branches
+                continue
+
+            # Default: sequential connection to next step
+            if node_index < len(nodes) - 1:
+                # Connect to next node
+                next_node_id = nodes[node_index + 1].id
+                edges.append(DAGEdge(source=current_node_id, target=next_node_id))
+            else:
+                # Last step, connect to END
+                edges.append(DAGEdge(source=current_node_id, target="__end__"))
 
         return edges
 
     def _validate_dag(self, dag: FlowDAG) -> None:
         """
         Validate DAG structure.
+
+        Validates:
+        - Unique node IDs
+        - All edge sources and targets exist
+        - Entry point exists
+        - All jump_to targets exist
+        - All branch case targets exist
+        - No cycles in the graph
+        - All nodes are reachable from entry point
 
         Raises:
             CompilationError: If DAG is invalid
@@ -177,6 +247,159 @@ class StepCompiler:
                 flow_name=dag.name,
             )
 
+        # Validate jump_to targets and branch case targets
+        invalid_targets = self._validate_targets(dag)
+        if invalid_targets:
+            targets_str = ", ".join(f"'{t}'" for t in invalid_targets)
+            raise CompilationError(
+                f"Invalid targets in flow '{dag.name}': {targets_str}",
+                flow_name=dag.name,
+            )
+
+        # Detect cycles
+        cycles = self._detect_cycles(dag)
+        if cycles:
+            cycles_str = " -> ".join(cycles[0]) if cycles else "unknown"
+            raise CompilationError(
+                f"Cycle detected in flow '{dag.name}': {cycles_str}",
+                flow_name=dag.name,
+            )
+
+        # Validate reachability (all nodes reachable from entry point)
+        unreachable = self._find_unreachable_nodes(dag)
+        if unreachable:
+            unreachable_str = ", ".join(f"'{n}'" for n in unreachable)
+            raise CompilationError(
+                f"Unreachable nodes in flow '{dag.name}': {unreachable_str}",
+                flow_name=dag.name,
+            )
+
+    def _validate_targets(self, dag: FlowDAG) -> list[str]:
+        """
+        Validate that all jump_to and branch case targets exist.
+
+        Args:
+            dag: FlowDAG to validate
+
+        Returns:
+            List of invalid target names
+        """
+        node_id_set = {node.id for node in dag.nodes}
+        invalid_targets: list[str] = []
+
+        # Check jump_to targets in edges (stored in edge targets)
+        for edge in dag.edges:
+            if edge.target not in node_id_set and edge.target != "__end__":
+                if edge.target not in invalid_targets:
+                    invalid_targets.append(edge.target)
+
+        # Check branch case targets
+        for node in dag.nodes:
+            if node.type == NodeType.BRANCH:
+                cases = node.config.get("cases", {})
+                for _case_value, target in cases.items():
+                    # Resolve target (could be "continue", "jump_to_<step>", or direct name)
+                    resolved_target = target
+                    if target.startswith("jump_to_"):
+                        resolved_target = target.replace("jump_to_", "", 1)
+                    elif target == "continue":
+                        # "continue" is valid, skip
+                        continue
+
+                    # Check if resolved target exists
+                    if resolved_target not in node_id_set and resolved_target != "__end__":
+                        if resolved_target not in invalid_targets:
+                            invalid_targets.append(resolved_target)
+
+        return invalid_targets
+
+    def _detect_cycles(self, dag: FlowDAG) -> list[list[str]]:
+        """
+        Detect cycles in the DAG using DFS.
+
+        Args:
+            dag: FlowDAG to check for cycles
+
+        Returns:
+            List of cycles found (each cycle is a list of node IDs)
+        """
+        # Build adjacency list (excluding START and END)
+        adjacency: dict[str, list[str]] = {node.id: [] for node in dag.nodes}
+
+        for edge in dag.edges:
+            if edge.source != "__start__" and edge.target != "__end__":
+                if edge.source in adjacency:
+                    adjacency[edge.source].append(edge.target)
+
+        # DFS to detect cycles
+        visited: set[str] = set()
+        rec_stack: set[str] = set()
+        cycles: list[list[str]] = []
+        path: list[str] = []
+
+        def dfs(node_id: str) -> None:
+            """DFS helper to detect cycles."""
+            visited.add(node_id)
+            rec_stack.add(node_id)
+            path.append(node_id)
+
+            for neighbor in adjacency.get(node_id, []):
+                if neighbor not in visited:
+                    dfs(neighbor)
+                elif neighbor in rec_stack:
+                    # Cycle detected - find the cycle path
+                    cycle_start = path.index(neighbor)
+                    cycle = path[cycle_start:] + [neighbor]
+                    cycles.append(cycle)
+
+            rec_stack.remove(node_id)
+            path.pop()
+
+        # Check all nodes
+        for node_id in adjacency:
+            if node_id not in visited:
+                dfs(node_id)
+
+        return cycles
+
+    def _find_unreachable_nodes(self, dag: FlowDAG) -> list[str]:
+        """
+        Find nodes that are not reachable from the entry point.
+
+        Args:
+            dag: FlowDAG to check
+
+        Returns:
+            List of unreachable node IDs
+        """
+        # Build adjacency list (including START -> entry_point)
+        adjacency: dict[str, list[str]] = {node.id: [] for node in dag.nodes}
+        adjacency["__start__"] = [dag.entry_point]
+
+        for edge in dag.edges:
+            if edge.source in adjacency:
+                adjacency[edge.source].append(edge.target)
+
+        # BFS from START to find all reachable nodes
+        reachable: set[str] = set()
+        queue: list[str] = ["__start__"]
+
+        while queue:
+            current = queue.pop(0)
+            if current in reachable:
+                continue
+            reachable.add(current)
+
+            for neighbor in adjacency.get(current, []):
+                if neighbor not in reachable and neighbor != "__end__":
+                    queue.append(neighbor)
+
+        # Find unreachable nodes
+        all_node_ids = {node.id for node in dag.nodes}
+        unreachable = all_node_ids - reachable
+
+        return list(unreachable)
+
     def _build_graph(self, dag: FlowDAG) -> StateGraph[DialogueState]:
         """Build LangGraph StateGraph from DAG."""
 
@@ -192,12 +415,20 @@ class StepCompiler:
         # Create StateGraph
         graph = StateGraph(DialogueState)
 
+        # Map node IDs to their indices for resolving "continue" targets
+        node_id_to_index: dict[str, int] = {node.id: i for i, node in enumerate(dag.nodes)}
+
         # Add nodes from DAG
+        branch_nodes: list[tuple[str, dict[str, Any]]] = []  # (node_id, branch_config)
         for node in dag.nodes:
             node_fn = self._create_node_function(node, context)
             graph.add_node(node.id, node_fn)
 
-        # Add edges from DAG (linear only for now)
+            # Track branch nodes for conditional edges
+            if node.type == NodeType.BRANCH:
+                branch_nodes.append((node.id, node.config))
+
+        # Add regular edges from DAG
         for edge in dag.edges:
             if edge.source == "__start__":
                 graph.add_edge(START, edge.target)
@@ -205,6 +436,70 @@ class StepCompiler:
                 graph.add_edge(edge.source, END)
             else:
                 graph.add_edge(edge.source, edge.target)
+
+        # Add conditional edges for branch nodes
+        for branch_node_id, branch_config in branch_nodes:
+            input_var = branch_config["input"]
+            cases = branch_config["cases"]
+
+            # Resolve case targets: "continue" -> next step, "jump_to_<step>" -> step, direct name -> step
+            resolved_cases: dict[str, str] = {}
+            for case_value, target in cases.items():
+                if target == "continue":
+                    # Find next step after branch node
+                    branch_index = node_id_to_index.get(branch_node_id)
+                    if branch_index is not None and branch_index + 1 < len(dag.nodes):
+                        next_node_id = dag.nodes[branch_index + 1].id
+                        resolved_cases[case_value] = next_node_id
+                    else:
+                        # Last node, route to END
+                        resolved_cases[case_value] = END
+                elif target.startswith("jump_to_"):
+                    # Format: "jump_to_<step_id>"
+                    step_id = target.replace("jump_to_", "", 1)
+                    # Find node with this step_id
+                    target_node_id = None
+                    for node in dag.nodes:
+                        if node.id == step_id:
+                            target_node_id = step_id
+                            break
+                    if target_node_id:
+                        resolved_cases[case_value] = target_node_id
+                    else:
+                        raise CompilationError(
+                            f"Branch case target '{target}' references non-existent step '{step_id}'",
+                            step_name=branch_node_id,
+                            flow_name=dag.name,
+                        )
+                else:
+                    # Direct step name
+                    target_node_id = None
+                    for node in dag.nodes:
+                        if node.id == target:
+                            target_node_id = target
+                            break
+                    if target_node_id:
+                        resolved_cases[case_value] = target_node_id
+                    else:
+                        raise CompilationError(
+                            f"Branch case target '{target}' references non-existent step",
+                            step_name=branch_node_id,
+                            flow_name=dag.name,
+                        )
+
+            # Create router function
+            from soni.dm.routing import create_branch_router
+
+            router = create_branch_router(input_var, resolved_cases)
+
+            # Add conditional edge
+            # resolved_cases is dict[str, str] which is compatible with dict[Hashable, str]
+            from collections.abc import Hashable
+            from typing import cast
+
+            graph.add_conditional_edges(
+                branch_node_id, router, cast(dict[Hashable, str], resolved_cases)
+            )
 
         return graph
 
@@ -237,6 +532,16 @@ class StepCompiler:
                 action_name=node.config["action_name"],
                 context=context,
             )
+        elif node.type == NodeType.BRANCH:
+            # Branch nodes are pass-through - routing is handled by conditional edges
+            async def branch_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
+                """Pass-through node for branches - routing handled by conditional edges."""
+                # Just return state unchanged
+                if isinstance(state, dict):
+                    return state
+                return state.to_dict()
+
+            return branch_node
         else:
             raise CompilationError(
                 f"Unsupported node type: {node.type}",

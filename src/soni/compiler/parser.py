@@ -31,7 +31,7 @@ class StepParser:
 
     def __init__(self) -> None:
         """Initialize StepParser."""
-        self.supported_types = {"collect", "action"}
+        self.supported_types = {"collect", "action", "branch"}
 
     def parse(self, steps: list[StepConfig]) -> list[ParsedStep]:
         """
@@ -103,6 +103,24 @@ class StepParser:
             config["action_name"] = step.call
             if step.map_outputs:
                 config["map_outputs"] = step.map_outputs
+
+        elif step.type == "branch":
+            if not step.input:
+                raise ValueError(f"Step '{step.step}' of type 'branch' must specify an 'input'")
+            if not step.cases:
+                raise ValueError(f"Step '{step.step}' of type 'branch' must specify 'cases'")
+            if not isinstance(step.cases, dict):
+                raise ValueError(
+                    f"Step '{step.step}' of type 'branch' must have 'cases' as a dictionary"
+                )
+            config["input"] = step.input
+            config["cases"] = step.cases
+
+        # Parse jump_to for any step type
+        if step.jump_to:
+            if not step.jump_to.strip():
+                raise ValueError(f"Step '{step.step}' has empty 'jump_to' field")
+            config["jump_to"] = step.jump_to
 
         return ParsedStep(
             step_id=step.step,

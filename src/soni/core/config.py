@@ -370,6 +370,18 @@ class StepConfig(BaseModel):
         default=None,
         description="Output mapping (for action steps)",
     )
+    input: str | None = Field(
+        default=None,
+        description="State variable to evaluate (for branch steps)",
+    )
+    cases: dict[str, str] | None = Field(
+        default=None,
+        description="Case mapping: case_value -> target (for branch steps)",
+    )
+    jump_to: str | None = Field(
+        default=None,
+        description="Explicit jump to another step (breaks sequential flow)",
+    )
 
 
 class FlowConfig(BaseModel):
