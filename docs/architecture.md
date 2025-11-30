@@ -128,7 +128,7 @@ Dialogue state is managed by LangGraph's checkpointing system:
 
 ### RuntimeContext Pattern
 
-v0.3.0 introduces `RuntimeContext` to cleanly separate state from configuration:
+v0.3.0 introduced `RuntimeContext` to cleanly separate state from configuration, and v0.4.0 completed the Zero-Leakage Architecture:
 
 **DialogueState** (Pure, Serializable):
 - Contains only runtime state: messages, slots, current flow
@@ -319,7 +319,7 @@ This enables:
 
 ## Architecture Evolution
 
-### v0.3.0 (Current) - Architectural Refactoring
+### v0.4.0 (Current) - Zero-Leakage Architecture
 
 **Completed:**
 - ✅ Dependency Injection (100% Protocol-based)
@@ -327,19 +327,16 @@ This enables:
 - ✅ ValidatorRegistry and ActionRegistry
 - ✅ Modular architecture (0 God Objects)
 - ✅ FlowCompiler and DAG intermediate representation
-- ✅ 80%+ test coverage maintained
+- ✅ Zero-Leakage Architecture (semantic YAML, no technical details)
+- ✅ Branching and jump support in procedural DSL
+- ✅ Output mapping for action results
+- ✅ 85%+ test coverage maintained
 
 **Metrics:**
 - Overall Quality: 9.2/10 (was 7.8/10)
 - Architecture Score: 95/100 (was 56/100)
 - Dependency Inversion: 100% (was 0%)
 - God Objects: 0 (was 2)
-
-### Current Limitations
-
-- Linear flows only (no branching) - *Planned for v0.4.0*
-- Limited jump support - *Planned for v0.4.0*
-- Basic procedural DSL - *Full Zero-Leakage in v0.4.0*
 
 ## Type Hints Guidelines
 
@@ -392,7 +389,9 @@ All these cases include comments and docstrings explaining the actual return typ
 
 ## Future Architecture
 
-See [ADR-001](adr/ADR-001-Soni-Framework-Architecture.md) for the complete architecture vision, including:
-- Zero-Leakage Architecture (v0.4.0)
-- Advanced branching and jumps (v0.4.0)
-- Complete Action/Validator Registry integration (v0.4.0)
+See [ADR-001](adr/ADR-001-Soni-Framework-Architecture.md) for the complete architecture vision. The following features are now implemented in v0.4.0:
+- ✅ Zero-Leakage Architecture (v0.4.0)
+- ✅ Advanced branching and jumps (v0.4.0)
+- ✅ Complete Action/Validator Registry integration (v0.4.0)
+
+For upcoming features and roadmap, see [Milestones](milestones.md).

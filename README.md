@@ -102,13 +102,13 @@ See [Flight Booking Example](examples/flight_booking/README.md) for a complete e
 
 ## Code Quality
 
-**v0.3.0 Quality Metrics:**
+**v0.4.0 Quality Metrics:**
 - **Overall Rating:** 9.2/10 ⭐ (improved from 7.8/10)
 - **Architecture Score:** 95/100 🏗️ (improved from 56/100)
-- **Coverage:** 80%+ (exceeds 80% target) 🎯
+- **Coverage:** 85.89% (exceeds 80% target) 🎯
 - **Linting:** ✅ Ruff passes (all checks)
 - **Type Checking:** ✅ Mypy passes (39 source files, 0 errors)
-- **Tests:** 245 passed, 13 skipped
+- **Tests:** 372 passed, 13 skipped
 
 **Architecture Improvements:**
 - ✅ Dependency Injection: 100% (was 0%)

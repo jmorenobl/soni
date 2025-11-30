@@ -1,22 +1,23 @@
-# Soni Framework Configuration - MVP Schema
+# Soni Framework Configuration
 # Version: 0.1
-# This file defines a minimal viable configuration for a flight booking dialogue system
+# This file defines a complete configuration for a flight booking dialogue system
 #
 # Schema Structure:
 # - version: Required string indicating the configuration schema version
 # - settings: Global configuration for models, persistence, and logging
-# - flows: Dialogue flows with procedural steps (linear only in MVP)
+# - flows: Dialogue flows with procedural steps (supports branching and jumps)
 # - slots: Entity definitions that need to be collected from users
 # - actions: External action handlers with input/output contracts
 #
-# MVP Limitations:
-# - No branching logic (will be added in v0.3.0)
-# - No explicit jumps (will be added in v0.3.0)
-# - Validators referenced by name only (implementation in Hito 18)
-# - Action handlers referenced by Python path (will be abstracted in Hito 17)
+# Features:
+# - Branching logic and conditional routing (v0.3.0+)
+# - Explicit jumps between steps (v0.3.0+)
+# - Validator Registry with semantic names (v0.4.0+)
+# - Action Registry with auto-discovery (v0.4.0+)
+# - Zero-Leakage Architecture: YAML describes WHAT, Python implements HOW (v0.4.0+)
 
 # Configuration schema version (required)
-# Must be a string. Current MVP version is "0.1"
+# Must be a string. Current version is "0.1"
 version: "0.1"
 
 # Global settings for models, persistence, logging, etc.
@@ -57,7 +58,7 @@ settings:
 
 # Dialogue flows - procedural steps for complex flows
 # Each flow defines a sequence of steps that guide the conversation
-# MVP supports only linear flows (no branches or conditional jumps)
+# Supports linear flows, branching, and conditional jumps (v0.3.0+)
 flows:
   # Flow name: unique identifier for this flow
   book_flight:
@@ -124,7 +125,7 @@ slots:
   # Slot name: unique identifier used in flows
   origin:
     # Type: data type of the slot value
-    # MVP supports: "string", "integer", "float", "boolean", "date"
+    # Supported types: "string", "integer", "float", "boolean", "date"
     type: string
     # Prompt: question to ask user when this slot is missing
     # Used by the collect step to request the value
@@ -134,7 +135,7 @@ slots:
     required: true
     # Validator: name of validator to use (must be registered in ValidatorRegistry)
     # Validators are semantic names (e.g., "city_name") not regex patterns
-    # Implementation in Hito 18 (Validator Registry)
+    # Zero-Leakage Architecture: validation logic lives in Python, not YAML (v0.4.0+)
     validator: city_name
 
   destination:
