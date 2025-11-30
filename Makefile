@@ -1,4 +1,4 @@
-.PHONY: help build clean check test lint type-check format publish-testpypi publish-pypi install-testpypi verify
+.PHONY: help build clean check test lint type-check format publish-testpypi publish-pypi install-testpypi verify docs docs-serve docs-build docs-clean
 
 # Load environment variables from .env file
 ifneq (,$(wildcard .env))
@@ -20,6 +20,10 @@ help:
 	@echo "  make publish-pypi       - Publish to PyPI"
 	@echo "  make install-testpypi   - Install from TestPyPI (for testing)"
 	@echo "  make verify             - Verify package contents"
+	@echo "  make docs               - Build documentation"
+	@echo "  make docs-serve         - Serve documentation locally (dev server)"
+	@echo "  make docs-build         - Build documentation to site/"
+	@echo "  make docs-clean         - Clean documentation build artifacts"
 
 # Build the package
 build:
@@ -29,12 +33,34 @@ build:
 	@echo "Build complete! Files in dist/"
 
 # Clean build artifacts
-clean:
+clean: docs-clean
 	@echo "Cleaning build artifacts..."
 	rm -rf dist/
 	rm -rf build/
 	rm -rf *.egg-info/
 	@echo "Clean complete!"
+
+# Documentation targets
+docs: docs-build
+	@echo "Documentation built successfully!"
+
+# Serve documentation locally (development server)
+docs-serve:
+	@echo "Starting MkDocs development server..."
+	@echo "Documentation will be available at http://127.0.0.1:8000"
+	uv run mkdocs serve
+
+# Build documentation to site/
+docs-build:
+	@echo "Building documentation..."
+	uv run mkdocs build
+	@echo "Documentation built in site/"
+
+# Clean documentation build artifacts
+docs-clean:
+	@echo "Cleaning documentation build artifacts..."
+	rm -rf site/
+	@echo "Documentation build artifacts cleaned!"
 
 # Run all checks
 check: test lint type-check
