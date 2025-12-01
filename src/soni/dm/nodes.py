@@ -275,7 +275,21 @@ def create_understand_node(
 
             # Update state with NLU results (using normalized slots)
             updated_slots = state.slots.copy()
+            slots_before = updated_slots.copy()
             updated_slots.update(normalized_slots)
+            slots_after = updated_slots.copy()
+
+            # Log slot extraction for debugging
+            if normalized_slots:
+                logger.info(
+                    f"Extracted slots from user message: {normalized_slots}",
+                    extra={
+                        "user_message": user_message,
+                        "slots_before": slots_before,
+                        "slots_after": slots_after,
+                        "extracted_slots": normalized_slots,
+                    },
+                )
 
             # Activate flow based on intent (separated responsibility - follows SRP)
             # Flow activation is handled by routing module, not NLU module
@@ -414,6 +428,16 @@ async def collect_slot_node(
             and (not isinstance(slot_value, str) or slot_value.strip() != "")
         )
 
+        logger.debug(
+            f"Checking slot '{slot_name}': value={slot_value}, is_filled={is_filled}",
+            extra={
+                "slot_name": slot_name,
+                "slot_value": slot_value,
+                "is_filled": is_filled,
+                "current_flow": state.current_flow,
+            },
+        )
+
         if is_filled:
             # Slot was extracted by NLU - check if we should force explicit collection
             # Policy: If this slot was never explicitly collected (no slot_collection event
@@ -488,6 +512,14 @@ async def collect_slot_node(
                                 }
                             ],
                         }
+                    else:
+                        # Validation passed - slot is valid and already filled
+                        # Return empty dict to skip collection and continue to next step
+                        logger.info(
+                            f"Slot '{slot_name}' already filled with valid value: {slot_value} "
+                            f"(validated with '{slot_config.validator}')"
+                        )
+                        return {}
                 except ValueError as e:
                     logger.warning(f"Validator '{slot_config.validator}' not found: {e}")
                     # If validator not found, don't trust the value - prompt user
