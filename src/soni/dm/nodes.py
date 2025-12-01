@@ -394,10 +394,13 @@ async def collect_slot_node(
     """
     Collect a slot value from user.
 
+    Trust NLU extractions. Only prompt if slot is missing.
+    Validators check format/syntax only, not semantics.
+
     This node:
-    1. Checks if slot is already filled
-    2. If not, prompts user for the slot
-    3. Updates state with slot value (if provided in message)
+    1. Checks if slot is already filled (trusts NLU extractions)
+    2. If filled, validates format/syntax (if validator configured)
+    3. If not filled or format invalid, prompts user for the slot
 
     Args:
         state: Current dialogue state (dict or DialogueState)
@@ -407,7 +410,8 @@ async def collect_slot_node(
                  and other runtime dependencies.
 
     Returns:
-        Dictionary with state updates
+        Dictionary with state updates (empty dict if slot is filled and valid,
+        or prompt with EVENT_SLOT_COLLECTION if slot needs collection)
     """
     try:
         # Convert dict to DialogueState if needed
@@ -417,7 +421,7 @@ async def collect_slot_node(
         slot_config = context.get_slot_config(slot_name)
 
         # Check if slot is already filled
-        # Design principle: Don't trust NLU extractions blindly - validate thoroughly
+        # Design principle: Trust NLU extractions. Validators check format/syntax only.
         slot_value = state.get_slot(slot_name)
 
         # Validate slot value exists and is non-empty
@@ -439,80 +443,54 @@ async def collect_slot_node(
         )
 
         if is_filled:
-            # Slot is filled - check if it was explicitly collected before
-            # If not, we should still collect it explicitly to ensure user confirmation
-            slot_collection_events = [
-                e
-                for e in state.trace
-                if e.get("event") == EVENT_SLOT_COLLECTION
-                and e.get("data", {}).get("slot") == slot_name
-            ]
-            was_explicitly_collected = len(slot_collection_events) > 0
-
-            # If slot was explicitly collected before and is valid, skip collection
-            if was_explicitly_collected:
-                if slot_config.validator:
-                    # Validate the value
-                    try:
-                        is_valid = ValidatorRegistry.validate(
-                            name=slot_config.validator,
-                            value=slot_value,
+            # Slot is filled - validate format/syntax if validator is configured
+            if slot_config.validator:
+                try:
+                    is_valid = ValidatorRegistry.validate(
+                        name=slot_config.validator,
+                        value=slot_value,
+                    )
+                    if not is_valid:
+                        # Format validation failed - clear and re-collect
+                        logger.warning(
+                            f"Slot '{slot_name}' value '{slot_value}' "
+                            f"failed format validation with '{slot_config.validator}' - "
+                            f"re-collecting from user"
                         )
-                        if not is_valid:
-                            # Invalid value - clear and re-collect
-                            logger.warning(
-                                f"Slot '{slot_name}' value '{slot_value}' "
-                                f"failed validation with '{slot_config.validator}' - "
-                                f"re-collecting from user"
-                            )
-                            return {
-                                "slots": {slot_name: None},
-                                "last_response": (
-                                    f"Invalid value for {slot_name}. Please provide a valid value."
-                                ),
-                                "trace": state.trace
-                                + [
-                                    {
-                                        "event": EVENT_VALIDATION_ERROR,
-                                        "data": {
-                                            "slot": slot_name,
-                                            "value": slot_value,
-                                            "validator": slot_config.validator,
-                                        },
-                                    }
-                                ],
-                            }
-                    except ValueError:
-                        # Validator not found - trust the value since it was collected before
-                        pass
+                        return {
+                            "slots": {slot_name: None},
+                            "last_response": (
+                                f"Invalid format for {slot_name}. Please provide a valid value."
+                            ),
+                            "trace": state.trace
+                            + [
+                                {
+                                    "event": EVENT_VALIDATION_ERROR,
+                                    "data": {
+                                        "slot": slot_name,
+                                        "value": slot_value,
+                                        "validator": slot_config.validator,
+                                    },
+                                }
+                            ],
+                        }
+                except ValueError:
+                    # Validator not found - trust the value (backward compatibility)
+                    logger.debug(
+                        f"Validator '{slot_config.validator}' not found for slot '{slot_name}' - "
+                        f"trusting value"
+                    )
 
-                # Slot was explicitly collected and is valid - skip collection
-                logger.info(
-                    f"Slot '{slot_name}' already filled and was explicitly collected: {slot_value}"
-                )
-                return {}
-            else:
-                # Slot was extracted by NLU but never explicitly collected
-                # Force explicit collection to ensure user confirmation
-                # This ensures slots extracted by NLU are still confirmed by the user
-                logger.info(
-                    f"Slot '{slot_name}' was extracted by NLU but never explicitly collected - "
-                    f"forcing explicit collection even though NLU extracted '{slot_value}'"
-                )
-                # Continue to prompt user below (set is_filled = False)
-                is_filled = False
+            # Slot is filled and format is valid - trust NLU, continue
+            logger.debug(f"Slot '{slot_name}' is filled: {slot_value} - continuing")
+            return {}
 
-        # Slot not filled or invalid - need to collect from user
-
-        # Get prompt for this slot
+        # Slot not filled - prompt user
         prompt = slot_config.prompt
 
-        # Slot not filled, need to prompt user
-        response = prompt
-
         updates = {
-            "last_response": response,
-            "messages": state.messages + [{"role": "assistant", "content": response}],
+            "last_response": prompt,
+            "messages": state.messages + [{"role": "assistant", "content": prompt}],
             "trace": state.trace
             + [
                 {
@@ -527,8 +505,6 @@ async def collect_slot_node(
             extra={
                 "slot_name": slot_name,
                 "current_flow": state.current_flow,
-                "turn_count": state.turn_count,
-                "slot_value_before": slot_value,
             },
         )
 

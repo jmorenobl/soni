@@ -313,11 +313,11 @@ class PersistenceConfig(BaseModel):
 
     backend: str = Field(
         default="sqlite",
-        description="Backend type: sqlite, postgresql, redis",
+        description="Backend type: sqlite, postgresql, redis, memory, none",
     )
     path: str = Field(
         default="./dialogue_state.db",
-        description="Path to database file (for sqlite)",
+        description="Path to database file (for sqlite). Ignored for memory backend.",
     )
 
 

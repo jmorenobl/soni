@@ -1,8 +1,10 @@
 """End-to-end tests for Soni Framework"""
 
+import tempfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 from soni.core.config import ConfigLoader, SoniConfig
 from soni.core.errors import ValidationError
@@ -17,11 +19,54 @@ def config_path():
 
 @pytest.fixture
 async def runtime(config_path):
-    """Create RuntimeLoop instance for testing with automatic cleanup"""
-    runtime_instance = RuntimeLoop(config_path)
-    yield runtime_instance
-    # Cleanup connections after test
-    await runtime_instance.cleanup()
+    """Create RuntimeLoop with in-memory checkpointer for test isolation"""
+    # Import actions from original config directory before creating RuntimeLoop
+    # This ensures actions are registered even when using temporary config file
+    config_dir = Path(config_path).parent
+
+    # Try importing actions.py (primary convention)
+    actions_file = config_dir / "actions.py"
+    if actions_file.exists():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("user_actions", actions_file)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+    # Try importing __init__.py (package convention - imports handlers.py)
+    init_file = config_dir / "__init__.py"
+    if init_file.exists():
+        import importlib
+        import sys
+
+        package_name = config_dir.name
+        parent_dir = config_dir.parent
+        original_path = sys.path[:]
+        try:
+            if str(parent_dir) not in sys.path:
+                sys.path.insert(0, str(parent_dir))
+            importlib.import_module(package_name)
+        finally:
+            sys.path[:] = original_path
+
+    # Load config and modify persistence backend to memory
+    config_dict = ConfigLoader.load(config_path)
+    config = SoniConfig(**config_dict)
+    config.settings.persistence.backend = "memory"
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime_instance = RuntimeLoop(temp_config_path)
+        yield runtime_instance
+        await runtime_instance.cleanup()
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
