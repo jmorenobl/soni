@@ -117,20 +117,20 @@ class RuntimeLoop:
         Follows convention over configuration principle:
         - Looks for `actions.py` in config directory (primary convention)
         - Looks for `actions/__init__.py` in config directory (package convention)
-        - Looks for `handlers.py` in config directory (common alternative)
-        - If none exist, actions must be imported manually before RuntimeLoop creation
+        - If neither exists, actions must be imported manually before RuntimeLoop creation
 
         Actions are automatically registered via @ActionRegistry.register() decorator
         when the module is imported.
 
         For custom module names (e.g., `handlers.py`, `tools.py`), users should:
-        1. Import the module manually before creating RuntimeLoop, OR
+        1. Import the module in `__init__.py` of the config directory (handled by
+           `_try_import_config_package`), OR
         2. Create an `actions.py` that imports from the custom module, OR
         3. Use `actions/__init__.py` and import from custom modules there, OR
-        4. Use `__init__.py` in config directory and import from custom modules there
+        4. Import the module manually before creating RuntimeLoop
 
-        This follows Open/Closed Principle: system is open for extension (custom imports)
-        but closed for modification (no hardcoded names).
+        This follows Open/Closed Principle: system is open for extension (custom imports
+        via __init__.py) but closed for modification (no hardcoded module names).
 
         Args:
             config_path: Path to YAML configuration file
@@ -164,18 +164,6 @@ class RuntimeLoop:
             finally:
                 sys.path[:] = original_path
             return
-
-        # Try handlers.py (common alternative convention)
-        handlers_file = config_dir / "handlers.py"
-        if handlers_file.exists():
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location("user_handlers", handlers_file)
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                logger.info(f"Auto-imported handlers from {handlers_file}")
-                return
 
     def _try_import_config_package(self, config_path: str | Path) -> None:
         """Try importing __init__.py from config directory.
