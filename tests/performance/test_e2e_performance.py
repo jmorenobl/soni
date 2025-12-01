@@ -15,11 +15,13 @@ except ImportError:
 from soni.runtime import RuntimeLoop
 
 # Conversation flow for E2E testing
+# Use messages that match test_e2e_flight_booking_complete_flow which works correctly
+# Direct city names work better than "From X" or "To Y" for NLU extraction
 E2E_CONVERSATION = [
     "I want to book a flight",
-    "From Madrid",
-    "To Barcelona",
-    "On March 15th",
+    "New York",  # Origin - direct city name works better than "From Madrid"
+    "Los Angeles",  # Destination - direct city name works better than "To Barcelona"
+    "Next Friday",  # Date - works reliably for NLU extraction
 ]
 
 
@@ -38,15 +40,15 @@ async def run_e2e_conversation(
 
     Returns:
         Total latency in seconds
+
+    Raises:
+        Exception: If conversation fails to complete
     """
     start_time = time.time()
 
     for message in messages:
-        try:
-            await runtime.process_message(user_msg=message, user_id=user_id)
-        except Exception:
-            # Continue even if a message fails
-            pass
+        # Process each message - let exceptions propagate so test fails if conversation breaks
+        await runtime.process_message(user_msg=message, user_id=user_id)
 
     return time.time() - start_time
 
@@ -70,8 +72,16 @@ async def test_e2e_latency_p95(skip_without_api_key):
         latencies = []
         for i in range(num_conversations):
             user_id = f"test-e2e-latency-{i}"
-            latency = await run_e2e_conversation(runtime, user_id, E2E_CONVERSATION)
-            latencies.append(latency)
+            try:
+                latency = await run_e2e_conversation(runtime, user_id, E2E_CONVERSATION)
+                latencies.append(latency)
+            except Exception as e:
+                # Log error but continue with other conversations
+                # This allows test to measure performance of successful conversations
+                pytest.fail(
+                    f"Conversation {i} failed: {e}. "
+                    f"Performance test requires all conversations to complete successfully."
+                )
 
         # Calculate p95
         latencies_sorted = sorted(latencies)
@@ -106,7 +116,11 @@ async def test_concurrent_throughput(skip_without_api_key):
     target_throughput = 10.0  # 10 conversations per second
 
     async def process_conversation(user_id: str) -> float:
-        """Process a single conversation and return elapsed time."""
+        """Process a single conversation and return elapsed time.
+
+        Raises:
+            Exception: If conversation fails to complete
+        """
         return await run_e2e_conversation(runtime, user_id, E2E_CONVERSATION)
 
     try:

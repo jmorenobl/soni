@@ -252,8 +252,20 @@ class SoniGraphBuilder:
             elif edge.target == "__end__":
                 graph.add_edge(edge.source, END)
             else:
-                # Regular edge
-                graph.add_edge(edge.source, edge.target)
+                # Regular edge - now conditional!
+                # We use conditional edges to support interactive pauses.
+                # The router determines if we should continue to the next node
+                # or stop to wait for user input.
+                from soni.dm.routing import should_continue_flow
+
+                graph.add_conditional_edges(
+                    edge.source,
+                    should_continue_flow,
+                    {
+                        "next": edge.target,
+                        "end": END,
+                    },
+                )
 
         return graph
 

@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 import dspy
-from cachetools import TTLCache  # type: ignore[import-untyped]
+from cachetools import TTLCache
 
 from soni.core.config import SoniConfig
 from soni.core.interfaces import INormalizer

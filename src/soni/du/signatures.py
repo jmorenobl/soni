@@ -31,6 +31,14 @@ class DialogueUnderstanding(dspy.Signature):
         ),
         default="[]",
     )
+    current_datetime: str = dspy.InputField(
+        desc=(
+            "Current date and time in ISO format (YYYY-MM-DDTHH:MM:SS) for resolving relative dates. "
+            "This is automatically provided by the system. Use this to calculate 'tomorrow', 'next Friday', etc. "
+            'Example: "2024-12-01T14:30:00"'
+        ),
+        default="",
+    )
 
     # Output fields
     structured_command: str = dspy.OutputField(

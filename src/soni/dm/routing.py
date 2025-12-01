@@ -2,8 +2,9 @@
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
+from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
 from soni.core.state import DialogueState
 
 logger = logging.getLogger(__name__)
@@ -131,3 +132,59 @@ def create_branch_router(
         )
 
     return branch_router
+
+
+def activate_flow_by_intent(
+    command: str | None,
+    current_flow: str,
+    config: Any,
+) -> str:
+    """
+    Activate flow based on intent (command).
+
+    Args:
+        command: NLU command/intent
+        current_flow: Current flow name
+        config: Soni configuration
+
+    Returns:
+        New flow name or current flow
+    """
+    if not command:
+        return current_flow
+
+    # Check if command corresponds to a configured flow
+    # config is SoniConfig, which has flows attribute (dict)
+    if hasattr(config, "flows") and command in config.flows:
+        logger.info(f"Activating flow '{command}' based on intent")
+        return command
+
+    return current_flow
+
+
+def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:
+    """
+    Determine if the flow should continue to the next node or stop.
+
+    This function implements the interactive state machine logic:
+    - If the last event indicates we need user input (slot collection or validation error),
+      we stop the flow ("end").
+    - Otherwise, we continue to the next node ("next").
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        "end" if the flow should stop (wait for user input), "next" otherwise.
+    """
+    if not state.trace:
+        return "next"
+
+    last_event = state.trace[-1]
+    event_type = last_event.get("event")
+
+    # Stop if we just asked for a slot or encountered a validation error
+    if event_type in [EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR]:
+        return "end"
+
+    return "next"

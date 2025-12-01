@@ -412,10 +412,21 @@ class StepConfig(BaseModel):
     )
 
 
+class TriggerConfig(BaseModel):
+    """Configuration for flow trigger."""
+
+    intents: list[str] = Field(
+        default_factory=list, description="List of intent names that trigger this flow"
+    )
+
+
 class FlowConfig(BaseModel):
     """Configuration for a dialogue flow."""
 
     description: str = Field(..., description="Flow description")
+    trigger: TriggerConfig | None = Field(
+        default=None, description="Flow trigger configuration (intents that activate this flow)"
+    )
     steps: list[StepConfig] | None = Field(
         default=None, description="List of steps in the flow (legacy format)"
     )

@@ -759,6 +759,21 @@ class MyModule(dspy.Module):
         return self.predictor(input=input)
 ```
 
+## Versioning and Compatibility
+
+### Pre-v1.0 Development
+
+- **No backward compatibility required**: Until version 1.0.0, the framework is in active development and breaking changes are acceptable.
+- **Focus on correct design**: Prioritize architectural correctness over maintaining compatibility with previous versions.
+- **Document breaking changes**: While not required to maintain compatibility, document significant architectural changes in ADRs and release notes.
+- **Post-v1.0**: After v1.0.0, follow semantic versioning and maintain backward compatibility within major versions.
+
+### Semantic Versioning (Post-v1.0)
+
+- **Major versions (1.x.x → 2.x.x)**: Breaking changes allowed
+- **Minor versions (1.0.x → 1.1.x)**: New features, backward compatible
+- **Patch versions (1.0.0 → 1.0.1)**: Bug fixes, backward compatible
+
 ## Important Reminders
 
 1. **English Only**: All documentation, code comments, commit messages, error messages, and user-facing text must be in English.
@@ -773,6 +788,7 @@ class MyModule(dspy.Module):
 10. **Logging**: Include relevant context in logs (in English).
 11. **Conventional Commits**: Follow commit format (in English).
 12. **Pre-commit**: Ensure hooks pass before committing.
+13. **No Retrocompatibility Pre-v1.0**: Focus on correct design, not maintaining compatibility with previous versions.
 
 ---
 

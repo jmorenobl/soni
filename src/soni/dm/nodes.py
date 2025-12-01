@@ -4,7 +4,12 @@ import logging
 from typing import Any, cast
 
 from soni.compiler.dag import DAGNode, NodeType
-from soni.core.interfaces import INLUProvider, INormalizer, IScopeManager
+from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
+from soni.core.interfaces import (
+    INLUProvider,
+    INormalizer,
+    IScopeManager,
+)
 from soni.core.state import DialogueState, RuntimeContext
 from soni.dm.node_factory_registry import NodeFactoryRegistry
 from soni.du.modules import NLUResult
@@ -174,6 +179,7 @@ def create_understand_node(
             )
 
             # Call NLU using injected provider
+            # Note: NLU calculates current_datetime internally (encapsulation)
             nlu_result_raw = await nlu_provider.predict(
                 user_message=user_message,
                 dialogue_history=dialogue_history,
@@ -271,10 +277,21 @@ def create_understand_node(
             updated_slots = state.slots.copy()
             updated_slots.update(normalized_slots)
 
+            # Activate flow based on intent (separated responsibility - follows SRP)
+            # Flow activation is handled by routing module, not NLU module
+            from soni.dm.routing import activate_flow_by_intent
+
+            new_current_flow = activate_flow_by_intent(
+                command=nlu_result.command,
+                current_flow=state.current_flow,
+                config=context.config,
+            )
+
             # Prepare updates dict
             updates: dict[str, Any] = {
                 "slots": updated_slots,
                 "pending_action": nlu_result.command if nlu_result.command else None,
+                "current_flow": new_current_flow,
                 "trace": state.trace
                 + [
                     {
@@ -383,14 +400,63 @@ async def collect_slot_node(
         state = _ensure_dialogue_state(state)
 
         # Get slot config from context
-
         slot_config = context.get_slot_config(slot_name)
 
         # Check if slot is already filled
+        # Design principle: Don't trust NLU extractions blindly - validate thoroughly
         slot_value = state.get_slot(slot_name)
-        if slot_value:
-            # Slot was extracted by NLU - validate if validator configured
-            if slot_config.validator:
+
+        # Validate slot value exists and is non-empty
+        # Empty strings, None, or whitespace-only values are not considered "filled"
+        is_filled = (
+            slot_value is not None
+            and slot_value != ""
+            and (not isinstance(slot_value, str) or slot_value.strip() != "")
+        )
+
+        if is_filled:
+            # Slot was extracted by NLU - check if we should force explicit collection
+            # Policy: If this slot was never explicitly collected (no slot_collection event
+            # in trace for this slot), force explicit collection even if NLU extracted
+            # a valid value. This ensures user confirmation for all slots.
+            # We detect this by checking if there's no previous slot_collection event
+            # for this specific slot in the trace.
+            slot_collection_events = [
+                e
+                for e in state.trace
+                if e.get("event") == EVENT_SLOT_COLLECTION
+                and e.get("data", {}).get("slot") == slot_name
+            ]
+            force_explicit_collection = len(slot_collection_events) == 0
+
+            if force_explicit_collection:
+                logger.info(
+                    f"Slot '{slot_name}' was extracted by NLU but never explicitly collected - "
+                    f"forcing explicit collection even though NLU extracted '{slot_value}'"
+                )
+                # Clear slot to force explicit collection
+                # CRITICAL: We must explicitly clear the slot in the returned updates
+                # so that the state reflects that we are waiting for this slot.
+                # The router will see the EVENT_SLOT_COLLECTION and stop the flow.
+                is_filled = False
+
+                # Get prompt for this slot
+                prompt = slot_config.prompt
+
+                return {
+                    "slots": {slot_name: None},  # Clear invalid value
+                    "last_response": prompt,
+                    "messages": state.messages + [{"role": "assistant", "content": prompt}],
+                    "trace": state.trace
+                    + [
+                        {
+                            "event": EVENT_SLOT_COLLECTION,
+                            "data": {"slot": slot_name, "prompt": prompt},
+                        }
+                    ],
+                }
+            elif slot_config.validator:
+                # Slot has validator - validate the extracted value
                 try:
                     is_valid = ValidatorRegistry.validate(
                         name=slot_config.validator,
@@ -399,30 +465,49 @@ async def collect_slot_node(
                     if not is_valid:
                         logger.warning(
                             f"Slot '{slot_name}' value '{slot_value}' "
-                            f"failed validation with '{slot_config.validator}'"
+                            f"failed validation with '{slot_config.validator}' - "
+                            f"NLU may have extracted invalid value, prompting user"
                         )
-                        # Return validation error
+                        # Clear invalid slot value and prompt user for correct value
+                        # This prevents invalid NLU extractions from blocking flow
                         return {
+                            "slots": {slot_name: None},  # Clear invalid value
                             "last_response": (
                                 f"Invalid value for {slot_name}. Please provide a valid value."
                             ),
                             "trace": state.trace
                             + [
                                 {
-                                    "event": "validation_error",
+                                    "event": EVENT_VALIDATION_ERROR,
                                     "data": {
                                         "slot": slot_name,
                                         "value": slot_value,
                                         "validator": slot_config.validator,
+                                        "reason": "NLU extracted invalid value",
                                     },
                                 }
                             ],
                         }
                 except ValueError as e:
                     logger.warning(f"Validator '{slot_config.validator}' not found: {e}")
-            # Slot is valid or no validator configured
-            logger.info(f"Slot '{slot_name}' already filled: {slot_value}")
-            return {}
+                    # If validator not found, don't trust the value - prompt user
+                    # This is defensive: if we can't validate, we should collect explicitly
+                    logger.info(
+                        f"Validator not found for slot '{slot_name}', "
+                        f"prompting user to ensure correct value"
+                    )
+                    # Continue to prompt user below
+                    is_filled = False
+            else:
+                # No validator configured - slot is considered filled
+                # But log for debugging in case NLU extracted incorrectly
+                logger.info(
+                    f"Slot '{slot_name}' already filled: {slot_value} "
+                    f"(no validator configured to verify)"
+                )
+                return {}
+
+        # Slot not filled or invalid - need to collect from user
 
         # Get prompt for this slot
         prompt = slot_config.prompt
@@ -432,16 +517,25 @@ async def collect_slot_node(
 
         updates = {
             "last_response": response,
+            "messages": state.messages + [{"role": "assistant", "content": response}],
             "trace": state.trace
             + [
                 {
-                    "event": "slot_collection",
+                    "event": EVENT_SLOT_COLLECTION,
                     "data": {"slot": slot_name, "prompt": prompt},
                 }
             ],
         }
 
-        logger.info(f"Prompting for slot '{slot_name}': {prompt}")
+        logger.info(
+            f"Prompting for slot '{slot_name}': {prompt}",
+            extra={
+                "slot_name": slot_name,
+                "current_flow": state.current_flow,
+                "turn_count": state.turn_count,
+                "slot_value_before": slot_value,
+            },
+        )
 
         return updates
 

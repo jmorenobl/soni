@@ -63,6 +63,7 @@ class SoniDU(dspy.Module):
         available_actions: str = "[]",
         current_flow: str = "none",
         expected_slots: str = "[]",
+        current_datetime: str = "",
     ) -> dspy.Prediction:
         """Forward pass (synchronous) for use with optimizers.
 
@@ -73,6 +74,7 @@ class SoniDU(dspy.Module):
             available_actions: Available actions as JSON array string
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names as JSON array string
+            current_datetime: Current date and time in ISO format for resolving relative dates
 
         Returns:
             DSPy Prediction object
@@ -84,6 +86,7 @@ class SoniDU(dspy.Module):
             available_actions=available_actions,
             current_flow=current_flow,
             expected_slots=expected_slots,
+            current_datetime=current_datetime,
         )
 
     async def aforward(
@@ -94,6 +97,7 @@ class SoniDU(dspy.Module):
         available_actions: str = "[]",
         current_flow: str = "none",
         expected_slots: str = "[]",
+        current_datetime: str = "",
     ) -> dspy.Prediction:
         """Async forward pass for runtime use.
 
@@ -122,6 +126,7 @@ class SoniDU(dspy.Module):
             available_actions,
             current_flow,
             expected_slots,
+            current_datetime,
         )
 
     def _get_cache_key(
@@ -132,6 +137,7 @@ class SoniDU(dspy.Module):
         available_actions: list[str],
         current_flow: str,
         expected_slots: list[str] | None = None,
+        current_datetime: str = "",
     ) -> str:
         """Generate cache key for NLU request.
 
@@ -142,6 +148,7 @@ class SoniDU(dspy.Module):
             available_actions: Available actions list
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names list
+            current_datetime: Current datetime in ISO format (for cache key)
 
         Returns:
             Cache key as MD5 hash string
@@ -155,6 +162,7 @@ class SoniDU(dspy.Module):
                 "actions": sorted(available_actions),  # Sort for consistency
                 "flow": current_flow,
                 "expected_slots": sorted(expected_slots or []),  # Sort for consistency
+                "datetime": current_datetime,
             }
         )
 
@@ -183,7 +191,17 @@ class SoniDU(dspy.Module):
 
         Returns:
             NLUResult object
+
+        Note:
+            Current datetime is calculated internally by the NLU module.
+            This follows encapsulation principle - NLU manages its own dependencies.
         """
+        # Calculate current datetime internally (encapsulation - NLU manages its own dependencies)
+        # This avoids passing datetime through the entire call chain
+        from datetime import datetime
+
+        current_datetime = datetime.now().isoformat()
+
         # Check cache first
         cache_key = self._get_cache_key(
             user_message,
@@ -192,6 +210,7 @@ class SoniDU(dspy.Module):
             available_actions or [],
             current_flow,
             expected_slots,
+            current_datetime,
         )
 
         if cache_key in self.nlu_cache:
@@ -208,6 +227,7 @@ class SoniDU(dspy.Module):
         expected_slots_str = json.dumps(expected_slots or [])
 
         # Get prediction using acall() (DSPy's public async method)
+        # Current datetime is calculated above and passed to signature
         prediction = await self.acall(
             user_message=user_message,
             dialogue_history=dialogue_history,
@@ -215,6 +235,7 @@ class SoniDU(dspy.Module):
             available_actions=actions_str,
             current_flow=current_flow,
             expected_slots=expected_slots_str,
+            current_datetime=current_datetime,
         )
 
         # Parse outputs

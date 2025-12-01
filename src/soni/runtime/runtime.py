@@ -104,26 +104,38 @@ class RuntimeLoop:
         self.action_handler = action_handler
 
         # Auto-discover and import actions from config directory
+        # Also try importing __init__.py from config directory if it exists
+        # (allows custom module names like handlers.py to be imported via __init__.py)
         self._auto_import_actions(config_path)
+        self._try_import_config_package(config_path)
 
         logger.info(f"RuntimeLoop initialized with config: {config_path}")
 
     def _auto_import_actions(self, config_path: str | Path) -> None:
         """Auto-discover and import actions module from config directory.
 
-        Looks for:
-        - actions.py in config directory
-        - actions/__init__.py in config directory
+        Follows convention over configuration principle:
+        - Looks for `actions.py` in config directory (primary convention)
+        - Looks for `actions/__init__.py` in config directory (package convention)
+        - If neither exists, actions must be imported manually before RuntimeLoop creation
 
         Actions are automatically registered via @ActionRegistry.register() decorator
         when the module is imported.
+
+        For custom module names (e.g., `handlers.py`, `tools.py`), users should:
+        1. Import the module manually before creating RuntimeLoop, OR
+        2. Create an `actions.py` that imports from the custom module, OR
+        3. Use `actions/__init__.py` and import from custom modules there
+
+        This follows Open/Closed Principle: system is open for extension (custom imports)
+        but closed for modification (no hardcoded names).
 
         Args:
             config_path: Path to YAML configuration file
         """
         config_dir = Path(config_path).parent
 
-        # Try actions.py
+        # Try actions.py (primary convention)
         actions_file = config_dir / "actions.py"
         if actions_file.exists():
             import importlib.util
@@ -135,7 +147,7 @@ class RuntimeLoop:
                 logger.info(f"Auto-imported actions from {actions_file}")
                 return
 
-        # Try actions/ package
+        # Try actions/ package (package convention)
         actions_dir = config_dir / "actions"
         if actions_dir.exists() and (actions_dir / "__init__.py").exists():
             # Add parent to sys.path temporarily
@@ -147,6 +159,41 @@ class RuntimeLoop:
                 sys.path.insert(0, str(config_dir))
                 importlib.import_module("actions")
                 logger.info(f"Auto-imported actions package from {actions_dir}")
+            finally:
+                sys.path[:] = original_path
+
+    def _try_import_config_package(self, config_path: str | Path) -> None:
+        """Try importing __init__.py from config directory.
+
+        This allows users to import custom modules (e.g., handlers.py, tools.py)
+        in __init__.py, which will be executed when the package is imported.
+        This follows Open/Closed Principle: users can extend behavior without
+        modifying framework code.
+
+        Args:
+            config_path: Path to YAML configuration file
+        """
+        config_dir = Path(config_path).parent
+        init_file = config_dir / "__init__.py"
+
+        if init_file.exists():
+            import importlib
+            import sys
+
+            # Import the package (__init__.py will be executed)
+            package_name = config_dir.name
+            parent_dir = config_dir.parent
+
+            original_path = sys.path[:]
+            try:
+                if str(parent_dir) not in sys.path:
+                    sys.path.insert(0, str(parent_dir))
+                importlib.import_module(package_name)
+                logger.debug(
+                    f"Imported __init__.py from {config_dir} (may register custom actions)"
+                )
+            except ImportError as e:
+                logger.debug(f"Could not import __init__.py from {config_dir}: {e}")
             finally:
                 sys.path[:] = original_path
 

@@ -108,16 +108,16 @@ flows:
         # Format: {state_variable: action_output_field}
         # This decouples internal data structures from the flow definition
         map_outputs:
-          flights: api_flights
-          price: api_price
+          flights: flights
+          price: price
 
       # Step 5: Confirm booking
       - step: confirm_booking
         type: action
         call: confirm_flight_booking
         map_outputs:
-          booking_ref: api_booking_ref
-          confirmation: api_confirmation
+          booking_ref: booking_ref
+          confirmation: confirmation
 
 # Slot definitions - entities that need to be collected from users
 # Slots represent structured information extracted from natural language
