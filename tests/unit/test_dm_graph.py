@@ -420,7 +420,18 @@ async def test_collect_slot_node_already_filled():
     from soni.du.normalizer import SlotNormalizer
 
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
-    state = DialogueState(slots={"origin": "NYC"})
+    # Create state with slot filled and trace event showing it was explicitly collected
+    from soni.core.events import EVENT_SLOT_COLLECTION
+
+    state = DialogueState(
+        slots={"origin": "NYC"},
+        trace=[
+            {
+                "event": EVENT_SLOT_COLLECTION,
+                "data": {"slot": "origin", "prompt": "Which city are you departing from?"},
+            }
+        ],
+    )
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)

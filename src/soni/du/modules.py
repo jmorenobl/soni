@@ -148,12 +148,16 @@ class SoniDU(dspy.Module):
             available_actions: Available actions list
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names list
-            current_datetime: Current datetime in ISO format (for cache key)
+            current_datetime: Current datetime in ISO format (not included in cache key)
 
         Returns:
             Cache key as MD5 hash string
+
+        Note:
+            Datetime is excluded from cache key to allow caching across time.
+            Datetime is still passed to LLM for date resolution in relative dates.
         """
-        # Create hash of inputs
+        # Create hash of inputs (excluding datetime for cache consistency)
         return generate_cache_key_from_dict(
             {
                 "message": user_message,
@@ -162,7 +166,7 @@ class SoniDU(dspy.Module):
                 "actions": sorted(available_actions),  # Sort for consistency
                 "flow": current_flow,
                 "expected_slots": sorted(expected_slots or []),  # Sort for consistency
-                "datetime": current_datetime,
+                # datetime excluded from cache key to allow caching across time
             }
         )
 
