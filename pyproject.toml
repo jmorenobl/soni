@@ -135,6 +135,10 @@ ignore_missing_imports = true
 module = ["langgraph", "langgraph.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["cachetools", "cachetools.*"]
+ignore_missing_imports = true
+
 # Relaxed rules for test files
 [[tool.mypy.overrides]]
 module = ["tests.*"]

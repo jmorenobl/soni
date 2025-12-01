@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 import dspy
-from cachetools import TTLCache  # type: ignore[import-untyped]
+from cachetools import TTLCache
 
 from soni.du.signatures import DialogueUnderstanding
 from soni.utils.hashing import generate_cache_key_from_dict
