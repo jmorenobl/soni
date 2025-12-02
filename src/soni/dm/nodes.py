@@ -174,12 +174,22 @@ def create_understand_node(
             # Get available flows when no flow is active
             available_flows = scope_manager.get_available_flows(state)
 
-            # Get expected slots from flow configuration using scope_manager's public method
-            # This method handles flow inference and slot extraction internally
-            expected_slots = scope_manager.get_expected_slots(
-                flow_name=state.current_flow,
-                available_actions=available_actions,
-            )
+            # Get expected slots from flow configuration
+            # IMPORTANT: Only get expected slots if we're already in a flow.
+            # If current_flow is 'none', we don't know which flow will be activated yet,
+            # so we pass empty expected_slots and let NLU infer from available_flows.
+            if state.current_flow and state.current_flow != "none":
+                expected_slots = scope_manager.get_expected_slots(
+                    flow_name=state.current_flow,
+                    available_actions=available_actions,
+                )
+            else:
+                # No active flow - don't infer, let NLU figure it out from available_flows
+                expected_slots = []
+                logger.debug(
+                    f"No active flow, passing empty expected_slots. "
+                    f"NLU will infer from available_flows: {available_flows}"
+                )
 
             # Call NLU using injected provider
             # Note: NLU calculates current_datetime internally (encapsulation)
