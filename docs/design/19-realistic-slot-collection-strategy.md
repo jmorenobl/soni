@@ -2,7 +2,11 @@
 
 **Document Version**: 2.0 (Revised)
 **Last Updated**: 2025-12-02
-**Status**: Final Design
+**Status**: ⚠️ **SUPERSEDED** - Design evolved to unified NLU approach
+
+> **IMPORTANT**: This document describes a two-level slot collection approach with a lightweight collector and full NLU fallback. This design has been **superseded** by a simpler unified NLU approach where a single context-aware NLU handles all understanding tasks. This document is kept for historical reference.
+>
+> **Current design**: See [01-architecture-overview.md](01-architecture-overview.md), [03-message-processing.md](03-message-processing.md), and [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md) for the current unified NLU approach.
 
 ## Problem with Previous Approach
 

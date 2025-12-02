@@ -1,8 +1,10 @@
 # Implementation Roadmap
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: 2025-12-02
-**Status**: Draft
+**Status**: Draft (Updated for LangGraph patterns)
+
+> **Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
 
 ## Executive Summary
 
@@ -58,59 +60,63 @@ This document provides a **phased implementation plan** for the Soni Framework r
    - Implement intent detection heuristics
    - Implement simple value detection
 
-2. Implement direct slot mapping
-   - Create `_direct_slot_mapping()` function
-   - Add normalization pipeline for direct mapping
-   - Add validation for direct-mapped values
+2. Implement context-enriched NLU
+   - Build NLU context with conversation state, flow descriptions, paused flows
+   - Add normalization pipeline for extracted values
+   - Add validation for extracted values
 
 3. Add routing decision logic
-   - Implement `_has_intent_markers()`
-   - Implement `_is_simple_value()`
-   - Add hybrid routing fallback
+   - Route to NLU with enriched context for all states (except EXECUTING_ACTION)
+   - Queue messages during action execution
 
 4. Update RuntimeLoop
    - Integrate router into `process_message()`
    - Add logging for routing decisions
    - Add metrics collection
 
-**Deliverable**: Context-aware routing with direct slot mapping
+**Deliverable**: Context-aware NLU with enriched prompts
 **Success Metrics**:
-- 60%+ reduction in NLU calls for simple slot collection
+- High accuracy for intent detection, slot extraction, digression detection
+- Consistent behavior across all message types
 - All e2e tests pass
 - No regression in intent detection accuracy
 
 ---
 
-### Phase 3: Resumable Graph Execution (2 weeks)
+### Phase 3: LangGraph Integration (2 weeks)
 
-**Goal**: Enable graph to resume from current position instead of START.
+**Goal**: Leverage LangGraph's native checkpointing and interrupt/resume capabilities.
 
 **Tasks**:
-1. Implement entry point selection
-   - Create `_determine_entry_point()` function
-   - Add logic to resume from `current_step`
-   - Handle edge cases (no current_step, invalid step)
+1. Update graph patterns to use LangGraph correctly
+   - Use `interrupt()` to pause execution for user input
+   - Use `Command(resume=)` to continue after interrupt
+   - Remove manual entry point selection (LangGraph handles automatically)
+   - Ensure EVERY message goes through understand_node first
 
-2. Update graph building
-   - Create enhanced router function
-   - Update conditional edges to use new router
-   - Add node lifecycle wrappers
+2. Update RuntimeLoop for checkpointing
+   - Use `aget_state()` to check if interrupted
+   - Use `thread_id` for conversation isolation
+   - Remove manual `current_step` tracking for resumption
+   - Keep `current_step` for debugging/tracing only
 
-3. Implement incremental checkpointing
-   - Save checkpoint after each node execution
-   - Implement state merging logic
-   - Add checkpoint recovery
+3. Update node implementations
+   - Use `interrupt()` in slot collection nodes
+   - Return proper state updates as dicts
+   - Let LangGraph handle automatic checkpoint saves
+   - Add proper conditional routing based on NLU results
 
-4. Update node execution
-   - Track `current_step` during execution
-   - Update `conversation_state` transitions
-   - Add node skip logic
+4. Test checkpoint recovery
+   - Verify automatic resume from interrupted state
+   - Test conversation persistence across sessions
+   - Verify checkpoint cleanup on completion
 
-**Deliverable**: Resumable graph execution from current position
+**Deliverable**: Correct LangGraph integration with automatic checkpointing
 **Success Metrics**:
-- 80%+ reduction in redundant node executions
-- All flows complete correctly
-- State correctly preserved across resumption
+- All conversations resume correctly after interruption
+- No manual checkpoint management needed
+- State correctly preserved across sessions
+- `interrupt()` and `Command(resume=)` work as expected
 
 ---
 
@@ -256,8 +262,8 @@ Phase 5: Testing & Polish
 **Mitigation**:
 - Keep hybrid fallback for ambiguous cases
 - Measure intent detection accuracy
+- Monitor NLU performance and optimize prompts with DSPy
 - A/B test in production (if applicable)
-- Allow configuration to disable direct mapping
 
 ### Risk 4: Implementation Complexity
 
@@ -399,9 +405,10 @@ Week 12:    Buffer for issues/refinement
 
 2.5. **Testing** (4 days)
    - [ ] Unit tests for router
-   - [ ] Integration tests for direct mapping
+   - [ ] Integration tests for context-enriched NLU
    - [ ] E2E tests for routing decisions
    - [ ] Performance benchmarks
+   - [ ] Test all message types (slots, intents, digressions, resume)
 
 ### Phase 3 Tasks (Detail)
 

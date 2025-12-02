@@ -1,10 +1,15 @@
 # Graph Execution Model
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: 2025-12-02
-**Status**: ✅ Stable
+**Status**: 🔄 Updated (Aligned with LangGraph patterns)
 
-> **Note**: This document represents the final, stable design for graph execution. For implementation details and decision rationale, see [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md).
+> **Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
+>
+> **Important**: This document has been updated to use correct LangGraph patterns:
+> - `interrupt()` for pausing execution
+> - `Command(resume=)` for continuing
+> - Automatic checkpointing (no manual entry point selection)
 
 ## Table of Contents
 
@@ -19,18 +24,27 @@
 
 ## Overview
 
-The graph execution model defines how LangGraph integrates with Soni's dialogue management system. The key innovation is **resumable execution from current position** instead of always re-running from START.
+The graph execution model defines how LangGraph integrates with Soni's dialogue management system. The key is leveraging **LangGraph's automatic checkpointing and interrupt/resume capabilities**.
 
 ### Problems Solved
 
 ❌ **OLD**: Graph always executes from START, re-running all nodes
-✅ **NEW**: Graph resumes from current_step, skipping completed nodes
+✅ **NEW**: LangGraph automatically resumes from last checkpoint (via `thread_id`)
 
-❌ **OLD**: `should_continue_flow()` only returns "next" or "end"
-✅ **NEW**: Sophisticated routing based on conversation_state
+❌ **OLD**: Manual tracking of `current_step` for resumption
+✅ **NEW**: LangGraph checkpointing handles this automatically
 
-❌ **OLD**: No tracking of execution position
-✅ **NEW**: `current_step` tracks where we are in the flow
+❌ **OLD**: No way to pause and wait for user input
+✅ **NEW**: `interrupt()` pauses execution, `Command(resume=)` continues
+
+### Critical Pattern: Always Through NLU First
+
+**Every user message** passes through the Understand Node (NLU) first, even when waiting for a slot. This is because users might respond with:
+- `"New York"` - slot value
+- `"What cities?"` - question/digression
+- `"Cancel"` - intent change
+
+The NLU with context determines which type of response it is.
 
 ---
 
@@ -214,90 +228,101 @@ async def create_node_wrapper(
 
 ---
 
-## Resumable Execution
+## Resumable Execution with LangGraph
 
-### Entry Point Selection (NEW)
+### How LangGraph Checkpointing Works
+
+LangGraph automatically handles resumption - you don't need to manually track `current_step` or select entry points:
+
+1. **Automatic Saves**: LangGraph saves state after each node
+2. **Thread Isolation**: Each `thread_id` has its own checkpoint stream
+3. **Auto-Resume**: Invoking with same `thread_id` loads last checkpoint
+4. **Skips Completed**: Only executes nodes not yet run
+
+### Graph Invocation Pattern (CORRECT)
 
 ```python
-async def _determine_entry_point(
+from langgraph.types import Command, interrupt
+
+async def process_message(
     self,
-    state: DialogueState
+    user_msg: str,
+    user_id: str,
 ) -> str:
     """
-    Determine where to start graph execution.
+    Process message using LangGraph's native resumption.
 
-    Returns:
-        Node name to start from (could be START or current_step)
+    NO manual entry point selection needed!
     """
 
-    # Case 1: No active flow → Start from beginning
-    if state.current_flow == "none" or state.conversation_state == ConversationState.IDLE:
-        return START
+    config = {"configurable": {"thread_id": user_id}}
 
-    # Case 2: Waiting for slot → Resume from current collect node
-    if state.conversation_state == ConversationState.WAITING_FOR_SLOT:
-        if state.current_step:
-            # Resume from the collect node that prompted
-            return state.current_step
-        else:
-            # Shouldn't happen, but fallback to START
-            logger.warning("WAITING_FOR_SLOT but no current_step, starting from START")
-            return START
+    # Check if we're interrupted (waiting for user input)
+    current_state = await self.graph.aget_state(config)
 
-    # Case 3: Just received NLU result → Resume from first collect or action
-    if state.conversation_state == ConversationState.UNDERSTANDING:
-        # NLU just ran, start processing flow from first step after understand
-        first_step = self._get_first_flow_step(state.current_flow)
-        return first_step
-
-    # Case 4: Executing action → Resume from action node
-    if state.conversation_state == ConversationState.EXECUTING_ACTION:
-        if state.current_step:
-            return state.current_step
-        else:
-            logger.warning("EXECUTING_ACTION but no current_step")
-            return START
-
-    # Default: Start from beginning
-    return START
-```
-
-### Graph Invocation (NEW)
-
-```python
-async def _execute_graph_from(
-    self,
-    state: DialogueState,
-    entry_point: str,
-) -> dict[str, Any]:
-    """
-    Execute graph from specific entry point.
-
-    This enables resumable execution instead of always starting from START.
-    """
-
-    config = {
-        "configurable": {
-            "thread_id": state.metadata.get("user_id"),
-        }
-    }
-
-    if entry_point == START:
-        # Start from beginning (includes understand node)
-        result = await self.graph.ainvoke(state.to_dict(), config=config)
-    else:
-        # Resume from specific node
-        # This requires LangGraph's checkpoint-based resumption
+    if current_state and current_state.next:
+        # Interrupted - resume with user's message
         result = await self.graph.ainvoke(
-            state.to_dict(),
-            config={
-                **config,
-                "resume_from": entry_point,  # Custom config key
-            }
+            Command(resume={"user_message": user_msg}),
+            config=config
+        )
+    else:
+        # New conversation or completed - start fresh
+        result = await self.graph.ainvoke(
+            {"user_message": user_msg, "slots": {}, ...},
+            config=config
         )
 
-    return result
+    return result["last_response"]
 ```
+
+### Using interrupt() to Pause Execution
+
+```python
+from langgraph.types import interrupt
+
+def collect_slot_node(state: DialogueState):
+    """
+    Collect a slot value - pauses to wait for user.
+    """
+    slot_name = state["waiting_for_slot"]
+    prompt = get_slot_prompt(slot_name)
+
+    # PAUSE HERE - wait for user input
+    # User's response will go through understand_node first!
+    user_response = interrupt({
+        "type": "slot_request",
+        "slot": slot_name,
+        "prompt": prompt,
+    })
+
+    # This code runs AFTER user responds and passes through NLU
+    # The user_response comes from Command(resume={"user_message": msg})
+    return {
+        "user_message": user_response.get("user_message"),
+        "last_response": prompt,
+    }
+```
+
+### ❌ DEPRECATED: Manual Entry Point Selection
+
+The following pattern is **INCORRECT** - don't use it:
+
+```python
+# ❌ WRONG - This API doesn't exist in LangGraph
+result = await self.graph.ainvoke(
+    state,
+    config={"resume_from": entry_point}  # NOT A REAL OPTION
+)
+
+# ❌ WRONG - Don't manually track entry points
+entry_point = state.current_step or START
+```
+
+Instead, use LangGraph's native patterns:
+- `interrupt()` to pause
+- `Command(resume=)` to continue
+- `thread_id` for automatic checkpoint loading
 
 ---
 
@@ -634,15 +659,25 @@ IMPROVEMENT: 88% faster graph execution
 
 This graph execution model provides:
 
-1. ✅ **Resumable execution** from current_step
-2. ✅ **Conditional understand node** (skipped when not needed)
-3. ✅ **Enhanced routing** based on conversation_state
-4. ✅ **Fine-grained checkpointing** after each node
-5. ✅ **Node lifecycle management** with pre/post execution hooks
-6. ✅ **88% faster** graph execution in typical flows
+1. ✅ **LangGraph automatic checkpointing** - No manual save/load needed
+2. ✅ **interrupt() and Command(resume=)** - Native pause/resume
+3. ✅ **Always through NLU first** - Every message processed by understand_node
+4. ✅ **Conditional routing** - Route based on NLU result type
+5. ✅ **Thread isolation** - Each user has separate checkpoint stream
+6. ✅ **Fine-grained checkpointing** - Automatic after each node
 
-**Critical Innovation**: Tracking `current_step` enables resuming execution from the exact position where we left off, avoiding redundant node re-execution.
+**Critical Pattern**:
+- Every user message goes through understand_node (NLU) FIRST
+- Use `interrupt()` to pause and wait for user input
+- Use `Command(resume=)` to continue with user's response
+- LangGraph handles checkpoint save/load automatically via `thread_id`
+
+**Key Corrections from Original Design**:
+- ❌ ~~Manual `current_step` tracking~~ → ✅ Automatic checkpointing
+- ❌ ~~`resume_from: entry_point`~~ → ✅ `Command(resume=)`
+- ❌ ~~Skip understand node sometimes~~ → ✅ ALWAYS through understand_node
 
 ---
 
-**Next**: Read [05-node-types.md](05-node-types.md) for detailed node implementation designs.
+**Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
+**Next**: Read [05-complex-conversations.md](05-complex-conversations.md) for flow stack and digression handling.

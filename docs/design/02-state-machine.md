@@ -1,10 +1,12 @@
 # State Machine Design
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: 2025-12-02
-**Status**: ✅ Stable
+**Status**: ✅ Stable (Updated)
 
-> **Note**: This document represents the final, stable design for the state machine. For implementation details and decision rationale, see [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md).
+> **Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
+>
+> This document details the state schema and transitions used by the dialogue system.
 
 ## Table of Contents
 
@@ -175,23 +177,38 @@ class DialogueState(TypedDict):
 **Usage**:
 ```python
 # In message routing
-if state.conversation_state == ConversationState.WAITING_FOR_SLOT:
-    # Direct mapping: user is answering our question
-    return await self._map_message_to_slot(msg, state.waiting_for_slot)
-elif state.conversation_state == ConversationState.IDLE:
-    # Call NLU: user starting new task
-    return await self._understand_intent(msg, state)
+# Always call NLU with enriched context
+context = self._build_nlu_context(state)
+nlu_result = await self.nlu.predict(msg, context)
+
+# NLU handles all scenarios based on conversation_state
+if nlu_result.is_slot_value:
+    return await self._validate_slot(nlu_result.slot_value, state.waiting_for_slot, state)
+elif nlu_result.is_digression:
+    return await self._handle_digression(nlu_result, state)
+elif nlu_result.is_intent_change:
+    return await self._handle_intent_change(nlu_result, state)
 ```
 
-#### `current_step` (NEW, CRITICAL)
+#### `current_step` (NEW, FOR DEBUGGING)
 
-**Purpose**: Tracks position in the flow execution.
+**Purpose**: Tracks position in the flow execution for debugging and tracing.
 
-**Usage**:
+**Important**: LangGraph handles resumption automatically via checkpointing. You don't need to manually resume from `current_step`. This field is primarily for:
+- Debugging (inspecting where the conversation is)
+- Tracing (auditing what step was executed)
+- Display (showing progress to users)
+
+**LangGraph Pattern** (see ground truth):
 ```python
-# Resume execution from current step instead of START
-if state.current_step:
-    return await self.graph.ainvoke_from_node(state, state.current_step)
+# DON'T manually resume from current_step
+# INSTEAD, use LangGraph's native checkpointing:
+
+# Check if interrupted
+current_state = await graph.aget_state(config)
+if current_state.next:
+    # Resume with user response via Command(resume=)
+    result = await graph.ainvoke(Command(resume={"user_message": msg}), config)
 ```
 
 **Example Values**:
@@ -200,9 +217,9 @@ if state.current_step:
 - `"confirm_booking"`: Waiting for confirmation
 - `None`: No active step
 
-#### `waiting_for_slot` (NEW, PERFORMANCE)
+#### `waiting_for_slot` (NEW, CONTEXT)
 
-**Purpose**: Enables direct message-to-slot mapping, skipping NLU.
+**Purpose**: Provides context to NLU about what slot we're expecting.
 
 **Example**:
 ```python
@@ -211,8 +228,8 @@ state.waiting_for_slot = "origin"
 state.conversation_state = ConversationState.WAITING_FOR_SLOT
 
 # User responds: "New York"
-# System maps directly: slots["origin"] = "New York"
-# NO NLU CALL NEEDED!
+# NLU receives context: waiting_for_slot="origin"
+# NLU extracts: slots["origin"] = "New York"
 ```
 
 #### `last_nlu_call` (NEW, OPTIMIZATION)
@@ -347,7 +364,7 @@ if state.last_nlu_call and (time.time() - state.last_nlu_call) < 1.0:
 **What system does**:
 - Show prompt asking for the slot
 - Wait for user response
-- On next turn: map message to slot (direct, no NLU)
+- On next turn: call NLU with waiting_for_slot context
 
 **State data**:
 ```python
@@ -359,14 +376,17 @@ state.current_step = "collect_origin"  # Where we are in the flow
 **Typical user messages**:
 - "New York" (simple value)
 - "I want to leave from Boston" (contains slot value)
+- "Actually, cancel" (intent change)
+- "What cities do you support?" (question)
 
 **Next states**:
 - `VALIDATING_SLOT` (validate provided value)
 - `UNDERSTANDING` (if user changes intent, e.g., "cancel")
 
-**Optimization**:
-- If message looks like a simple value (no intent markers), skip NLU
-- Map directly: `slots[waiting_for_slot] = normalize(user_message)`
+**NLU Behavior**:
+- NLU receives waiting_for_slot="origin" in context
+- Can extract slot values, detect intent changes, identify questions
+- Single unified processing with conversation awareness
 
 ---
 
@@ -732,12 +752,12 @@ State BEFORE:
     "slots": {},
 }
 
-# System does direct mapping (NO NLU CALL)
-State AFTER direct mapping:
+# System calls NLU with waiting_for_slot context
+State AFTER NLU extraction:
 {
     "conversation_state": "validating_slot",
     "waiting_for_slot": "origin",
-    "slots": {"origin": "New York"},  # Mapped directly
+    "slots": {"origin": "New York"},  # Extracted by NLU
 }
 
 # System validates
@@ -755,7 +775,7 @@ Response: "Where would you like to fly to?"
 # ===== Turn 3: User provides destination =====
 User: "Los Angeles"
 
-# (Same pattern: direct mapping, validation, next slot)
+# (Same pattern: NLU extraction, validation, next slot)
 
 State AFTER:
 {
@@ -817,8 +837,8 @@ Response: "Where would you like to fly to?"
 # Turn 3: User corrects origin instead of providing destination
 User: "Actually, change the origin to Boston"
 
-# System detects intent markers ("change", "actually")
-# Routes to UNDERSTANDING instead of direct mapping
+# NLU detects intent change markers ("change", "actually")
+# Understands this is a correction, not a destination value
 State AFTER NLU:
 {
     "conversation_state": "understanding",
@@ -846,13 +866,19 @@ Response: "Got it, I've updated your origin to Boston. Where would you like to f
 This state machine design provides:
 
 1. ✅ **Explicit tracking** of conversation state
-2. ✅ **Context-aware routing** based on current state
-3. ✅ **Efficient execution** by skipping unnecessary NLU calls
-4. ✅ **Clear debugging** with inspectable state
-5. ✅ **Robust error recovery** with state restoration
+2. ✅ **Context-aware NLU** that always processes messages with enriched context
+3. ✅ **Clear debugging** with inspectable state
+4. ✅ **Robust error recovery** with state restoration
+5. ✅ **LangGraph integration** via checkpointing (automatic save/resume)
 
-**Key Innovation**: `conversation_state` + `waiting_for_slot` enable direct message-to-slot mapping, avoiding redundant NLU calls while maintaining flexibility to handle intent changes.
+**Key Innovation**: `conversation_state` + `waiting_for_slot` provide rich context to NLU, enabling it to accurately handle slot values, intent changes, questions, and corrections within a unified processing model.
+
+**LangGraph Integration**:
+- State is automatically checkpointed after each node
+- Resumption is automatic via `thread_id` (no manual `current_step` tracking needed)
+- Use `interrupt()` to pause, `Command(resume=)` to continue
 
 ---
 
+**Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
 **Next**: Read [03-message-processing.md](03-message-processing.md) for message routing implementation details.

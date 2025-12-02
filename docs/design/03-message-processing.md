@@ -1,8 +1,10 @@
 # Message Processing Flow
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: 2025-12-02
-**Status**: Draft
+**Status**: ✅ Updated (Aligned with 01-architecture-overview.md)
+
+> **Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture. This document provides additional details on message processing.
 
 ## Table of Contents
 
@@ -18,41 +20,41 @@
 
 ## Overview
 
-The message processing flow is the **core innovation** of this redesign. Instead of always calling NLU on every turn, the system uses **context-aware routing** to determine the most efficient way to process each message.
+The message processing flow is the **core design** of the system. It uses **context-aware NLU** with enriched prompts to understand user messages in the context of the current conversation state.
 
 ### Key Innovation
 
-**OLD Design** (Always NLU):
+**OLD Design** (Context-unaware):
 ```
-Every Message → NLU → Extract Slots → Update State → Execute Graph
+Every Message → NLU (no context) → Extract Slots → Update State → Execute Graph
 ```
 
 **NEW Design** (Context-Aware):
 ```
 Every Message → Context Router → Decision:
-  ├─ If WAITING_FOR_SLOT → Direct Mapping (fast, no LLM)
-  ├─ If IDLE → NLU (need to understand intent)
-  └─ If EXECUTING_ACTION → Wait for completion
+  ├─ If EXECUTING_ACTION → Wait for completion
+  └─ Else → NLU with enriched context (conversation state, flow descriptions, paused flows)
 ```
 
-### Performance Impact
+### Design Philosophy
 
-| Scenario | OLD | NEW | Savings |
-|----------|-----|-----|---------|
-| **Simple slot collection** | NLU call (300ms, ~500 tokens) | Direct mapping (<10ms) | **97% latency, 100% tokens** |
-| **Intent change** | NLU call (300ms) | NLU call (300ms) | **0% (necessary)** |
-| **Multi-slot message** | NLU call (300ms) | NLU call (300ms) | **0% (necessary)** |
+The system uses a **unified NLU approach**:
+- Single DSPy module handles all understanding tasks
+- Context-enriched prompts include: conversation state, waiting_for_slot, flow descriptions, paused flows
+- NLU can detect: slot values, intent changes, digressions, resume requests
+- Simpler architecture with one optimization point
 
 **Typical 4-turn booking flow**:
-- OLD: 4 NLU calls = 1200ms, ~2000 tokens
-- NEW: 1 NLU call + 3 direct mappings = 330ms, ~500 tokens
-- **Savings: 72% latency, 75% tokens**
+- All messages: 4 NLU calls with context = ~1200ms, ~2000 tokens
+- **Benefits**: Consistent behavior, accurate understanding, simpler to maintain
 
 ---
 
-## Processing Pipeline
+## Processing Pipeline (LangGraph Pattern)
 
 ### Complete Flow
+
+> **Critical Pattern**: Every user message passes through the Understand Node (NLU) FIRST. LangGraph handles checkpointing and resumption automatically.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -62,55 +64,64 @@ Every Message → Context Router → Decision:
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  2. Load Dialogue State                                  │
-│     - Load from checkpoint (thread_id = user_id)        │
-│     - Add user message to state.messages                │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│  3. Context-Aware Routing (NEW)                          │
-│     - Analyze conversation_state                         │
-│     - Decide: Direct Mapping, NLU, or Wait              │
+│  2. Check LangGraph State                                │
+│     - aget_state(config) to check if interrupted        │
+│     - thread_id = user_id for conversation isolation    │
 └────────────────────┬────────────────────────────────────┘
                      │
          ┌───────────┴──────────┐
          │                      │
-┌────────▼──────────┐  ┌───────▼────────┐
-│  Direct Mapping   │  │  NLU Call      │
-│  (Fast path)      │  │  (Full NLU)    │
-└────────┬──────────┘  └───────┬────────┘
-         │                      │
-         └───────────┬──────────┘
+         ▼                      ▼
+┌────────────────────┐  ┌───────────────────┐
+│  If Interrupted:   │  │  If New/Complete: │
+│  Resume with       │  │  Invoke with      │
+│  Command(resume=)  │  │  initial state    │
+└────────┬───────────┘  └──────────┬────────┘
+         │                         │
+         └───────────┬─────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  4. Determine Execution Entry Point (NEW)                │
-│     - If resuming: start from current_step              │
-│     - If new flow: start from START                     │
+│  3. LangGraph Auto-Resume                                │
+│     - Loads checkpoint for thread_id automatically      │
+│     - Skips already-executed nodes                      │
+│     - NO manual entry point selection needed            │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  5. Execute Graph                                        │
-│     - Run LangGraph nodes                               │
-│     - Update state after each node                      │
-│     - Stop on interactive pause (slot collection)       │
+│  4. ALWAYS → Understand Node (NLU)                       │
+│     - Every message processed through NLU first         │
+│     - Context includes: waiting_for_slot, flow desc     │
+│     - NLU determines: slot, digression, intent change   │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  6. Generate Response                                    │
-│     - Extract last_response from state                  │
-│     - Apply response templates if needed                │
+│  5. Conditional Routing (based on NLU result)            │
+│     - Slot Value → Validate Node                        │
+│     - Digression → Digression Node → Back to Understand │
+│     - Intent Change → Flow Stack Node                   │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  7. Save Checkpoint                                      │
-│     - Persist updated state                             │
-│     - Save conversation_state and current_step          │
+│  6. Execute Appropriate Node                             │
+│     - Validation, action, digression, etc.              │
+│     - If need user input → interrupt() → PAUSE          │
+│     - LangGraph auto-saves checkpoint after each node   │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│  8. Return Response to User                              │
+│  7. Return Response to User                              │
+│     - Extract from state.last_response                  │
+│     - [User responds → Loop back to step 1]             │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Key LangGraph Patterns
+
+1. **Automatic Checkpointing**: LangGraph saves state after each node (no manual save needed)
+2. **Auto-Resume**: Same `thread_id` → automatically loads last checkpoint
+3. **interrupt()**: Pauses execution to wait for user input
+4. **Command(resume=)**: Continues execution with user's response
+5. **Conditional Edges**: Route based on NLU result type
 
 ---
 
@@ -127,33 +138,11 @@ async def route_message(
     """
     Decide how to process message based on conversation context.
 
-    This is the CRITICAL routing logic that enables performance optimization.
+    This routing logic determines whether to call NLU or queue the message.
     """
 
-    # ===== Case 1: Waiting for specific slot =====
-    if state.conversation_state == ConversationState.WAITING_FOR_SLOT:
-        # Check if message looks like a simple value or contains intent
-        if self._is_simple_value(user_msg):
-            # Fast path: Direct mapping, no NLU
-            return MessageRoute(
-                type="direct_slot_mapping",
-                slot=state.waiting_for_slot,
-            )
-        elif self._has_intent_markers(user_msg):
-            # User is changing intent, need NLU
-            return MessageRoute(
-                type="nlu_understanding",
-                reason="intent_change_detected",
-            )
-        else:
-            # Ambiguous, use hybrid approach
-            return MessageRoute(
-                type="hybrid",
-                slot=state.waiting_for_slot,
-            )
-
-    # ===== Case 2: Executing action =====
-    elif state.conversation_state == ConversationState.EXECUTING_ACTION:
+    # ===== Case 1: Executing action =====
+    if state.conversation_state == ConversationState.EXECUTING_ACTION:
         # User shouldn't send messages during action execution
         # But if they do, queue it for after action completes
         return MessageRoute(
@@ -161,32 +150,24 @@ async def route_message(
             reason="action_in_progress",
         )
 
-    # ===== Case 3: Idle or need understanding =====
-    elif state.conversation_state in [
-        ConversationState.IDLE,
-        ConversationState.UNDERSTANDING,
-    ]:
-        # Need NLU to understand intent
-        return MessageRoute(
-            type="nlu_understanding",
-            reason="need_intent_understanding",
-        )
-
-    # ===== Case 4: Error state =====
-    elif state.conversation_state == ConversationState.ERROR:
-        # Try to recover via NLU
-        return MessageRoute(
-            type="nlu_understanding",
-            reason="error_recovery",
-        )
-
-    # ===== Default: Use NLU =====
+    # ===== Case 2: All other states - use NLU with context =====
     else:
+        # Build enriched context for NLU
+        context = self._build_nlu_context(state)
+
         return MessageRoute(
             type="nlu_understanding",
-            reason="default_case",
+            context=context,
+            reason=f"process_in_state_{state.conversation_state}",
         )
 ```
+
+**Simplified Approach**: Instead of complex routing logic, we always call NLU (except when action is executing). The NLU receives rich context that helps it understand:
+- What slot we're waiting for (if any)
+- Current conversation state
+- Available flows with descriptions
+- Paused flows that can be resumed
+- Conversation history
 
 ### MessageRoute Type
 
@@ -203,14 +184,12 @@ class MessageRoute:
     """
 
     type: Literal[
-        "direct_slot_mapping",  # Map message directly to slot (fast)
-        "nlu_understanding",     # Call NLU to understand intent
-        "hybrid",                # Try direct mapping, fallback to NLU
-        "queue",                 # Queue message for later
+        "nlu_understanding",  # Call NLU with enriched context
+        "queue",              # Queue message for later
     ]
 
-    slot: str | None = None
-    """Slot name if type == 'direct_slot_mapping'"""
+    context: NLUContext | None = None
+    """Enriched context for NLU if type == 'nlu_understanding'"""
 
     reason: str | None = None
     """Why this route was chosen (for debugging/logging)"""
@@ -316,62 +295,55 @@ def _is_simple_value(self, message: str) -> bool:
 
 ---
 
-## Slot Collection (Lightweight Approach)
+## NLU-Based Message Understanding
 
-> **Note**: The original "direct slot mapping" approach described below has been superseded by a more realistic DSPy-based lightweight collector. See `19-realistic-slot-collection-strategy.md` and `20-consolidated-design-decisions.md` for the final design.
+### Unified NLU Approach
 
-### Context-Aware Slot Collection
-
-When `conversation_state == WAITING_FOR_SLOT`:
+All messages are processed through the NLU with enriched context:
 
 ```python
-async def _collect_slot_lightweight(
+async def _process_with_nlu(
     self,
     user_msg: str,
-    slot_name: str,
     state: DialogueState,
 ) -> DialogueState:
     """
-    Collect slot using lightweight DSPy-based collector.
+    Process message using NLU with enriched context.
 
-    This is the OPTIMIZED PATH that handles realistic user behavior:
-    - Slot values: "New York"
-    - Intent changes: "Actually, I want to cancel"
-    - Questions: "What cities do you support?"
-    - Clarifications: "Why do you need this?"
-    - Corrections: "Change it to Boston"
+    The NLU handles all understanding tasks:
+    - Slot value extraction: "New York"
+    - Intent detection/changes: "Actually, I want to cancel"
+    - Digression detection: "What cities do you support?"
+    - Resume requests: "Go back to booking"
 
     Steps:
-    1. Call lightweight DSPy collector
-    2. Handle outcome based on type:
-       - slot_value → Validate + normalize + update state
-       - intent_change → Route to new intent
-       - question → Answer + re-prompt
-       - clarification → Explain + re-prompt
-       - correction → Update + continue
-       - ambiguous → Fall back to full NLU
+    1. Build enriched NLU context
+    2. Call NLU with context
+    3. Handle result based on type
     """
 
-    # 1. Call lightweight collector
+    # 1. Build enriched context
+    context = NLUContext(
+        conversation_state=state.conversation_state,
+        waiting_for_slot=state.waiting_for_slot,
+        current_flow=state.current_flow,
+        available_flows=self._get_flow_descriptions(),
+        paused_flows=self._get_paused_flows(state),
+        conversation_history=state.messages[-5:],  # Last 5 messages
+    )
+
+    # 2. Call NLU
     try:
-        result = await self.lightweight_collector.aforward(
+        result = await self.nlu.predict(
             user_message=user_msg,
-            slot_being_collected=slot_name,
-            slot_prompt=state.last_response,
-            conversation_context=self._build_context_string(state),
+            context=context,
         )
 
-        # Check confidence
-        if result.confidence < 0.7 or result.outcome_type == "ambiguous":
-            # Low confidence → Fall back to full NLU
-            logger.info(f"Lightweight collector uncertain (confidence={result.confidence}), "
-                       f"falling back to full NLU")
-            return await self._nlu_understanding(user_msg, state)
-
-        # 2. Handle outcome based on type
-        if result.outcome_type == "slot_value":
-            # Extract and validate
-            raw_value = result.extracted_value
+        # 3. Handle result based on type
+        if result.is_slot_value:
+            # Extract and validate slot
+            slot_name = state.waiting_for_slot or result.slot_name
+            raw_value = result.slot_value
             slot_config = self.config.slots[slot_name]
 
             # Normalize
@@ -396,40 +368,37 @@ async def _collect_slot_lightweight(
             state.conversation_state = ConversationState.VALIDATING_SLOT
             return state
 
-        elif result.outcome_type == "intent_change":
-            # User wants to do something else → Use full NLU
-            logger.info(f"Intent change detected: {result.detected_intent}")
-            return await self._nlu_understanding(user_msg, state)
+        elif result.is_digression:
+            # Handle digression without changing flow stack
+            return await self._handle_digression(result, state)
 
-        elif result.outcome_type in ["question", "clarification"]:
-            # Answer and re-prompt
-            answer = await self._handle_user_question(result, slot_name)
-            state.last_response = f"{answer}\n\n{state.last_response}"
-            return state
+        elif result.is_intent_change:
+            # Push new flow or pop current
+            return await self._handle_intent_change(result, state)
 
-        elif result.outcome_type == "correction":
-            # Handle correction → Use full NLU to determine what to correct
-            logger.info("User correction detected")
-            return await self._nlu_understanding(user_msg, state)
+        elif result.is_resume_request:
+            # Pop to requested flow
+            return await self._handle_resume(result, state)
 
         else:
-            # Unknown outcome → Full NLU
-            logger.warning(f"Unknown outcome type: {result.outcome_type}")
-            return await self._nlu_understanding(user_msg, state)
+            # Continue current flow
+            return state
 
     except Exception as e:
-        # Any error → Fall back to full NLU
-        logger.error(f"Lightweight collector failed: {e}, falling back to full NLU")
-        return await self._nlu_understanding(user_msg, state)
+        # Log error and handle gracefully
+        logger.error(f"NLU processing failed: {e}")
+        return self._create_error_state(state, str(e))
 ```
 
 ---
 
 ## Message Router Implementation
 
-### Complete RuntimeLoop.process_message()
+### Complete RuntimeLoop.process_message() (LangGraph Pattern)
 
 ```python
+from langgraph.types import Command
+
 class RuntimeLoop:
     async def process_message(
         self,
@@ -437,77 +406,66 @@ class RuntimeLoop:
         user_id: str,
     ) -> str:
         """
-        Process user message with context-aware routing.
+        Process user message with LangGraph checkpointing.
 
         This is the main entry point for message processing.
+
+        Key LangGraph patterns:
+        - Automatic checkpoint save/load via thread_id
+        - interrupt() to pause for user input
+        - Command(resume=) to continue after interrupt
         """
 
         # 1. Validate and sanitize
         sanitized_msg, sanitized_user_id = self._validate_inputs(user_msg, user_id)
 
-        # 2. Load state
-        state = await self._load_state(sanitized_user_id)
+        # 2. Config for LangGraph (thread_id enables auto-resume)
+        config = {"configurable": {"thread_id": sanitized_user_id}}
 
-        # 3. Add user message to state
-        state.messages.append({
-            "role": "user",
-            "content": sanitized_msg,
-            "timestamp": time.time(),
-        })
-        state.turn_count += 1
-
-        # 4. Context-aware routing (NEW)
-        route = await self.route_message(sanitized_msg, state)
+        # 3. Check if we're in the middle of an interrupted flow
+        current_state = await self.graph.aget_state(config)
 
         logger.info(
-            f"Message routing decision: {route.type}",
+            f"Processing message",
             extra={
                 "user_id": sanitized_user_id,
-                "conversation_state": state.conversation_state,
-                "route_type": route.type,
-                "route_reason": route.reason,
+                "has_checkpoint": current_state is not None,
+                "is_interrupted": current_state.next if current_state else None,
             }
         )
 
-        # 5. Execute based on route
-        if route.type == "direct_slot_mapping":
-            # Fast path: direct mapping
-            state = await self._direct_slot_mapping(
-                sanitized_msg,
-                route.slot,
-                state
+        # 4. Execute graph based on state
+        if current_state and current_state.next:
+            # We're interrupted - resume with user message
+            # The message goes through understand_node first (graph structure)
+            result = await self.graph.ainvoke(
+                Command(resume={"user_message": sanitized_msg}),
+                config=config
             )
+        else:
+            # New conversation or flow just completed
+            input_state = {
+                "user_message": sanitized_msg,
+                "messages": [],
+                "slots": {},
+                "flow_stack": [],
+                "conversation_state": ConversationState.IDLE,
+            }
+            result = await self.graph.ainvoke(input_state, config=config)
 
-        elif route.type == "nlu_understanding":
-            # Full NLU path
-            state = await self._nlu_understanding(sanitized_msg, state)
-
-        elif route.type == "hybrid":
-            # Try direct, fallback to NLU
-            state = await self._hybrid_slot_mapping(
-                sanitized_msg,
-                route.slot,
-                state
-            )
-
-        elif route.type == "queue":
-            # Queue message for later
-            state.metadata.setdefault("queued_messages", []).append(sanitized_msg)
-            state.last_response = "Please wait while I complete the current action."
-
-        # 6. Execute graph if needed
-        if state.conversation_state != ConversationState.WAITING_FOR_SLOT:
-            # Need to execute graph to continue flow
-            entry_point = state.current_step or START
-            result = await self._execute_graph_from(state, entry_point)
-            state = DialogueState.from_dict(result)
-
-        # 7. Save checkpoint
-        await self._save_state(sanitized_user_id, state)
-
-        # 8. Return response
-        return state.last_response
+        # 5. Return response (checkpoint saved automatically by LangGraph)
+        return result["last_response"]
 ```
+
+### Key Differences from Old Design
+
+| Aspect | OLD (Incorrect) | NEW (LangGraph Pattern) |
+|--------|-----------------|-------------------------|
+| Entry point | Manual `current_step or START` | Automatic via checkpoint |
+| Checkpoint save | Manual `await self._save_state()` | Automatic after each node |
+| Resume | `await self._execute_graph_from(state, entry_point)` | `Command(resume=)` |
+| Pause | Check `conversation_state` | `interrupt()` in node |
+| NLU processing | Separate from graph | ALWAYS first node in graph |
 
 ---
 
@@ -598,70 +556,91 @@ def _prune_message_history(
     return messages[-max_messages:]
 ```
 
-### 3. Skip NLU When Confidence Not Needed
+### 3. Context Building for NLU
 
 ```python
-async def _should_call_nlu(self, state: DialogueState) -> bool:
+def _build_nlu_context(self, state: DialogueState) -> NLUContext:
     """
-    Decide if NLU call is necessary.
+    Build enriched context for NLU.
 
-    Returns False (skip NLU) when:
-    - conversation_state == WAITING_FOR_SLOT
-    - Last message is simple value
-    - Last NLU call was recent (<5s ago)
+    Includes:
+    - Conversation state and current position
+    - Flow descriptions and metadata
+    - Paused flows that can be resumed
+    - Recent conversation history
     """
 
-    # Always call NLU if idle
-    if state.conversation_state == ConversationState.IDLE:
-        return True
+    return NLUContext(
+        # Current state
+        conversation_state=state.conversation_state,
+        waiting_for_slot=state.waiting_for_slot,
+        current_flow=state.current_flow,
+        current_step=state.current_step,
 
-    # Skip if waiting for slot and message is simple
-    if state.conversation_state == ConversationState.WAITING_FOR_SLOT:
-        user_msg = state.messages[-1]["content"]
-        if self._is_simple_value(user_msg):
-            return False
+        # Available flows with descriptions
+        available_flows=[
+            FlowInfo(
+                name=name,
+                description=config.description,
+                category=config.metadata.get("category"),
+                keywords=config.trigger.get("keywords", [])
+            )
+            for name, config in self.config.flows.items()
+        ],
 
-    # Skip if NLU was called very recently (< 5s)
-    if state.last_nlu_call and (time.time() - state.last_nlu_call) < 5.0:
-        return False
+        # Paused flows
+        paused_flows=self._get_paused_flows(state),
 
-    # Default: call NLU
-    return True
+        # Recent history
+        conversation_history=state.messages[-5:],
+
+        # Collected slots
+        collected_slots=state.slots,
+    )
 ```
 
 ---
 
-## Performance Benchmarks
+## Performance Considerations
 
-### Expected Performance
+### Performance Profile
 
-**Scenario 1: Simple Slot Collection (4 turns)**
+**Scenario: Simple Slot Collection (4 turns)**
 ```
-OLD:
-  Turn 1: NLU (300ms) + collect (10ms) = 310ms
-  Turn 2: NLU (300ms) + collect (10ms) = 310ms
-  Turn 3: NLU (300ms) + collect (10ms) = 310ms
-  Turn 4: NLU (300ms) + action (100ms) = 400ms
+Unified NLU Approach:
+  Turn 1: NLU with context (300ms) + collect (10ms) = 310ms
+  Turn 2: NLU with context (300ms) + collect (10ms) = 310ms
+  Turn 3: NLU with context (300ms) + collect (10ms) = 310ms
+  Turn 4: NLU with context (300ms) + action (100ms) = 400ms
   TOTAL: 1330ms, ~2000 tokens
 
-NEW:
-  Turn 1: NLU (300ms) + collect (10ms) = 310ms
-  Turn 2: Direct map (5ms) + collect (10ms) = 15ms
-  Turn 3: Direct map (5ms) + collect (10ms) = 15ms
-  Turn 4: Direct map (5ms) + action (100ms) = 105ms
-  TOTAL: 445ms, ~500 tokens
-
-IMPROVEMENT: 67% faster, 75% fewer tokens
+Characteristics:
+  - Consistent latency per turn
+  - Predictable behavior
+  - High accuracy (full NLU on all turns)
+  - Simpler architecture
 ```
 
-**Scenario 2: Intent Change Mid-Flow (3 turns)**
+**Scenario: Intent Change Mid-Flow**
 ```
-Turn 1: Collect slot → User: "New York" → Direct map (fast)
-Turn 2: Collect slot → User: "Actually, cancel" → Intent detected → NLU (necessary)
-Turn 3: Process cancellation → NLU (necessary)
+Turn 1: Collect slot → User: "New York" → NLU extracts slot (300ms)
+Turn 2: Collect slot → User: "Actually, cancel" → NLU detects intent change (300ms)
+Turn 3: Process cancellation → NLU handles new intent (300ms)
 
-Savings: 1 unnecessary NLU call avoided in Turn 1
+Benefits:
+  - Consistent handling of all message types
+  - No complexity of fallback logic
+  - Single code path to optimize
 ```
+
+### Optimization Opportunities
+
+Future optimizations can be explored:
+1. **Caching**: Cache NLU results for identical messages
+2. **Batch processing**: Process multiple messages in parallel
+3. **Model selection**: Use faster models for simpler scenarios
+4. **Prompt optimization**: Use DSPy to optimize NLU prompts
+5. **Streaming**: Stream NLU responses for better perceived latency
 
 ---
 
@@ -669,15 +648,22 @@ Savings: 1 unnecessary NLU call avoided in Turn 1
 
 This message processing design provides:
 
-1. ✅ **Context-aware routing** based on conversation state
-2. ✅ **Direct slot mapping** for simple values (no NLU)
-3. ✅ **Intent detection** to catch user changes
-4. ✅ **NLU caching** to avoid redundant calls
-5. ✅ **Hybrid fallback** for ambiguous messages
-6. ✅ **Performance**: 60-70% faster, 70-75% fewer tokens
+1. ✅ **Unified NLU approach** - Every message through understand_node FIRST
+2. ✅ **Context-enriched prompts** that include waiting_for_slot, flow descriptions, paused flows
+3. ✅ **LangGraph checkpointing** - Automatic save/load via thread_id
+4. ✅ **interrupt() and Command(resume=)** for pausing/resuming
+5. ✅ **Conditional routing** based on NLU result type
+6. ✅ **Consistent behavior** across all message types (slot, digression, intent change)
 
-**Critical Innovation**: The system knows "what it's waiting for" and can process simple responses without expensive NLU calls, while still detecting when the user changes intent.
+**Critical Pattern**: Every user message passes through the Understand Node (NLU) first, even when waiting for a slot value. The user might say "New York" (slot) or "What cities?" (digression) or "Cancel" (intent change) - NLU with context determines which.
+
+**LangGraph Integration**:
+- `interrupt()` - Pause execution waiting for user
+- `Command(resume=)` - Continue with user's response
+- Checkpointing - Automatic after each node
+- Auto-resume - Same thread_id loads last checkpoint
 
 ---
 
+**Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
 **Next**: Read [04-graph-execution-model.md](04-graph-execution-model.md) for LangGraph integration details.

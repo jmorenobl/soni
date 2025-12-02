@@ -1,8 +1,10 @@
 # Consolidated Design Decisions
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Last Updated**: 2025-12-02
-**Status**: Final Reference
+**Status**: Final Reference (Updated)
+
+> **Ground Truth**: See [01-architecture-overview.md](01-architecture-overview.md) for the definitive architecture.
 
 ## Purpose
 
@@ -12,28 +14,38 @@ This document consolidates the **final design decisions** for the Soni Framework
 
 ## Critical Decisions
 
-### 1. Slot Collection Strategy
+### 1. Message Understanding Strategy
 
 **Evolution**:
 - **Initial** (docs 00-03): Proposed simple "direct slot mapping" with regex-based value detection
 - **Revision 1** (doc 18): Introduced 3-tier hybrid (pattern extraction, lightweight NLU, full NLU)
-- **Final** (doc 19): **Two-level DSPy-based approach**
+- **Revision 2** (doc 19): Two-level DSPy-based approach
+- **Final**: **Unified context-aware NLU approach**
 
-**Final Decision**: Use DSPy-based lightweight collector + full NLU fallback
+**Final Decision**: Use single NLU with enriched context for all understanding tasks
 
 **Rationale**:
-- Simple regex cannot distinguish slot values from intent changes, questions, or corrections
-- DSPy-based approach handles realistic human communication patterns
-- Falls back to full NLU when uncertain
-- Can be optimized separately with DSPy
+- Simpler architecture with single optimization point
+- Context-enriched prompts provide all necessary information
+- Consistent behavior across all message types
+- Easier to maintain and debug
+- DSPy can optimize the single NLU module
 
 **Implementation**:
-- **Level 1**: `LightweightSlotCollector` (DSPy module) - Detects: slot values, intent changes, questions, clarifications, corrections
-- **Level 2**: Existing full NLU - Used when Level 1 is ambiguous or low confidence
+- **Single NLU Provider** (DSPy module) handles:
+  - Slot value extraction
+  - Intent detection and changes
+  - Digression detection (questions, clarifications, corrections)
+  - Resume request identification
+- **Enriched Context** includes:
+  - Conversation state and position
+  - Flow descriptions and metadata
+  - Paused flows
+  - Recent conversation history
 
-**Impact**: ~45% latency savings, ~55% token savings in typical cases
+**Impact**: Simplified architecture, consistent behavior, single code path to optimize
 
-**Reference**: See `19-realistic-slot-collection-strategy.md` for complete design
+**Reference**: See `01-architecture-overview.md` and `03-message-processing.md` for complete design
 
 ---
 
@@ -41,7 +53,7 @@ This document consolidates the **final design decisions** for the Soni Framework
 
 **Question**: Should we use `pytransitions/transitions` library?
 
-**Decision**: **NO** - Use lightweight custom validation
+**Decision**: **NO** - Use custom validation
 
 **Rationale**:
 - LangGraph already manages state as dict
@@ -91,33 +103,52 @@ class StateTransitionValidator:
 **Final Approach**:
 ```
 Message received → Context Router:
-  - If WAITING_FOR_SLOT → Lightweight slot collector
-  - If IDLE → Full NLU (need intent)
   - If EXECUTING_ACTION → Queue message
-  - Else → Full NLU
+  - Else → NLU with enriched context (handles all understanding)
 ```
 
-**Impact**: 60-70% reduction in unnecessary NLU calls
+**Impact**: Simplified routing logic, consistent behavior
 
 **Reference**: See `03-message-processing.md` for details
 
 ---
 
-### 5. Resumable Graph Execution
+### 5. Resumable Graph Execution with LangGraph
 
-**Decision**: Graph resumes from `current_step` instead of always starting from START
+**Decision**: Use LangGraph's native checkpointing for automatic resumption
 
-**Implementation**:
+**Implementation** (CORRECT PATTERN):
 ```python
-def _determine_entry_point(state: DialogueState) -> str:
-    if state.conversation_state == ConversationState.WAITING_FOR_SLOT:
-        return state.current_step  # Resume from current position
-    return START
+from langgraph.types import Command, interrupt
+
+async def process_message(msg: str, user_id: str) -> str:
+    config = {"configurable": {"thread_id": user_id}}
+
+    # Check if interrupted
+    current_state = await graph.aget_state(config)
+
+    if current_state and current_state.next:
+        # Resume with user response
+        result = await graph.ainvoke(
+            Command(resume={"user_message": msg}),
+            config=config
+        )
+    else:
+        # New conversation
+        result = await graph.ainvoke(initial_state, config=config)
+
+    return result["last_response"]
 ```
 
-**Impact**: 88% faster graph execution in typical flows
+**Key Points**:
+- ✅ NO manual entry point selection needed
+- ✅ Use `interrupt()` to pause execution waiting for user
+- ✅ Use `Command(resume=)` to continue after interrupt
+- ✅ LangGraph auto-loads checkpoint via `thread_id`
 
-**Reference**: See `04-graph-execution-model.md` for details
+**Impact**: Simplified code, correct LangGraph integration
+
+**Reference**: See `01-architecture-overview.md` for ground truth
 
 ---
 
@@ -139,14 +170,15 @@ def _determine_entry_point(state: DialogueState) -> str:
 
 ## Design Principles (Final)
 
-### 1. Correctness Over Optimization
+### 1. Simplicity and Correctness
 
-**Principle**: Get it working correctly first, optimize second
+**Principle**: Prefer simple, correct solutions over premature optimization
 
 **Application**:
-- Phase 1 (MVP): Use full NLU always → Correct behavior
-- Phase 2: Add lightweight collector → Optimize common cases
-- Phase 3: Fine-tune thresholds → Further optimization
+- Use unified NLU approach → Simpler architecture
+- Enrich context with conversation state → Better understanding
+- Single code path → Easier to maintain and optimize
+- DSPy optimization → Systematic prompt improvement
 
 ### 2. Realistic Human Communication
 
@@ -158,14 +190,15 @@ def _determine_entry_point(state: DialogueState) -> str:
 - Users ask questions and seek clarifications
 - System must handle all these gracefully
 
-### 3. Fail-Safe Fallbacks
+### 3. Context-Aware Understanding
 
-**Principle**: When uncertain, fall back to the comprehensive solution
+**Principle**: Provide rich context to enable accurate understanding
 
 **Application**:
-- Lightweight collector uncertain? → Use full NLU
-- Pattern matching ambiguous? → Use lightweight collector
-- Always prioritize correctness over speed
+- Include conversation state in NLU prompts
+- Provide flow descriptions and metadata
+- Include paused flows and conversation history
+- Single NLU module with comprehensive context
 
 ### 4. LangGraph-First
 
@@ -184,28 +217,43 @@ def _determine_entry_point(state: DialogueState) -> str:
 ### ❌ Direct Slot Mapping (Simple Regex)
 
 **Proposed in**: Documents 00, 01, 03
-**Superseded by**: Document 19 (Lightweight DSPy Collector)
+**Superseded by**: Unified NLU approach
 
 **Why superseded**:
 - Too simplistic for realistic user behavior
 - Can't distinguish "Boston" from "Actually, cancel"
 - Can't handle questions, corrections, or clarifications
 
-**Status**: **Don't implement** - Use DSPy-based approach instead
+**Status**: **Don't implement** - Use unified NLU approach
 
 ---
 
 ### ❌ 3-Tier Hybrid (Pattern + Lightweight + Full NLU)
 
 **Proposed in**: Document 18
-**Superseded by**: Document 19 (2-Level DSPy)
+**Superseded by**: Unified NLU approach
 
 **Why superseded**:
-- Tier 1 (pattern extraction) fundamentally flawed
-- Tier 2 redundant with improved Tier 1
-- Complexity not justified
+- Added unnecessary complexity
+- Multiple code paths to maintain
+- Pattern extraction fundamentally flawed
 
-**Status**: **Don't implement** - Use 2-level DSPy approach
+**Status**: **Don't implement** - Use unified NLU approach
+
+---
+
+### ❌ Two-Level Collector (Lightweight + Full NLU)
+
+**Proposed in**: Document 19
+**Superseded by**: Unified NLU approach
+
+**Why superseded**:
+- Simpler to have single NLU module
+- Context-enriched prompts achieve same goals
+- Easier to maintain and optimize
+- No fallback logic needed
+
+**Status**: **Don't implement** - Use unified NLU approach
 
 ---
 
@@ -242,11 +290,11 @@ def _determine_entry_point(state: DialogueState) -> str:
 - Enable resuming from `current_step`
 - Update graph building for enhanced routing
 
-### Phase 4: Lightweight Slot Collector (2 weeks) ⭐ NEW
-- Implement `LightweightSlotCollector` (DSPy module)
-- Add fallback to full NLU
+### Phase 4: NLU Optimization (2 weeks)
+- Optimize NLU prompts with DSPy
+- Fine-tune context building
 - Collect real conversation data
-- Optimize with DSPy
+- Measure and improve accuracy
 
 ### Phase 5: NLU Caching & Polish (1.5 weeks)
 - Implement NLU result caching
@@ -263,27 +311,28 @@ def _determine_entry_point(state: DialogueState) -> str:
 ### Unit Tests
 - State transition validation
 - Message routing logic
-- Lightweight collector (with DSPy examples)
+- Context building for NLU
 - Normalization and validation
 
 ### Integration Tests
-- RuntimeLoop with routing
+- RuntimeLoop with context-aware NLU
 - Graph execution with resumption
-- Lightweight collector → Full NLU fallback
+- Flow stack management
 - State recovery from checkpoints
 
 ### E2E Tests
 - Simple slot collection flow
 - Intent change mid-flow
-- User asks questions
+- User asks questions (digressions)
 - User corrects previous values
-- Ambiguous messages
+- Flow interruption and resumption
+- Multiple nested flows
 
 ### Performance Benchmarks
-- NLU call count (target: 1-2 per 4-turn flow, down from 4)
-- Latency per turn (target: ~120ms, down from ~350ms)
-- Token usage (target: ~600 per 4-turn flow, down from ~2000)
-- Lightweight collector success rate (target: 70%+)
+- NLU accuracy (intent, slots, digressions)
+- Latency per turn (target: consistent ~300ms)
+- Token usage (measure baseline)
+- Context-building overhead (target: <10ms)
 
 ---
 
@@ -299,9 +348,9 @@ def _determine_entry_point(state: DialogueState) -> str:
    - Migration: Update tests, clear NLU cache
    - Re-optimize DSPy modules if already optimized
 
-3. **Slot collection logic** - New lightweight collector
-   - Migration: Feature flag, gradual rollout
-   - Can run A/B test: old (always full NLU) vs new (lightweight + fallback)
+3. **Message processing** - Unified NLU with context
+   - Migration: Update NLU module to accept enriched context
+   - No A/B test needed (simplified architecture)
 
 ### Backward Compatibility
 
@@ -321,16 +370,16 @@ def _determine_entry_point(state: DialogueState) -> str:
 ## Key Metrics to Monitor
 
 ### Performance Metrics
-- **NLU calls per conversation** (target: reduce by 60%)
-- **Average latency per turn** (target: reduce by 66%)
-- **Token usage per conversation** (target: reduce by 70%)
-- **Lightweight collector success rate** (target: 70%+)
+- **NLU latency per turn** (baseline: ~300ms)
+- **Context building overhead** (target: <10ms)
+- **Token usage per conversation** (baseline for optimization)
 - **Cache hit rate** (target: 30%+)
 
 ### Quality Metrics
-- **Intent detection accuracy** (target: no regression)
-- **Slot extraction F1** (target: no regression)
-- **Lightweight collector accuracy** (target: 85%+)
+- **Intent detection accuracy** (target: >90%)
+- **Slot extraction F1** (target: >85%)
+- **Digression detection accuracy** (target: >80%)
+- **Flow resumption accuracy** (target: >90%)
 - **User satisfaction** (if measurable)
 
 ### Operational Metrics
@@ -371,35 +420,38 @@ Need a quick answer? Here's the executive summary:
 
 | Question | Answer | Reference |
 |----------|--------|-----------|
-| How to collect slots? | Use DSPy lightweight collector + full NLU fallback | Doc 19 |
-| Use transitions library? | No, custom validation | Doc 17 |
-| Remove "start_" prefix? | Yes, remove it | Doc 16 |
-| When to call NLU? | Based on conversation_state (context-aware routing) | Doc 03 |
+| How to process messages? | Use unified NLU with enriched context | Doc 01, 03 |
+| Use transitions library? | No, custom validation | Doc 02 |
+| Remove "start_" prefix? | Yes, remove it | Doc 01 |
+| When to call NLU? | Always (except during action execution) | Doc 03 |
 | Resume graph from current step? | Yes, use resumable execution | Doc 04 |
 | How to track conversation state? | Add explicit fields: conversation_state, current_step, waiting_for_slot | Doc 02 |
-| Pattern extraction for slots? | No, too simplistic. Use DSPy lightweight instead | Doc 19 |
-| Always call NLU on every turn? | No, skip when waiting for slot (use lightweight collector) | Doc 19 |
+| How to handle digressions? | NLU detects digressions, system handles without changing flow stack | Doc 05 |
+| Flow interruption? | Push new flow to stack, pause current | Doc 05 |
+| How to pause/resume execution? | Use `interrupt()` to pause, `Command(resume=)` to continue | Doc 01 |
+| Manual entry point selection? | NO - LangGraph handles automatically via checkpointing | Doc 01 |
 
 ---
 
 ## Conclusion
 
-This consolidated document represents the **final, evolved design** after thorough analysis and iteration. Key takeaways:
+This consolidated document represents the **final, simplified design** after thorough analysis and iteration. Key takeaways:
 
-1. ✅ **Slot collection**: DSPy-based lightweight collector (not simple regex)
+1. ✅ **Message processing**: Unified context-aware NLU (single module)
 2. ✅ **State machine**: Custom validation (not transitions library)
 3. ✅ **Action names**: No "start_" prefix
-4. ✅ **Message routing**: Context-aware (skip NLU when possible)
+4. ✅ **Message routing**: Simple (NLU with context or queue)
 5. ✅ **Graph execution**: Resumable from current step
 6. ✅ **State tracking**: Explicit conversation_state fields
+7. ✅ **Flow management**: Flow stack for complex conversations
 
 **Status**: Ready for implementation starting with Phase 1 (State Machine Foundation)
 
 **Next Actions**:
 1. Review and approve this consolidated design
 2. Begin Phase 1 implementation
-3. Update main architecture docs (01-04) with final decisions
-4. Mark superseded docs (18) appropriately
+3. Implement unified NLU with context enrichment
+4. Add flow stack management for complex conversations
 
 ---
 
