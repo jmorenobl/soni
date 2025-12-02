@@ -405,9 +405,8 @@ state.current_step = "collect_origin"  # Where we are in the flow
 - `booking_ref_format`: Validate booking reference format
 
 **Next states**:
-- `WAITING_FOR_SLOT` (if validation fails, retry)
-- `UNDERSTANDING` (if all slots collected, need to decide next action)
-- `EXECUTING_ACTION` (if ready to execute action)
+- `WAITING_FOR_SLOT` (if validation fails, retry OR if more slots needed)
+- `EXECUTING_ACTION` (if all required slots are validated and ready to execute action)
 
 ---
 
@@ -550,19 +549,30 @@ state.slots[state.waiting_for_slot] = user_message  # Temporary, will be normali
 
 ---
 
-#### Rule 4: VALIDATING_SLOT → WAITING_FOR_SLOT (Retry)
+#### Rule 4: VALIDATING_SLOT → WAITING_FOR_SLOT
 
-**Trigger**: Validation fails.
+**Trigger**: Validation fails OR more slots are needed.
 
-**Conditions**: Validator returns False or raises ValidationError.
+**Conditions**:
+- Validator returns False or raises ValidationError, OR
+- Current slot validated successfully but more required slots remain
 
 **State updates**:
 ```python
-state.conversation_state = ConversationState.WAITING_FOR_SLOT
-# Clear invalid value
-state.slots[state.waiting_for_slot] = None
-# Show error message
-state.last_response = f"Invalid {slot_name}. Please provide a valid value."
+# Case 1: Validation failed
+if not is_valid:
+    state.conversation_state = ConversationState.WAITING_FOR_SLOT
+    # Clear invalid value
+    state.slots[state.waiting_for_slot] = None
+    # Show error message
+    state.last_response = f"Invalid {slot_name}. Please provide a valid value."
+
+# Case 2: Valid but more slots needed
+else:
+    next_slot = get_next_required_slot(state)
+    state.conversation_state = ConversationState.WAITING_FOR_SLOT
+    state.waiting_for_slot = next_slot
+    state.last_response = f"Great! Now, {get_slot_prompt(next_slot)}"
 ```
 
 ---
@@ -630,8 +640,7 @@ state.metadata["error"] = {
 | UNDERSTANDING | IDLE | No intent | NLU confidence too low |
 | WAITING_FOR_SLOT | VALIDATING_SLOT | User responds | Message received |
 | WAITING_FOR_SLOT | UNDERSTANDING | User changes intent | Intent markers detected |
-| VALIDATING_SLOT | WAITING_FOR_SLOT | Validation fails | Validator returns False |
-| VALIDATING_SLOT | UNDERSTANDING | Validation succeeds | Check if more slots needed |
+| VALIDATING_SLOT | WAITING_FOR_SLOT | Validation fails OR more slots needed | Validator returns False OR not all slots collected |
 | VALIDATING_SLOT | EXECUTING_ACTION | All slots validated | All required slots present |
 | EXECUTING_ACTION | COMPLETED | Action succeeds | No more steps |
 | EXECUTING_ACTION | WAITING_FOR_SLOT | Action needs more data | Action returns missing slots |
