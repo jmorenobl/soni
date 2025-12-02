@@ -135,7 +135,15 @@ async def test_understand_node_with_message():
         confidence=0.95,
         reasoning="User wants to book flight",
     )
-    mock_du.predict = AsyncMock(return_value=nlu_result)
+
+    # Track calls to verify available_flows is passed
+    predict_calls = []
+
+    async def track_predict(*args, **kwargs):
+        predict_calls.append(kwargs)
+        return nlu_result
+
+    mock_du.predict = track_predict
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
@@ -164,6 +172,10 @@ async def test_understand_node_with_message():
     assert "slots" in result
     assert result["slots"]["destination"] == "Paris"
     assert result["pending_action"] == "book_flight"
+    # Verify available_flows was passed to NLU
+    assert len(predict_calls) > 0, "NLU predict should have been called"
+    assert "available_flows" in predict_calls[0], "available_flows should be passed to NLU"
+    assert isinstance(predict_calls[0]["available_flows"], list), "available_flows should be a list"
 
 
 @pytest.mark.asyncio

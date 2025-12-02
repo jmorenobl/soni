@@ -50,6 +50,7 @@ def test_soni_du_forward_signature():
             dialogue_history="",
             current_slots="{}",
             available_actions='["book_flight"]',
+            available_flows='["book_flight"]',
             current_flow="none",
         )
         # If we get here, signature is correct (even if execution fails)
@@ -72,6 +73,7 @@ async def test_soni_du_aforward():
             dialogue_history="",
             current_slots="{}",
             available_actions="[]",
+            available_flows="[]",
             current_flow="none",
         )
         # If we get here, async interface works
@@ -94,6 +96,7 @@ async def test_soni_du_predict():
             dialogue_history="",
             current_slots={},
             available_actions=["book_flight", "help"],
+            available_flows=["book_flight"],
             current_flow="none",
         )
 
@@ -207,6 +210,7 @@ def test_soni_du_forward_with_dummy_lm():
         dialogue_history="",
         current_slots="{}",
         available_actions='["book_flight"]',
+        available_flows='["book_flight"]',
         current_flow="none",
     )
 
@@ -286,6 +290,7 @@ def test_soni_du_integration_real_dspy():
         dialogue_history="",
         current_slots="{}",
         available_actions='["book_flight", "search_flights", "help"]',
+        available_flows='["book_flight"]',
         current_flow="none",
     )
 

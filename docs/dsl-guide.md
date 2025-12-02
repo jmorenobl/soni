@@ -188,6 +188,73 @@ flows:
         call: handle_error
 ```
 
+## Flow Triggers
+
+### Trigger Configuration
+
+Flows can define triggers that specify when they should be activated. The `trigger.intents` field contains natural language phrase examples that users might say to start the flow:
+
+```yaml
+flows:
+  book_flight:
+    description: "Book a flight from origin to destination"
+    trigger:
+      # Natural language phrase examples that trigger this flow
+      # Used for NLU optimization - the LLM learns to map these phrases to the flow name
+      intents:
+        - "I want to book a flight"
+        - "Book me a flight"
+        - "I need to reserve a flight"
+        - "Can I book a flight?"
+    steps:
+      - step: collect_origin
+        type: collect
+        slot: origin
+```
+
+**Key Points:**
+- `trigger.intents` contains **natural language examples**, not intent names
+- These examples are used for DSPy optimization training
+- The NLU learns to map these phrases to the flow name (e.g., "book_flight")
+- When `current_flow="none"`, available flows are passed to NLU to help it decide which flow to activate
+
+**Creating Training Examples:**
+
+You can use `trigger.intents` to create DSPy training examples for optimization:
+
+```python
+import dspy
+from soni.core.config import SoniConfig
+
+config = SoniConfig.from_yaml("soni.yaml")
+
+# Create training examples from trigger.intents
+examples = []
+for flow_name, flow_config in config.flows.items():
+    if flow_config.trigger and flow_config.trigger.intents:
+        for intent_phrase in flow_config.trigger.intents:
+            example = dspy.Example(
+                user_message=intent_phrase,
+                dialogue_history="",
+                current_slots="{}",
+                available_actions="[]",
+                available_flows=f'["{flow_name}"]',
+                current_flow="none",
+                structured_command=flow_name,  # Flow name is the expected command
+                extracted_slots="{}",
+                confidence="0.95",
+                reasoning=f"User wants to start {flow_name} flow",
+            ).with_inputs(
+                "user_message",
+                "dialogue_history",
+                "current_slots",
+                "available_actions",
+                "available_flows",
+                "current_flow",
+            )
+            examples.append(example)
+```
+
 ## Flow Structure
 
 ### Using `process` Section

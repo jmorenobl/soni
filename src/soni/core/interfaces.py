@@ -18,6 +18,7 @@ class INLUProvider(Protocol):
         dialogue_history: str = "",
         current_slots: dict[str, Any] | None = None,
         available_actions: list[str] | None = None,
+        available_flows: list[str] | None = None,
         current_flow: str = "none",
         expected_slots: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -28,6 +29,7 @@ class INLUProvider(Protocol):
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots
             available_actions: List of available actions in current context
+            available_flows: List of available flow names when current_flow is 'none'
             current_flow: Current dialogue flow name
             expected_slots: List of expected slot names for the current flow.
                           NLU should use these exact names when extracting entities.
@@ -120,6 +122,24 @@ class IScopeManager(Protocol):
 
         Returns:
             List of expected slot names for the flow, empty list if flow not found
+        """
+        ...
+
+    def get_available_flows(
+        self,
+        state: DialogueState,
+    ) -> list[str]:
+        """Get list of available flow names when no flow is active.
+
+        When current_flow is "none", returns all configured flow names.
+        When in an active flow, returns empty list.
+
+        Args:
+            state: Current dialogue state
+
+        Returns:
+            List of available flow names when current_flow="none",
+            empty list when in an active flow
         """
         ...
 

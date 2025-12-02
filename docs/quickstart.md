@@ -51,9 +51,12 @@ settings:
 flows:
   greet:
     trigger:
+      # Natural language phrase examples that trigger this flow
+      # Used for NLU optimization - the LLM learns to map these phrases to the flow name
       intents:
-        - greet
-        - hello
+        - "Hello"
+        - "Hi there"
+        - "Good morning"
     steps:
       - step: respond
         type: action

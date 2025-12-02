@@ -416,7 +416,12 @@ class TriggerConfig(BaseModel):
     """Configuration for flow trigger."""
 
     intents: list[str] = Field(
-        default_factory=list, description="List of intent names that trigger this flow"
+        default_factory=list,
+        description=(
+            "List of natural language phrase examples that trigger this flow. "
+            "Used for NLU optimization - the LLM learns to map these phrases to the flow name. "
+            'Example: ["I want to book a flight", "Book me a flight"]'
+        ),
     )
 
 

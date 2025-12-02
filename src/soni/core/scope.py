@@ -388,3 +388,33 @@ class ScopeManager(IScopeManager):
                     if slot_name:
                         slots.append(slot_name)
         return slots
+
+    def get_available_flows(
+        self,
+        state: DialogueState | dict[str, Any],
+    ) -> list[str]:
+        """Get list of available flow names when no flow is active.
+
+        When current_flow is "none", returns all configured flow names.
+        When in an active flow, returns empty list (flows cannot be started while in a flow).
+
+        Args:
+            state: Current dialogue state (DialogueState or dict)
+
+        Returns:
+            List of available flow names (not start_* actions) when current_flow="none",
+            empty list when in an active flow
+        """
+        # Convert dict to DialogueState if needed
+        if isinstance(state, dict):
+            state = DialogueState.from_dict(state)
+
+        current_flow = state.current_flow
+
+        # Only return flows when no flow is active
+        if not current_flow or current_flow == "none":
+            # Return flow names directly (not start_* actions)
+            return list(self.flows.keys())
+
+        # When in an active flow, no flows are available to start
+        return []

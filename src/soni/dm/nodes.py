@@ -171,6 +171,9 @@ def create_understand_node(
             # Get scoped actions using injected scope_manager
             available_actions = scope_manager.get_available_actions(state)
 
+            # Get available flows when no flow is active
+            available_flows = scope_manager.get_available_flows(state)
+
             # Get expected slots from flow configuration using scope_manager's public method
             # This method handles flow inference and slot extraction internally
             expected_slots = scope_manager.get_expected_slots(
@@ -185,6 +188,7 @@ def create_understand_node(
                 dialogue_history=dialogue_history,
                 current_slots=state.slots,
                 available_actions=available_actions,
+                available_flows=available_flows,
                 current_flow=state.current_flow,
                 expected_slots=expected_slots,
             )

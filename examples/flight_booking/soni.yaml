@@ -67,12 +67,13 @@ flows:
 
     # Trigger: defines when this flow should be activated
     trigger:
-      # Intents: list of intent names that trigger this flow
-      # Used for NLU optimization and flow routing
+      # Intents: natural language phrase examples that trigger this flow
+      # Used for NLU optimization - the LLM learns to map these phrases to the flow name
       intents:
-        - book_flight
-        - i_want_to_book
-        - flight_booking
+        - "I want to book a flight"
+        - "Book me a flight"
+        - "I need to reserve a flight"
+        - "Can I book a flight?"
 
     # Steps: ordered list of steps to execute in sequence
     # Each step has a unique name, type, and type-specific configuration

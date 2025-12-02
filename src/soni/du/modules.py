@@ -61,6 +61,7 @@ class SoniDU(dspy.Module):
         dialogue_history: str = "",
         current_slots: str = "{}",
         available_actions: str = "[]",
+        available_flows: str = "[]",
         current_flow: str = "none",
         expected_slots: str = "[]",
         current_datetime: str = "",
@@ -72,6 +73,7 @@ class SoniDU(dspy.Module):
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots as JSON string
             available_actions: Available actions as JSON array string
+            available_flows: Available flow names as JSON array string
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names as JSON array string
             current_datetime: Current date and time in ISO format for resolving relative dates
@@ -84,6 +86,7 @@ class SoniDU(dspy.Module):
             dialogue_history=dialogue_history,
             current_slots=current_slots,
             available_actions=available_actions,
+            available_flows=available_flows,
             current_flow=current_flow,
             expected_slots=expected_slots,
             current_datetime=current_datetime,
@@ -95,6 +98,7 @@ class SoniDU(dspy.Module):
         dialogue_history: str = "",
         current_slots: str = "{}",
         available_actions: str = "[]",
+        available_flows: str = "[]",
         current_flow: str = "none",
         expected_slots: str = "[]",
         current_datetime: str = "",
@@ -106,8 +110,10 @@ class SoniDU(dspy.Module):
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots as JSON string
             available_actions: Available actions as JSON array string
+            available_flows: Available flow names as JSON array string
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names as JSON array string
+            current_datetime: Current date and time in ISO format for resolving relative dates
 
         Returns:
             DSPy Prediction object
@@ -124,6 +130,7 @@ class SoniDU(dspy.Module):
             dialogue_history,
             current_slots,
             available_actions,
+            available_flows,
             current_flow,
             expected_slots,
             current_datetime,
@@ -135,6 +142,7 @@ class SoniDU(dspy.Module):
         dialogue_history: str,
         current_slots: dict[str, Any],
         available_actions: list[str],
+        available_flows: list[str],
         current_flow: str,
         expected_slots: list[str] | None = None,
         current_datetime: str = "",
@@ -146,6 +154,7 @@ class SoniDU(dspy.Module):
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots
             available_actions: Available actions list
+            available_flows: Available flow names list
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names list
             current_datetime: Current datetime in ISO format (not included in cache key)
@@ -164,6 +173,7 @@ class SoniDU(dspy.Module):
                 "history": dialogue_history,
                 "slots": current_slots,
                 "actions": sorted(available_actions),  # Sort for consistency
+                "flows": sorted(available_flows),  # Sort for consistency
                 "flow": current_flow,
                 "expected_slots": sorted(expected_slots or []),  # Sort for consistency
                 # datetime excluded from cache key to allow caching across time
@@ -176,12 +186,13 @@ class SoniDU(dspy.Module):
         dialogue_history: str = "",
         current_slots: dict[str, Any] | None = None,
         available_actions: list | None = None,
+        available_flows: list[str] | None = None,
         current_flow: str = "none",
         expected_slots: list[str] | None = None,
     ) -> NLUResult:
         """High-level async predict method that returns NLUResult.
 
-        Scoping of available_actions should be done by the caller
+        Scoping of available_actions and available_flows should be done by the caller
         (e.g., understand_node applies scoping via IScopeManager).
 
         Args:
@@ -189,6 +200,7 @@ class SoniDU(dspy.Module):
             dialogue_history: Previous conversation context
             current_slots: Currently filled slots as dict
             available_actions: Available actions as list (scoped by caller)
+            available_flows: Available flow names as list (scoped by caller)
             current_flow: Current dialogue flow name
             expected_slots: Expected slot names for the current flow.
                           NLU should use these exact names when extracting entities.
@@ -212,6 +224,7 @@ class SoniDU(dspy.Module):
             dialogue_history,
             current_slots or {},
             available_actions or [],
+            available_flows or [],
             current_flow,
             expected_slots,
             current_datetime,
@@ -228,6 +241,7 @@ class SoniDU(dspy.Module):
         # Convert inputs to string format expected by signature
         slots_str = json.dumps(current_slots or {})
         actions_str = json.dumps(available_actions or [])
+        flows_str = json.dumps(available_flows or [])
         expected_slots_str = json.dumps(expected_slots or [])
 
         # Get prediction using acall() (DSPy's public async method)
@@ -237,6 +251,7 @@ class SoniDU(dspy.Module):
             dialogue_history=dialogue_history,
             current_slots=slots_str,
             available_actions=actions_str,
+            available_flows=flows_str,
             current_flow=current_flow,
             expected_slots=expected_slots_str,
             current_datetime=current_datetime,

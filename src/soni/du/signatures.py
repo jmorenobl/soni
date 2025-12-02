@@ -22,6 +22,14 @@ class DialogueUnderstanding(dspy.Signature):
         desc="List of available actions in current context as JSON array string",
         default="[]",
     )
+    available_flows: str = dspy.InputField(
+        desc=(
+            "List of available flow names that can be started as JSON array string. "
+            "When current_flow is 'none', these are the flows the user can trigger. "
+            'Example: \'["book_flight", "cancel_booking"]\''
+        ),
+        default="[]",
+    )
     current_flow: str = dspy.InputField(desc="Current dialogue flow name", default="none")
     expected_slots: str = dspy.InputField(
         desc=(

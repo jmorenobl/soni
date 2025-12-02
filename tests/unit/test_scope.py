@@ -699,3 +699,141 @@ def test_get_cache_key():
     assert key1 != key3  # Different slots should generate different key
     assert isinstance(key1, str)
     assert len(key1) == 32  # MD5 hash is 32 hex characters
+
+
+def test_get_available_flows_when_no_flow():
+    """Test getting available flows when current_flow is 'none'"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [],
+            },
+            "cancel_booking": {
+                "description": "Cancel booking",
+                "steps": [],
+            },
+            "modify_booking": {
+                "description": "Modify booking",
+                "steps": [],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+    state = DialogueState(current_flow="none")
+
+    # Act
+    available_flows = scope_manager.get_available_flows(state)
+
+    # Assert
+    assert "book_flight" in available_flows
+    assert "cancel_booking" in available_flows
+    assert "modify_booking" in available_flows
+    assert len(available_flows) == 3
+
+
+def test_get_available_flows_when_in_flow():
+    """Test getting available flows when already in a flow returns empty list"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [],
+            },
+            "cancel_booking": {
+                "description": "Cancel booking",
+                "steps": [],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+    state = DialogueState(current_flow="book_flight")
+
+    # Act
+    available_flows = scope_manager.get_available_flows(state)
+
+    # Assert
+    assert available_flows == []
+
+
+def test_get_available_flows_with_dict_state():
+    """Test that get_available_flows works with dict state"""
+    # Arrange
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                },
+            },
+        },
+        "flows": {
+            "book_flight": {
+                "description": "Book a flight",
+                "steps": [],
+            },
+        },
+        "slots": {},
+        "actions": {},
+    }
+    config = SoniConfig(**config_dict)
+    scope_manager = ScopeManager(config)
+    state_dict = {"current_flow": "none", "slots": {}}
+
+    # Act
+    available_flows = scope_manager.get_available_flows(state_dict)
+
+    # Assert
+    assert isinstance(available_flows, list)
+    assert "book_flight" in available_flows
+
+
+def test_get_available_flows_empty_config():
+    """Test getting available flows when no flows are configured"""
+    # Arrange
+    config = SoniConfig(
+        version="0.1",
+        settings={"models": {"nlu": {"provider": "openai", "model": "gpt-4o-mini"}}},
+        flows={},
+        slots={},
+        actions={},
+    )
+    scope_manager = ScopeManager(config)
+    state = DialogueState(current_flow="none")
+
+    # Act
+    available_flows = scope_manager.get_available_flows(state)
+
+    # Assert
+    assert available_flows == []
