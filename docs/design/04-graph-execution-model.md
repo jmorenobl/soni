@@ -2,7 +2,9 @@
 
 **Document Version**: 1.0
 **Last Updated**: 2025-12-02
-**Status**: Draft
+**Status**: ✅ Stable
+
+> **Note**: This document represents the final, stable design for graph execution. For implementation details and decision rationale, see [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md).
 
 ## Table of Contents
 

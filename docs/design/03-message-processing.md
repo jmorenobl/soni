@@ -316,101 +316,110 @@ def _is_simple_value(self, message: str) -> bool:
 
 ---
 
-## Direct Slot Mapping
+## Slot Collection (Lightweight Approach)
 
-### Fast Path Processing
+> **Note**: The original "direct slot mapping" approach described below has been superseded by a more realistic DSPy-based lightweight collector. See `19-realistic-slot-collection-strategy.md` and `20-consolidated-design-decisions.md` for the final design.
 
-When `conversation_state == WAITING_FOR_SLOT` and message is a simple value:
+### Context-Aware Slot Collection
+
+When `conversation_state == WAITING_FOR_SLOT`:
 
 ```python
-async def _direct_slot_mapping(
+async def _collect_slot_lightweight(
     self,
     user_msg: str,
     slot_name: str,
     state: DialogueState,
 ) -> DialogueState:
     """
-    Map user message directly to slot without NLU.
+    Collect slot using lightweight DSPy-based collector.
 
-    This is the FAST PATH that avoids LLM calls.
+    This is the OPTIMIZED PATH that handles realistic user behavior:
+    - Slot values: "New York"
+    - Intent changes: "Actually, I want to cancel"
+    - Questions: "What cities do you support?"
+    - Clarifications: "Why do you need this?"
+    - Corrections: "Change it to Boston"
 
     Steps:
-    1. Extract value from message
-    2. Normalize value
-    3. Validate value
-    4. Update state
-    5. Continue to next step
+    1. Call lightweight DSPy collector
+    2. Handle outcome based on type:
+       - slot_value → Validate + normalize + update state
+       - intent_change → Route to new intent
+       - question → Answer + re-prompt
+       - clarification → Explain + re-prompt
+       - correction → Update + continue
+       - ambiguous → Fall back to full NLU
     """
 
-    # 1. Extract value (simple for direct mapping)
-    raw_value = user_msg.strip()
-
-    # 2. Normalize value
+    # 1. Call lightweight collector
     try:
-        normalized_value = await self.normalizer.normalize(
-            raw_value,
-            self.config.slots[slot_name]
+        result = await self.lightweight_collector.aforward(
+            user_message=user_msg,
+            slot_being_collected=slot_name,
+            slot_prompt=state.last_response,
+            conversation_context=self._build_context_string(state),
         )
+
+        # Check confidence
+        if result.confidence < 0.7 or result.outcome_type == "ambiguous":
+            # Low confidence → Fall back to full NLU
+            logger.info(f"Lightweight collector uncertain (confidence={result.confidence}), "
+                       f"falling back to full NLU")
+            return await self._nlu_understanding(user_msg, state)
+
+        # 2. Handle outcome based on type
+        if result.outcome_type == "slot_value":
+            # Extract and validate
+            raw_value = result.extracted_value
+            slot_config = self.config.slots[slot_name]
+
+            # Normalize
+            normalized_value = await self.normalizer.normalize(raw_value, slot_config)
+
+            # Validate
+            if slot_config.validator:
+                is_valid = ValidatorRegistry.validate(
+                    slot_config.validator,
+                    normalized_value
+                )
+                if not is_valid:
+                    return self._create_reprompt_state(
+                        state,
+                        slot_name,
+                        error=f"Invalid format for {slot_name}"
+                    )
+
+            # Update state
+            state.slots[slot_name] = normalized_value
+            state.waiting_for_slot = None
+            state.conversation_state = ConversationState.VALIDATING_SLOT
+            return state
+
+        elif result.outcome_type == "intent_change":
+            # User wants to do something else → Use full NLU
+            logger.info(f"Intent change detected: {result.detected_intent}")
+            return await self._nlu_understanding(user_msg, state)
+
+        elif result.outcome_type in ["question", "clarification"]:
+            # Answer and re-prompt
+            answer = await self._handle_user_question(result, slot_name)
+            state.last_response = f"{answer}\n\n{state.last_response}"
+            return state
+
+        elif result.outcome_type == "correction":
+            # Handle correction → Use full NLU to determine what to correct
+            logger.info("User correction detected")
+            return await self._nlu_understanding(user_msg, state)
+
+        else:
+            # Unknown outcome → Full NLU
+            logger.warning(f"Unknown outcome type: {result.outcome_type}")
+            return await self._nlu_understanding(user_msg, state)
+
     except Exception as e:
-        # Normalization failed, fall back to NLU
-        logger.warning(f"Direct mapping normalization failed for {slot_name}: {e}")
-        return await self._nlu_understanding(user_msg, state)
-
-    # 3. Validate value
-    slot_config = self.config.slots[slot_name]
-    if slot_config.validator:
-        is_valid = ValidatorRegistry.validate(
-            slot_config.validator,
-            normalized_value
-        )
-
-        if not is_valid:
-            # Validation failed, re-prompt
-            return self._create_reprompt_state(
-                state,
-                slot_name,
-                error=f"Invalid format for {slot_name}"
-            )
-
-    # 4. Update state
-    state.slots[slot_name] = normalized_value
-    state.waiting_for_slot = None
-
-    # 5. Determine next step
-    next_step = self._get_next_step(state)
-
-    if next_step:
-        # More steps to execute
-        state.current_step = next_step
-        # Continue graph execution from next step
-    else:
-        # All slots collected, ready for action
-        state.conversation_state = ConversationState.EXECUTING_ACTION
-
-    return state
-```
-
-### When Direct Mapping Fails
-
-```python
-async def _hybrid_slot_mapping(
-    self,
-    user_msg: str,
-    slot_name: str,
-    state: DialogueState,
-) -> DialogueState:
-    """
-    Hybrid approach: Try direct mapping, fallback to NLU.
-
-    Used when message is ambiguous (not clearly a value or intent).
-    """
-
-    # Try direct mapping first
-    try:
-        return await self._direct_slot_mapping(user_msg, slot_name, state)
-    except (ValueError, ValidationError) as e:
-        # Direct mapping failed, use NLU
-        logger.info(f"Direct mapping failed, falling back to NLU: {e}")
+        # Any error → Fall back to full NLU
+        logger.error(f"Lightweight collector failed: {e}, falling back to full NLU")
         return await self._nlu_understanding(user_msg, state)
 ```
 

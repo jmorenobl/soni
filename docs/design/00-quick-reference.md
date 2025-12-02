@@ -26,17 +26,19 @@ This document provides a **quick reference** for the Soni Framework redesign. Fo
 **Why**: Skip redundant node executions
 **Impact**: 88% faster graph execution
 
-### 4. Hybrid Slot Collection (REVISED)
-**What**: Use tiered extraction strategy based on message complexity
-**Why**: Balance speed (pattern matching) with accuracy (full NLU when needed)
-**Tiers**:
-- **Tier 1** - Pattern extraction (<1ms): Simple regex matching for unambiguous values
-- **Tier 2** - Lightweight NLU (~100ms): Slot extraction only, no intent detection
-- **Tier 3** - Full NLU (~300ms): Complete understanding with intent detection
+### 4. Lightweight Slot Collection (FINAL)
+**What**: Two-level strategy using DSPy for intelligent slot collection
+**Why**: Balance speed with correct handling of realistic human communication
+**Levels**:
+- **Level 1** - Lightweight DSPy Module (~150ms, ~250 tokens): Extracts slot value OR detects digression (intent changes, questions, clarifications, corrections)
+- **Level 2** - Full NLU (~300ms, ~500 tokens): Complete intent + multi-slot extraction when lightweight is uncertain
 **Impact**:
-- Best case: 95% faster (pattern extraction for "Boston")
-- Typical: 60% faster (mixed strategies)
-- Complex: 0% faster but correct (uses full NLU when needed, e.g., "Actually, cancel that")
+- Simple cases: 50% faster (lightweight succeeds)
+- Digressions: 50% faster + correct handling
+- Ambiguous: 0% faster but correct (uses full NLU)
+- Overall: ~45% latency savings, ~55% token savings
+
+**Note**: This replaces earlier "direct slot mapping" approaches which were too simplistic for realistic user behavior. See `19-realistic-slot-collection-strategy.md` for details.
 
 ### 5. NLU Result Caching
 **What**: Cache NLU results by message + context hash

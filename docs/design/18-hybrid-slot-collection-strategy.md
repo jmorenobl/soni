@@ -2,7 +2,13 @@
 
 **Document Version**: 1.0
 **Last Updated**: 2025-12-02
-**Status**: Revised Design
+**Status**: ⚠️ **SUPERSEDED** by Document 19
+
+> **WARNING**: This document proposed a 3-tier approach with pattern extraction that was found to be too simplistic for realistic user behavior. See `19-realistic-slot-collection-strategy.md` for the **final design** using DSPy-based lightweight collector.
+>
+> **Reason for superseding**: Tier 1 (regex pattern extraction) cannot distinguish between slot values and intent changes/questions/corrections. DSPy-based approach in document 19 handles realistic human communication patterns.
+>
+> **Historical value**: Shows the evolution of thinking from simple pattern matching to intelligent classification.
 
 ## Problem Statement
 

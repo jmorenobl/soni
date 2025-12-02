@@ -2,6 +2,18 @@
 
 This directory contains the complete design documentation for the Soni Framework, a conversational dialogue system with automatic prompt optimization.
 
+## 🎯 Quick Start: Final Decisions
+
+**New to this documentation?** Start here:
+
+👉 **[20-consolidated-design-decisions.md](20-consolidated-design-decisions.md)** - Single source of truth for all final design decisions
+
+This document:
+- Resolves contradictions and evolution across all design docs
+- Provides quick decision lookup table
+- Explains what ideas were superseded and why
+- Shows the final, coherent architecture
+
 ## Purpose
 
 This documentation was created to:
@@ -9,6 +21,20 @@ This documentation was created to:
 2. Design a correct, efficient, and scalable architecture
 3. Provide a clear implementation roadmap
 4. Serve as a reference for future development
+
+## Document Evolution
+
+These documents represent the **evolution of design thinking** over time. Some ideas were revised as we discovered edge cases or better approaches:
+
+- **Initial designs** (docs 00-04): Core architecture and initial approaches
+- **Analysis** (docs 15-17): Investigation of specific issues
+- **Evolution** (docs 18-19): Refinement of slot collection strategy
+- **Final** (doc 20): Consolidated decisions
+
+⚠️ **Important**: Always check the **Status** field in each document:
+- ✅ **Final/Stable**: Current design
+- ⚠️ **SUPERSEDED**: Historical, replaced by newer document
+- 📋 **Reference**: Analysis or decision document
 
 ## Document Structure
 
@@ -118,28 +144,57 @@ This documentation was created to:
 16. **[16-start-prefix-investigation.md](16-start-prefix-investigation.md)**
     - Investigation of "start_" prefix in action names
     - Why it exists and why it's problematic
-    - Recommendation to remove it
+    - **Decision: REMOVE the prefix**
     - Implementation plan
 
 17. **[17-state-validation-approach.md](17-state-validation-approach.md)**
     - Analysis: `transitions` library vs custom implementation
-    - Why NOT to use `transitions` with LangGraph
+    - **Decision: Do NOT use `transitions` with LangGraph**
     - Lightweight validation approach (recommended)
     - Implementation plan for state transition validation
 
+18. **[18-hybrid-slot-collection-strategy.md](18-hybrid-slot-collection-strategy.md)** ⚠️ **SUPERSEDED**
+    - 3-tier approach with pattern extraction
+    - **Status: SUPERSEDED by document 19**
+    - **Reason**: Pattern extraction too simplistic for realistic user behavior
+    - **Historical value**: Shows evolution of thinking
+
+19. **[19-realistic-slot-collection-strategy.md](19-realistic-slot-collection-strategy.md)** ✅ **FINAL**
+    - **Two-level DSPy-based slot collection**
+    - Lightweight DSPy collector + full NLU fallback
+    - Handles realistic human communication (questions, intent changes, corrections)
+    - **This is the final design for slot collection**
+
+20. **[20-consolidated-design-decisions.md](20-consolidated-design-decisions.md)** 📋 **REFERENCE**
+    - **Single source of truth for all final design decisions**
+    - Resolves contradictions across documents 00-19
+    - Quick decision lookup table
+    - Implementation roadmap (revised)
+
 ## How to Use This Documentation
 
-### For Understanding the System
-Read documents 1-3 to understand the high-level architecture and state management.
+### 🆕 For New Readers
+1. **Start with**: [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md) - Final decisions
+2. **Then read**: [01-architecture-overview.md](01-architecture-overview.md) - High-level design
+3. **Deep dive**: [02-state-machine.md](02-state-machine.md), [03-message-processing.md](03-message-processing.md), [04-graph-execution-model.md](04-graph-execution-model.md)
 
-### For Implementation
-Follow the implementation roadmap (document 14) and refer to specific design documents as needed.
+### 👨‍💻 For Implementation
+1. Follow [14-implementation-roadmap.md](14-implementation-roadmap.md)
+2. Reference [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md) for specific decisions
+3. Refer to detailed design docs (01-04) as needed
 
-### For Extending the System
-Read document 5 (Node Types) for adding new node types, or document 7 (NLU) for integrating new NLU providers.
+### 🔍 For Understanding Evolution
+- Read [15-current-problems-analysis.md](15-current-problems-analysis.md) - What problems were found
+- See [18-hybrid-slot-collection-strategy.md](18-hybrid-slot-collection-strategy.md) (superseded) vs [19-realistic-slot-collection-strategy.md](19-realistic-slot-collection-strategy.md) (final) to understand refinement process
+- Check [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md) "Superseded Ideas" section
 
-### For Optimization
-Refer to document 12 for performance optimization strategies.
+### 🛠️ For Extending the System
+- Read document 5 (Node Types) for adding new node types
+- Read document 7 (NLU) for integrating new NLU providers
+- Read document 12 for performance optimization strategies
+
+### ❓ For Quick Answers
+See the "Quick Decision Lookup" table in [20-consolidated-design-decisions.md](20-consolidated-design-decisions.md)
 
 ## Design Principles
 
@@ -182,8 +237,22 @@ When adding or modifying design documents:
 4. Explain rationale for decisions
 5. Update this README with new documents
 
+## Document Status Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Stable/Final - Current design, ready for implementation |
+| ⚠️ | SUPERSEDED - Historical only, don't implement |
+| 📋 | Reference - Analysis or decision document |
+| 🔄 | Updated - Recently updated with final decisions |
+
 ## Version History
 
+- **v1.1** (2025-12-02): **CONSOLIDATION** - Resolved contradictions, created single source of truth (doc 20)
+  - Added consolidated design decisions document (20)
+  - Updated main architecture docs with final decisions
+  - Marked superseded documents (18)
+  - Created consolidation summary
 - **v1.0** (2025-12-02): Initial design documentation created based on analysis of structural issues in original implementation
 
 ## References
