@@ -18,6 +18,7 @@ For detailed technical design:
 7. **[07-flow-management.md](07-flow-management.md)** - Flow stack and complex conversations
 8. **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns and usage
 9. **[09-dspy-optimization.md](09-dspy-optimization.md)** - Prompt optimization with DSPy
+10. **[10-dsl-specification/](10-dsl-specification/)** - DSL Specification (multi-document)
 
 ## Document Overview
 
@@ -32,6 +33,7 @@ For detailed technical design:
 | [07-flow-management.md](07-flow-management.md) | Complex conversations | Flow stack, interruptions, slot scoping |
 | [08-langgraph-integration.md](08-langgraph-integration.md) | Graph execution | Checkpointing, interrupt/resume patterns |
 | [09-dspy-optimization.md](09-dspy-optimization.md) | Prompt optimization | Signatures, metrics, training |
+| [10-dsl-specification/](10-dsl-specification/) | DSL specification | YAML schema, step types, patterns, examples |
 
 ## Key Concepts
 

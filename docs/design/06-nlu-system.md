@@ -1438,12 +1438,17 @@ async def understand_node(
     scoped_actions = context.scope_manager.get_available_actions(state)
     scoped_flows = context.scope_manager.get_available_flows(state)
 
+    # Get active flow context
+    active_ctx = context.flow_manager.get_active_context(state)
+    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+    current_slots = state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
+
     # Build structured context
     dialogue_context = DialogueContext(
-        current_slots=state.slots,
+        current_slots=current_slots,
         available_actions=scoped_actions,
         available_flows=scoped_flows,
-        current_flow=state.current_flow,
+        current_flow=current_flow_name,
         expected_slots=get_expected_slots(state, context.config)
     )
 

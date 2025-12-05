@@ -2,16 +2,19 @@
 
 ## Overview
 
-Soni implements an explicit state machine to track conversation progress. This provides clear visibility into what the system is doing at any moment and enables context-aware message processing.
+Soni implements an explicit state machine to track conversation progress. This provides clear visibility into what the system is doing at any moment and enables context-aware message processing using a **Pure Data** approach compatible with LangGraph persistence.
 
 ## DialogueState Schema
+
+We use `TypedDict` for all state structures to ensure seamless JSON serialization/deserialization during checkpointing.
 
 ### Complete Schema
 
 ```python
+from typing import TypedDict, Any, Literal, Annotated
 from enum import Enum
-from typing import Any, TypedDict
-from dataclasses import dataclass
+from langchain_core.messages import AnyMessage
+from langgraph.graph import add_messages
 
 class ConversationState(str, Enum):
     """Explicit conversation states"""
@@ -24,87 +27,174 @@ class ConversationState(str, Enum):
     COMPLETED = "completed"
     ERROR = "error"
 
-class FlowState(str, Enum):
-    """State of a flow in the stack"""
-    ACTIVE = "active"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-    ABANDONED = "abandoned"
-    ERROR = "error"
+# FlowState as Literal type for clean JSON serialization
+FlowState = Literal["active", "paused", "completed", "cancelled", "abandoned", "error"]
 
-@dataclass
-class FlowContext:
-    """Complete context for a flow in the stack"""
+class FlowContext(TypedDict):
+    """
+    Complete context for a specific flow execution instance.
+    Stored as pure data dictionary.
+    """
+
+    flow_id: str
+    """Unique instance ID (e.g., 'book_flight_3a7f'). Key for flow_slots."""
+
     flow_name: str
+    """Name of the flow definition (e.g., 'book_flight')."""
+
     flow_state: FlowState
+    """Current execution state of this flow instance."""
+
     current_step: str | None
-    collected_slots: dict[str, Any]
-    outputs: dict[str, Any]  # For cross-flow data transfer
+    """Current step identifier in the flow definition. None if not started."""
+
+    outputs: dict[str, Any]
+    """
+    Final outputs produced by this flow upon completion.
+    Preserved in history even after flow_slots are pruned.
+    """
+
     started_at: float
-    paused_at: float | None = None
-    completed_at: float | None = None
-    context: str | None = None  # Why paused/cancelled
+    """Unix timestamp when flow was started."""
+
+    paused_at: float | None
+    """Unix timestamp when flow was paused. None if never paused."""
+
+    completed_at: float | None
+    """Unix timestamp when flow completed. None if still active/paused."""
+
+    context: str | None
+    """Human-readable reason for pause/cancel (debugging aid)."""
 
 class DialogueState(TypedDict):
-    """Complete dialogue state schema"""
+    """Complete dialogue state schema (Pure Data)"""
 
-    # Core state
-    messages: list[dict[str, str]]
-    """Message history: {"role": "user"|"assistant", "content": str}"""
+    # ===== Core Communication =====
 
-    slots: dict[str, Any]
-    """Global slots (deprecated in favor of flow_slots)"""
-
-    flow_slots: dict[str, dict[str, Any]]
-    """Flow-scoped slots: {flow_name: {slot_name: value}}"""
-
-    current_flow: str
-    """Currently active flow name"""
-
-    # Explicit state tracking
-    conversation_state: ConversationState
-    """What are we doing right now?"""
-
-    current_step: str | None
-    """Where are we in the flow?"""
-
-    waiting_for_slot: str | None
-    """Which slot are we expecting?"""
-
-    last_nlu_call: float | None
-    """Timestamp of last NLU call (for caching)"""
-
-    # Flow management
-    flow_stack: list[FlowContext]
-    """Stack of flows (active + paused)"""
-
-    # Digression tracking
-    digression_depth: int
-    """How many digressions deep? 0 = main flow"""
-
-    last_digression_type: str | None
-    """Type of last digression"""
-
-    # Metadata
-    turn_count: int
-    """Number of turns in this conversation"""
+    messages: Annotated[list[AnyMessage], add_messages]
+    """
+    Message history.
+    Stored as LangChain `AnyMessage` objects for compatibility with LangGraph's
+    `add_messages` reducer. Requires `langchain-core>=0.3.11`.
+    Accepts dictionaries ({"role": "user", "content": "..."}) as input, but
+    LangGraph converts them to message objects internally for ID tracking
+    and serialization.
+    """
 
     last_response: str
-    """Last response sent to user"""
+    """Last response sent to user."""
+
+    # ===== Flow Management =====
+
+    flow_stack: list[FlowContext]
+    """
+    Active flow execution stack (LIFO).
+    - Empty list: No active flows
+    - Bottom: Root/oldest flow
+    - Top: Currently active flow
+
+    Source of truth for current flow: flow_stack[-1] (if exists)
+    """
+
+    flow_slots: dict[str, dict[str, Any]]
+    """
+    Storage for flow instance data (the "data heap").
+
+    Key: flow_id (unique instance ID)
+    Value: dict of slot name → slot value
+
+    Example:
+        {
+            "book_flight_3a7f": {"origin": "NYC", "destination": "LHR"},
+            "book_flight_9c2d": {"origin": "MAD", "destination": "BCN"}
+        }
+    """
+
+    # ===== Conversation State Tracking =====
+
+    conversation_state: ConversationState
+    """
+    What the system is currently doing.
+    High-level state machine for conversation control flow.
+    """
+
+    current_step: str | None
+    """
+    Identifier of current step in active flow.
+    None if no active flow or flow hasn't started execution.
+    """
+
+    waiting_for_slot: str | None
+    """
+    Name of slot we're expecting from user.
+    Set when conversation_state == WAITING_FOR_SLOT.
+    """
+
+    # ===== NLU Tracking =====
+
+    last_nlu_call: float | None
+    """
+    Unix timestamp of last NLU call.
+    Used for caching and debugging.
+    """
+
+    # ===== Digression Tracking =====
+
+    digression_depth: int
+    """
+    How many digressions deep are we?
+    0 = main flow, >0 = in digression
+    """
+
+    last_digression_type: str | None
+    """Type of last digression (question, help, clarification, etc.)."""
+
+    # ===== Metadata & Audit =====
+
+    turn_count: int
+    """Number of conversation turns."""
 
     trace: list[dict[str, Any]]
-    """Audit trail of events"""
+    """
+    Audit trail of events.
+    Each entry: {"event": str, "timestamp": float, "data": dict}
+    """
 
     metadata: dict[str, Any]
-    """Additional metadata for extensions"""
+    """
+    Archive and system metadata.
+
+    Standard keys:
+        - completed_flows: list[FlowContext] - Archive of completed/cancelled flows
+        - error: str | None - Last error message
+        - error_at: float | None - Timestamp of last error
+    """
 ```
 
-### Key Fields
+### Design Decisions
+
+#### Why No `current_flow` Field?
+
+**Decision**: We do NOT include a separate `current_flow: str` field.
+
+**Rationale**:
+- **Single Source of Truth**: `flow_stack[-1]["flow_name"]` is the definitive current flow
+- **No Synchronization Risk**: Cached/derived fields can desynchronize
+- **O(1) Access**: `flow_stack[-1]` is constant time in Python
+- **Minimal State**: Fewer fields = simpler state, smaller serialization
+
+**Access Pattern**:
+```python
+def get_current_flow_name(state: DialogueState) -> str | None:
+    """Get currently active flow name."""
+    return state["flow_stack"][-1]["flow_name"] if state["flow_stack"] else None
+```
+
+### Key Fields Explained
 
 #### conversation_state
 
-Tracks what the system is currently doing:
+Tracks what the system is currently doing (High-Level State Machine):
 
 | State | Description | Typical Duration |
 |-------|-------------|------------------|
@@ -117,45 +207,64 @@ Tracks what the system is currently doing:
 | `COMPLETED` | Flow finished | Momentary |
 | `ERROR` | Error occurred | Until recovery |
 
-#### flow_stack
+#### flow_stack (The Execution Stack)
 
-Stack of flow contexts supporting complex conversations:
+Stack of flow instances. The top element is always the active flow.
 
 ```python
-# Example: User starts booking, then checks existing booking
 flow_stack = [
-    FlowContext(
-        flow_name="book_flight",
-        flow_state=FlowState.PAUSED,
-        current_step="collect_origin",
-        collected_slots={},
-        paused_at=1701234567.89
-    ),
-    FlowContext(
-        flow_name="check_booking",
-        flow_state=FlowState.ACTIVE,
-        current_step="request_booking_ref",
-        collected_slots={},
-        started_at=1701234590.12
-    )
+    # Bottom: Root flow (Paused)
+    {
+        "flow_id": "book_flight_3a7f",
+        "flow_name": "book_flight",
+        "flow_state": "paused",
+        "current_step": "collect_origin",
+        "outputs": {},
+        "started_at": 1701234567.89,
+        "paused_at": 1701234590.12,
+        "completed_at": None,
+        "context": "User wants to check booking first"
+    },
+    # Top: Active interrupt flow
+    {
+        "flow_id": "check_booking_9c2d",
+        "flow_name": "check_booking",
+        "flow_state": "active",
+        "current_step": "request_ref",
+        "outputs": {},
+        "started_at": 1701234590.12,
+        "paused_at": None,
+        "completed_at": None,
+        "context": None
+    }
 ]
 ```
 
-#### flow_slots
+**Properties**:
+- LIFO (Last In, First Out) semantics
+- Top of stack = active flow
+- Below top = paused flows (can be resumed)
+- Empty stack = no active flows (IDLE state)
 
-Flow-scoped slots prevent naming conflicts:
+#### flow_slots (The Data Heap)
+
+Stores data by unique instance ID, allowing multiple concurrent flows of the same type.
 
 ```python
-# Without scoping (problematic):
-slots = {"origin": "NYC", "destination": "LA"}
-# If user switches flows, which origin applies?
-
-# With flow scoping (correct):
 flow_slots = {
-    "book_flight": {"origin": "NYC", "destination": "LA"},
-    "modify_booking": {"booking_ref": "BK123", "origin": "Boston"}
+    # Data for the paused flow
+    "book_flight_3a7f": {"origin": "NYC", "destination": "LHR"},
+
+    # Data for the active flow
+    "check_booking_9c2d": {"booking_ref": "BK-999"}
 }
 ```
+
+**Key Benefits**:
+- Prevents name collisions between flow instances
+- Enables concurrent flows of same type
+- Clear data ownership (flow_id → data)
+- Easy cleanup when flow completes
 
 ## State Transitions
 
@@ -209,42 +318,41 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE: New flow started<br/>(push_flow)
+    [*] --> ACTIVE: _push_flow()
 
-    ACTIVE --> PAUSED: Another flow started<br/>(push_flow interrupts)
-    ACTIVE --> COMPLETED: All steps done<br/>(pop_flow COMPLETED)
-    ACTIVE --> CANCELLED: User cancelled<br/>(pop_flow CANCELLED)
-    ACTIVE --> ERROR: Exception occurred
+    ACTIVE --> PAUSED: _push_flow() (new flow on top)
+    ACTIVE --> COMPLETED: _pop_flow(..., "completed")
+    ACTIVE --> CANCELLED: _pop_flow(..., "cancelled")
+    ACTIVE --> ERROR: _pop_flow(..., "error")
 
-    PAUSED --> ACTIVE: Previous flow completes<br/>or user explicitly resumes
-    PAUSED --> CANCELLED: User cancels paused flow
-    PAUSED --> ABANDONED: Timeout exceeded
+    PAUSED --> ACTIVE: _pop_flow() on flow above
+    PAUSED --> CANCELLED: Stack limit (cancel_oldest)
 
-    COMPLETED --> [*]: Flow ends successfully
-    CANCELLED --> [*]: Flow ends by user request
-    ERROR --> [*]: Flow ends due to error
-    ABANDONED --> [*]: Flow ends due to timeout
+    COMPLETED --> [*]: Archived to metadata
+    CANCELLED --> [*]: Archived to metadata
+    ERROR --> [*]: Archived to metadata
+    ABANDONED --> [*]: Timeout cleanup
 
     note right of ACTIVE
-        Currently executing
         Top of flow_stack
-        Processes user messages
+        Receives user messages
+        Executes steps
     end note
 
     note right of PAUSED
-        Interrupted by another flow
-        Can be resumed later
-        State preserved in stack
+        Below top of stack
+        State preserved
+        Can be resumed
     end note
 ```
 
-### State Validation
+## State Validation
 
-Custom validator ensures only valid transitions:
+Custom validator ensures only valid conversation state transitions.
 
 ```python
 class StateTransitionValidator:
-    """Validates state transitions"""
+    """Validates conversation state transitions."""
 
     VALID_TRANSITIONS: dict[ConversationState, list[ConversationState]] = {
         ConversationState.IDLE: [
@@ -260,20 +368,20 @@ class StateTransitionValidator:
             ConversationState.UNDERSTANDING,  # Always back through NLU
         ],
         ConversationState.VALIDATING_SLOT: [
-            ConversationState.WAITING_FOR_SLOT,  # Invalid or need more
-            ConversationState.CONFIRMING,  # All collected, needs confirmation
-            ConversationState.EXECUTING_ACTION,  # All collected, no confirmation
+            ConversationState.WAITING_FOR_SLOT,
+            ConversationState.CONFIRMING,
+            ConversationState.EXECUTING_ACTION,
         ],
         ConversationState.EXECUTING_ACTION: [
-            ConversationState.CONFIRMING,  # Action needs confirmation
+            ConversationState.CONFIRMING,
             ConversationState.COMPLETED,
             ConversationState.WAITING_FOR_SLOT,
             ConversationState.ERROR,
         ],
         ConversationState.CONFIRMING: [
-            ConversationState.UNDERSTANDING,  # Process user's yes/no
-            ConversationState.EXECUTING_ACTION,  # After confirmed
-            ConversationState.WAITING_FOR_SLOT,  # User wants to change something
+            ConversationState.UNDERSTANDING,
+            ConversationState.EXECUTING_ACTION,
+            ConversationState.WAITING_FOR_SLOT,
         ],
         ConversationState.COMPLETED: [
             ConversationState.IDLE,
@@ -305,277 +413,156 @@ class StateTransitionValidator:
             )
 ```
 
-**Design Decision**: Custom validation (not `transitions` library) because:
-- LangGraph already manages state as dict
-- `transitions` library assumes control of state object (incompatible)
-- Custom validation provides core benefit without complexity
-- No external dependency needed
+## Cross-Flow Data Transfer
 
-## State Persistence
+Data transfer happens explicitly via **Outputs** and **Inputs**.
 
-### Checkpointing
+### The Pattern
 
-State automatically saved after each node execution via LangGraph:
+1.  **Outputs**: When a flow completes, it saves results to `FlowContext.outputs`
+2.  **Archive**: Completed flow (with outputs) is stored in `metadata["completed_flows"]`
+3.  **Inputs**: New flow is started with explicit `inputs` extracted from archived outputs
 
-```python
-from langgraph.checkpoint.sqlite import SqliteSaver
-
-# Create checkpointer
-checkpointer = SqliteSaver.from_conn_string("dialogue_state.db")
-
-# Compile graph with checkpointer
-graph = builder.compile(checkpointer=checkpointer)
-
-# State automatically saved per user via thread_id
-config = {"configurable": {"thread_id": user_id}}
-result = await graph.ainvoke(input_state, config=config)
-```
-
-### Thread Isolation
-
-Each user conversation isolated by `thread_id`:
+### Example
 
 ```python
-# User 1
-result = await graph.ainvoke(
-    input_state,
-    config={"configurable": {"thread_id": "user_1"}}
+# Step 1: Flow completes with outputs
+outputs = {
+    "booking_ref": "BK-123",
+    "status": "confirmed",
+    "departure_date": "2025-12-15"
+}
+_pop_flow(state, outputs=outputs)
+
+# Step 2: Extract from archive
+completed_flows = state["metadata"]["completed_flows"]
+last_flow = completed_flows[-1]
+booking_ref = last_flow["outputs"]["booking_ref"]
+
+# Step 3: Start new flow with explicit inputs
+_push_flow(
+    state,
+    "modify_booking",
+    inputs={"booking_ref": booking_ref},
+    reason="User wants to modify"
 )
-
-# User 2 (completely separate state)
-result = await graph.ainvoke(
-    input_state,
-    config={"configurable": {"thread_id": "user_2"}}
-)
-```
-
-### State Recovery
-
-Load previous state to continue conversation:
-
-```python
-# Check if conversation interrupted
-current_state = await graph.aget_state(
-    config={"configurable": {"thread_id": user_id}}
-)
-
-if current_state.next:
-    # Interrupted - resume
-    result = await graph.ainvoke(
-        Command(resume={"user_message": msg}),
-        config={"configurable": {"thread_id": user_id}}
-    )
-```
-
-## Flow-Scoped Slots
-
-### Problem
-
-Same slot names across different flows cause conflicts:
-
-```yaml
-book_flight:
-  slots: [origin, destination, date]
-
-modify_booking:
-  slots: [booking_ref, origin, destination, date]  # Same names!
-```
-
-### Solution
-
-Flow-scoped slots with helper methods:
-
-```python
-def _get_slot(self, state: DialogueState, slot_name: str) -> Any:
-    """Get slot from current flow's scope"""
-    active_flow = self._get_active_flow(state)
-    if active_flow:
-        return state.flow_slots.get(active_flow.flow_name, {}).get(slot_name)
-    return None
-
-def _set_slot(self, state: DialogueState, slot_name: str, value: Any):
-    """Set slot in current flow's scope"""
-    active_flow = self._get_active_flow(state)
-    if active_flow:
-        if active_flow.flow_name not in state.flow_slots:
-            state.flow_slots[active_flow.flow_name] = {}
-        state.flow_slots[active_flow.flow_name][slot_name] = value
 ```
 
 **Benefits**:
-- No naming conflicts between flows
-- Clear ownership of slot values
-- Automatic cleanup when flow completes
-
-## Cross-Flow Data Transfer
-
-### Problem
-
-Flows need to pass data to each other:
-
-```
-User: "Check my booking"
-Bot:  "BK-12345 is confirmed for Dec 15"
-User: "I want to modify that booking"
-      # How does modify_booking get booking_ref?
-```
-
-### Solution
-
-FlowContext.outputs field:
-
-```python
-@dataclass
-class FlowContext:
-    # ... other fields ...
-    outputs: dict[str, Any] = field(default_factory=dict)
-
-# When check_booking completes
-flow_context.outputs["booking_ref"] = "BK-12345"
-flow_context.outputs["booking_status"] = "confirmed"
-
-# When modify_booking starts
-previous_flow = state.metadata.get("completed_flows", [])[-1]
-if "booking_ref" in previous_flow.outputs:
-    initial_slots = {"booking_ref": previous_flow.outputs["booking_ref"]}
-```
+- Flows don't need to know WHERE data came from
+- Clear data contracts (inputs → flow → outputs)
+- Easy to test flows in isolation
+- Explicit dependencies
 
 ## Memory Management
 
-### Problem
+Since `DialogueState` persists across entire conversation, we must prune it.
 
-Long conversations cause unbounded growth:
-- `state.messages` grows infinitely
-- `state.trace` grows infinitely
-- Completed flows accumulate
+### What Gets Pruned
 
-### Solution
+1.  **Orphan flow_slots**: Data for flows no longer in stack
+2.  **Old completed flows**: Keep only last N in metadata
+3.  **Message history**: Keep last N messages
+4.  **Trace events**: Keep last N events
 
-Configurable pruning:
+### Configuration
 
 ```yaml
 settings:
   memory_management:
     max_history_messages: 50
     max_trace_events: 100
-    archive_completed_flows_after: 10
+    max_completed_flows: 10
 ```
 
+### Implementation
+
 ```python
-def _prune_state(self, state: DialogueState):
-    """Prune state to prevent unbounded growth"""
+def _prune_state(self, state: DialogueState) -> None:
+    """Prune state to prevent unbounded growth."""
 
-    # Prune message history
-    if len(state.messages) > self.config.max_history_messages:
-        state.messages = state.messages[-self.config.max_history_messages:]
+    # 1. Prune orphan flow slots
+    active_ids = {ctx["flow_id"] for ctx in state["flow_stack"]}
+    orphan_ids = [fid for fid in state["flow_slots"] if fid not in active_ids]
 
-    # Prune trace
-    if len(state.trace) > self.config.max_trace_events:
-        state.trace = state.trace[-self.config.max_trace_events:]
+    for fid in orphan_ids:
+        del state["flow_slots"][fid]
 
-    # Archive old completed flows
-    completed = state.metadata.get("completed_flows", [])
-    if len(completed) > self.config.archive_completed_flows_after:
-        state.metadata["completed_flows"] = completed[-self.config.archive_completed_flows_after:]
+    # 2. Prune old completed flows
+    max_completed = self.config.memory_management.max_completed_flows
+    completed = state["metadata"].get("completed_flows", [])
+
+    if len(completed) > max_completed:
+        state["metadata"]["completed_flows"] = completed[-max_completed:]
+
+    # 3. Prune message history
+    max_messages = self.config.memory_management.max_history_messages
+    if len(state["messages"]) > max_messages:
+        state["messages"] = state["messages"][-max_messages:]
+
+    # 4. Prune trace
+    max_trace = self.config.memory_management.max_trace_events
+    if len(state["trace"]) > max_trace:
+        state["trace"] = state["trace"][-max_trace:]
 ```
 
-## Examples
-
-### Simple Slot Collection
+## State Initialization
 
 ```python
-# Initial state
-state = {
-    "conversation_state": ConversationState.IDLE,
-    "current_flow": "none",
-    "flow_stack": [],
-    "messages": []
-}
+def create_initial_state() -> DialogueState:
+    """Create initial dialogue state for new conversation."""
+    return {
+        # Core communication
+        "messages": [],
+        "last_response": "",
 
-# User: "I want to book a flight"
-# → IDLE → UNDERSTANDING
-nlu_result = await nlu.predict(msg, context)
-# NLU detects intent: book_flight
+        # Flow management
+        "flow_stack": [],
+        "flow_slots": {},
 
-# Activate flow
-state.conversation_state = ConversationState.WAITING_FOR_SLOT
-state.waiting_for_slot = "origin"
-state.flow_stack = [FlowContext(flow_name="book_flight", flow_state=FlowState.ACTIVE)]
+        # Conversation state
+        "conversation_state": ConversationState.IDLE,
+        "current_step": None,
+        "waiting_for_slot": None,
 
-# Bot: "Where would you like to fly from?"
-# → interrupt() pauses execution
+        # NLU
+        "last_nlu_call": None,
 
-# User: "New York"
-# → WAITING_FOR_SLOT → UNDERSTANDING
-nlu_result = await nlu.predict("New York", context={
-    "waiting_for_slot": "origin",
-    "conversation_state": ConversationState.WAITING_FOR_SLOT
-})
-# NLU detects: slot_value="New York", slot_name="origin"
+        # Digression
+        "digression_depth": 0,
+        "last_digression_type": None,
 
-# → VALIDATING_SLOT
-is_valid = validate_city("New York")  # True
-
-# Store in flow-scoped slots
-state.flow_slots["book_flight"]["origin"] = "New York"
-
-# Check if more slots needed
-if more_slots_needed:
-    state.conversation_state = ConversationState.WAITING_FOR_SLOT
-    state.waiting_for_slot = "destination"
-```
-
-### Flow Interruption
-
-```python
-# Active: book_flight
-state.flow_stack = [
-    FlowContext(flow_name="book_flight", flow_state=FlowState.ACTIVE)
-]
-
-# User: "Actually, let me check my booking first"
-# NLU detects intent change: check_booking
-
-# Push new flow
-_push_flow(state, "check_booking", reason="User wants to check first")
-
-# State after push
-state.flow_stack = [
-    FlowContext(flow_name="book_flight", flow_state=FlowState.PAUSED),
-    FlowContext(flow_name="check_booking", flow_state=FlowState.ACTIVE)
-]
-
-# ... complete check_booking ...
-
-# Pop flow
-_pop_flow(state, FlowState.COMPLETED)
-
-# State after pop (automatically resumes)
-state.flow_stack = [
-    FlowContext(flow_name="book_flight", flow_state=FlowState.ACTIVE)
-]
+        # Metadata
+        "turn_count": 0,
+        "trace": [],
+        "metadata": {
+            "completed_flows": []
+        }
+    }
 ```
 
 ## Summary
 
 Soni's explicit state machine provides:
 
-1. **Clear visibility** - Know exactly what system is doing
-2. **Context-aware processing** - NLU receives rich context
-3. **Flow management** - Support complex conversation patterns
-4. **State isolation** - Flow-scoped slots prevent conflicts
-5. **Automatic persistence** - LangGraph checkpointing
-6. **Memory management** - Configurable pruning
+1.  ✅ **Pure Data Architecture**: Fully serializable `TypedDict` structure
+2.  ✅ **Instance Identity**: `flow_id` allows concurrent flows of same type
+3.  ✅ **Single Source of Truth**: `flow_stack` (no redundant caches)
+4.  ✅ **Clear Visibility**: Explicit `conversation_state` and `flow_state`
+5.  ✅ **Automatic Persistence**: Compatible with LangGraph checkpointing
+6.  ✅ **Isolated Scope**: Data scoped to flow instances, preventing collisions
+7.  ✅ **Memory Management**: Automatic pruning prevents unbounded growth
 
-These features enable building sophisticated task-oriented chatbots that handle realistic human communication.
+**Design Philosophy**: Minimal, clean, zero-legacy architecture optimized for LangGraph and conversation dynamics.
 
 ## Next Steps
 
 - **[05-message-flow.md](05-message-flow.md)** - Message processing pipeline
-- **[07-flow-management.md](07-flow-management.md)** - Flow stack mechanics
+- **[07-flow-management.md](07-flow-management.md)** - Detailed flow stack operations
 - **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns
 
 ---
 
-**Design Version**: v0.8 (Production-Ready with Structured Types)
+**Design Version**: v1.0 (Zero-Legacy Clean Design)
 **Status**: Production-ready design specification
+**Last Updated**: 2024-12-03

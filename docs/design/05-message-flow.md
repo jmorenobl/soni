@@ -116,9 +116,16 @@ async def build_nlu_context(state: DialogueState) -> tuple[dspy.History, Dialogu
         for msg in state.messages[-10:]  # Last 10 turns
     ])
 
+    # Get current flow name from stack
+    active_flow = context.flow_manager.get_active_context(state)
+    current_flow_name = active_flow["flow_name"] if active_flow else "none"
+
+    # Get slots from active flow
+    current_slots = state["flow_slots"].get(active_flow["flow_id"], {}) if active_flow else {}
+
     # Build structured dialogue context
     context = DialogueContext(
-        current_slots=state.slots,
+        current_slots=current_slots,
         available_actions=[
             action_name
             for action_name, action in config.actions.items()
@@ -127,7 +134,7 @@ async def build_nlu_context(state: DialogueState) -> tuple[dspy.History, Dialogu
             flow_name
             for flow_name, flow in config.flows.items()
         ],
-        current_flow=state.current_flow,
+        current_flow=current_flow_name,
         expected_slots=get_expected_slots(state, config)
     )
 
@@ -219,12 +226,17 @@ async def understand_node(
         for msg in state.messages[-10:]  # Last 10 turns
     ])
 
+    # Get active flow context
+    active_ctx = context.flow_manager.get_active_context(state)
+    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+    current_slots = state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
+
     # Build structured dialogue context
     dialogue_context = DialogueContext(
-        current_slots=state.slots,
+        current_slots=current_slots,
         available_actions=context.scope_manager.get_available_actions(state),
         available_flows=context.scope_manager.get_available_flows(state),
-        current_flow=state.current_flow,
+        current_flow=current_flow_name,
         expected_slots=get_expected_slots(state, context.config)
     )
 
@@ -290,14 +302,21 @@ def route_after_validate(state: DialogueState) -> str:
 ### Slot Validation
 
 ```python
-async def validate_slot_node(state: DialogueState) -> DialogueState:
+async def validate_slot_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> DialogueState:
     """Validate and store slot value"""
     nlu_result = state["nlu_result"]
     slot_name = state["waiting_for_slot"]
     value = nlu_result.slot_value
 
+    # Get current flow name from stack
+    active_ctx = context.flow_manager.get_active_context(state)
+    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+
     # Get validator for this slot
-    slot_config = get_slot_config(state.current_flow, slot_name)
+    slot_config = get_slot_config(current_flow_name, slot_name)
     validator = ValidatorRegistry.get(slot_config.validator)
 
     # Validate
@@ -314,7 +333,7 @@ async def validate_slot_node(state: DialogueState) -> DialogueState:
     normalized_value = await normalizer(value)
 
     # Store in flow-scoped slots
-    _set_slot(state, slot_name, normalized_value)
+    context.flow_manager.set_slot(state, slot_name, normalized_value)
     state["waiting_for_slot"] = None
 
     # Check if we need more slots
@@ -365,8 +384,12 @@ async def handle_digression_node(state: DialogueState) -> DialogueState:
     )
 
     # Generate re-prompt based on waiting_for_slot
-    if state.waiting_for_slot:
-        slot_config = get_slot_config(state.current_flow, state.waiting_for_slot)
+    if state["waiting_for_slot"]:
+        # Get current flow from stack
+        active_ctx = context.flow_manager.get_active_context(state)
+        current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+
+        slot_config = get_slot_config(current_flow_name, state["waiting_for_slot"])
         reprompt = slot_config.prompt
     else:
         reprompt = "How can I help you?"
@@ -382,21 +405,30 @@ async def handle_digression_node(state: DialogueState) -> DialogueState:
 ### Confirmation Handling
 
 ```python
-async def confirm_action_node(state: DialogueState) -> DialogueState:
+async def confirm_action_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> DialogueState:
     """
     Ask user to confirm collected information before executing action.
 
     Reads confirmation message from the step definition and shows collected slots.
     """
+    # Get current flow from stack
+    active_ctx = context.flow_manager.get_active_context(state)
+    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+
+    # Get slots from active flow
+    slots = state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
+
     # Get the current confirm step from flow configuration
-    current_step = get_step_config(state.current_flow, state.current_step)
-    slots = get_flow_slots(state, state.current_flow)
+    current_step = get_step_config(current_flow_name, state["current_step"])
 
     # Build confirmation message from step configuration
     confirmation_msg = current_step.message or "Let me confirm:\n"
 
     for slot_name, value in slots.items():
-        slot_config = get_slot_config(state.current_flow, slot_name)
+        slot_config = get_slot_config(current_flow_name, slot_name)
         display_name = slot_config.display_name or slot_name
         confirmation_msg += f"- {display_name}: {value}\n"
 
@@ -457,7 +489,10 @@ async def handle_confirmation_response(state: DialogueState) -> DialogueState:
             }
         elif nlu_result.wants_to_change:
             # User said "yes I want to change something" but didn't specify what
-            flow_config = get_flow_config(state.current_flow)
+            active_ctx = context.flow_manager.get_active_context(state)
+            current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+
+            flow_config = get_flow_config(current_flow_name)
             slot_names = [s.name for s in flow_config.slots]
             return {
                 "conversation_state": ConversationState.WAITING_FOR_SLOT,
@@ -465,10 +500,11 @@ async def handle_confirmation_response(state: DialogueState) -> DialogueState:
             }
         else:
             # User just said "no" without clarification
-            # Ask them to start over or clarify
+            # Cancel current flow and return to idle
+            context.flow_manager.pop_flow(state, result="cancelled")
+
             return {
                 "conversation_state": ConversationState.IDLE,
-                "current_flow": None,
                 "last_response": "Okay, I've cancelled this request. What would you like to do?"
             }
 
@@ -600,7 +636,10 @@ graph = builder.compile(checkpointer=checkpointer)
 Pause execution to wait for user:
 
 ```python
-async def collect_next_slot_node(state: DialogueState) -> DialogueState:
+async def collect_next_slot_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> DialogueState:
     """
     Ask for next slot and PAUSE execution.
 
@@ -609,7 +648,11 @@ async def collect_next_slot_node(state: DialogueState) -> DialogueState:
     next_slot = get_next_required_slot(state)
 
     if next_slot:
-        slot_config = get_slot_config(state.current_flow, next_slot)
+        # Get current flow from stack
+        active_ctx = context.flow_manager.get_active_context(state)
+        current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+
+        slot_config = get_slot_config(current_flow_name, next_slot)
 
         # Pause here - wait for user input
         user_response = interrupt({

@@ -383,11 +383,15 @@ Single NLU module handles all understanding tasks with rich context:
 ```python
 async def build_nlu_context(state: DialogueState) -> NLUContext:
     """Build enriched context for NLU"""
+    # Get current flow from stack
+    active_context = flow_manager.get_active_context(state)
+    current_flow_name = active_context["flow_name"] if active_context else "none"
+
     return NLUContext(
         # Current state
         conversation_state=state.conversation_state,
         waiting_for_slot=state.waiting_for_slot,
-        current_flow=state.current_flow,
+        current_flow=current_flow_name,
 
         # Available flows with descriptions
         available_flows={

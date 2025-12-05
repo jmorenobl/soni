@@ -116,6 +116,164 @@ class DialogueUnderstanding(dspy.Signature):
 5. **Confidence scores**: Enable fallback strategies
 6. **Field constraints**: Use Pydantic validators (ge, le, etc.)
 
+## Pydantic Validation in DSPy Signatures
+
+### How DSPy Validates Structured Types
+
+When you use Pydantic models in signatures, DSPy automatically validates LLM outputs:
+
+```python
+# 1. LLM generates output
+# 2. DSPy adapter parses output
+# 3. Pydantic validates and constructs model
+# 4. If validation fails → ValidationError
+
+# Example signature with validation
+class NLUOutput(BaseModel):
+    message_type: MessageType  # Must be valid enum value
+    confidence: float = Field(ge=0.0, le=1.0)  # Must be in [0, 1]
+    slots: list[SlotValue]  # Must be list of SlotValue objects
+```
+
+### Field-Level Constraints
+
+Pydantic constraints are enforced automatically:
+
+```python
+from pydantic import BaseModel, Field
+
+class SlotValue(BaseModel):
+    name: str = Field(min_length=1, max_length=50)  # Length constraints
+    confidence: float = Field(ge=0.0, le=1.0)  # Numeric bounds
+    value: str = Field(pattern=r"^[A-Z][a-z]+$")  # Regex validation
+```
+
+**When LLM violates constraints**:
+
+```python
+# LLM outputs: confidence = 1.5  (invalid - exceeds 1.0)
+# Result: ValidationError raised
+
+# Your code should handle this:
+try:
+    prediction = await module.acall(...)
+    result = prediction.result  # NLUOutput validated
+except ValidationError as e:
+    logger.error(f"LLM output validation failed: {e}")
+    # Provide fallback result
+    result = NLUOutput(
+        message_type=MessageType.CONTINUE,
+        command="unknown",
+        slots=[],
+        confidence=0.0,
+        reasoning="Validation error"
+    )
+```
+
+### Validation Performance
+
+**Impact**:
+- ✅ Minimal overhead (microseconds per validation)
+- ✅ Catches errors early (before corrupt data enters system)
+- ✅ Self-documenting (constraints visible in model definition)
+
+**Best Practices**:
+1. **Use constraints**: Add `ge`, `le`, `min_length`, etc. for safety
+2. **Custom validators**: Use `@field_validator` for complex validation
+3. **Handle ValidationError**: Always wrap predictions in try/except
+4. **Log failures**: Track validation failures to improve prompts
+
+### Custom Validators
+
+```python
+from pydantic import BaseModel, field_validator
+
+class NLUOutput(BaseModel):
+    command: str
+    slots: list[SlotValue]
+    confidence: float
+
+    @field_validator('command')
+    @classmethod
+    def command_not_empty(cls, v: str) -> str:
+        """Validate command is not empty or whitespace."""
+        if not v or not v.strip():
+            raise ValueError("Command cannot be empty")
+        return v.strip()
+
+    @field_validator('slots')
+    @classmethod
+    def slots_must_be_unique(cls, v: list[SlotValue]) -> list[SlotValue]:
+        """Validate no duplicate slot names."""
+        names = [slot.name for slot in v]
+        if len(names) != len(set(names)):
+            raise ValueError("Duplicate slot names not allowed")
+        return v
+```
+
+**Important Note on Domain-Specific Validation**:
+
+Pydantic validators should only validate **structural properties** (format, uniqueness, non-empty). Do NOT hardcode domain-specific commands in Pydantic models - this violates Zero-Leakage Architecture.
+
+Domain validation (checking if command is valid for current dialogue) happens at **runtime** in the dialogue manager:
+
+```python
+async def validate_nlu_result(
+    nlu_result: NLUOutput,
+    context: DialogueContext
+) -> bool:
+    """Validate NLU result against current dialogue context.
+
+    This is where domain-specific validation happens, NOT in Pydantic.
+    """
+    # Check if command is in available actions (from YAML configuration)
+    if nlu_result.command not in context.available_actions:
+        logger.warning(
+            f"LLM generated unknown command: {nlu_result.command}. "
+            f"Available: {context.available_actions}"
+        )
+        return False
+
+    # Check if slot names match expected slots (from YAML configuration)
+    expected_slot_names = set(context.expected_slots)
+    actual_slot_names = {slot.name for slot in nlu_result.slots}
+
+    if actual_slot_names - expected_slot_names:
+        logger.warning(f"Unexpected slots: {actual_slot_names - expected_slot_names}")
+        return False
+
+    return True
+```
+
+This separation ensures:
+- ✅ Framework remains domain-agnostic
+- ✅ YAML defines available commands/slots (WHAT)
+- ✅ Python validates against runtime context (HOW)
+- ✅ Different dialogues can have different commands without code changes
+
+### Validation in Training
+
+During optimization, validation errors affect training:
+
+```python
+def safe_metric(example: dspy.Example, prediction: dspy.Prediction) -> float:
+    """Metric with validation error handling."""
+    try:
+        # Access structured result (may raise ValidationError)
+        result: NLUOutput = prediction.result
+        expected: NLUOutput = example.result
+
+        # Compute metric
+        return float(result.command == expected.command)
+
+    except ValidationError as e:
+        # Validation failure = metric score 0.0
+        logger.debug(f"Validation failed during training: {e}")
+        return 0.0
+```
+
+**Why this matters**: Optimizers learn to generate valid outputs because invalid outputs get score 0.0.
+
 ## Module Architecture
 
 ### SoniDU Module
@@ -203,6 +361,35 @@ class SoniDU(dspy.Module):
             current_datetime=current_datetime,
         )
 
+### Understanding DSPy Module Call Chain
+
+DSPy provides two calling patterns for modules:
+
+**Sync Pattern**:
+```python
+# Public sync interface
+prediction = module(user_message=msg, ...)  # Calls __call__()
+    ↓
+# Internal implementation
+prediction = module.forward(user_message=msg, ...)  # Called by __call__()
+```
+
+**Async Pattern**:
+```python
+# Public async interface
+prediction = await module.acall(user_message=msg, ...)  # Public async method
+    ↓
+# Internal implementation
+prediction = await module.aforward(user_message=msg, ...)  # Called by acall()
+```
+
+**Best Practices**:
+- ✅ Use `module()` or `module.acall()` in production code
+- ⚠️ `forward()` and `aforward()` are internal - DSPy optimizers call them directly
+- ✅ Implement both `forward()` (for sync optimizers) and `aforward()` (for runtime)
+
+**Note**: While you can call `forward()` and `aforward()` directly, using the public interfaces (`__call__` and `acall`) enables proper callback handling and usage tracking.
+
     async def predict(
         self,
         user_message: str,
@@ -270,30 +457,45 @@ class SoniDU(dspy.Module):
 
 ### Predictor Types
 
-**ChainOfThought**:
-```python
-self.understanding = dspy.ChainOfThought(UnderstandingSignature)
-self.confirmation = dspy.ChainOfThought(ConfirmationSignature)
-```
-- Generates reasoning before answer
-- Better accuracy, higher latency
-- Good for complex understanding tasks
+DSPy provides different predictor types optimized for different scenarios.
 
-**Predict**:
-```python
-self.predictor = dspy.Predict(UnderstandingSignature)
-```
-- Direct prediction without reasoning
-- Lower latency, potentially lower accuracy
-- Good for simple classification
+#### Decision Guide
 
-**ReAct**:
+**When to use ChainOfThought**:
 ```python
-self.predictor = dspy.ReAct(UnderstandingSignature, tools=[...])
+self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
 ```
-- Can use tools/actions
-- Good for tasks requiring external information
-- Higher latency
+- ✅ Complex understanding tasks (NLU, intent detection)
+- ✅ Need high accuracy with reasoning
+- ✅ Acceptable higher latency (adds reasoning step)
+- ✅ **Recommended for Soni NLU**
+
+**When to use Predict**:
+```python
+self.predictor = dspy.Predict(DialogueUnderstanding)
+```
+- ✅ Simple classification tasks
+- ✅ Need lower latency
+- ✅ Acceptable slightly lower accuracy
+- ⚠️ No reasoning trace for debugging
+
+**When to use ReAct**:
+```python
+self.predictor = dspy.ReAct(DialogueUnderstanding, tools=[search_tool, calc_tool])
+```
+- ✅ Need external tool calls (search, APIs, calculations)
+- ✅ Multi-step reasoning with actions
+- ⚠️ Highest latency (multiple LM calls + tool execution)
+
+#### Comparison Table
+
+| Predictor | Reasoning | Tools | Latency | Use Case |
+|-----------|-----------|-------|---------|----------|
+| ChainOfThought | Yes | No | Medium | Complex understanding |
+| Predict | No | No | Low | Simple classification |
+| ReAct | Yes | Yes | High | Tool-augmented tasks |
+
+**Soni Recommendation**: Use `ChainOfThought` for NLU module to maximize accuracy and provide reasoning traces for debugging.
 
 ## Training Data
 
@@ -583,7 +785,7 @@ from dspy.teleprompt import MIPROv2
 
 # Configure
 lm = dspy.OpenAI(model="gpt-4o-mini", temperature=0.0)
-dspy.settings.configure(lm=lm)
+dspy.configure(lm=lm)
 
 # Create optimizer
 optimizer = MIPROv2(
@@ -671,8 +873,75 @@ testset = load_test_data()  # 30 examples
 # Verify data quality
 for example in trainset[:5]:
     print(f"Input: {example.user_message}")
-    print(f"Expected: {example.intent}")
+    print(f"Expected: {example.result.command}")
     print()
+```
+
+## Training Data Size Guidelines
+
+### Minimum Viable Datasets
+
+| Optimizer | Minimum | Recommended | Optimal | Diminishing Returns |
+|-----------|---------|-------------|---------|---------------------|
+| BootstrapFewShot | 20 | 50-100 | 200 | >300 |
+| MIPROv2 | 50 | 100-300 | 500 | >1000 |
+| SIMBA | 10 | 50-100 | 200 | >400 |
+
+### Data Quality vs Quantity
+
+**Quality Factors** (in order of importance):
+
+1. **Diversity**: Cover different intents, slot combinations, edge cases
+2. **Accuracy**: Labels must be correct (intent, slots, confidence)
+3. **Representativeness**: Match production distribution
+4. **Completeness**: All required fields populated
+
+**Decision Matrix**:
+
+```python
+# Scenario 1: High-quality data, small dataset (50 examples)
+# → Use BootstrapFewShot
+optimizer = BootstrapFewShot(metric=combined_metric, max_bootstrapped_demos=8)
+
+# Scenario 2: Medium-quality data, medium dataset (200 examples)
+# → Use MIPROv2 with validation split
+optimizer = MIPROv2(metric=combined_metric, auto="light")
+
+# Scenario 3: Low-quality data, large dataset (500+ examples)
+# → First: clean and validate data
+# → Then: use MIPROv2 with valset for quality filtering
+trainset = validate_training_data(raw_trainset, signature)
+optimizer = MIPROv2(metric=combined_metric, auto="medium")
+```
+
+### When to Collect More Data
+
+**Collect more data if**:
+- Metric not improving after 3-5 optimization rounds
+- Poor performance on specific scenarios (check error analysis)
+- Large gap between training and validation metrics (overfitting)
+
+**How to expand dataset**:
+1. **Targeted collection**: Focus on error patterns from analysis
+2. **Synthetic generation**: Use LLM to generate variations (then human review)
+3. **Production logs**: Extract and label real user interactions
+
+### Data Split Strategy
+
+```python
+# General guideline: 70/15/15 split
+total_examples = len(all_examples)
+train_size = int(0.70 * total_examples)
+val_size = int(0.15 * total_examples)
+
+trainset = all_examples[:train_size]
+valset = all_examples[train_size:train_size + val_size]
+testset = all_examples[train_size + val_size:]
+
+# Minimum sizes (override ratio if needed):
+# - Training: ≥50 examples
+# - Validation: ≥20 examples
+# - Test: ≥30 examples
 ```
 
 ### 2. Configure DSPy
@@ -686,7 +955,7 @@ lm = dspy.OpenAI(
     temperature=0.0,  # Deterministic for optimization
     max_tokens=1000
 )
-dspy.settings.configure(lm=lm)
+dspy.configure(lm=lm)
 ```
 
 ### 3. Define Metric
@@ -695,20 +964,20 @@ dspy.settings.configure(lm=lm)
 def soni_metric(example: dspy.Example, prediction: dspy.Prediction) -> float:
     """Custom metric for Soni NLU"""
 
-    # Intent accuracy (most important)
-    intent_score = float(prediction.intent == example.intent)
+    # Command accuracy (most important)
+    command_score = float(prediction.result.command == example.result.command)
 
     # Slot extraction F1
     slot_score = slot_extraction_f1(example, prediction)
 
-    # Digression detection
-    digression_score = digression_detection_accuracy(example, prediction)
+    # Message type accuracy (includes digression detection via QUESTION type)
+    msg_type_score = float(prediction.result.message_type == example.result.message_type)
 
     # Weighted combination
     return (
-        0.5 * intent_score +
+        0.5 * command_score +
         0.3 * slot_score +
-        0.2 * digression_score
+        0.2 * msg_type_score
     )
 ```
 
@@ -746,28 +1015,30 @@ def evaluate(module, dataset):
     """Evaluate module on dataset"""
 
     total = len(dataset)
-    correct_intents = 0
+    correct_commands = 0
     total_slot_f1 = 0.0
 
     for example in dataset:
         prediction = module(
             user_message=example.user_message,
-            context=example.context
+            history=example.history,
+            context=example.context,
+            current_datetime=example.current_datetime
         )
 
-        if prediction.intent == example.intent:
-            correct_intents += 1
+        if prediction.result.command == example.result.command:
+            correct_commands += 1
 
         total_slot_f1 += slot_extraction_f1(example, prediction)
 
     return {
-        "intent_accuracy": correct_intents / total,
+        "command_accuracy": correct_commands / total,
         "avg_slot_f1": total_slot_f1 / total
     }
 
 # Evaluate on test set
 results = evaluate(optimized_module, testset)
-print(f"Intent Accuracy: {results['intent_accuracy']:.2%}")
+print(f"Command Accuracy: {results['command_accuracy']:.2%}")
 print(f"Avg Slot F1: {results['avg_slot_f1']:.2f}")
 ```
 
@@ -783,6 +1054,166 @@ production_module.load("soni_du_v1.json")
 
 # Use
 result = await production_module.aforward(user_message, context)
+```
+
+## Module Serialization and Deployment
+
+### Save Modes
+
+DSPy modules can be saved in two modes:
+
+#### Mode 1: State-Only (Recommended)
+
+Save only optimized parameters (prompts, demos) to JSON or pickle:
+
+```python
+# Save to JSON (recommended - human readable, safe)
+optimized_module.save("soni_du_v1.json")
+
+# Save to pickle (for non-JSON-serializable objects)
+optimized_module.save("soni_du_v1.pkl")
+```
+
+**JSON Format**:
+- ✅ Human-readable
+- ✅ Safe to load (no code execution)
+- ✅ Version control friendly
+- ✅ Cross-platform compatible
+- ⚠️ Requires module class to be available at load time
+
+**Pickle Format**:
+- ✅ Supports any Python object
+- ⚠️ Can execute arbitrary code (security risk)
+- ⚠️ Python version dependent
+- ⚠️ Not human-readable
+
+#### Mode 2: Full Program (Advanced)
+
+Save entire module including architecture:
+
+```python
+# Save full program to directory
+optimized_module.save(
+    "soni_du_v1_full/",
+    save_program=True,
+    modules_to_serialize=[soni.du.modules]  # Serialize custom modules
+)
+```
+
+**Use when**:
+- Module architecture changes frequently
+- Deploying to environment without source code
+- Need perfect reproducibility
+
+### Loading Saved Modules
+
+```python
+# Load state-only (requires class definition)
+production_module = SoniDU()
+production_module.load("soni_du_v1.json")
+
+# Load full program (no class needed)
+import dspy
+production_module = dspy.load("soni_du_v1_full/")
+```
+
+### Deployment Best Practices
+
+#### 1. Version Management
+
+```python
+import datetime
+
+version = "v1.2"
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f"soni_du_{version}_{timestamp}.json"
+
+optimized_module.save(filename)
+
+# Store metadata
+metadata = {
+    "version": version,
+    "timestamp": timestamp,
+    "metrics": {
+        "command_accuracy": 0.94,
+        "slot_f1": 0.89
+    },
+    "training_size": len(trainset),
+    "optimizer": "MIPROv2"
+}
+
+import json
+with open(f"soni_du_{version}_{timestamp}_metadata.json", "w") as f:
+    json.dump(metadata, f, indent=2)
+```
+
+#### 2. A/B Testing Deployment
+
+```python
+class ModuleRouter:
+    """Route requests between module versions for A/B testing."""
+
+    def __init__(self, module_a, module_b, split_ratio=0.5):
+        self.module_a = module_a  # Current version
+        self.module_b = module_b  # New version
+        self.split_ratio = split_ratio
+
+    async def predict(self, user_message, history, context):
+        """Route to A or B based on split ratio."""
+        import random
+
+        if random.random() < self.split_ratio:
+            return await self.module_a.predict(user_message, history, context)
+        else:
+            return await self.module_b.predict(user_message, history, context)
+```
+
+#### 3. Rollback Strategy
+
+```python
+# Keep last 3 versions for quick rollback
+versions = [
+    "soni_du_v1.2_20241204.json",  # Current
+    "soni_du_v1.1_20241201.json",  # Previous
+    "soni_du_v1.0_20241128.json",  # Stable
+]
+
+def load_module_version(version_index=0):
+    """Load specific version (0=current, 1=previous, etc.)."""
+    module = SoniDU()
+    module.load(versions[version_index])
+    return module
+```
+
+### Compatibility Considerations
+
+```python
+# Check version compatibility when loading
+from packaging import version as pkg_version
+
+def safe_load_module(path):
+    """Load module with version compatibility check."""
+    import json
+
+    # Load metadata
+    with open(path.replace(".json", "_metadata.json")) as f:
+        metadata = json.load(f)
+
+    # Check DSPy version compatibility
+    import dspy
+    saved_dspy_version = metadata.get("dspy_version", "3.0.0")
+    current_dspy_version = dspy.__version__
+
+    if pkg_version.parse(current_dspy_version) < pkg_version.parse(saved_dspy_version):
+        logger.warning(
+            f"Loading module saved with DSPy {saved_dspy_version}, "
+            f"but current version is {current_dspy_version}"
+        )
+
+    # Load module
+    module = SoniDU()
+    module.load(path)
+    return module
 ```
 
 ## Iterative Improvement
@@ -826,14 +1257,16 @@ def analyze_errors(module, dataset):
     for example in dataset:
         prediction = module(
             user_message=example.user_message,
-            context=example.context
+            history=example.history,
+            context=example.context,
+            current_datetime=example.current_datetime
         )
 
-        if prediction.intent != example.intent:
+        if prediction.result.command != example.result.command:
             errors.append({
                 "message": example.user_message,
-                "expected": example.intent,
-                "predicted": prediction.intent,
+                "expected": example.result.command,
+                "predicted": prediction.result.command,
                 "context": example.context
             })
 
@@ -856,6 +1289,92 @@ def analyze_errors(module, dataset):
             print(f"  - {ex['message']}")
 ```
 
+## Error Handling in Optimization
+
+### Common Errors and Solutions
+
+#### 1. Pydantic Validation Errors
+
+**Scenario**: LLM generates invalid structured output
+
+```python
+from pydantic import ValidationError
+
+async def safe_predict(module, **inputs):
+    """Predict with graceful error handling."""
+    try:
+        prediction = await module.acall(**inputs)
+        return prediction.result
+    except ValidationError as e:
+        logger.error(f"Pydantic validation failed: {e}")
+        # Fallback: return default result
+        return NLUOutput(
+            message_type=MessageType.CONTINUE,
+            command="unknown",
+            slots=[],
+            confidence=0.0,
+            reasoning=f"Validation error: {str(e)}"
+        )
+```
+
+#### 2. Optimizer Failures
+
+**Scenario**: Optimization fails to improve metric
+
+```python
+def optimize_with_fallback(student, trainset, valset):
+    """Optimize with fallback to unoptimized module."""
+    try:
+        optimizer = MIPROv2(metric=combined_metric)
+        optimized = optimizer.compile(
+            student,
+            trainset=trainset,
+            valset=valset,
+            num_trials=50
+        )
+        return optimized
+    except Exception as e:
+        logger.warning(f"Optimization failed: {e}, using unoptimized module")
+        return student
+```
+
+#### 3. Training Data Quality Issues
+
+**Scenario**: Examples don't match signature
+
+```python
+def validate_training_data(examples: list[dspy.Example], signature) -> list[dspy.Example]:
+    """Validate training examples match signature."""
+    valid_examples = []
+
+    for idx, example in enumerate(examples):
+        try:
+            # Check all input fields present
+            for field_name in signature.input_fields:
+                if field_name not in example:
+                    raise ValueError(f"Missing input field: {field_name}")
+
+            # Check all output fields present
+            for field_name in signature.output_fields:
+                if field_name not in example:
+                    raise ValueError(f"Missing output field: {field_name}")
+
+            valid_examples.append(example)
+        except Exception as e:
+            logger.error(f"Invalid example {idx}: {e}")
+            continue
+
+    return valid_examples
+```
+
+### Error Handling Best Practices
+
+1. **Graceful Degradation**: Always provide fallback behavior
+2. **Detailed Logging**: Log errors with context for debugging
+3. **Validation Early**: Validate training data before optimization
+4. **Retry Logic**: Implement retries for transient failures
+5. **User Feedback**: Provide clear error messages in English
+
 ## Best Practices
 
 ### 1. Start Simple
@@ -863,9 +1382,9 @@ def analyze_errors(module, dataset):
 Begin with small training set (20-50 examples) and basic metric:
 
 ```python
-# Start with intent accuracy only
+# Start with command accuracy only
 def simple_metric(example, prediction):
-    return float(prediction.intent == example.intent)
+    return float(prediction.result.command == example.result.command)
 
 # Use fast optimizer
 optimizer = BootstrapFewShot(metric=simple_metric)
@@ -917,11 +1436,28 @@ optimized_module.save(f"soni_du_{version}_{date}.json")
 save_metrics({
     "version": version,
     "date": date,
-    "intent_accuracy": results["intent_accuracy"],
+    "command_accuracy": results["command_accuracy"],
     "slot_f1": results["avg_slot_f1"],
     "training_size": len(trainset)
 })
 ```
+
+### DummyLM and Adapters
+
+`DummyLM` requires an adapter to format outputs correctly. By default, it uses `ChatAdapter`:
+
+```python
+from dspy.utils.dummies import DummyLM
+
+# Uses ChatAdapter by default
+lm = DummyLM([{"result": {...}}])
+
+# Custom adapter (for JSON or XML output)
+from dspy.adapters import JSONAdapter
+lm = DummyLM([{"result": {...}}], adapter=JSONAdapter())
+```
+
+**Why adapters matter**: Different adapters format field outputs differently (e.g., `[[## field ##]]` for ChatAdapter vs JSON structure for JSONAdapter). DummyLM needs to mimic the same format your real LM uses.
 
 ## Testing with DummyLM
 
@@ -1125,5 +1661,8 @@ This enables systematic, data-driven improvement of dialogue understanding quali
 
 ---
 
-**Design Version**: v0.8 (Production-Ready with Structured Types)
-**Status**: Production-ready design specification
+**Design Version**: v0.8 (Future State with Structured Types)
+**Status**: Design specification for post-refactor implementation
+**Current Implementation**: v0.5 (see README.md for production status)
+
+**Note**: This document describes the target architecture using Pydantic structured types and dspy.History. The current v0.5 implementation uses JSON strings. This design will be implemented during the planned refactoring. See [`docs/design/README.md`](docs/design/README.md) for current production state.
