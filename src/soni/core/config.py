@@ -385,7 +385,7 @@ class StepConfig(BaseModel):
     """Configuration for a single step in a flow."""
 
     step: str = Field(..., description="Step identifier")
-    type: str = Field(..., description="Step type: collect, action, branch")
+    type: str = Field(..., description="Step type: collect, action, branch, confirm")
     slot: str | None = Field(
         default=None,
         description="Slot name (for collect steps)",
@@ -409,6 +409,10 @@ class StepConfig(BaseModel):
     jump_to: str | None = Field(
         default=None,
         description="Explicit jump to another step (breaks sequential flow)",
+    )
+    message: str | None = Field(
+        default=None,
+        description="Message to display (for confirm steps, supports {slot} interpolation)",
     )
 
 

@@ -26,7 +26,8 @@ async def understand_node(
         Partial state updates with NLU result
     """
     # Access dependencies (type-safe)
-    nlu_provider = runtime.context["nlu_provider"]
+    # Note: "du" is the key used in create_runtime_context (Dialogue Understanding)
+    nlu_provider = runtime.context["du"]
     flow_manager = runtime.context["flow_manager"]
     scope_manager = runtime.context["scope_manager"]
 
@@ -52,14 +53,23 @@ async def understand_node(
             f"NLU will infer from available_flows: {scope_manager.get_available_flows(state)}"
         )
 
+    # Get the specific slot we're waiting for (if any)
+    waiting_for_slot = state.get("waiting_for_slot")
+
     dialogue_context = {
         "current_slots": (state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}),
         "available_actions": available_actions,
         "available_flows": scope_manager.get_available_flows(state),
         "current_flow": current_flow_name,
         "expected_slots": expected_slots,
+        "waiting_for_slot": waiting_for_slot,  # Prioritize this slot
         "history": state["messages"][-5:] if state["messages"] else [],  # Last 5 messages
     }
+
+    logger.debug(
+        f"NLU context: waiting_for_slot={waiting_for_slot}, expected_slots={expected_slots}",
+        extra={"waiting_for_slot": waiting_for_slot, "expected_slots": expected_slots},
+    )
 
     # Call NLU
     nlu_result = await nlu_provider.understand(

@@ -213,12 +213,44 @@ class RuntimeLoop:
 
         This method initializes the graph asynchronously if not already done.
         Uses a lock to prevent concurrent initialization.
+
+        Uses the generic dialogue graph from builder.py which has:
+        - understand node (NLU processing)
+        - validate_slot node (slot validation)
+        - collect_next_slot node (slot collection with interrupt)
+        - execute_action node (action execution)
+        - generate_response node (response generation)
+        - Routing based on NLU results and conversation state
         """
         if self.graph is None:
             async with self._graph_init_lock:
                 # Double-check pattern: another coroutine might have initialized it
                 if self.graph is None:
-                    self.graph = await self.builder.build_manual(self._flow_name)
+                    # Initialize checkpointer
+                    await self.builder.initialize()
+
+                    # Create runtime context with all dependencies
+                    from soni.core.state import create_runtime_context
+                    from soni.dm.builder import build_graph
+
+                    runtime_context = create_runtime_context(
+                        config=self.config,
+                        scope_manager=self.scope_manager,
+                        normalizer=self.normalizer,
+                        action_handler=self.builder.action_handler,
+                        du=self.du,
+                    )
+
+                    # Build the generic dialogue graph (not the flow-specific one)
+                    # This graph has proper routing for all conversation states
+                    self.graph = build_graph(
+                        context=runtime_context,
+                        checkpointer=self.builder.checkpointer,
+                    )
+
+                    # Store runtime context for reference
+                    self._runtime_context = runtime_context
+
                     # Initialize managers after graph is built
                     self.conversation_manager = ConversationManager(self.graph)
                     self.streaming_manager = StreamingManager()
@@ -412,13 +444,68 @@ class RuntimeLoop:
 
         # Execute graph
         config = {"configurable": {"thread_id": user_id}}
-        result_raw = await self.graph.ainvoke(
-            state_to_dict(state),
-            config=config,
-        )
+
+        # Check if graph is interrupted (has pending nodes)
+        snapshot = await self.graph.aget_state(config)
+
+        # Check if graph is interrupted (has pending tasks)
+        # StateSnapshot has 'next' attribute (tuple of pending node names)
+        # Empty tuple () means no pending tasks
+        if snapshot and hasattr(snapshot, "next") and snapshot.next:
+            # Graph is interrupted - resume with user message
+            # Use Command(resume=msg) to pass user input to interrupt()
+            from langgraph.types import Command
+
+            result_raw = await self.graph.ainvoke(
+                Command(resume=state["user_message"]),
+                config=config,
+            )
+        else:
+            # New or completed conversation - start from beginning
+            result_raw = await self.graph.ainvoke(
+                state_to_dict(state),
+                config=config,
+            )
 
         # Type assertion: graph.ainvoke returns dict-like state
         result: dict[str, Any] = dict(result_raw) if isinstance(result_raw, dict) else {}
+
+        # Check if graph is still interrupted AFTER execution
+        # If interrupted, process interrupts to extract prompt
+        # If completed, use last_response from nodes (e.g., generate_response_node)
+        post_execution_snapshot = await self.graph.aget_state(config)
+        is_still_interrupted = (
+            post_execution_snapshot
+            and hasattr(post_execution_snapshot, "next")
+            and post_execution_snapshot.next
+        )
+
+        # Check if we have a last_response from nodes (e.g., generate_response_node)
+        # This takes priority over interrupts
+        has_last_response_from_nodes = bool(result.get("last_response"))
+
+        logger.info(
+            f"After graph execution: is_still_interrupted={is_still_interrupted}, "
+            f"last_response_before_interrupts={result.get('last_response')}, "
+            f"has_interrupt={('__interrupt__' in result)}, "
+            f"has_last_response_from_nodes={has_last_response_from_nodes}"
+        )
+
+        if is_still_interrupted and not has_last_response_from_nodes:
+            # Graph is still interrupted AND no response from nodes - process interrupts to extract prompt
+            logger.info("Graph still interrupted and no node response, processing interrupts")
+            self._process_interrupts(result)
+            logger.info(f"After processing interrupts, last_response={result.get('last_response')}")
+        elif has_last_response_from_nodes:
+            # We have a response from nodes (e.g., generate_response_node) - use it
+            # Don't process interrupts as they would overwrite the final response
+            logger.info(f"Using last_response from nodes: {result.get('last_response')}")
+        else:
+            # Graph completed but no response - process interrupts as fallback
+            logger.warning(
+                "Graph completed but no last_response, processing interrupts as fallback"
+            )
+            self._process_interrupts(result)
 
         logger.info(
             f"Graph execution completed for user {user_id}",
@@ -426,10 +513,58 @@ class RuntimeLoop:
                 "user_id": user_id,
                 "turn_count": state["turn_count"] + 1,
                 "current_flow": result.get("current_flow"),
+                "final_last_response": result.get("last_response"),
             },
         )
 
         return result
+
+    def _process_interrupts(self, result: dict[str, Any]) -> None:
+        """
+        Process interrupt values and update state accordingly.
+
+        When a graph is interrupted, LangGraph includes an '__interrupt__' key
+        in the result with Interrupt objects containing the interrupt values.
+        This method extracts relevant information from interrupts and updates
+        the result state (e.g., setting last_response to the prompt).
+
+        Args:
+            result: Graph execution result dict (modified in-place)
+
+        Note:
+            This follows SRP by separating interrupt handling from graph execution.
+            According to LangGraph docs (v0.4.0+), result["__interrupt__"] contains
+            a list of Interrupt objects with value, resumable, and ns attributes.
+        """
+        if "__interrupt__" not in result or not result["__interrupt__"]:
+            return
+
+        interrupts = result["__interrupt__"]
+        if not interrupts or len(interrupts) == 0:
+            return
+
+        # Extract the first interrupt (typically only one for our use case)
+        first_interrupt = interrupts[0]
+
+        # Extract the prompt value from the interrupt
+        # The interrupt can be an object with .value attribute or a dict
+        prompt = None
+        if hasattr(first_interrupt, "value"):
+            prompt = first_interrupt.value
+        elif isinstance(first_interrupt, dict) and "value" in first_interrupt:
+            prompt = first_interrupt["value"]
+
+        # If the interrupt value is a string, treat it as a prompt
+        # and set it as last_response so the user sees it
+        if prompt and isinstance(prompt, str):
+            result["last_response"] = prompt
+            logger.info(
+                "Extracted prompt from interrupt",
+                extra={
+                    "prompt_preview": prompt[:50] + ("..." if len(prompt) > 50 else ""),
+                    "prompt_length": len(prompt),
+                },
+            )
 
     def _extract_response(
         self,
@@ -467,8 +602,13 @@ class RuntimeLoop:
         """
         # Extract response from result
         # The graph should update state with last_response
-        response_raw = result.get("last_response", "I'm sorry, I didn't understand that.")
-        response = str(response_raw) if response_raw else "I'm sorry, I didn't understand that."
+        response_raw = result.get("last_response")
+
+        # If last_response is the prompt from interrupt, use it
+        if response_raw:
+            response = str(response_raw)
+        else:
+            response = "I'm sorry, I didn't understand that."
 
         logger.info(
             f"Successfully processed message for user {user_id}",

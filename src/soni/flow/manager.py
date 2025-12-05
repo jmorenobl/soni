@@ -11,12 +11,14 @@ from soni.core.types import DialogueState, FlowContext, FlowState
 class FlowManager:
     """Manages flow stack operations and flow instance data."""
 
-    def __init__(self, max_stack_depth: int = 10) -> None:
+    def __init__(self, config: Any | None = None, max_stack_depth: int = 10) -> None:
         """Initialize FlowManager with optional stack depth limit.
 
         Args:
+            config: Optional Soni configuration (needed for step initialization)
             max_stack_depth: Maximum depth of flow stack (default: 10)
         """
+        self.config = config
         self.max_stack_depth = max_stack_depth
 
     def push_flow(
@@ -57,11 +59,21 @@ class FlowManager:
 
         # Create new flow context
         flow_id = f"{flow_name}_{uuid.uuid4().hex[:8]}"
+
+        # Set current_step to first step in flow if config is available
+        current_step = None
+        if self.config and hasattr(self.config, "flows"):
+            flow_config = self.config.flows.get(flow_name)
+            if flow_config:
+                steps = flow_config.steps_or_process
+                if steps:
+                    current_step = steps[0].step
+
         new_context: FlowContext = {
             "flow_id": flow_id,
             "flow_name": flow_name,
             "flow_state": "active",
-            "current_step": None,
+            "current_step": current_step,
             "outputs": {},
             "started_at": time.time(),
             "paused_at": None,

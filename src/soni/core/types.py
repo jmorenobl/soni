@@ -62,8 +62,11 @@ ConversationState = Literal[
     "understanding",
     "waiting_for_slot",
     "validating_slot",
-    "collecting",
+    "ready_for_action",  # Intermediate: ready to execute action
+    "ready_for_confirmation",  # Intermediate: ready to ask for confirmation
+    "confirming",  # Active: waiting for user confirmation response
     "executing_action",
+    "completed",
     "generating_response",
     "error",
 ]
@@ -81,3 +84,5 @@ class RuntimeContext(TypedDict):
     normalizer: Any  # INormalizer
     action_handler: Any  # IActionHandler
     du: Any  # INLUProvider
+    step_manager: Any  # FlowStepManager
+    flow_manager: Any  # FlowManager

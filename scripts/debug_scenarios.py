@@ -270,7 +270,27 @@ async def run_scenario(
                 # Show actual state
                 print(f"\n{C.Y}State:{C.E}")
                 print(f"  Flow: {C.BOLD}{current_flow}{C.E} (stack depth: {stack_depth})")
+                print(f"  Current Step: {state.get('current_step', 'None')}")
+                print(f"  Conversation State: {state.get('conversation_state', 'N/A')}")
+                print(f"  Waiting for Slot: {state.get('waiting_for_slot', 'None')}")
+                print(f"  Current Prompted Slot: {state.get('current_prompted_slot', 'None')}")
+                print(f"  All Slots Filled: {state.get('all_slots_filled', False)}")
                 print(f"  Slots: {json.dumps(slots, indent=2) if slots else '{}'}")
+
+                # Show last 3 trace events
+                trace = state.get("trace", [])
+                if trace:
+                    print(f"\n{C.Y}Last Trace Events:{C.E}")
+                    for event in trace[-3:]:
+                        event_type = event.get("event", "unknown")
+                        event_data = event.get("data", {})
+                        # Convert to JSON-safe format
+                        try:
+                            safe_data = json.dumps(event_data, indent=4, default=str)[:200]
+                        except (TypeError, ValueError):
+                            safe_data = str(event_data)[:200]
+                        print(f"  - {event_type}: {safe_data}...")
+
                 print(f"  Latency: {latency:.2f}s")
 
                 turn_result["actual"] = {

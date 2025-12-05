@@ -254,7 +254,9 @@ async def test_process_message_with_checkpoint_loading(runtime_loop):
         patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
     ):
         # Mock aget_state to return existing state
-        mock_state_snapshot = type("StateSnapshot", (), {"values": existing_state})()
+        # StateSnapshot has 'next' attribute (tuple of pending node names)
+        # Empty tuple () means no pending tasks (graph not interrupted)
+        mock_state_snapshot = type("StateSnapshot", (), {"values": existing_state, "next": ()})()
         mock_aget_state.return_value = mock_state_snapshot
 
         # Mock ainvoke to return response
@@ -268,7 +270,8 @@ async def test_process_message_with_checkpoint_loading(runtime_loop):
         response = await runtime.process_message(user_msg, user_id)
 
         # Assert
-        mock_aget_state.assert_called_once()
+        # aget_state is called twice: once in _load_or_create_state, once in _execute_graph
+        assert mock_aget_state.call_count == 2
         assert response == "Where would you like to go?"
 
 
@@ -287,9 +290,15 @@ async def test_process_message_checkpoint_loading_error(runtime_loop):
         patch.object(runtime.graph, "aget_state") as mock_aget_state,
         patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
     ):
-        # Mock aget_state to raise expected persistence error (OSError)
-        # This should be caught and handled gracefully (create new state)
-        mock_aget_state.side_effect = OSError("Checkpoint loading failed")
+        # Mock aget_state to raise expected persistence error (OSError) on first call
+        # Second call (in _execute_graph) should return empty snapshot (no pending tasks)
+        def side_effect(*args, **kwargs):
+            if mock_aget_state.call_count == 1:
+                raise OSError("Checkpoint loading failed")
+            # Return empty snapshot for subsequent calls
+            return type("StateSnapshot", (), {"values": {}, "next": ()})()
+
+        mock_aget_state.side_effect = side_effect
 
         # Mock ainvoke to return response
         mock_ainvoke.return_value = {

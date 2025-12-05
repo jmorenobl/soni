@@ -10,13 +10,52 @@ if TYPE_CHECKING:
 
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes.collect_next_slot import collect_next_slot_node
+from soni.dm.nodes.confirm_action import confirm_action_node
 from soni.dm.nodes.execute_action import execute_action_node
 from soni.dm.nodes.generate_response import generate_response_node
+from soni.dm.nodes.handle_confirmation import handle_confirmation_node
 from soni.dm.nodes.handle_digression import handle_digression_node
 from soni.dm.nodes.handle_intent_change import handle_intent_change_node
 from soni.dm.nodes.understand import understand_node
 from soni.dm.nodes.validate_slot import validate_slot_node
-from soni.dm.routing import route_after_understand, route_after_validate
+from soni.dm.routing import (
+    route_after_action,
+    route_after_confirmation,
+    route_after_understand,
+    route_after_validate,
+)
+
+
+class RuntimeWrapper:
+    """Wrapper to inject RuntimeContext into node functions.
+
+    LangGraph nodes receive (state, config) but our nodes expect (state, runtime)
+    where runtime.context contains dependencies. This wrapper bridges that gap.
+    """
+
+    def __init__(self, context: RuntimeContext):
+        self.context = context
+
+
+def _wrap_node(node_fn: Any, context: RuntimeContext) -> Any:
+    """Wrap a node function to inject RuntimeContext.
+
+    Args:
+        node_fn: Original node function expecting (state, runtime)
+        context: RuntimeContext to inject
+
+    Returns:
+        Wrapped function that LangGraph can call with (state) or (state, config)
+    """
+    runtime = RuntimeWrapper(context)
+
+    async def wrapped(state: DialogueState) -> dict[str, Any]:
+        result = await node_fn(state, runtime)
+        return dict(result) if result else {}
+
+    # Preserve function name for debugging
+    wrapped.__name__ = getattr(node_fn, "__name__", "wrapped_node")
+    return wrapped
 
 
 def build_graph(
@@ -38,14 +77,18 @@ def build_graph(
     # Runtime context is passed via runtime parameter in nodes
     builder = StateGraph(DialogueState)
 
-    # Add nodes
-    builder.add_node("understand", understand_node)
-    builder.add_node("validate_slot", validate_slot_node)
-    builder.add_node("collect_next_slot", collect_next_slot_node)
-    builder.add_node("handle_intent_change", handle_intent_change_node)
-    builder.add_node("handle_digression", handle_digression_node)
-    builder.add_node("execute_action", execute_action_node)
-    builder.add_node("generate_response", generate_response_node)
+    # Wrap nodes to inject RuntimeContext
+    # LangGraph calls nodes with (state) or (state, config), but our nodes expect (state, runtime)
+    # where runtime.context contains dependencies
+    builder.add_node("understand", _wrap_node(understand_node, context))
+    builder.add_node("validate_slot", _wrap_node(validate_slot_node, context))
+    builder.add_node("collect_next_slot", _wrap_node(collect_next_slot_node, context))
+    builder.add_node("confirm_action", _wrap_node(confirm_action_node, context))
+    builder.add_node("handle_confirmation", _wrap_node(handle_confirmation_node, context))
+    builder.add_node("handle_intent_change", _wrap_node(handle_intent_change_node, context))
+    builder.add_node("handle_digression", _wrap_node(handle_digression_node, context))
+    builder.add_node("execute_action", _wrap_node(execute_action_node, context))
+    builder.add_node("generate_response", _wrap_node(generate_response_node, context))
 
     # Entry point: START → understand (ALWAYS)
     builder.add_edge(START, "understand")
@@ -58,6 +101,8 @@ def build_graph(
             "validate_slot": "validate_slot",
             "handle_digression": "handle_digression",
             "handle_intent_change": "handle_intent_change",
+            "handle_confirmation": "handle_confirmation",
+            "collect_next_slot": "collect_next_slot",  # For continuation
             "generate_response": "generate_response",
         },
     )
@@ -71,18 +116,41 @@ def build_graph(
         route_after_validate,
         {
             "execute_action": "execute_action",
+            "confirm_action": "confirm_action",
             "collect_next_slot": "collect_next_slot",
+            "generate_response": "generate_response",  # For completed flows or fallback
         },
     )
 
     # After collecting slot, back to understand
     builder.add_edge("collect_next_slot", "understand")
 
-    # After intent change, back to understand
-    builder.add_edge("handle_intent_change", "understand")
+    # After confirmation request, back to understand (to process user's yes/no)
+    builder.add_edge("confirm_action", "understand")
 
-    # Action → response → END
-    builder.add_edge("execute_action", "generate_response")
+    # After handling confirmation response, route based on result
+    builder.add_conditional_edges(
+        "handle_confirmation",
+        route_after_confirmation,
+        {
+            "execute_action": "execute_action",
+            "understand": "understand",  # For modifications/denials
+        },
+    )
+
+    # After intent change, go to collect_next_slot to start the new flow
+    # (not back to understand, which would create an infinite loop)
+    builder.add_edge("handle_intent_change", "collect_next_slot")
+
+    # After executing action, route based on conversation_state
+    builder.add_conditional_edges(
+        "execute_action",
+        route_after_action,
+        {
+            "execute_action": "execute_action",  # Another action to execute
+            "generate_response": "generate_response",  # Flow complete
+        },
+    )
     builder.add_edge("generate_response", END)
 
     # Compile with checkpointer

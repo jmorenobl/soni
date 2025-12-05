@@ -33,9 +33,14 @@ async def test_collect_next_slot_with_active_flow():
         "flow_name": "book_flight",
     }
 
+    mock_step_manager = MagicMock()
+    mock_step_manager.get_current_step_config.return_value = None
+    mock_step_manager.get_next_step_config.return_value = None
+
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "flow_manager": mock_flow_manager,
+        "step_manager": mock_step_manager,
     }
 
     # Act
@@ -62,9 +67,12 @@ async def test_collect_next_slot_no_active_flow():
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = None
 
+    mock_step_manager = MagicMock()
+
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "flow_manager": mock_flow_manager,
+        "step_manager": mock_step_manager,
     }
 
     # Act

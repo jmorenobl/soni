@@ -237,6 +237,15 @@ def route_after_understand(state: DialogueStateType) -> str:
 
     Returns:
         Name of next node to execute
+
+    Note:
+        Only returns values that are in the builder.py edge map:
+        - validate_slot
+        - handle_digression
+        - handle_intent_change
+        - handle_confirmation
+        - collect_next_slot
+        - generate_response
     """
     nlu_result = state.get("nlu_result")
 
@@ -245,33 +254,45 @@ def route_after_understand(state: DialogueStateType) -> str:
 
     message_type = nlu_result.get("message_type")
 
+    # Normalize message_type - it can be a string or an enum (MessageType)
+    if message_type is not None:
+        # If it's an enum, get its value (string)
+        if hasattr(message_type, "value"):
+            message_type = message_type.value
+        # Convert to lowercase for consistent matching
+        message_type = str(message_type).lower()
+
+    logger.debug(f"route_after_understand: message_type={message_type}")
+
     # Route based on message type
+    # Map to nodes that exist in builder.py edge map
     match message_type:
         case "slot_value":
             return "validate_slot"
-        case "correction":
-            return "handle_correction"
-        case "modification":
-            return "handle_modification"
-        case "interruption":
+        case "correction" | "modification":
+            # Corrections and modifications are handled like slot values
+            return "validate_slot"
+        case "interruption" | "intent_change":
             return "handle_intent_change"
-        case "digression":
+        case "digression" | "question":
             return "handle_digression"
         case "clarification":
-            return "handle_clarification"
+            # Clarifications need more info, back to generate_response
+            return "generate_response"
         case "cancellation":
-            return "handle_cancellation"
+            # Cancellation handled by generate_response for now
+            return "generate_response"
         case "confirmation":
             return "handle_confirmation"
         case "continuation":
-            return "continue_flow"
+            # Continue the flow - collect next slot
+            return "collect_next_slot"
         case _:
             return "generate_response"
 
 
 def route_after_validate(state: DialogueStateType) -> str:
-    """
-    Route after slot validation.
+    """Route after slot validation based on conversation_state.
 
     Args:
         state: Current dialogue state
@@ -279,16 +300,80 @@ def route_after_validate(state: DialogueStateType) -> str:
     Returns:
         Next node name
     """
-    # Check if all required slots filled
-    flow_stack = state.get("flow_stack", [])
-    active_flow = flow_stack[-1] if flow_stack else None
+    conv_state = state.get("conversation_state")
 
-    if not active_flow:
+    # Route based on conversation_state as specified in design
+    if conv_state == "ready_for_action":
+        return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        return "confirm_action"
+    elif conv_state == "waiting_for_slot":
+        return "collect_next_slot"
+    elif conv_state == "completed":
+        return "generate_response"
+    else:
+        # Default fallback
         return "generate_response"
 
-    # TODO: Check slot requirements from flow definition
-    # For now, simple logic
-    if state.get("all_slots_filled"):
+
+def route_after_action(state: DialogueStateType) -> str:
+    """Route after action execution based on conversation_state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    conv_state = state.get("conversation_state")
+
+    logger.info(
+        f"route_after_action: conversation_state={conv_state}",
+        extra={"conversation_state": conv_state},
+    )
+
+    # After executing an action, check what's next
+    if conv_state == "ready_for_action":
+        # Another action to execute
+        logger.info("Routing to execute_action (another action)")
         return "execute_action"
+    elif conv_state == "completed":
+        # Flow complete, generate final response
+        logger.info("Routing to generate_response (flow completed)")
+        return "generate_response"
+    elif conv_state == "generating_response":
+        # Next step is a "say" step - generate response
+        logger.info("Routing to generate_response (say step)")
+        return "generate_response"
+    elif conv_state == "waiting_for_slot":
+        # Unexpected: action revealed missing slots
+        # This shouldn't happen in current implementation but handle gracefully
+        logger.warning("Routing to generate_response (unexpected waiting_for_slot)")
+        return "generate_response"
     else:
-        return "collect_next_slot"
+        # Default: flow complete
+        logger.info(f"Routing to generate_response (default, state={conv_state})")
+        return "generate_response"
+
+
+def route_after_confirmation(state: DialogueStateType) -> str:
+    """Route after handling confirmation response.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    conv_state = state.get("conversation_state")
+
+    # After handling confirmation
+    if conv_state == "ready_for_action":
+        # User confirmed, proceed to action
+        return "execute_action"
+    elif conv_state == "confirming":
+        # Confirmation unclear, ask again (shouldn't happen but handle gracefully)
+        return "understand"
+    else:
+        # User denied or wants to modify, go back to understand
+        return "understand"

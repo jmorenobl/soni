@@ -37,10 +37,17 @@ async def test_execute_action_success():
         "flow_name": "book_flight",
     }
 
+    mock_step_manager = MagicMock()
+    mock_step_manager.get_current_step_config.return_value = MagicMock(
+        type="action", call="search_available_flights"
+    )
+    mock_step_manager.advance_to_next_step.return_value = {}
+
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "action_handler": mock_action_handler,
         "flow_manager": mock_flow_manager,
+        "step_manager": mock_step_manager,
     }
 
     # Act
@@ -62,10 +69,13 @@ async def test_execute_action_no_active_flow():
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = None
 
+    mock_step_manager = MagicMock()
+
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "action_handler": AsyncMock(),
         "flow_manager": mock_flow_manager,
+        "step_manager": mock_step_manager,
     }
 
     # Act

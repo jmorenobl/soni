@@ -29,7 +29,7 @@ async def test_handle_intent_change_success():
     result = await handle_intent_change_node(state, mock_runtime)
 
     # Assert
-    assert result["conversation_state"] == "collecting"
+    assert result["conversation_state"] == "waiting_for_slot"
     mock_flow_manager.push_flow.assert_called_once()
 
 

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 async def collect_next_slot_node(
     state: DialogueState,
     runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
-) -> dict:
+) -> dict[str, Any]:
     """
     Ask for next required slot and pause execution.
 
@@ -29,31 +29,57 @@ async def collect_next_slot_node(
 
     # Get active flow (idempotent operation - safe before interrupt)
     flow_manager = runtime.context["flow_manager"]
+    step_manager = runtime.context["step_manager"]
     active_ctx = flow_manager.get_active_context(state)
 
     if not active_ctx:
         return {"conversation_state": "idle"}
 
-    # Determine next slot to collect
-    # TODO: Get from flow definition
-    next_slot = "origin"  # Placeholder
+    # Get current step configuration
+    current_step_config = step_manager.get_current_step_config(state, runtime.context)
 
-    # Generate prompt
-    prompt = f"Please provide your {next_slot}."
+    if not current_step_config:
+        # No current step, try to get next step
+        next_step_config = step_manager.get_next_step_config(state, runtime.context)
+        if next_step_config and next_step_config.type == "collect":
+            # Advance to next step
+            _ = step_manager.advance_to_next_step(state, runtime.context)
+            current_step_config = next_step_config
+        else:
+            return {"conversation_state": "error"}
+
+    # Get next required slot from current step
+    next_slot = step_manager.get_next_required_slot(state, current_step_config, runtime.context)
+
+    if not next_slot:
+        # No slot to collect, advance to next step
+        step_updates = step_manager.advance_to_next_step(state, runtime.context)
+        return dict(step_updates) if step_updates else {}
+
+    # Get slot configuration for proper prompt
+    from soni.core.state import get_slot_config
+
+    try:
+        slot_config = get_slot_config(runtime.context, next_slot)
+        prompt = (
+            slot_config.prompt
+            if hasattr(slot_config, "prompt")
+            else f"Please provide your {next_slot}."
+        )
+    except KeyError:
+        # Slot config not found, use generic prompt
+        prompt = f"Please provide your {next_slot}."
 
     # Pause here - wait for user response
-    user_response = interrupt(
-        {
-            "type": "slot_request",
-            "slot": next_slot,
-            "prompt": prompt,
-        }
-    )
+    # The prompt is passed as the interrupt value
+    # It will be available in result['__interrupt__'] after ainvoke()
+    user_response = interrupt(prompt)
 
     # Code after interrupt() executes when user responds
+    # The node re-executes from the beginning, and interrupt() returns the resume value
     return {
         "user_message": user_response,
         "waiting_for_slot": next_slot,
+        "current_prompted_slot": next_slot,
         "conversation_state": "waiting_for_slot",
-        "last_response": prompt,
     }

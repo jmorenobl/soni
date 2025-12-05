@@ -95,6 +95,42 @@ class SoniDU(dspy.Module):
             current_datetime=current_datetime,
         )
 
+    async def understand(
+        self,
+        user_message: str,
+        dialogue_context: dict,
+    ) -> dict:
+        """High-level async interface for NLU (INLUProvider interface).
+
+        This method adapts the dict-based interface expected by understand_node
+        to the typed interface of predict().
+
+        Args:
+            user_message: User's input message
+            dialogue_context: Dict with current_slots, available_actions, etc.
+
+        Returns:
+            Dict with message_type, command, slots, confidence, and reasoning
+        """
+        # Convert history from dialogue_context
+        history_messages = dialogue_context.get("history", [])
+        history = dspy.History(messages=history_messages)
+
+        # Convert dialogue_context to DialogueContext model
+        # Use waiting_for_slot as current_prompted_slot for NLU prioritization
+        context = DialogueContext(
+            current_slots=dialogue_context.get("current_slots", {}),
+            available_actions=dialogue_context.get("available_actions", []),
+            available_flows=dialogue_context.get("available_flows", []),
+            current_flow=dialogue_context.get("current_flow", "none"),
+            expected_slots=dialogue_context.get("expected_slots", []),
+            current_prompted_slot=dialogue_context.get("waiting_for_slot"),
+        )
+
+        # Call predict and return as dict
+        result = await self.predict(user_message, history, context)
+        return dict(result.model_dump())
+
     async def predict(
         self,
         user_message: str,

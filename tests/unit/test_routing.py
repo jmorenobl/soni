@@ -69,7 +69,7 @@ def test_route_after_understand_no_nlu_result():
 
 
 def test_route_after_validate_all_slots_filled():
-    """Test routing when all slots are filled."""
+    """Test routing when ready for action."""
     # Arrange
     state = create_empty_state()
     state["flow_stack"] = [
@@ -85,7 +85,7 @@ def test_route_after_validate_all_slots_filled():
             "context": None,
         }
     ]
-    state["all_slots_filled"] = True
+    state["conversation_state"] = "ready_for_action"
 
     # Act
     next_node = route_after_validate(state)
@@ -95,7 +95,7 @@ def test_route_after_validate_all_slots_filled():
 
 
 def test_route_after_validate_slots_missing():
-    """Test routing when slots are missing."""
+    """Test routing when waiting for slot."""
     # Arrange
     state = create_empty_state()
     state["flow_stack"] = [
@@ -111,7 +111,7 @@ def test_route_after_validate_slots_missing():
             "context": None,
         }
     ]
-    state["all_slots_filled"] = False
+    state["conversation_state"] = "waiting_for_slot"
 
     # Act
     next_node = route_after_validate(state)

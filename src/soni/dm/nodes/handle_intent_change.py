@@ -33,6 +33,8 @@ async def handle_intent_change_node(
         return {"conversation_state": "error"}
 
     # Start new flow
+    # push_flow modifies state["flow_stack"] and state["flow_slots"] in place
+    # and initializes current_step to the first step of the flow
     flow_manager.push_flow(
         state,
         flow_name=command,
@@ -40,7 +42,24 @@ async def handle_intent_change_node(
         reason="intent_change",
     )
 
+    # Get the current_step that push_flow set
+    active_ctx = flow_manager.get_active_context(state)
+    current_step = active_ctx["current_step"] if active_ctx else None
+
+    # Get the first slot to collect from the current step
+    step_manager = runtime.context["step_manager"]
+    waiting_for_slot = None
+    current_step_config = step_manager.get_current_step_config(state, runtime.context)
+    if current_step_config and current_step_config.type == "collect":
+        waiting_for_slot = current_step_config.slot
+
+    # Return the modified state parts
+    # IMPORTANT: Include flow_stack and flow_slots to propagate push_flow changes
     return {
-        "conversation_state": "collecting",
-        "current_step": None,
+        "conversation_state": "waiting_for_slot",
+        "current_step": current_step,
+        "waiting_for_slot": waiting_for_slot,
+        "current_prompted_slot": waiting_for_slot,
+        "flow_stack": state["flow_stack"],
+        "flow_slots": state["flow_slots"],
     }

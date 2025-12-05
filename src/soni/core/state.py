@@ -35,6 +35,8 @@ def create_runtime_context(
     normalizer: INormalizer,
     action_handler: IActionHandler,
     du: INLUProvider,
+    flow_manager: Any | None = None,
+    step_manager: Any | None = None,
 ) -> RuntimeContext:
     """Create a RuntimeContext with all dependencies.
 
@@ -44,16 +46,31 @@ def create_runtime_context(
         normalizer: Slot normalizer for value normalization
         action_handler: Handler for executing actions
         du: NLU provider for dialogue understanding
+        flow_manager: Optional flow manager (created if None)
+        step_manager: Optional step manager (created if None)
 
     Returns:
         RuntimeContext TypedDict
     """
+    # Import here to avoid circular imports
+    if flow_manager is None:
+        from soni.flow.manager import FlowManager
+
+        flow_manager = FlowManager(config=config)
+
+    if step_manager is None:
+        from soni.flow.step_manager import FlowStepManager
+
+        step_manager = FlowStepManager(config)
+
     return {
         "config": config,
         "scope_manager": scope_manager,
         "normalizer": normalizer,
         "action_handler": action_handler,
         "du": du,
+        "flow_manager": flow_manager,
+        "step_manager": step_manager,
     }
 
 
@@ -548,3 +565,53 @@ def set_all_slots(state: DialogueState | dict[str, Any], slots: dict[str, Any]) 
             flow_slots[flow_id] = {}
         flow_slots[flow_id].update(slots)
         state["flow_slots"] = flow_slots
+
+
+def get_current_step_config(
+    state: DialogueState | dict[str, Any],
+    context: RuntimeContext,
+) -> Any:  # StepConfig
+    """Get configuration for current step.
+
+    Args:
+        state: Current dialogue state
+        context: Runtime context with dependencies
+
+    Returns:
+        StepConfig for current step, or None if no current step
+    """
+    step_manager = context["step_manager"]
+    return step_manager.get_current_step_config(state, context)
+
+
+def get_next_step_config(
+    state: DialogueState | dict[str, Any],
+    context: RuntimeContext,
+) -> Any:  # StepConfig
+    """Get configuration for next step in sequence.
+
+    Args:
+        state: Current dialogue state
+        context: Runtime context with dependencies
+
+    Returns:
+        StepConfig for next step, or None if no next step (flow complete)
+    """
+    step_manager = context["step_manager"]
+    return step_manager.get_next_step_config(state, context)
+
+
+def update_current_step(
+    state: DialogueState | dict[str, Any],
+    step_name: str | None,
+) -> None:
+    """Update current_step in FlowContext (mutates state).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        step_name: Name of step to set as current, or None to clear
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_ctx = flow_stack[-1]
+        active_ctx["current_step"] = step_name

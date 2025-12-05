@@ -4,14 +4,18 @@ from soni.core.errors import ValidationError
 from soni.core.types import DialogueState
 
 # Valid state transitions (see state machine diagram)
+# Note: "collecting" state has been deprecated in favor of "waiting_for_slot"
 VALID_TRANSITIONS: dict[str, list[str]] = {
     "idle": ["understanding"],
     "understanding": ["waiting_for_slot", "validating_slot", "executing_action", "error", "idle"],
-    "waiting_for_slot": ["understanding"],
-    "validating_slot": ["collecting", "waiting_for_slot", "error"],
-    "collecting": ["understanding", "validating_slot", "executing_action"],
-    "executing_action": ["generating_response", "error"],
+    "waiting_for_slot": ["understanding", "validating_slot"],
+    "validating_slot": ["waiting_for_slot", "ready_for_action", "ready_for_confirmation", "error"],
+    "ready_for_action": ["executing_action"],
+    "ready_for_confirmation": ["confirming"],
+    "confirming": ["ready_for_action", "understanding"],
+    "executing_action": ["generating_response", "ready_for_action", "error"],
     "generating_response": ["idle", "understanding"],
+    "completed": ["generating_response"],
     "error": ["idle", "understanding"],
 }
 
