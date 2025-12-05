@@ -429,7 +429,7 @@ RuntimeLoop.process_message()
   ↓
 Understand Node
   ├─ Calls: nlu_provider.understand()
-  └─ Returns: NLUResult
+  └─ Returns: NLUOutput
   ↓
 Conditional Routing (based on NLU result)
   ├─ If digression → digression_handler.handle()

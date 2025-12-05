@@ -1,6 +1,8 @@
 """Tests for SoniGraphBuilder and graph nodes"""
 
+import importlib.util
 import warnings
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,12 +10,20 @@ import pytest
 from soni.core.config import SoniConfig
 from soni.core.state import DialogueState
 from soni.dm.graph import SoniGraphBuilder
-from soni.dm.nodes import (
-    collect_slot_node,
-    create_action_node_factory,
-    create_collect_node_factory,
-    create_understand_node,
-)
+from soni.dm.nodes import understand_node
+
+# Import factory functions from nodes.py file (not the nodes/ package)
+nodes_file_path = Path(__file__).parent.parent.parent / "src" / "soni" / "dm" / "nodes.py"
+spec = importlib.util.spec_from_file_location("soni.dm.nodes_file", nodes_file_path)
+if spec is None or spec.loader is None:
+    raise ImportError(f"Could not load nodes.py from {nodes_file_path}")
+nodes_file = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(nodes_file)
+
+collect_slot_node = nodes_file.collect_slot_node
+create_action_node_factory = nodes_file.create_action_node_factory
+create_collect_node_factory = nodes_file.create_collect_node_factory
+create_understand_node = nodes_file.create_understand_node
 
 
 @pytest.mark.asyncio
@@ -126,12 +136,13 @@ async def test_understand_node_with_message():
 
     # Create mock NLU provider
     mock_du = AsyncMock()
-    # Create NLUResult-like object
-    from soni.du.modules import NLUResult
+    # Create NLUOutput object
+    from soni.du.models import MessageType, NLUOutput, SlotValue
 
-    nlu_result = NLUResult(
+    nlu_result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
         command="book_flight",
-        slots={"destination": "Paris"},
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
         confidence=0.95,
         reasoning="User wants to book flight",
     )

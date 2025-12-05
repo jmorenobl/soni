@@ -2,30 +2,35 @@
 
 import pytest
 
-from soni.du.modules import NLUResult, SoniDU
+from soni.du.models import MessageType, NLUOutput, SlotValue
+from soni.du.modules import SoniDU
 
 
-def test_nlu_result():
-    """Test NLUResult dataclass creation and serialization"""
+def test_nlu_output():
+    """Test NLUOutput Pydantic model creation and serialization"""
     # Arrange & Act
-    result = NLUResult(
+    result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
         command="book_flight",
-        slots={"destination": "Paris"},
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
         confidence=0.95,
         reasoning="Clear booking intent",
     )
 
     # Assert
     assert result.command == "book_flight"
-    assert result.slots == {"destination": "Paris"}
+    assert len(result.slots) == 1
+    assert result.slots[0].name == "destination"
+    assert result.slots[0].value == "Paris"
     assert result.confidence == 0.95
 
     # Act
-    result_dict = result.to_dict()
+    result_dict = result.model_dump()
 
     # Assert
     assert result_dict["command"] == "book_flight"
-    assert result_dict["slots"]["destination"] == "Paris"
+    assert result_dict["slots"][0]["name"] == "destination"
+    assert result_dict["slots"][0]["value"] == "Paris"
 
 
 def test_soni_du_initialization():
@@ -85,7 +90,7 @@ async def test_soni_du_aforward():
 
 @pytest.mark.asyncio
 async def test_soni_du_predict():
-    """Test high-level predict method returns NLUResult"""
+    """Test high-level predict method returns NLUOutput"""
     # Arrange
     du = SoniDU()
 
@@ -101,7 +106,7 @@ async def test_soni_du_predict():
         )
 
         # Assert
-        assert isinstance(result, NLUResult)
+        assert isinstance(result, NLUOutput)
         assert result.command is not None
     except Exception:
         # Expected if LM not configured
@@ -138,8 +143,8 @@ async def test_soni_du_predict_error_handling():
         )
 
         # Assert - Should handle errors gracefully
-        assert isinstance(result, NLUResult)
-        assert result.slots == {}  # Invalid JSON → empty dict
+        assert isinstance(result, NLUOutput)
+        assert result.slots == []  # Invalid JSON → empty list
         assert result.confidence == 0.0  # Invalid float → 0.0
         assert result.command == "book_flight"
     finally:
@@ -174,8 +179,8 @@ async def test_soni_du_predict_missing_attributes():
         )
 
         # Assert - Should handle None values gracefully
-        assert isinstance(result, NLUResult)
-        assert result.slots == {}
+        assert isinstance(result, NLUOutput)
+        assert result.slots == []
         assert result.confidence == 0.0
         assert result.command == ""
         assert result.reasoning == ""

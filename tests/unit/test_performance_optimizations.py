@@ -8,7 +8,8 @@ import pytest
 
 from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState
-from soni.du.modules import NLUResult, SoniDU
+from soni.du.models import NLUOutput
+from soni.du.modules import SoniDU
 
 
 @pytest.mark.asyncio
@@ -54,7 +55,11 @@ async def test_nlu_cache_hit():
 
         # Assert
         assert result1.command == result2.command
-        assert result1.slots == result2.slots
+        # Compare slots (list of SlotValue objects)
+        assert len(result1.slots) == len(result2.slots)
+        if result1.slots and result2.slots:
+            assert result1.slots[0].name == result2.slots[0].name
+            assert result1.slots[0].value == result2.slots[0].value
         assert result1.confidence == result2.confidence
         # Cache hit should be much faster (no LLM call)
         assert elapsed < 0.1  # Should be very fast
@@ -103,8 +108,8 @@ async def test_nlu_cache_miss():
         )
 
         # Assert
-        assert isinstance(result1, NLUResult)
-        assert isinstance(result2, NLUResult)
+        assert isinstance(result1, NLUOutput)
+        assert isinstance(result2, NLUOutput)
         assert result1.command != result2.command
         # acall should be called twice (different inputs)
         assert mock_acall.call_count == 2
@@ -149,8 +154,8 @@ async def test_nlu_cache_ttl_expiry():
         )
 
         # Assert
-        assert isinstance(result1, NLUResult)
-        assert isinstance(result2, NLUResult)
+        assert isinstance(result1, NLUOutput)
+        assert isinstance(result2, NLUOutput)
         # Cache should have expired, so acall should be called twice
         assert mock_acall.call_count == 2
 

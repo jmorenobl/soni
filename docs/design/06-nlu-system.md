@@ -764,7 +764,7 @@ def predict(
     user_message: str,
     current_slots: dict[str, Any] | None = None,  # PEP 604
     available_flows: list[str] | None = None,     # Modern syntax
-) -> NLUResult:                                    # Clear return type
+) -> NLUOutput:                                    # Clear return type
     pass
 ```
 
@@ -777,7 +777,7 @@ def predict(
     user_message: str,
     current_slots: Optional[Dict[str, Any]] = None,  # Old syntax
     available_flows: Optional[List[str]] = None,
-) -> NLUResult:
+) -> NLUOutput:
     pass
 ```
 
