@@ -1,8 +1,18 @@
 """Core interfaces (Protocols) for Soni Framework following SOLID principles."""
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-from soni.core.types import DialogueState, FlowContext
+from soni.core.types import DialogueState as DialogueStateTypedDict
+from soni.core.types import FlowContext
+
+if TYPE_CHECKING:
+    from soni.core.state import DialogueState as DialogueStateDataclass
+
+    DialogueState = DialogueStateTypedDict | DialogueStateDataclass | dict[str, Any]
+else:
+    # Runtime: use TypedDict version for Protocol compatibility
+    # The actual implementation will handle both types
+    DialogueState = DialogueStateTypedDict | dict[str, Any]
 
 
 class INLUProvider(Protocol):
@@ -34,14 +44,14 @@ class IScopeManager(Protocol):
 
     def get_available_actions(
         self,
-        state: DialogueState,
+        state: DialogueState | dict[str, Any],
     ) -> list[str]:
         """Get available actions based on current state."""
         ...
 
     def get_available_flows(
         self,
-        state: DialogueState,
+        state: DialogueState | dict[str, Any],
     ) -> list[str]:
         """Get available flows based on current state."""
         ...
