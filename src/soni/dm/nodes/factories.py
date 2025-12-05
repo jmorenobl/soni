@@ -95,12 +95,14 @@ def create_understand_node(
 
             user_message = user_messages[-1]
 
-            dialogue_history = "\n".join(
-                [
-                    f"{msg.get('role', 'user')}: {msg.get('content', '')}"
-                    for msg in state.messages[:-1]
-                ]
-            )
+            # Build dspy.History from messages
+            import dspy
+
+            from soni.du.models import DialogueContext
+
+            # dspy.History accepts a list of message dicts directly
+            history_messages = state.messages[:-1]  # All messages except the last one
+            history = dspy.History(messages=history_messages)
 
             available_actions = scope_manager.get_available_actions(state)
             available_flows = scope_manager.get_available_flows(state)
@@ -117,14 +119,19 @@ def create_understand_node(
                     f"NLU will infer from available_flows: {available_flows}"
                 )
 
-            nlu_result_raw = await nlu_provider.predict(
-                user_message=user_message,
-                dialogue_history=dialogue_history,
+            # Create DialogueContext
+            dialogue_context = DialogueContext(
                 current_slots=state.slots,
                 available_actions=available_actions,
                 available_flows=available_flows,
                 current_flow=state.current_flow,
                 expected_slots=expected_slots,
+            )
+
+            nlu_result_raw = await nlu_provider.predict(
+                user_message=user_message,
+                history=history,
+                context=dialogue_context,
             )
 
             # Convert to NLUOutput if needed
@@ -489,7 +496,7 @@ def create_action_node_factory(
         try:
             action_result = await action_handler.execute(
                 action_name=action_name,
-                inputs=action_inputs,
+                slots=action_inputs,
             )
 
             updates: dict[str, Any] = {

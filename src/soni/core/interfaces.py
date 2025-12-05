@@ -26,6 +26,15 @@ class INLUProvider(Protocol):
         """Understand user message and return NLU result."""
         ...
 
+    async def predict(
+        self,
+        user_message: str,
+        history: Any,  # dspy.History
+        context: Any,  # DialogueContext
+    ) -> Any:
+        """Predict NLU result using DSPy module (newer API)."""
+        ...
+
 
 class IActionHandler(Protocol):
     """Interface for action execution."""
@@ -33,9 +42,19 @@ class IActionHandler(Protocol):
     async def execute(
         self,
         action_name: str,
-        inputs: dict[str, Any],
+        inputs: dict[str, Any] | None = None,
+        slots: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute an action and return results."""
+        """Execute an action and return results.
+
+        Args:
+            action_name: Name of the action to execute
+            inputs: Action inputs (legacy parameter)
+            slots: Slot values (preferred parameter)
+
+        Returns:
+            Action execution results
+        """
         ...
 
 
@@ -54,6 +73,22 @@ class IScopeManager(Protocol):
         state: DialogueState | dict[str, Any],
     ) -> list[str]:
         """Get available flows based on current state."""
+        ...
+
+    def get_expected_slots(
+        self,
+        flow_name: str,
+        available_actions: list[str],
+    ) -> list[str]:
+        """Get expected slot names for a flow.
+
+        Args:
+            flow_name: Name of the flow
+            available_actions: List of available actions in current scope
+
+        Returns:
+            List of expected slot names
+        """
         ...
 
 

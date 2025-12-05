@@ -46,13 +46,19 @@ class ActionHandler:
             else None
         )
 
-    async def execute(self, action_name: str, slots: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self,
+        action_name: str,
+        inputs: dict[str, Any] | None = None,
+        slots: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Execute an action handler.
 
         Args:
             action_name: Name of the action to execute
-            slots: Dictionary of slot values to pass as inputs
+            inputs: Dictionary of action inputs (legacy parameter)
+            slots: Dictionary of slot values to pass as inputs (preferred)
 
         Returns:
             Dictionary with action outputs
@@ -64,6 +70,11 @@ class ActionHandler:
             ActionNotFoundError: If handler cannot be loaded
             RuntimeError: If handler execution fails
         """
+        # Handle both inputs and slots parameters for backwards compatibility
+        if slots is None and inputs is not None:
+            slots = inputs
+        elif slots is None:
+            slots = {}
         # Validate action name format (prevent injection)
         try:
             validate_action_name(action_name)
@@ -81,8 +92,11 @@ class ActionHandler:
         # Get action config
         if action_name not in self.config.actions:
             raise ActionNotFoundError(
-                action_name=action_name,
-                context={"available_actions": list(self.config.actions.keys())},
+                f"Action '{action_name}' not found in configuration",
+                context={
+                    "action_name": action_name,
+                    "available_actions": list(self.config.actions.keys()),
+                },
             )
 
         action_config = self.config.actions[action_name]
@@ -96,13 +110,14 @@ class ActionHandler:
             # No fallback - require ActionRegistry
             available = ActionRegistry.list_actions()
             raise ActionNotFoundError(
-                action_name=action_name,
+                (
+                    f"Action '{action_name}' not found in registry. "
+                    f"Available actions: {', '.join(sorted(available))}. "
+                    f"Register actions using @ActionRegistry.register('{action_name}')"
+                ),
                 context={
-                    "error": (
-                        f"Action '{action_name}' not found in registry. "
-                        f"Available actions: {', '.join(sorted(available))}. "
-                        f"Register actions using @ActionRegistry.register('{action_name}')"
-                    ),
+                    "action_name": action_name,
+                    "available_actions": available,
                 },
             ) from e
 
