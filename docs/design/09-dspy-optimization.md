@@ -36,11 +36,15 @@ import dspy
 
 class MessageType(str, Enum):
     """Type of user message."""
-    SLOT_VALUE = "slot_value"
-    INTENT_CHANGE = "intent_change"
-    QUESTION = "question"
-    CONFIRMATION = "confirmation"
-    CONTINUE = "continue"
+    SLOT_VALUE = "slot_value"           # Direct answer to current prompt
+    CORRECTION = "correction"            # Fixing a previous value
+    MODIFICATION = "modification"        # Requesting to change a slot
+    INTERRUPTION = "interruption"        # New intent/flow
+    DIGRESSION = "digression"            # Question without flow change
+    CLARIFICATION = "clarification"      # Asking for explanation
+    CANCELLATION = "cancellation"        # Wants to stop
+    CONFIRMATION = "confirmation"        # Yes/no to confirm prompt
+    CONTINUATION = "continuation"        # General continuation
 
 class SlotValue(BaseModel):
     """Extracted slot value with metadata."""
@@ -162,7 +166,7 @@ except ValidationError as e:
     logger.error(f"LLM output validation failed: {e}")
     # Provide fallback result
     result = NLUOutput(
-        message_type=MessageType.CONTINUE,
+        message_type=MessageType.CONTINUATION,
         command="unknown",
         slots=[],
         confidence=0.0,
@@ -520,7 +524,7 @@ example = dspy.Example(
 
     # Expected output
     result=NLUOutput(
-        message_type=MessageType.INTENT_CHANGE,
+        message_type=MessageType.INTERRUPTION,
         command="book_flight",
         slots=[],
         confidence=0.95,
@@ -553,7 +557,7 @@ def create_training_data():
         ),
         current_datetime="2024-12-02T10:00:00",
         result=NLUOutput(
-            message_type=MessageType.INTENT_CHANGE,
+            message_type=MessageType.INTERRUPTION,
             command="book_flight",
             slots=[],
             confidence=0.95,
@@ -660,7 +664,7 @@ Make them realistic and diverse (casual, formal, indirect, etc.)
             ),
             current_datetime="2024-12-02T10:00:00",
             result=NLUOutput(
-                message_type=MessageType.INTENT_CHANGE,
+                message_type=MessageType.INTERRUPTION,
                 command="book_flight",
                 slots=[],
                 confidence=0.9,
@@ -1309,7 +1313,7 @@ async def safe_predict(module, **inputs):
         logger.error(f"Pydantic validation failed: {e}")
         # Fallback: return default result
         return NLUOutput(
-            message_type=MessageType.CONTINUE,
+            message_type=MessageType.CONTINUATION,
             command="unknown",
             slots=[],
             confidence=0.0,
@@ -1485,7 +1489,7 @@ from dspy.utils.dummies import DummyLM
 lm = DummyLM([
     {
         "result": {
-            "message_type": "intent_change",
+            "message_type": "interruption",
             "command": "book_flight",
             "slots": [],
             "confidence": 0.95,
@@ -1520,7 +1524,7 @@ Returns responses based on input content matching:
 lm = DummyLM({
     "book a flight": {
         "result": {
-            "message_type": "intent_change",
+            "message_type": "interruption",
             "command": "book_flight",
             "slots": [],
             "confidence": 0.95,
@@ -1529,7 +1533,7 @@ lm = DummyLM({
     },
     "cancel": {
         "result": {
-            "message_type": "intent_change",
+            "message_type": "cancellation",
             "command": "cancel_booking",
             "slots": [],
             "confidence": 0.9,
@@ -1562,7 +1566,7 @@ demo = dspy.Example(
     current_datetime="2024-12-02T10:00:00",
     result=NLUOutput(
         command="demo_command",
-        message_type=MessageType.INTENT_CHANGE,
+        message_type=MessageType.INTERRUPTION,
         slots=[],
         confidence=1.0,
         reasoning="From demo"
@@ -1592,7 +1596,7 @@ def nlu_module() -> SoniDU:
     lm = DummyLM([
         {
             "result": {
-                "message_type": "intent_change",
+                "message_type": "interruption",
                 "command": "book_flight",
                 "slots": [],
                 "confidence": 0.95,
@@ -1627,7 +1631,7 @@ async def test_nlu_intent_detection(nlu_module: SoniDU):
 
     # Assert
     assert result.command == "book_flight"
-    assert result.message_type == MessageType.INTENT_CHANGE
+    assert result.message_type == MessageType.INTERRUPTION
     assert result.confidence > 0.7
 ```
 

@@ -124,7 +124,8 @@ User: "I want to fly to Paris"
 The NLU classifies each user message into one of these types:
 
 ```python
-class MessageType(Enum):
+class MessageType(str, Enum):
+    """Type of user message."""
     SLOT_VALUE = "slot_value"           # Direct answer to current prompt
     CORRECTION = "correction"            # Fixing a previous value
     MODIFICATION = "modification"        # Requesting to change a slot

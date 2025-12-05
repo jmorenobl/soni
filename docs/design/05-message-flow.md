@@ -275,17 +275,28 @@ def route_after_understand(state: DialogueState) -> str:
     if conv_state == ConversationState.CONFIRMING:
         return "handle_confirmation"
 
-    # Otherwise route based on NLU result message_type
-    if result.message_type == MessageType.SLOT_VALUE:
-        return "validate_slot"
-    elif result.message_type == MessageType.QUESTION:
-        return "handle_digression"
-    elif result.message_type == MessageType.INTENT_CHANGE:
-        return "handle_intent_change"
-    elif result.message_type == MessageType.CONTINUE:
-        return "continue_flow"
-    else:
-        return "generate_response"
+    # Route based on NLU result message_type
+    match result.message_type:
+        case MessageType.SLOT_VALUE:
+            return "validate_slot"
+        case MessageType.CORRECTION:
+            return "handle_correction"
+        case MessageType.MODIFICATION:
+            return "handle_modification"
+        case MessageType.INTERRUPTION:
+            return "handle_interruption"
+        case MessageType.DIGRESSION:
+            return "handle_digression"
+        case MessageType.CLARIFICATION:
+            return "handle_clarification"
+        case MessageType.CANCELLATION:
+            return "handle_cancellation"
+        case MessageType.CONFIRMATION:
+            return "handle_confirmation"
+        case MessageType.CONTINUATION:
+            return "continue_flow"
+        case _:
+            return "generate_response"
 
 def route_after_validate(state: DialogueState) -> str:
     """Route after slot validation"""
@@ -458,10 +469,16 @@ async def handle_confirmation_response(state: DialogueState) -> DialogueState:
     # Sanity check: should be a confirmation response
     if result.message_type != MessageType.CONFIRMATION:
         # Edge case: user said something unrelated during confirmation
-        # Treat as digression or intent change
-        if result.message_type == MessageType.QUESTION:
+        # Treat as digression, interruption, or cancellation
+        if result.message_type == MessageType.DIGRESSION:
             return {"conversation_state": ConversationState.UNDERSTANDING}
-        elif result.message_type == MessageType.INTENT_CHANGE:
+        elif result.message_type == MessageType.CLARIFICATION:
+            return {"conversation_state": ConversationState.UNDERSTANDING}
+        elif result.message_type == MessageType.INTERRUPTION:
+            return {"conversation_state": ConversationState.UNDERSTANDING}
+        elif result.message_type == MessageType.CANCELLATION:
+            return {"conversation_state": ConversationState.UNDERSTANDING}
+        elif result.message_type == MessageType.MODIFICATION:
             return {"conversation_state": ConversationState.UNDERSTANDING}
         else:
             # Ask again
