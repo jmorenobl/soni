@@ -19,10 +19,21 @@ async def test_handle_intent_change_success():
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.push_flow.return_value = "flow_1"
+    mock_flow_manager.get_active_context.return_value = {
+        "flow_id": "flow_1",
+        "flow_name": "book_flight",
+        "current_step": "collect_origin",
+    }
+
+    mock_step_manager = MagicMock()
+    mock_step_manager.get_current_step_config.return_value = MagicMock(
+        type="collect", slot="origin"
+    )
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "flow_manager": mock_flow_manager,
+        "step_manager": mock_step_manager,
     }
 
     # Act

@@ -33,7 +33,7 @@ async def test_understand_node_calls_nlu():
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
-        "nlu_provider": mock_nlu,
+        "du": mock_nlu,  # Changed from "nlu_provider" to "du"
         "flow_manager": mock_flow_manager,
         "scope_manager": mock_scope_manager,
     }
@@ -89,7 +89,7 @@ async def test_understand_node_with_active_flow():
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
-        "nlu_provider": mock_nlu,
+        "du": mock_nlu,  # Changed from "nlu_provider" to "du"
         "flow_manager": mock_flow_manager,
         "scope_manager": mock_scope_manager,
     }
@@ -149,7 +149,7 @@ async def test_understand_node_passes_expected_slots():
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
-        "nlu_provider": mock_nlu,
+        "du": mock_nlu,  # Changed from "nlu_provider" to "du"
         "flow_manager": mock_flow_manager,
         "scope_manager": mock_scope_manager,
     }
@@ -198,7 +198,7 @@ async def test_understand_node_no_expected_slots_when_no_flow():
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
-        "nlu_provider": mock_nlu,
+        "du": mock_nlu,  # Changed from "nlu_provider" to "du"
         "flow_manager": mock_flow_manager,
         "scope_manager": mock_scope_manager,
     }

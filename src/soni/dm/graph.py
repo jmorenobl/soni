@@ -81,10 +81,6 @@ class SoniGraphBuilder:
         self.validator = FlowValidator(config=self.config)
         self.compiler = FlowCompiler(config=self.config)
 
-        # Understand node will be created in build_manual with RuntimeContext
-        # This allows it to access config for normalization
-        self._understand_node = None
-
         # Track cleanup status to warn if resources not properly cleaned up
         self._cleaned_up = False
 

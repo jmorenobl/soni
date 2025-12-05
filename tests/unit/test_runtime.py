@@ -270,8 +270,11 @@ async def test_process_message_with_checkpoint_loading(runtime_loop):
         response = await runtime.process_message(user_msg, user_id)
 
         # Assert
-        # aget_state is called twice: once in _load_or_create_state, once in _execute_graph
-        assert mock_aget_state.call_count == 2
+        # aget_state is called 3 times:
+        # 1. In _load_or_create_state
+        # 2. In _execute_graph before ainvoke (to check if interrupted)
+        # 3. In _execute_graph after ainvoke (to check if still interrupted)
+        assert mock_aget_state.call_count == 3
         assert response == "Where would you like to go?"
 
 

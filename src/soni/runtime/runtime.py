@@ -76,7 +76,8 @@ class RuntimeLoop:
         self.config_manager = ConfigurationManager(config_path)
         self.config = self.config_manager.load()
 
-        # Build graph (checkpointer will be initialized lazily in build_manual)
+        # Initialize SoniGraphBuilder for dependency management (checkpointer, action_handler)
+        # Note: We use build_graph() from builder.py for graph construction, not build_manual()
         self.builder = SoniGraphBuilder(self.config)
         # Graph will be built lazily on first use (requires async)
         self.graph: Any = None

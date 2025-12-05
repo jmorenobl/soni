@@ -31,7 +31,9 @@ async def test_validate_slot_success():
     ]
 
     mock_normalizer = AsyncMock()
-    mock_normalizer.normalize.return_value = "MAD"
+    mock_normalizer.normalize_slot.return_value = (
+        "MAD"  # Changed from normalize() to normalize_slot()
+    )
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = {
@@ -57,7 +59,7 @@ async def test_validate_slot_success():
     # When step is not complete, conversation_state should be "waiting_for_slot"
     assert result["conversation_state"] == "waiting_for_slot"
     assert "flow_slots" in result
-    mock_normalizer.normalize.assert_called_once()
+    mock_normalizer.normalize_slot.assert_called_once()  # Changed from normalize() to normalize_slot()
 
 
 @pytest.mark.asyncio
