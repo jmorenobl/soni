@@ -139,6 +139,10 @@ ignore_missing_imports = true
 module = ["cachetools", "cachetools.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["pythonjsonlogger", "pythonjsonlogger.*"]
+ignore_missing_imports = true
+
 # Relaxed rules for test files
 [[tool.mypy.overrides]]
 module = ["tests.*"]
