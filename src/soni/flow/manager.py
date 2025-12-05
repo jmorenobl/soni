@@ -187,18 +187,37 @@ class FlowManager:
     def prune_state(
         self,
         state: DialogueState,
-        max_completed_flows: int = 50,
+        max_completed_flows: int = 10,
+        max_trace: int = 50,
     ) -> None:
-        """Prune old completed flows from metadata to manage memory.
+        """Prune state to prevent unbounded memory growth.
+
+        Removes:
+        - Orphaned flow_slots (flows no longer in stack)
+        - Excess completed flows beyond limit
+        - Old trace entries beyond limit
 
         Args:
             state: Dialogue state to prune
             max_completed_flows: Maximum number of completed flows to keep
+            max_trace: Maximum number of trace entries to keep
         """
+        # 1. Prune orphan flow slots
+        active_ids = {ctx["flow_id"] for ctx in state["flow_stack"]}
+        orphan_ids = [fid for fid in state["flow_slots"] if fid not in active_ids]
+
+        for fid in orphan_ids:
+            del state["flow_slots"][fid]
+
+        # 2. Prune completed flows (keep last N)
         if "completed_flows" not in state["metadata"]:
-            return
+            state["metadata"]["completed_flows"] = []
 
         completed = state["metadata"]["completed_flows"]
         if len(completed) > max_completed_flows:
             # Keep most recent flows
             state["metadata"]["completed_flows"] = completed[-max_completed_flows:]
+
+        # 3. Prune trace (keep last N turns)
+        if len(state["trace"]) > max_trace:
+            state["trace"] = state["trace"][-max_trace:]

@@ -150,3 +150,75 @@ def test_push_flow_with_inputs(empty_state):
     # Assert
     assert empty_state["flow_slots"][flow_id]["booking_ref"] == "BK-123"
     assert empty_state["flow_slots"][flow_id]["status"] == "confirmed"
+
+
+def test_prune_state_removes_orphan_slots(empty_state):
+    """Test prune_state removes orphaned flow_slots."""
+    # Arrange
+    manager = FlowManager()
+
+    # Create and complete a flow (should leave orphan slot)
+    manager.push_flow(empty_state, "test_flow")
+    manager.pop_flow(empty_state)
+
+    # Manually add orphan slot
+    empty_state["flow_slots"]["orphan_123"] = {"data": "test"}
+
+    # Act
+    manager.prune_state(empty_state)
+
+    # Assert
+    assert "orphan_123" not in empty_state["flow_slots"]
+
+
+def test_prune_state_limits_completed_flows(empty_state):
+    """Test prune_state limits completed flows."""
+    # Arrange
+    manager = FlowManager()
+
+    # Create many completed flows
+    for i in range(15):
+        manager.push_flow(empty_state, f"flow_{i}")
+        manager.pop_flow(empty_state)
+
+    # Act
+    manager.prune_state(empty_state, max_completed_flows=10)
+
+    # Assert
+    assert len(empty_state["metadata"]["completed_flows"]) == 10
+
+
+def test_prune_state_limits_trace(empty_state):
+    """Test prune_state limits trace entries."""
+    # Arrange
+    manager = FlowManager()
+
+    # Add many trace entries
+    for i in range(60):
+        empty_state["trace"].append({"event": f"event_{i}", "turn": i})
+
+    # Act
+    manager.prune_state(empty_state, max_trace=50)
+
+    # Assert
+    assert len(empty_state["trace"]) == 50
+    assert empty_state["trace"][0]["event"] == "event_10"  # First kept entry
+
+
+def test_prune_state_keeps_active_slots(empty_state):
+    """Test prune_state keeps slots for active flows."""
+    # Arrange
+    manager = FlowManager()
+    flow_id = manager.push_flow(empty_state, "active_flow")
+    manager.set_slot(empty_state, "test_slot", "value")
+
+    # Add orphan slot
+    empty_state["flow_slots"]["orphan_123"] = {"data": "test"}
+
+    # Act
+    manager.prune_state(empty_state)
+
+    # Assert
+    assert flow_id in empty_state["flow_slots"]
+    assert empty_state["flow_slots"][flow_id]["test_slot"] == "value"
+    assert "orphan_123" not in empty_state["flow_slots"]
