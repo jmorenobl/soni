@@ -18,7 +18,8 @@ from soni.core.errors import (
     ValidationError,
 )
 from soni.core.state import DialogueState
-from soni.du.modules import NLUResult, SoniDU
+from soni.du.models import NLUOutput
+from soni.du.modules import SoniDU
 
 __all__ = [
     # Version info
@@ -27,7 +28,7 @@ __all__ = [
     # Core classes
     "DialogueState",
     "SoniDU",
-    "NLUResult",
+    "NLUOutput",
     # Errors
     "SoniError",
     "NLUError",

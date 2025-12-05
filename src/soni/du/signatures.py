@@ -2,62 +2,28 @@
 
 import dspy
 
+from soni.du.models import DialogueContext, NLUOutput
+
 
 class DialogueUnderstanding(dspy.Signature):
-    """Extract user intent and entities from message with dialogue context.
+    """Extract user intent and entities with structured types.
 
-    This signature defines the input-output structure for the NLU module
-    that will be optimized using DSPy's MIPROv2 optimizer.
+    Uses Pydantic models for robust type safety and validation.
+    Uses dspy.History for proper conversation history management.
     """
 
-    # Input fields
+    # Input fields with structured types
     user_message: str = dspy.InputField(desc="The user's current message")
-    dialogue_history: str = dspy.InputField(
-        desc="Previous conversation context as a string", default=""
+    history: dspy.History = dspy.InputField(
+        desc="Conversation history with user messages and assistant responses"
     )
-    current_slots: str = dspy.InputField(
-        desc="Currently filled slots as a JSON string", default="{}"
-    )
-    available_actions: str = dspy.InputField(
-        desc="List of available actions in current context as JSON array string",
-        default="[]",
-    )
-    available_flows: str = dspy.InputField(
-        desc=(
-            "List of available flow names that can be started as JSON array string. "
-            "When current_flow is 'none', these are the flows the user can trigger. "
-            'Example: \'["book_flight", "cancel_booking"]\''
-        ),
-        default="[]",
-    )
-    current_flow: str = dspy.InputField(desc="Current dialogue flow name", default="none")
-    expected_slots: str = dspy.InputField(
-        desc=(
-            "List of expected slot names for the current flow as JSON array string. "
-            "You MUST use these exact slot names when extracting entities. "
-            'Example: \'["origin", "destination", "departure_date"]\''
-        ),
-        default="[]",
+    context: DialogueContext = dspy.InputField(
+        desc="Current dialogue context with all relevant information"
     )
     current_datetime: str = dspy.InputField(
-        desc=(
-            "Current date and time in ISO format (YYYY-MM-DDTHH:MM:SS) for resolving relative dates. "
-            "This is automatically provided by the system. Use this to calculate 'tomorrow', 'next Friday', etc. "
-            'Example: "2024-12-01T14:30:00"'
-        ),
+        desc="Current datetime in ISO format for relative date resolution",
         default="",
     )
 
-    # Output fields
-    structured_command: str = dspy.OutputField(
-        desc="User's intent/command (e.g., book_flight, cancel, help, search_flights)"
-    )
-    extracted_slots: str = dspy.OutputField(
-        desc=(
-            "Extracted entities as a JSON string using EXACT slot names from expected_slots. "
-            "Use the exact slot names provided in expected_slots, not variations. "
-            'Example: {"origin": "Madrid", "destination": "Barcelona", "departure_date": "2024-03-15"}'
-        )
-    )
-    confidence: float = dspy.OutputField(desc="Confidence score between 0.0 and 1.0")
-    reasoning: str = dspy.OutputField(desc="Brief reasoning for the extraction")
+    # Output field with structured type
+    result: NLUOutput = dspy.OutputField(desc="Complete NLU analysis with type-safe structure")

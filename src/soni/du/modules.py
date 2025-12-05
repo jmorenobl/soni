@@ -1,282 +1,165 @@
 """DSPy modules for Dialogue Understanding."""
 
+import hashlib
 import json
 import logging
-from dataclasses import asdict, dataclass
-from typing import Any
+from datetime import datetime
 
 import dspy
 from cachetools import TTLCache
 
+from soni.du.models import DialogueContext, NLUOutput
 from soni.du.signatures import DialogueUnderstanding
-from soni.utils.hashing import generate_cache_key_from_dict
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class NLUResult:
-    """Result from NLU prediction."""
-
-    command: str
-    slots: dict[str, Any]
-    confidence: float
-    reasoning: str
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        return asdict(self)
-
-
 class SoniDU(dspy.Module):
-    """Soni Dialogue Understanding module using DSPy.
+    """
+    Soni Dialogue Understanding module with structured types.
 
-    This module can be optimized using DSPy optimizers (e.g., MIPROv2)
-    and provides both sync (for optimization) and async (for runtime) interfaces.
+    This module provides:
+    - Type-safe async interface for runtime
+    - Sync interface for DSPy optimizers
+    - Automatic prompt optimization via DSPy
+    - Structured Pydantic models throughout
     """
 
-    def __init__(
-        self,
-        cache_size: int = 1000,
-        cache_ttl: int = 300,
-    ):
+    def __init__(self, cache_size: int = 1000, cache_ttl: int = 300) -> None:
         """Initialize SoniDU module.
 
         Args:
-            cache_size: Maximum number of cached NLU results.
-            cache_ttl: Time-to-live for cache entries in seconds.
+            cache_size: Maximum number of cached NLU results
+            cache_ttl: Time-to-live for cache entries in seconds
         """
-        super().__init__()
+        super().__init__()  # CRITICAL: Must call super().__init__()
+
+        # Create predictor with structured signature
         self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
 
-        # Cache for NLU results
-        self.nlu_cache: TTLCache[str, NLUResult] = TTLCache(
-            maxsize=cache_size,  # Cache up to 1000 results
-            ttl=cache_ttl,  # 5 minutes TTL (300 seconds)
+        # Optional caching layer
+        self.nlu_cache: TTLCache[str, NLUOutput] = TTLCache(
+            maxsize=cache_size,
+            ttl=cache_ttl,
         )
 
     def forward(
         self,
         user_message: str,
-        dialogue_history: str = "",
-        current_slots: str = "{}",
-        available_actions: str = "[]",
-        available_flows: str = "[]",
-        current_flow: str = "none",
-        expected_slots: str = "[]",
+        history: dspy.History,
+        context: DialogueContext,
         current_datetime: str = "",
     ) -> dspy.Prediction:
-        """Forward pass (synchronous) for use with optimizers.
+        """Sync forward pass for DSPy optimizers.
+
+        Used during optimization/training with MIPROv2, BootstrapFewShot, etc.
 
         Args:
             user_message: User's input message
-            dialogue_history: Previous conversation context
-            current_slots: Currently filled slots as JSON string
-            available_actions: Available actions as JSON array string
-            available_flows: Available flow names as JSON array string
-            current_flow: Current dialogue flow name
-            expected_slots: Expected slot names as JSON array string
-            current_datetime: Current date and time in ISO format for resolving relative dates
+            history: Conversation history (dspy.History)
+            context: Dialogue context with slots, actions, flows (DialogueContext)
+            current_datetime: Current datetime in ISO format
 
         Returns:
-            DSPy Prediction object
+            dspy.Prediction object with result field containing NLUOutput
         """
         return self.predictor(
             user_message=user_message,
-            dialogue_history=dialogue_history,
-            current_slots=current_slots,
-            available_actions=available_actions,
-            available_flows=available_flows,
-            current_flow=current_flow,
-            expected_slots=expected_slots,
+            history=history,
+            context=context,
             current_datetime=current_datetime,
         )
 
     async def aforward(
         self,
         user_message: str,
-        dialogue_history: str = "",
-        current_slots: str = "{}",
-        available_actions: str = "[]",
-        available_flows: str = "[]",
-        current_flow: str = "none",
-        expected_slots: str = "[]",
+        history: dspy.History,
+        context: DialogueContext,
         current_datetime: str = "",
     ) -> dspy.Prediction:
-        """Async forward pass for runtime use.
+        """Async forward pass for production runtime.
+
+        Called internally by acall(). Uses async LM calls via DSPy's adapter system.
 
         Args:
-            user_message: User's input message
-            dialogue_history: Previous conversation context
-            current_slots: Currently filled slots as JSON string
-            available_actions: Available actions as JSON array string
-            available_flows: Available flow names as JSON array string
-            current_flow: Current dialogue flow name
-            expected_slots: Expected slot names as JSON array string
-            current_datetime: Current date and time in ISO format for resolving relative dates
+            Same as forward()
 
         Returns:
-            DSPy Prediction object
+            dspy.Prediction object with result field containing NLUOutput
         """
-        # For now, run sync forward in executor
-        # In future, this could use async LLM calls
-        import asyncio
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None,
-            self.forward,
-            user_message,
-            dialogue_history,
-            current_slots,
-            available_actions,
-            available_flows,
-            current_flow,
-            expected_slots,
-            current_datetime,
-        )
-
-    def _get_cache_key(
-        self,
-        user_message: str,
-        dialogue_history: str,
-        current_slots: dict[str, Any],
-        available_actions: list[str],
-        available_flows: list[str],
-        current_flow: str,
-        expected_slots: list[str] | None = None,
-        current_datetime: str = "",
-    ) -> str:
-        """Generate cache key for NLU request.
-
-        Args:
-            user_message: User's input message
-            dialogue_history: Previous conversation context
-            current_slots: Currently filled slots
-            available_actions: Available actions list
-            available_flows: Available flow names list
-            current_flow: Current dialogue flow name
-            expected_slots: Expected slot names list
-            current_datetime: Current datetime in ISO format (not included in cache key)
-
-        Returns:
-            Cache key as MD5 hash string
-
-        Note:
-            Datetime is excluded from cache key to allow caching across time.
-            Datetime is still passed to LLM for date resolution in relative dates.
-        """
-        # Create hash of inputs (excluding datetime for cache consistency)
-        return generate_cache_key_from_dict(
-            {
-                "message": user_message,
-                "history": dialogue_history,
-                "slots": current_slots,
-                "actions": sorted(available_actions),  # Sort for consistency
-                "flows": sorted(available_flows),  # Sort for consistency
-                "flow": current_flow,
-                "expected_slots": sorted(expected_slots or []),  # Sort for consistency
-                # datetime excluded from cache key to allow caching across time
-            }
+        # DSPy's predictor.acall() handles async LM calls
+        return await self.predictor.acall(
+            user_message=user_message,
+            history=history,
+            context=context,
+            current_datetime=current_datetime,
         )
 
     async def predict(
         self,
         user_message: str,
-        dialogue_history: str = "",
-        current_slots: dict[str, Any] | None = None,
-        available_actions: list | None = None,
-        available_flows: list[str] | None = None,
-        current_flow: str = "none",
-        expected_slots: list[str] | None = None,
-    ) -> NLUResult:
-        """High-level async predict method that returns NLUResult.
+        history: dspy.History,
+        context: DialogueContext,
+    ) -> NLUOutput:
+        """High-level async prediction method with caching.
 
-        Scoping of available_actions and available_flows should be done by the caller
-        (e.g., understand_node applies scoping via IScopeManager).
+        This is the main entry point for runtime NLU calls. Provides:
+        - Structured type inputs (dspy.History, DialogueContext)
+        - NLUOutput Pydantic model output
+        - Automatic caching
+        - Internal datetime management
 
         Args:
             user_message: User's input message
-            dialogue_history: Previous conversation context
-            current_slots: Currently filled slots as dict
-            available_actions: Available actions as list (scoped by caller)
-            available_flows: Available flow names as list (scoped by caller)
-            current_flow: Current dialogue flow name
-            expected_slots: Expected slot names for the current flow.
-                          NLU should use these exact names when extracting entities.
+            history: Conversation history (dspy.History)
+            context: Dialogue context (DialogueContext)
 
         Returns:
-            NLUResult object
-
-        Note:
-            Current datetime is calculated internally by the NLU module.
-            This follows encapsulation principle - NLU manages its own dependencies.
+            NLUOutput with message_type, command, slots, confidence, and reasoning
         """
-        # Calculate current datetime internally (encapsulation - NLU manages its own dependencies)
-        # This avoids passing datetime through the entire call chain
-        from datetime import datetime
+        # Calculate current datetime (encapsulation principle)
+        current_datetime_str = datetime.now().isoformat()
 
-        current_datetime = datetime.now().isoformat()
-
-        # Check cache first
-        cache_key = self._get_cache_key(
-            user_message,
-            dialogue_history,
-            current_slots or {},
-            available_actions or [],
-            available_flows or [],
-            current_flow,
-            expected_slots,
-            current_datetime,
-        )
+        # Check cache
+        cache_key = self._get_cache_key(user_message, history, context)
 
         if cache_key in self.nlu_cache:
-            logger.debug(f"NLU cache hit for key: {cache_key[:8]}...")
-            cached_result: NLUResult = self.nlu_cache[cache_key]
+            cached_result = self.nlu_cache[cache_key]
+            # Type assertion for mypy
+            assert isinstance(cached_result, NLUOutput)
             return cached_result
 
-        # Cache miss - call NLU
-        logger.debug("NLU cache miss, calling predictor")
-
-        # Convert inputs to string format expected by signature
-        slots_str = json.dumps(current_slots or {})
-        actions_str = json.dumps(available_actions or [])
-        flows_str = json.dumps(available_flows or [])
-        expected_slots_str = json.dumps(expected_slots or [])
-
-        # Get prediction using acall() (DSPy's public async method)
-        # Current datetime is calculated above and passed to signature
+        # Call via acall() (public async method)
         prediction = await self.acall(
             user_message=user_message,
-            dialogue_history=dialogue_history,
-            current_slots=slots_str,
-            available_actions=actions_str,
-            available_flows=flows_str,
-            current_flow=current_flow,
-            expected_slots=expected_slots_str,
-            current_datetime=current_datetime,
+            history=history,
+            context=context,
+            current_datetime=current_datetime_str,
         )
 
-        # Parse outputs
-        try:
-            slots = json.loads(prediction.extracted_slots)
-        except (json.JSONDecodeError, AttributeError, TypeError):
-            slots = {}
+        # Extract structured result (no parsing needed!)
+        # Type assertion needed because DSPy returns Any
+        result = prediction.result
+        if not isinstance(result, NLUOutput):
+            raise TypeError(f"Expected NLUOutput, got {type(result)}")
 
-        try:
-            confidence = float(prediction.confidence)
-        except (ValueError, AttributeError, TypeError):
-            confidence = 0.0
+        # Cache and return
+        self.nlu_cache[cache_key] = result
 
-        nlu_result = NLUResult(
-            command=prediction.structured_command or "",
-            slots=slots,
-            confidence=confidence,
-            reasoning=prediction.reasoning or "",
-        )
+        return result
 
-        # Cache result
-        self.nlu_cache[cache_key] = nlu_result
-        logger.debug(f"Cached NLU result for key: {cache_key[:8]}...")
+    def _get_cache_key(
+        self,
+        user_message: str,
+        history: dspy.History,
+        context: DialogueContext,
+    ) -> str:
+        """Generate cache key from structured inputs."""
+        data = {
+            "message": user_message,
+            "history_length": len(history.messages),
+            "context": context.model_dump(),
+        }
 
-        return nlu_result
+        json_str = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(json_str.encode()).hexdigest()
