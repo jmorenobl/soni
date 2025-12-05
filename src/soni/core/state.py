@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from soni.core.errors import ValidationError
 from soni.core.types import DialogueState as DialogueStateTypedDict
 from soni.core.validators import validate_state_consistency, validate_transition
 
@@ -244,3 +246,69 @@ def update_state(
     # Validate final state consistency
     if validate:
         validate_state_consistency(state)
+
+
+def state_to_dict(state: DialogueStateTypedDict) -> dict[str, Any]:
+    """
+    Serialize DialogueState to JSON-compatible dict.
+
+    Args:
+        state: Dialogue state
+
+    Returns:
+        JSON-serializable dictionary
+    """
+    # DialogueState is already a dict (TypedDict), but ensure deep copy
+    return copy.deepcopy(dict(state))
+
+
+def state_from_dict(data: dict[str, Any]) -> DialogueStateTypedDict:
+    """
+    Deserialize DialogueState from dict.
+
+    Args:
+        data: Dictionary with state data
+
+    Returns:
+        DialogueState
+
+    Raises:
+        ValidationError: If data is invalid
+    """
+    # Validate required fields
+    required_fields = [
+        "user_message",
+        "last_response",
+        "messages",
+        "flow_stack",
+        "flow_slots",
+        "conversation_state",
+        "turn_count",
+        "trace",
+        "metadata",
+    ]
+
+    for required_field in required_fields:
+        if required_field not in data:
+            raise ValidationError(
+                f"Missing required field: {required_field}",
+                field=required_field,
+            )
+
+    state: DialogueStateTypedDict = data  # type: ignore
+
+    # Validate consistency
+    validate_state_consistency(state)
+
+    return state
+
+
+def state_to_json(state: DialogueStateTypedDict) -> str:
+    """Serialize state to JSON string."""
+    return json.dumps(state_to_dict(state), indent=2)
+
+
+def state_from_json(json_str: str) -> DialogueStateTypedDict:
+    """Deserialize state from JSON string."""
+    data = json.loads(json_str)
+    return state_from_dict(data)

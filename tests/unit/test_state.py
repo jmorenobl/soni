@@ -3,7 +3,15 @@
 import pytest
 
 from soni.core.errors import ValidationError
-from soni.core.state import create_empty_state, create_initial_state, update_state
+from soni.core.state import (
+    create_empty_state,
+    create_initial_state,
+    state_from_dict,
+    state_from_json,
+    state_to_dict,
+    state_to_json,
+    update_state,
+)
 from soni.core.types import DialogueState
 
 
@@ -113,3 +121,88 @@ def test_update_state_skip_validation():
     # Act & Assert - Should not raise even with invalid transition
     update_state(state, {"conversation_state": "executing_action"}, validate=False)
     assert state["conversation_state"] == "executing_action"
+
+
+def test_state_serialization_roundtrip():
+    """Test state can be serialized and deserialized."""
+    # Arrange
+    original = create_initial_state("Hello")
+
+    # Act
+    json_str = state_to_json(original)
+    restored = state_from_json(json_str)
+
+    # Assert
+    assert restored["user_message"] == original["user_message"]
+    assert restored["turn_count"] == original["turn_count"]
+    assert restored["conversation_state"] == original["conversation_state"]
+
+
+def test_state_to_dict_creates_copy():
+    """Test state_to_dict creates deep copy."""
+    # Arrange
+    original = create_initial_state("Hello")
+    original["turn_count"] = 5
+
+    # Act
+    copied = state_to_dict(original)
+    copied["turn_count"] = 10
+
+    # Assert
+    assert original["turn_count"] == 5
+    assert copied["turn_count"] == 10
+
+
+def test_state_from_dict_validates_missing_fields():
+    """Test state_from_dict validates required fields."""
+    # Arrange
+    invalid_data = {
+        "user_message": "test",
+        # Missing required fields
+    }
+
+    # Act & Assert
+    with pytest.raises(ValidationError) as exc_info:
+        state_from_dict(invalid_data)
+
+    assert "Missing required field" in str(exc_info.value)
+
+
+def test_state_from_dict_validates_consistency():
+    """Test state_from_dict validates state consistency."""
+    # Arrange
+    invalid_data = {
+        "user_message": "",
+        "last_response": "",
+        "messages": [],
+        "flow_stack": [
+            {
+                "flow_id": "test_123",
+                "flow_name": "test",
+                "flow_state": "active",
+                "current_step": None,
+                "outputs": {},
+                "started_at": 1234567890.0,
+                "paused_at": None,
+                "completed_at": None,
+                "context": None,
+            }
+        ],
+        "flow_slots": {},  # Missing slot for flow_stack entry
+        "conversation_state": "idle",
+        "current_step": None,
+        "waiting_for_slot": None,
+        "nlu_result": None,
+        "last_nlu_call": None,
+        "digression_depth": 0,
+        "last_digression_type": None,
+        "turn_count": 0,
+        "trace": [],
+        "metadata": {},
+    }
+
+    # Act & Assert
+    with pytest.raises(ValidationError) as exc_info:
+        state_from_dict(invalid_data)
+
+    assert "missing slot storage" in str(exc_info.value)
