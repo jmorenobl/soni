@@ -12,7 +12,7 @@ from soni.core.interfaces import (
 )
 from soni.core.state import DialogueState, RuntimeContext
 from soni.dm.node_factory_registry import NodeFactoryRegistry
-from soni.du.modules import NLUResult
+from soni.du.models import MessageType, NLUOutput, SlotValue
 from soni.validation.registry import ValidatorRegistry
 
 logger = logging.getLogger(__name__)
@@ -203,27 +203,37 @@ def create_understand_node(
                 expected_slots=expected_slots,
             )
 
-            # Convert to NLUResult if needed
+            # Convert to NLUOutput if needed
             if isinstance(nlu_result_raw, dict):
-                nlu_result = NLUResult(
+                # Convert dict slots to list[SlotValue]
+                slots_dict = nlu_result_raw.get("extracted_slots", {})
+                if isinstance(slots_dict, dict):
+                    slots_list = [
+                        SlotValue(name=k, value=v, confidence=0.95) for k, v in slots_dict.items()
+                    ]
+                else:
+                    slots_list = []
+                nlu_result = NLUOutput(
+                    message_type=MessageType.SLOT_VALUE,
                     command=nlu_result_raw.get("structured_command", ""),
-                    slots=nlu_result_raw.get("extracted_slots", {}),
+                    slots=slots_list,
                     confidence=nlu_result_raw.get("confidence", 0.0),
                     reasoning=nlu_result_raw.get("reasoning", ""),
                 )
-            elif isinstance(nlu_result_raw, NLUResult):
+            elif isinstance(nlu_result_raw, NLUOutput):
                 nlu_result = nlu_result_raw
             else:
-                # Fallback: create empty NLUResult
-                nlu_result = NLUResult(
+                # Fallback: create empty NLUOutput
+                nlu_result = NLUOutput(
+                    message_type=MessageType.SLOT_VALUE,
                     command="",
-                    slots={},
+                    slots=[],
                     confidence=0.0,
                     reasoning="",
                 )
 
             # Normalize extracted slots before updating state using injected normalizer
-            normalized_slots = nlu_result.slots
+            normalized_slots = {slot.name: slot.value for slot in nlu_result.slots}
             failed_slots: list[dict[str, Any]] = []
             if normalized_slots:
                 try:
