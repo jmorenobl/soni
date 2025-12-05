@@ -34,12 +34,30 @@ async def understand_node(
     active_ctx = flow_manager.get_active_context(state)
     current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
 
+    # Get expected slots for current flow from scope manager
+    available_actions = scope_manager.get_available_actions(state)
+    expected_slots = []
+    if current_flow_name and current_flow_name != "none":
+        expected_slots = scope_manager.get_expected_slots(
+            flow_name=current_flow_name,
+            available_actions=available_actions,
+        )
+        logger.debug(
+            f"Expected slots for flow '{current_flow_name}': {expected_slots}",
+            extra={"flow": current_flow_name, "expected_slots": expected_slots},
+        )
+    else:
+        logger.debug(
+            f"No active flow, passing empty expected_slots. "
+            f"NLU will infer from available_flows: {scope_manager.get_available_flows(state)}"
+        )
+
     dialogue_context = {
         "current_slots": (state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}),
-        "available_actions": scope_manager.get_available_actions(state),
+        "available_actions": available_actions,
         "available_flows": scope_manager.get_available_flows(state),
         "current_flow": current_flow_name,
-        "expected_slots": [],  # TODO: Get from flow definition
+        "expected_slots": expected_slots,
         "history": state["messages"][-5:] if state["messages"] else [],  # Last 5 messages
     }
 
