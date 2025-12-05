@@ -1,0 +1,496 @@
+---
+name: YAML DSL Specification
+version: "1.0"
+description: Zero-leakage YAML principles, flow definitions, action contracts, and validation
+globs:
+  - "examples/**/*.yaml"
+  - "examples/**/*.yml"
+  - "src/soni/compiler/**/*.py"
+alwaysApply: false
+---
+
+# YAML DSL Specification
+
+## Zero-Leakage Principle
+
+**Core Rule**: YAML describes WHAT should happen (semantics), NOT HOW (implementation).
+
+### What Belongs in YAML
+```yaml
+# ✅ CORRECT - Semantic contract
+flows:
+  book_flight:
+    description: "Book a flight for the user"
+    slots:
+      - name: origin
+        type: city
+        prompt: "Where would you like to fly from?"
+        required: true
+
+      - name: destination
+        type: city
+        prompt: "Where would you like to fly to?"
+        required: true
+
+actions:
+  search_flights:
+    description: "Search for available flights"
+    inputs:
+      - origin
+      - destination
+      - departure_date
+    outputs:
+      - flights
+      - total_price
+```
+
+### What Does NOT Belong in YAML
+```yaml
+# ❌ WRONG - Technical details leaked
+flows:
+  book_flight:
+    slots:
+      - name: origin
+        api_url: "https://api.example.com/cities"  # ❌ HTTP detail
+        http_method: "GET"                         # ❌ HTTP detail
+        regex: "^[A-Z]{3}$"                        # ❌ Validation detail
+        sql_query: "SELECT * FROM cities"          # ❌ Database detail
+```
+
+**Technical details go in Python**:
+```python
+# ✅ CORRECT - Implementation in Python
+@ValidatorRegistry.register("city_format")
+def validate_city(value: str) -> bool:
+    return bool(re.match(r"^[A-Z]{3}$", value))
+
+@ActionRegistry.register("search_flights")
+async def search_flights(origin: str, destination: str, date: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://api.example.com/flights", ...)
+    return {"flights": response.json()["data"]}
+```
+
+## Flow Definitions
+
+### Declarative Flow (Simple Slot-Filling)
+```yaml
+flows:
+  book_flight:
+    description: "Book a flight for the user"
+
+    slots:
+      - name: origin
+        type: city
+        prompt: "Where would you like to fly from?"
+        required: true
+        validator: city_format
+        normalizer: uppercase
+
+      - name: destination
+        type: city
+        prompt: "Where would you like to fly to?"
+        required: true
+        validator: city_format
+        normalizer: uppercase
+
+      - name: departure_date
+        type: date
+        prompt: "When would you like to depart?"
+        required: true
+        validator: future_date
+        normalizer: iso_date
+
+    confirm:
+      message: "Let me confirm your booking"
+      required: true
+
+    action: book_flight_action
+```
+
+### Procedural Flow (Complex Logic)
+```yaml
+flows:
+  modify_booking:
+    description: "Modify an existing booking"
+
+    process:
+      - step: request_id
+        type: collect
+        slot: booking_ref
+        prompt: "What is your booking reference?"
+
+      - step: verify_booking
+        type: action
+        call: check_booking_exists
+        inputs:
+          - booking_ref
+        map_outputs:
+          exists: booking_exists
+          booking_data: booking
+
+      - step: decide_exists
+        type: branch
+        input: booking_exists
+        cases:
+          true: check_modifiable
+          false: not_found
+
+      - step: check_modifiable
+        type: action
+        call: check_booking_rules
+        inputs:
+          - booking
+        map_outputs:
+          can_modify: is_modifiable
+          reason: rejection_reason
+
+      - step: decide_modifiable
+        type: branch
+        input: is_modifiable
+        cases:
+          true: collect_changes
+          false: explain_rejection
+
+      - step: collect_changes
+        type: collect
+        slot: change_type
+        prompt: "What would you like to change?"
+
+      - step: explain_rejection
+        type: respond
+        message: "Sorry, this booking cannot be modified: {rejection_reason}"
+        end: true
+
+      - step: not_found
+        type: respond
+        message: "Booking {booking_ref} not found"
+        end: true
+```
+
+## Action Contracts
+
+### Action Definition
+```yaml
+actions:
+  search_flights:
+    description: "Search for available flights between two cities"
+    inputs:
+      - origin
+      - destination
+      - departure_date
+    outputs:
+      - flights          # List of available flights
+      - total_price      # Total price for selected flight
+      - currency         # Currency code
+```
+
+### Action Implementation (Python)
+```python
+from soni.actions import ActionRegistry
+
+@ActionRegistry.register("search_flights")
+async def search_flights(
+    origin: str,
+    destination: str,
+    departure_date: str
+) -> dict[str, Any]:
+    """
+    Search for available flights.
+
+    Args:
+        origin: Departure city code
+        destination: Arrival city code
+        departure_date: ISO date string
+
+    Returns:
+        Dictionary with flights, total_price, and currency
+    """
+    # Technical implementation here
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.example.com/flights",
+            params={
+                "from": origin,
+                "to": destination,
+                "date": departure_date
+            }
+        )
+        data = response.json()
+
+    return {
+        "flights": data["available_flights"],
+        "total_price": data["price"],
+        "currency": data["currency"]
+    }
+```
+
+## Validators and Normalizers
+
+### Validator Definition (YAML)
+```yaml
+slots:
+  - name: email
+    type: email
+    validator: email_format  # Semantic name
+    prompt: "What is your email address?"
+```
+
+### Validator Implementation (Python)
+```python
+from soni.validation import ValidatorRegistry
+
+@ValidatorRegistry.register("email_format")
+def validate_email(value: str) -> bool:
+    """Validate email format."""
+    return bool(re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", value))
+
+@ValidatorRegistry.register("future_date")
+def validate_future_date(value: str) -> bool:
+    """Validate date is in the future."""
+    from datetime import datetime
+    date = datetime.fromisoformat(value)
+    return date > datetime.now()
+```
+
+### Normalizer Implementation (Python)
+```python
+from soni.du.normalizer import NormalizerRegistry
+
+@NormalizerRegistry.register("uppercase")
+def normalize_uppercase(value: str) -> str:
+    """Normalize to uppercase."""
+    return value.upper()
+
+@NormalizerRegistry.register("iso_date")
+async def normalize_iso_date(value: str) -> str:
+    """Normalize to ISO date format."""
+    from dateparser import parse
+    date = parse(value)
+    return date.isoformat() if date else value
+```
+
+## Output Mapping
+
+### Decoupling API Response from Flow Variables
+```yaml
+process:
+  - step: verify_status
+    type: action
+    call: check_booking_rules
+    map_outputs:
+      status: api_status                # API field → Flow variable
+      rejection_reason: reason          # API field → Flow variable
+      booking_details: booking_data     # API field → Flow variable
+```
+
+**Why**: API might return `status`, but flow uses `api_status` to avoid conflicts.
+
+## Slot Types
+
+### Defining Custom Types
+```yaml
+types:
+  city:
+    description: "Airport city code"
+    validator: city_format
+    normalizer: uppercase
+    examples:
+      - "MAD"
+      - "BCN"
+      - "NYC"
+
+  booking_ref:
+    description: "Booking reference code"
+    validator: booking_ref_format
+    normalizer: uppercase
+    examples:
+      - "BK-123456"
+```
+
+### Using Types
+```yaml
+slots:
+  - name: origin
+    type: city  # References type definition
+    prompt: "Where would you like to fly from?"
+```
+
+## Readability Principles
+
+### Good YAML
+```yaml
+# ✅ CORRECT - Clear, readable, business-focused
+flows:
+  book_flight:
+    description: "Book a flight for the user"
+
+    slots:
+      - name: origin
+        type: city
+        prompt: "Where would you like to fly from?"
+        required: true
+
+      - name: destination
+        type: city
+        prompt: "Where would you like to fly to?"
+        required: true
+
+    action: book_flight_action
+```
+
+### Bad YAML
+```yaml
+# ❌ WRONG - Technical, cryptic, implementation-focused
+flows:
+  bf:  # Cryptic name
+    desc: "BF"  # Unclear
+
+    s:  # What is "s"?
+      - n: o  # Unclear abbreviations
+        t: c
+        p: "From?"
+        req: 1  # Boolean as integer?
+        vld: "^[A-Z]{3}$"  # Regex leaked
+
+    act: bf_act
+```
+
+## Configuration Structure
+
+### Complete Example
+```yaml
+name: "Flight Booking Assistant"
+version: "1.0"
+
+settings:
+  nlu:
+    provider: dspy
+    model: openai/gpt-4o-mini
+    cache_ttl: 300
+
+  flow_management:
+    max_stack_depth: 3
+    stack_limit_strategy: "cancel_oldest"
+
+  memory_management:
+    max_completed_flows: 10
+
+flows:
+  book_flight:
+    # Flow definition here
+
+  check_booking:
+    # Flow definition here
+
+actions:
+  book_flight_action:
+    # Action definition here
+
+  check_booking_exists:
+    # Action definition here
+```
+
+## Validation Rules
+
+### YAML Must Be Valid
+```bash
+# Validate configuration
+uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
+```
+
+### Common Validation Errors
+```yaml
+# ❌ WRONG - Missing required field
+flows:
+  book_flight:
+    # Missing 'description'
+    slots:
+      - name: origin
+        # Missing 'prompt'
+
+# ❌ WRONG - Invalid type reference
+slots:
+  - name: origin
+    type: invalid_type  # Type not defined
+
+# ❌ WRONG - Invalid action reference
+flows:
+  book_flight:
+    action: non_existent_action  # Action not defined
+```
+
+## Best Practices
+
+### 1. Use Descriptive Names
+```yaml
+# ✅ CORRECT
+flows:
+  book_flight:
+  check_booking:
+  modify_booking:
+
+# ❌ WRONG
+flows:
+  bf:
+  cb:
+  mb:
+```
+
+### 2. Provide Clear Prompts
+```yaml
+# ✅ CORRECT
+prompt: "Where would you like to fly from?"
+prompt: "When would you like to depart? (e.g., 'December 15' or 'next Monday')"
+
+# ❌ WRONG
+prompt: "From?"
+prompt: "Date?"
+```
+
+### 3. Use Semantic Validator Names
+```yaml
+# ✅ CORRECT
+validator: email_format
+validator: future_date
+validator: booking_ref_format
+
+# ❌ WRONG
+validator: "^[\w\.-]+@[\w\.-]+\.\w+$"  # Regex leaked
+validator: validate_func_123          # Unclear name
+```
+
+### 4. Document Complex Flows
+```yaml
+flows:
+  modify_booking:
+    description: >
+      Allows users to modify an existing booking.
+      Validates booking exists and can be modified before collecting changes.
+
+    process:
+      # Steps here
+```
+
+### 5. Use map_outputs for Clarity
+```yaml
+# ✅ CORRECT - Clear mapping
+- step: verify
+  type: action
+  call: check_status
+  map_outputs:
+    api_status: status
+    api_message: message
+
+# ❌ WRONG - Assumes API field names match
+- step: verify
+  type: action
+  call: check_status
+  # What if API returns different field names?
+```
+
+## References
+
+See @examples/flight_booking/soni.yaml for complete example.
+See @src/soni/compiler/ for YAML compilation.
+See @docs/design/10-dsl-specification/ for complete DSL spec.

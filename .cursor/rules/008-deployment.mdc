@@ -1,0 +1,608 @@
+---
+name: Deployment & Development Workflow
+version: "1.0"
+description: Git workflow, uv package manager, validation scripts, pre-commit hooks, and deployment best practices
+globs:
+  - "pyproject.toml"
+  - "scripts/**/*.py"
+  - ".pre-commit-config.yaml"
+  - ".github/**/*.yml"
+alwaysApply: false
+---
+
+# Deployment & Development Workflow
+
+## Package Manager: uv
+
+**CRITICAL**: Use `uv` exclusively, not `pip` or `poetry`.
+
+### Project Setup
+```bash
+# Initial setup
+uv sync                    # Install all dependencies from lock file
+uv run pre-commit install  # Install pre-commit hooks
+
+# Development environment ready
+```
+
+### Dependency Management
+```bash
+# Add production dependency
+uv add httpx
+uv add "langchain-core>=0.3.0"
+
+# Add development dependency
+uv add --dev pytest
+uv add --dev ruff
+
+# Remove dependency
+uv remove httpx
+
+# Update dependencies
+uv lock --upgrade-package httpx
+uv lock --upgrade  # Update all dependencies
+```
+
+### Running Commands
+```bash
+# Run Python scripts
+uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
+
+# Run tests
+uv run pytest
+uv run pytest tests/test_flow_manager.py::test_push_flow
+
+# Run linting and formatting
+uv run ruff check .
+uv run ruff format .
+
+# Run type checking
+uv run mypy src/soni
+
+# Run CLI commands
+uv run soni server --config examples/flight_booking/soni.yaml
+uv run soni optimize --config config.yaml
+```
+
+### Package Structure
+```toml
+# pyproject.toml
+[project]
+name = "soni"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+dependencies = [
+    "dspy-ai>=2.5.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.0",
+]
+
+[project.scripts]
+soni = "soni.cli.main:app"
+```
+
+## Git Workflow
+
+### Conventional Commits
+**CRITICAL**: All commits MUST follow Conventional Commits format.
+
+```bash
+# Format: <type>(<scope>): <description>
+
+# Types
+feat:     # New feature
+fix:      # Bug fix
+refactor: # Code restructuring
+test:     # Add or update tests
+docs:     # Documentation
+chore:    # Maintenance tasks
+perf:     # Performance improvement
+ci:       # CI/CD changes
+
+# Examples
+git commit -m "feat(nlu): add context-aware slot extraction"
+git commit -m "fix(flow): prevent stack overflow with max depth limit"
+git commit -m "refactor(normalizer): use dateparser for universal date parsing"
+git commit -m "test: mark slow tests (>3s) and exclude from default run"
+git commit -m "docs(design): update flow management architecture"
+```
+
+### Scopes
+Common scopes in Soni:
+- `nlu`: Dialogue Understanding (DSPy modules)
+- `dm`: Dialogue Management (LangGraph)
+- `flow`: FlowManager and flow operations
+- `state`: DialogueState and serialization
+- `compiler`: YAML to Graph compilation
+- `actions`: Action registry and handlers
+- `validation`: Validator registry
+- `server`: FastAPI server
+- `cli`: CLI commands
+- `runtime`: RuntimeLoop and orchestration
+- `config`: Configuration management
+
+### Branching Strategy
+```bash
+# Main branch: main
+# Feature branches: feat/feature-name
+# Bug fix branches: fix/bug-description
+# Hotfix branches: hotfix/critical-issue
+
+# Create feature branch
+git checkout -b feat/add-date-normalization
+
+# Work on feature
+git add .
+git commit -m "feat(normalizer): add dateparser for multi-language dates"
+
+# Push to remote
+git push -u origin feat/add-date-normalization
+
+# Create pull request (use gh CLI)
+gh pr create --title "feat(normalizer): add dateparser for multi-language dates" --body "..."
+```
+
+## Validation Scripts
+
+### Configuration Validation
+```bash
+# Validate YAML configuration
+uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
+
+# What it checks:
+# - YAML syntax validity
+# - Required fields (name, version, flows, actions)
+# - Type references (all slot types exist)
+# - Action references (all actions exist)
+# - Validator references (all validators registered)
+# - Normalizer references (all normalizers registered)
+# - Flow integrity (no circular dependencies)
+```
+
+**Implementation Pattern**:
+```python
+# scripts/validate_config.py
+from soni.compiler.loader import YAMLLoader
+from soni.compiler.validator import ConfigValidator
+from soni.core.errors import ConfigurationError
+
+def validate_config(config_path: str) -> None:
+    """Validate Soni YAML configuration."""
+    try:
+        # Load YAML
+        loader = YAMLLoader()
+        config = loader.load(config_path)
+
+        # Validate
+        validator = ConfigValidator()
+        validator.validate(config)
+
+        print(f"✅ Configuration valid: {config_path}")
+
+    except ConfigurationError as e:
+        print(f"❌ Configuration error: {e}")
+        sys.exit(1)
+```
+
+### Runtime Validation
+```bash
+# Validate runtime environment
+uv run python scripts/validate_runtime.py
+
+# What it checks:
+# - Python version (>= 3.11)
+# - All required dependencies installed
+# - Environment variables set
+# - Database connection (if configured)
+# - LLM provider access (if configured)
+# - Action handlers registered
+# - Validator/Normalizer registries populated
+```
+
+### Graph Validation
+```bash
+# Validate compiled LangGraph
+uv run python scripts/validate_graph.py examples/flight_booking/soni.yaml
+
+# What it checks:
+# - Graph compilation succeeds
+# - All nodes accessible
+# - No orphaned nodes
+# - Entry point (START) connected
+# - Exit points (END) reachable
+# - No infinite loops
+```
+
+## Pre-commit Hooks
+
+### Installation
+```bash
+# Install pre-commit
+uv run pre-commit install
+
+# Run manually
+uv run pre-commit run --all-files
+```
+
+### Configuration
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix]
+      # Formatter
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic, dspy-ai]
+        args: [--strict, --ignore-missing-imports]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+```
+
+### What Gets Checked
+1. **Ruff Linter**: PEP 8 compliance, import sorting, unused variables
+2. **Ruff Formatter**: Consistent code formatting
+3. **MyPy**: Type checking with strict mode
+4. **YAML/TOML/JSON**: Syntax validation
+5. **Whitespace**: No trailing whitespace, EOF newline
+
+**IMPORTANT**: Commits are blocked if hooks fail.
+
+## Testing Before Deployment
+
+### Complete Test Suite
+```bash
+# Run all tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=src/soni --cov-report=term-missing
+
+# Run specific test categories
+uv run pytest -m "not slow"  # Exclude slow tests (> 3s)
+uv run pytest -m integration  # Only integration tests
+uv run pytest -m unit  # Only unit tests
+
+# Run with verbose output
+uv run pytest -v -s
+```
+
+### Required Test Coverage
+Before deployment, ensure:
+- **Unit tests**: All components pass
+- **Integration tests**: Graph compilation and execution work
+- **Type checking**: `mypy` passes with no errors
+- **Linting**: `ruff check` passes
+- **Configuration validation**: All example configs valid
+
+## Deployment Checklist
+
+### Pre-deployment
+```bash
+# 1. Run full test suite
+uv run pytest
+
+# 2. Run type checking
+uv run mypy src/soni
+
+# 3. Run linting
+uv run ruff check .
+
+# 4. Validate all example configurations
+uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
+uv run python scripts/validate_config.py examples/travel_assistant/soni.yaml
+
+# 5. Build distribution
+uv build
+
+# 6. Test installation
+uv pip install dist/soni-*.whl
+```
+
+### Environment Variables
+```bash
+# Required for production
+export SONI_ENV=production
+export SONI_LOG_LEVEL=info
+
+# Database (if using persistence)
+export SONI_DB_URL=postgresql://user:pass@localhost:5432/soni
+
+# LLM Provider (for NLU)
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Optional
+export SONI_MAX_WORKERS=4
+export SONI_PORT=8000
+```
+
+### Production Server
+```bash
+# Start with uvicorn
+uv run uvicorn soni.server.app:app \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --workers 4 \
+  --log-level info
+
+# Or use CLI
+uv run soni server \
+  --config config.yaml \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --workers 4
+```
+
+### Docker Deployment
+```dockerfile
+# Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Install dependencies
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# Copy application
+COPY src/ ./src/
+COPY examples/ ./examples/
+
+# Run server
+CMD ["uv", "run", "soni", "server", "--config", "examples/flight_booking/soni.yaml"]
+```
+
+```bash
+# Build image
+docker build -t soni:latest .
+
+# Run container
+docker run -d \
+  -p 8000:8000 \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  soni:latest
+```
+
+## Task Implementation Workflow
+
+### Standard Workflow
+```bash
+# 1. Create feature branch
+git checkout -b feat/add-feature
+
+# 2. Implement feature (TDD)
+# Write failing test first
+uv run pytest tests/test_feature.py  # ❌ Fails
+
+# Implement feature
+# Edit src/soni/...
+
+# Run test again
+uv run pytest tests/test_feature.py  # ✅ Passes
+
+# 3. Run full test suite
+uv run pytest
+
+# 4. Commit with conventional commit
+git add .
+git commit -m "feat(scope): add feature description"
+
+# 5. Push and create PR
+git push -u origin feat/add-feature
+gh pr create --title "feat(scope): add feature" --body "..."
+
+# 6. After review and approval
+git checkout main
+git pull
+git merge feat/add-feature
+git push
+```
+
+### Hotfix Workflow
+```bash
+# 1. Create hotfix branch from main
+git checkout -b hotfix/critical-bug
+
+# 2. Fix bug with test
+# Add regression test
+# Fix bug
+# Verify test passes
+
+# 3. Fast-track review
+git commit -m "fix(scope): resolve critical bug"
+git push -u origin hotfix/critical-bug
+
+# 4. Merge and deploy immediately
+git checkout main
+git merge hotfix/critical-bug
+git push
+
+# Deploy
+uv build
+# Deploy to production
+```
+
+## Monitoring and Observability
+
+### Logging Configuration
+```python
+# Production logging
+import logging
+from soni.observability.logger import setup_logging
+
+# Setup structured logging
+setup_logging(
+    level=logging.INFO,
+    format="json",  # JSON for log aggregation
+    output="stdout"
+)
+```
+
+### Health Checks
+```bash
+# Server health endpoint
+curl http://localhost:8000/health
+
+# Response
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "uptime": 3600.5,
+  "active_sessions": 42
+}
+```
+
+### Metrics
+```python
+# Expose metrics endpoint (Prometheus format)
+from soni.observability.metrics import MetricsCollector
+
+# Track key metrics
+metrics.track_nlu_latency(ms=150)
+metrics.track_flow_completion(flow_name="book_flight", success=True)
+metrics.track_active_sessions(count=42)
+```
+
+## CI/CD Pipeline
+
+### GitHub Actions
+```yaml
+# .github/workflows/test.yml
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest --cov
+
+      - name: Run type checking
+        run: uv run mypy src/soni
+
+      - name: Run linting
+        run: uv run ruff check .
+```
+
+## Best Practices
+
+### 1. Always Use uv
+```bash
+# ✅ CORRECT
+uv run pytest
+uv add httpx
+
+# ❌ WRONG
+python -m pytest
+pip install httpx
+```
+
+### 2. Conventional Commits
+All commits must follow the format: `type(scope): description`
+
+### 3. Pre-commit Hooks
+Never bypass pre-commit hooks with `--no-verify` unless absolutely necessary.
+
+### 4. Test Before Commit
+```bash
+# Before every commit
+uv run pytest        # Tests pass
+uv run mypy src/soni  # Type checking passes
+uv run ruff check .   # Linting passes
+```
+
+### 5. Configuration Validation
+Always validate configurations before deployment:
+```bash
+uv run python scripts/validate_config.py config.yaml
+```
+
+### 6. Semantic Versioning
+Follow SemVer (MAJOR.MINOR.PATCH):
+- MAJOR: Breaking changes
+- MINOR: New features (backward compatible)
+- PATCH: Bug fixes
+
+## Troubleshooting
+
+### uv sync fails
+```bash
+# Clear cache
+uv cache clean
+
+# Re-sync
+uv sync
+```
+
+### Pre-commit hooks fail
+```bash
+# Run specific hook
+uv run pre-commit run ruff --all-files
+
+# Fix issues automatically
+uv run ruff check --fix .
+uv run ruff format .
+
+# Skip hooks (NOT recommended)
+git commit --no-verify
+```
+
+### Tests fail in CI but pass locally
+```bash
+# Use exact same environment
+uv sync --frozen
+
+# Run with same Python version
+uv run --python 3.11 pytest
+```
+
+## References
+
+See @pyproject.toml for dependency configuration.
+See @.pre-commit-config.yaml for hook configuration.
+See @scripts/validate_config.py for validation implementation.
+See @docs/deployment/ for detailed deployment guides.
