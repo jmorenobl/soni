@@ -1,9 +1,12 @@
-"""Unit tests for Soni exceptions"""
+"""Unit tests for core error classes."""
+
+import pytest
 
 from soni.core.errors import (
     ActionNotFoundError,
     CompilationError,
     ConfigurationError,
+    FlowStackLimitError,
     NLUError,
     PersistenceError,
     SoniError,
@@ -11,84 +14,82 @@ from soni.core.errors import (
 )
 
 
-def test_soni_error_base():
-    """Test base SoniError with message and context"""
-    # Arrange & Act
-    error = SoniError("Test error", {"key": "value"})
+def test_base_error_with_context():
+    """Test SoniError includes context in message."""
+    # Arrange
+    error = SoniError(
+        "Something failed",
+        user_id="123",
+        flow="book_flight",
+    )
+
+    # Act
+    error_message = str(error)
 
     # Assert
-    assert str(error) == "Test error (key=value)"
-    assert error.message == "Test error"
-    assert error.context == {"key": "value"}
+    assert "Something failed" in error_message
+    assert "user_id=123" in error_message
+    assert "flow=book_flight" in error_message
 
 
-def test_nlu_error():
-    """Test NLUError inherits from SoniError"""
+def test_base_error_without_context():
+    """Test SoniError without context."""
     # Arrange & Act
-    error = NLUError("NLU processing failed", {"model": "gpt-4"})
+    error = SoniError("Simple error")
+
+    # Assert
+    assert str(error) == "Simple error"
+    assert error.context == {}
+
+
+def test_validation_error_inheritance():
+    """Test ValidationError is a SoniError."""
+    # Arrange & Act
+    error = ValidationError("Invalid slot", slot="origin", value="invalid")
 
     # Assert
     assert isinstance(error, SoniError)
-    assert "NLU processing failed" in str(error)
+    assert "Invalid slot" in str(error)
+    assert "slot=origin" in str(error)
+    assert "value=invalid" in str(error)
 
 
-def test_validation_error():
-    """Test ValidationError stores field and value information"""
+def test_all_error_types_inherit_from_soni_error():
+    """Test all specific error types inherit from SoniError."""
+    # Arrange
+    error_types = [
+        (NLUError, "Test NLU error"),
+        (ValidationError, "Test validation error", {"field": "test"}),
+        (ActionNotFoundError, "test_action"),
+        (FlowStackLimitError, "Stack limit exceeded", {"max_depth": 10}),
+        (ConfigurationError, "Config error"),
+        (PersistenceError, "Persistence error"),
+        (CompilationError, "Compilation error"),
+    ]
+
+    # Act & Assert
+    for error_data in error_types:
+        if len(error_data) == 2:
+            error = error_data[0](error_data[1])
+        elif len(error_data) == 3:
+            error = error_data[0](error_data[1], **error_data[2])
+        else:
+            error = error_data[0](error_data[1])
+        assert isinstance(error, SoniError)
+        assert error_data[1] in str(error) or error_data[1] in error.message
+
+
+def test_flow_stack_limit_error():
+    """Test FlowStackLimitError with context."""
     # Arrange & Act
-    error = ValidationError(
-        "Invalid value",
-        field="destination",
-        value="InvalidCity",
-        context={"allowed": ["Paris", "London"]},
+    error = FlowStackLimitError(
+        "Flow stack depth limit exceeded",
+        current_depth=10,
+        flow_name="test_flow",
     )
 
     # Assert
-    assert error.field == "destination"
-    assert error.value == "InvalidCity"
-    assert "Invalid value" in str(error)
-
-
-def test_action_not_found_error():
-    """Test ActionNotFoundError stores action name"""
-    # Arrange & Act
-    error = ActionNotFoundError("search_flights", {"available": ["book_flight"]})
-
-    # Assert
-    assert error.action_name == "search_flights"
-    assert "search_flights" in str(error)
-
-
-def test_compilation_error():
-    """Test CompilationError stores YAML path and line number"""
-    # Arrange & Act
-    error = CompilationError(
-        "Syntax error",
-        yaml_path="config.yaml",
-        line=42,
-        context={"flow": "book_flight"},
-    )
-
-    # Assert
-    assert error.yaml_path == "config.yaml"
-    assert error.line == 42
-    assert "Syntax error" in str(error)
-
-
-def test_configuration_error():
-    """Test ConfigurationError inherits from SoniError"""
-    # Arrange & Act
-    error = ConfigurationError("Missing required field: version")
-
-    # Assert
     assert isinstance(error, SoniError)
-    assert "Missing required field" in str(error)
-
-
-def test_persistence_error():
-    """Test PersistenceError inherits from SoniError"""
-    # Arrange & Act
-    error = PersistenceError("Failed to save state", {"conversation_id": "123"})
-
-    # Assert
-    assert isinstance(error, SoniError)
-    assert "Failed to save state" in str(error)
+    assert "Flow stack depth limit exceeded" in str(error)
+    assert "current_depth=10" in str(error)
+    assert "flow_name=test_flow" in str(error)

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
+
+from soni.core.types import DialogueState as DialogueStateTypedDict
 
 if TYPE_CHECKING:
     from soni.core.config import SoniConfig
@@ -154,3 +157,56 @@ class RuntimeContext:
             KeyError: If flow not found in config
         """
         return self.config.flows[flow_name]
+
+
+# Helper functions for TypedDict DialogueState (Phase 1)
+# Note: The DialogueState dataclass above is still used in existing code
+# and will be migrated in later phases. These helpers are for new code.
+
+
+def create_empty_state() -> DialogueStateTypedDict:
+    """Create an empty DialogueState with defaults.
+
+    Returns:
+        DialogueState TypedDict with all default values
+    """
+    return {
+        "user_message": "",
+        "last_response": "",
+        "messages": [],
+        "flow_stack": [],
+        "flow_slots": {},
+        "conversation_state": "idle",
+        "current_step": None,
+        "waiting_for_slot": None,
+        "nlu_result": None,
+        "last_nlu_call": None,
+        "digression_depth": 0,
+        "last_digression_type": None,
+        "turn_count": 0,
+        "trace": [],
+        "metadata": {},
+    }
+
+
+def create_initial_state(user_message: str) -> DialogueStateTypedDict:
+    """Create initial state for new conversation.
+
+    Args:
+        user_message: Initial user message
+
+    Returns:
+        DialogueState TypedDict initialized for new conversation
+    """
+    state = create_empty_state()
+    state["user_message"] = user_message
+    state["conversation_state"] = "understanding"
+    state["turn_count"] = 1
+    state["trace"] = [
+        {
+            "turn": 1,
+            "user_message": user_message,
+            "timestamp": time.time(),
+        }
+    ]
+    return state

@@ -4,24 +4,24 @@ from typing import Any
 
 
 class SoniError(Exception):
-    """Base exception for all Soni Framework errors."""
+    """Base exception for all Soni errors."""
 
-    def __init__(self, message: str, context: dict | None = None):
+    def __init__(self, message: str, **context: Any) -> None:
         """Initialize SoniError.
 
         Args:
             message: Error message.
-            context: Optional context dictionary.
+            **context: Optional context key-value pairs.
         """
         super().__init__(message)
         self.message = message
-        self.context = context or {}
+        self.context = context
 
     def __str__(self) -> str:
         """Return string representation of error."""
         if self.context:
-            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
-            return f"{self.message} ({context_str})"
+            ctx_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
+            return f"{self.message} ({ctx_str})"
         return self.message
 
 
@@ -32,50 +32,21 @@ class NLUError(SoniError):
 
 
 class ValidationError(SoniError):
-    """Error during slot/entity validation."""
+    """Error during validation."""
 
-    def __init__(
-        self,
-        message: str,
-        field: str | None = None,
-        value: Any = None,
-        context: dict | None = None,
-    ):
-        super().__init__(message, context)
-        self.field = field
-        self.value = value
+    pass
 
 
 class ActionNotFoundError(SoniError):
-    """Error when an action is not found."""
+    """Action not found in registry."""
 
-    def __init__(self, action_name: str, context: dict | None = None):
-        message = f"Action '{action_name}' not found"
-        super().__init__(message, context)
-        self.action_name = action_name
+    pass
 
 
 class CompilationError(SoniError):
-    """Error during YAML to graph compilation"""
+    """Error during YAML compilation."""
 
-    def __init__(
-        self,
-        message: str,
-        yaml_path: str | None = None,
-        line: int | None = None,
-        step_index: int | None = None,
-        step_name: str | None = None,
-        flow_name: str | None = None,
-        node_id: str | None = None,
-        context: dict | None = None,
-    ):
-        super().__init__(message, context)
-        self.yaml_path = yaml_path
-        self.line = line
-        self.step_index = step_index
-        self.step_name = step_name
-        self.flow_name = flow_name
-        self.node_id = node_id
+    pass
 
 
 class ConfigurationError(SoniError):
@@ -85,6 +56,12 @@ class ConfigurationError(SoniError):
 
 
 class PersistenceError(SoniError):
-    """Error during state persistence"""
+    """Error during state persistence."""
+
+    pass
+
+
+class FlowStackLimitError(SoniError):
+    """Flow stack depth limit exceeded."""
 
     pass

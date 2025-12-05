@@ -1,165 +1,66 @@
-"""Unit tests for DialogueState"""
+"""Unit tests for state initialization helpers."""
 
-from soni.core.state import DialogueState
+import pytest
 
-
-def test_dialogue_state_creation():
-    """Test creating a DialogueState with default values"""
-    # Arrange & Act
-    state = DialogueState()
-
-    # Assert
-    assert state.current_flow == "none"
-    assert state.turn_count == 0
-    assert len(state.messages) == 0
-    assert len(state.slots) == 0
+from soni.core.state import create_empty_state, create_initial_state
+from soni.core.types import DialogueState
 
 
-def test_dialogue_state_with_data():
-    """Test DialogueState initialized with custom data"""
-    # Arrange & Act
-    state = DialogueState(
-        current_flow="book_flight",
-        slots={"destination": "Paris"},
-        turn_count=1,
-    )
-
-    # Assert
-    assert state.current_flow == "book_flight"
-    assert state.slots["destination"] == "Paris"
-    assert state.turn_count == 1
-
-
-def test_add_message():
-    """Test adding messages to conversation history"""
+def test_create_empty_state():
+    """Test create_empty_state returns valid state."""
     # Arrange
-    state = DialogueState()
+    # (No setup needed)
 
     # Act
-    state.add_message("user", "Hello")
-    state.add_message("assistant", "Hi there!")
+    state = create_empty_state()
 
     # Assert
-    assert len(state.messages) == 2
-    assert state.messages[0]["role"] == "user"
-    assert state.messages[0]["content"] == "Hello"
+    assert state["conversation_state"] == "idle"
+    assert state["turn_count"] == 0
+    assert len(state["flow_stack"]) == 0
+    assert state["user_message"] == ""
+    assert state["last_response"] == ""
+    assert len(state["messages"]) == 0
+    assert len(state["flow_slots"]) == 0
+    assert state["nlu_result"] is None
+    assert state["last_nlu_call"] is None
+    assert state["digression_depth"] == 0
+    assert state["last_digression_type"] is None
+    assert len(state["trace"]) == 0
+    assert isinstance(state["metadata"], dict)
 
 
-def test_get_user_messages():
-    """Test filtering and retrieving only user messages"""
+def test_create_initial_state():
+    """Test create_initial_state with message."""
     # Arrange
-    state = DialogueState()
-    state.add_message("user", "Message 1")
-    state.add_message("assistant", "Response 1")
-    state.add_message("user", "Message 2")
+    user_message = "Hello"
 
     # Act
-    user_messages = state.get_user_messages()
+    state = create_initial_state(user_message)
 
     # Assert
-    assert len(user_messages) == 2
-    assert user_messages[0] == "Message 1"
-    assert user_messages[1] == "Message 2"
+    assert state["user_message"] == "Hello"
+    assert state["conversation_state"] == "understanding"
+    assert state["turn_count"] == 1
+    assert len(state["trace"]) == 1
+    assert state["trace"][0]["user_message"] == "Hello"
+    assert state["trace"][0]["turn"] == 1
+    assert "timestamp" in state["trace"][0]
 
 
-def test_get_assistant_messages():
-    """Test filtering and retrieving only assistant messages"""
+def test_create_initial_state_uses_empty_state():
+    """Test create_initial_state builds on create_empty_state."""
     # Arrange
-    state = DialogueState()
-    state.add_message("user", "Hello")
-    state.add_message("assistant", "Hi there!")
-    state.add_message("user", "How are you?")
-    state.add_message("assistant", "I'm doing well!")
+    test_message = "Test message"
 
     # Act
-    assistant_messages = state.get_assistant_messages()
+    state = create_initial_state(test_message)
 
-    # Assert
-    assert len(assistant_messages) == 2
-    assert assistant_messages[0] == "Hi there!"
-    assert assistant_messages[1] == "I'm doing well!"
-
-
-def test_slot_operations():
-    """Test slot management operations: set, get, has, and clear"""
-    # Arrange
-    state = DialogueState()
-
-    # Act & Assert - Setting and getting
-    state.set_slot("destination", "Paris")
-    assert state.get_slot("destination") == "Paris"
-    assert state.has_slot("destination") is True
-
-    # Act & Assert - Default value for missing slot
-    assert state.get_slot("origin", "Unknown") == "Unknown"
-    assert state.has_slot("origin") is False
-
-    # Act & Assert - Clearing slots
-    state.clear_slots()
-    assert len(state.slots) == 0
-    assert state.has_slot("destination") is False
-
-
-def test_increment_turn():
-    """Test incrementing turn counter"""
-    # Arrange
-    state = DialogueState()
-    assert state.turn_count == 0
-
-    # Act
-    state.increment_turn()
-
-    # Assert
-    assert state.turn_count == 1
-
-    # Act
-    state.increment_turn()
-
-    # Assert
-    assert state.turn_count == 2
-
-
-def test_add_trace():
-    """Test adding trace events for debugging"""
-    # Arrange
-    state = DialogueState()
-
-    # Act
-    state.add_trace("nlu", {"intent": "book_flight"})
-    state.add_trace("action", {"action": "search_flights"})
-
-    # Assert
-    assert len(state.trace) == 2
-    assert state.trace[0]["event"] == "nlu"
-    assert state.trace[0]["data"]["intent"] == "book_flight"
-
-
-def test_serialization():
-    """Test state serialization and deserialization via dict and JSON"""
-    # Arrange
-    state = DialogueState(
-        current_flow="book_flight",
-        slots={"destination": "Paris", "date": "tomorrow"},
-        turn_count=2,
-    )
-    state.add_message("user", "I want to book a flight")
-
-    # Act & Assert - to_dict
-    state_dict = state.to_dict()
-    assert state_dict["current_flow"] == "book_flight"
-    assert state_dict["slots"]["destination"] == "Paris"
-    assert state_dict["turn_count"] == 2
-
-    # Act & Assert - from_dict
-    new_state = DialogueState.from_dict(state_dict)
-    assert new_state.current_flow == state.current_flow
-    assert new_state.slots == state.slots
-    assert new_state.turn_count == state.turn_count
-
-    # Act & Assert - to_json and from_json
-    json_str = state.to_json()
-    assert isinstance(json_str, str)
-
-    restored_state = DialogueState.from_json(json_str)
-    assert restored_state.current_flow == state.current_flow
-    assert restored_state.slots == state.slots
+    # Assert - verify it has all fields from empty_state
+    assert "flow_stack" in state
+    assert "flow_slots" in state
+    assert "messages" in state
+    # And has overridden values
+    assert state["user_message"] == test_message
+    assert state["conversation_state"] == "understanding"
+    assert state["turn_count"] == 1

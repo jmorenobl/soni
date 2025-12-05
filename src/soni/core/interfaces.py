@@ -1,173 +1,106 @@
 """Core interfaces (Protocols) for Soni Framework following SOLID principles."""
 
-from __future__ import annotations
+from typing import Any, Protocol
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    from soni.core.state import DialogueState
+from soni.core.types import DialogueState, FlowContext
 
 
-@runtime_checkable
 class INLUProvider(Protocol):
-    """Protocol for Natural Language Understanding providers."""
+    """Interface for NLU providers."""
 
-    async def predict(
+    async def understand(
         self,
         user_message: str,
-        dialogue_history: str = "",
-        current_slots: dict[str, Any] | None = None,
-        available_actions: list[str] | None = None,
-        available_flows: list[str] | None = None,
-        current_flow: str = "none",
-        expected_slots: list[str] | None = None,
+        dialogue_context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Predict intent, entities, and structured command from user message.
-
-        Args:
-            user_message: The user's input message
-            dialogue_history: Previous conversation context
-            current_slots: Currently filled slots
-            available_actions: List of available actions in current context
-            available_flows: List of available flow names when current_flow is 'none'
-            current_flow: Current dialogue flow name
-            expected_slots: List of expected slot names for the current flow.
-                          NLU should use these exact names when extracting entities.
-
-        Returns:
-            Dictionary with keys:
-                - structured_command: User's intent/command
-                - extracted_slots: Extracted entities as dict
-                - confidence: Confidence score (0.0-1.0)
-                - reasoning: Brief reasoning for the extraction
-        """
+        """Understand user message and return NLU result."""
         ...
 
 
-@runtime_checkable
-class IDialogueManager(Protocol):
-    """Protocol for Dialogue Management."""
+class IActionHandler(Protocol):
+    """Interface for action execution."""
 
-    async def process_turn(
+    async def execute(
         self,
-        user_message: str,
-        user_id: str,
-        context: dict[str, Any] | None = None,
+        action_name: str,
+        inputs: dict[str, Any],
     ) -> dict[str, Any]:
-        """Process a single dialogue turn.
-
-        Args:
-            user_message: User's input message
-            user_id: Unique identifier for the user/conversation
-            context: Optional additional context
-
-        Returns:
-            Dictionary with response and updated state
-        """
+        """Execute an action and return results."""
         ...
 
 
-@runtime_checkable
-class INormalizer(Protocol):
-    """Protocol for slot/entity normalization."""
-
-    async def normalize(
-        self,
-        value: Any,
-        entity_config: dict[str, Any],
-    ) -> Any:
-        """Normalize a slot/entity value.
-
-        Args:
-            value: Raw value to normalize
-            entity_config: Configuration for the entity type
-
-        Returns:
-            Normalized value
-        """
-        ...
-
-
-@runtime_checkable
 class IScopeManager(Protocol):
-    """Protocol for dynamic action scoping."""
+    """Interface for scope management (dynamic action filtering)."""
 
     def get_available_actions(
         self,
         state: DialogueState,
     ) -> list[str]:
-        """Get list of available actions based on current dialogue state.
-
-        Args:
-            state: Current dialogue state
-
-        Returns:
-            List of action names available in current context
-        """
-        ...
-
-    def get_expected_slots(
-        self,
-        flow_name: str | None,
-        available_actions: list[str] | None = None,
-    ) -> list[str]:
-        """Get list of expected slot names for a flow.
-
-        If flow_name is None or "none", attempts to infer the flow from
-        available_actions (e.g., "start_book_flight" suggests "book_flight").
-
-        Args:
-            flow_name: Name of the flow to get slots for, or None/"none" to infer
-            available_actions: Optional list of available actions for flow inference
-
-        Returns:
-            List of expected slot names for the flow, empty list if flow not found
-        """
+        """Get available actions based on current state."""
         ...
 
     def get_available_flows(
         self,
         state: DialogueState,
     ) -> list[str]:
-        """Get list of available flow names when no flow is active.
-
-        When current_flow is "none", returns all configured flow names.
-        When in an active flow, returns empty list.
-
-        Args:
-            state: Current dialogue state
-
-        Returns:
-            List of available flow names when current_flow="none",
-            empty list when in an active flow
-        """
+        """Get available flows based on current state."""
         ...
 
 
-@runtime_checkable
-class IActionHandler(Protocol):
-    """Protocol for action handler implementations.
+class INormalizer(Protocol):
+    """Interface for value normalization."""
 
-    Action handlers execute business logic for actions defined in flows.
-    They load and execute Python functions/classes based on configuration.
-    """
-
-    async def execute(
+    async def normalize(
         self,
-        action_name: str,
-        slots: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute an action handler.
+        slot_name: str,
+        raw_value: Any,
+    ) -> Any:
+        """Normalize and validate slot value."""
+        ...
 
-        Args:
-            action_name: Name of the action to execute
-            slots: Dictionary of slot values to pass as inputs
 
-        Returns:
-            Dictionary with action outputs
+class IFlowManager(Protocol):
+    """Interface for flow stack management."""
 
-        Raises:
-            ActionNotFoundError: If action is not found in config
-            RuntimeError: If handler execution fails
-        """
+    def push_flow(
+        self,
+        state: DialogueState,
+        flow_name: str,
+        inputs: dict[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> str:
+        """Start a new flow instance."""
+        ...
+
+    def pop_flow(
+        self,
+        state: DialogueState,
+        outputs: dict[str, Any] | None = None,
+        result: str = "completed",
+    ) -> None:
+        """Finish current flow instance."""
+        ...
+
+    def get_active_context(
+        self,
+        state: DialogueState,
+    ) -> FlowContext | None:
+        """Get the currently active flow context."""
+        ...
+
+    def get_slot(
+        self,
+        state: DialogueState,
+        slot_name: str,
+    ) -> Any:
+        """Get slot value from active flow."""
+        ...
+
+    def set_slot(
+        self,
+        state: DialogueState,
+        slot_name: str,
+        value: Any,
+    ) -> None:
+        """Set slot value in active flow."""
         ...
