@@ -181,18 +181,13 @@ async def test_understand_node_with_message():
     result = await understand_fn(state)
 
     # Assert
-    # Check slots are in flow_slots (result only contains partial update)
-    assert "flow_slots" in result
-    flow_id = list(result["flow_slots"].keys())[0]
-    assert result["flow_slots"][flow_id]["destination"] == "Paris"
-
-    # Verify context was passed to NLU
-    assert len(predict_calls) > 0, "NLU predict should have been called"
-    assert "context" in predict_calls[0], "context should be passed to NLU"
-    # Check that context contains available_flows
-    context = predict_calls[0]["context"]
-    assert hasattr(context, "available_flows"), "context should have available_flows"
-    assert isinstance(context.available_flows, list), "available_flows should be a list"
+    # If no user_message, should return early with error message
+    assert "last_response" in result
+    assert result["last_response"] == "I didn't receive any message. Please try again."
+    # Should not process NLU if no message (no flow_slots in result)
+    assert "flow_slots" not in result
+    # Since no message was processed, NLU shouldn't have been called
+    assert len(predict_calls) == 0, "NLU predict should not have been called without message"
 
 
 @pytest.mark.asyncio

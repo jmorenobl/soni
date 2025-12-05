@@ -12,7 +12,6 @@ from soni.core.state import (
     get_all_slots,
     get_slot,
     get_slot_config,
-    get_user_messages,
 )
 from soni.dm.node_factory_registry import NodeFactoryRegistry
 from soni.du.models import MessageType, NLUOutput, SlotValue
@@ -90,18 +89,21 @@ def create_understand_node(
     from soni.dm.routing import activate_flow_by_intent
 
     async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-        """Understand user message using NLU provider."""
+        """Understand user message using NLU provider.
+
+        Reads user message from state["user_message"] as per design (05-message-flow.md).
+        The messages[] list is used only for building conversation history.
+        """
         try:
             state = _ensure_dialogue_state(state)
 
-            user_messages = get_user_messages(state)
-            if not user_messages:
-                logger.warning("No user messages in state")
+            # Read from user_message field (per design: 05-message-flow.md)
+            user_message = state.get("user_message", "")
+            if not user_message or not user_message.strip():
+                logger.warning("No user_message in state")
                 return {
                     "last_response": "I didn't receive any message. Please try again.",
                 }
-
-            user_message = user_messages[-1]
 
             # Build dspy.History from messages
             import dspy
@@ -277,14 +279,16 @@ def create_understand_node(
                 ],
             }
 
-            # If flow changed, update flow_stack
+            # If flow changed, update flow_stack and flow_slots
             if new_current_flow != current_flow_name:
                 if new_current_flow and new_current_flow != "none":
-                    # Push new flow onto stack
+                    # Push new flow onto stack (also initializes flow_slots for new flow)
                     push_flow(state, new_current_flow)
                     updates["flow_stack"] = state.get("flow_stack", [])
+                    # CRITICAL: Include flow_slots in updates to persist slot storage initialization
+                    updates["flow_slots"] = state.get("flow_slots", {})
 
-            # Update slots in state
+            # Update slots in state (merge with any previously initialized slots)
             if normalized_slots:
                 set_all_slots(state, current_slots)
                 updates["flow_slots"] = state.get("flow_slots", {})
@@ -311,9 +315,9 @@ def create_understand_node(
         except (ImportError, AttributeError, RuntimeError, TypeError) as e:
             from soni.core.errors import NLUError
 
-            error_user_message: str | None = None
-            if "user_messages" in locals() and user_messages:
-                error_user_message = user_messages[-1]
+            error_user_message: str | None = (
+                state.get("user_message") if "user_message" in state else None
+            )
             logger.error(
                 f"NLU processing failed: {e}",
                 exc_info=True,
@@ -329,10 +333,7 @@ def create_understand_node(
         except Exception as e:
             from soni.core.errors import NLUError
 
-            if "user_messages" in locals() and user_messages:
-                error_user_msg = user_messages[-1]
-            else:
-                error_user_msg = None
+            error_user_msg = state.get("user_message") if "user_message" in state else None
             logger.error(
                 f"Unexpected NLU error: {e}",
                 exc_info=True,

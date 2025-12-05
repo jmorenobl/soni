@@ -347,6 +347,8 @@ class RuntimeLoop:
             # We need to handle this gracefully
             # Load existing state from checkpoint (allow partial to handle incomplete snapshots)
             state = state_from_dict(existing_state_snapshot.values, allow_partial=True)
+            # Update user_message field (per design: understand_node reads from here)
+            state["user_message"] = user_msg
             add_message(state, "user", user_msg)
             all_slots = get_all_slots(state)
             logger.debug(

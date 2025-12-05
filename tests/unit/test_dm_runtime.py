@@ -71,6 +71,7 @@ async def test_build_graph_nonexistent_flow(sample_config):
         await builder.build_manual("nonexistent")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_execute_linear_flow_basic(sample_config):
     """Test that graph can be invoked with basic state"""
@@ -112,6 +113,7 @@ async def test_execute_linear_flow_basic(sample_config):
         assert isinstance(result, dict)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_execute_flow_with_action_basic(sample_config):
     """Test that graph can handle action steps"""
@@ -145,6 +147,7 @@ async def test_execute_flow_with_action_basic(sample_config):
         assert isinstance(result, dict)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_state_persistence_basic(sample_config, tmp_path):
     """Test that state can persist between turns"""
@@ -203,6 +206,7 @@ async def test_state_persistence_basic(sample_config, tmp_path):
         # Note: Full persistence verification depends on LangGraph checkpointing
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_state_isolation_basic(sample_config, tmp_path):
     """Test that different users have isolated state"""
@@ -263,6 +267,7 @@ async def test_state_isolation_basic(sample_config, tmp_path):
         # Note: Full isolation verification depends on LangGraph checkpointing
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_handle_nlu_error(sample_config):
     """Test that NLU errors don't break the flow"""
@@ -301,6 +306,7 @@ async def test_handle_nlu_error(sample_config):
             pass
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_handle_action_error(sample_config):
     """Test that action errors don't break the flow"""
@@ -338,6 +344,7 @@ async def test_handle_action_error(sample_config):
             pass
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_handle_missing_slot(sample_config):
     """Test that missing slot is handled gracefully"""

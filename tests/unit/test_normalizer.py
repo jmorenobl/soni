@@ -208,6 +208,7 @@ async def test_normalizer_cache_miss():
     assert len(normalizer.cache) == 2
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_normalizer_cache_ttl_expiry():
     """Test that cache entries expire after TTL"""

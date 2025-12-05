@@ -156,6 +156,11 @@ def activate_flow_by_intent(
     """
     Activate flow based on intent (command).
 
+    Handles multiple command patterns:
+    - Exact match: "book_flight" -> activates "book_flight"
+    - Start prefix: "start_book_flight" -> activates "book_flight"
+    - Underscore variations: "book-flight" -> activates "book_flight"
+
     Args:
         command: NLU command/intent
         current_flow: Current flow name
@@ -167,13 +172,29 @@ def activate_flow_by_intent(
     if not command:
         return current_flow
 
-    # Check if command corresponds to a configured flow
-    # config is SoniConfig, which has flows attribute (dict)
-    if hasattr(config, "flows") and command in config.flows:
-        logger.info(f"Activating flow '{command}' based on intent")
+    if not hasattr(config, "flows"):
+        return current_flow
+
+    # 1. Direct match (design expectation)
+    if command in config.flows:
+        logger.info(f"Activating flow '{command}' based on intent (exact match)")
         return command
 
-    return current_flow
+    # 2. Handle 'start_<flow>' pattern (common NLU output)
+    if command.startswith("start_"):
+        flow_name = command[6:]  # Remove 'start_' prefix
+        if flow_name in config.flows:
+            logger.info(f"Activating flow '{flow_name}' based on intent (start_ prefix)")
+            return flow_name
+
+    # 3. Handle underscore/hyphen variations
+    normalized_command = command.replace("-", "_").lower()
+    for flow_name in config.flows:
+        if normalized_command == flow_name.lower():
+            logger.info(f"Activating flow '{flow_name}' based on intent (normalized)")
+            return str(flow_name)
+
+    return str(current_flow)
 
 
 def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:

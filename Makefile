@@ -14,7 +14,9 @@ help:
 	@echo "  make check              - Run all checks (test, lint, type-check)"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test               - Run unit tests in parallel (default, fast)"
+	@echo "  make test               - Run fast unit tests (excludes slow/integration/performance)"
+	@echo "  make test-unit          - Run all unit tests including slow ones"
+	@echo "  make test-slow          - Run only slow tests"
 	@echo "  make test-all           - Run all tests in parallel"
 	@echo "  make test-integration   - Run integration tests (sequential)"
 	@echo "  make test-performance   - Run performance tests (sequential)"
@@ -79,10 +81,15 @@ docs-clean:
 check: test lint type-check
 	@echo "All checks passed!"
 
-# Run tests (unit tests only by default)
+# Run tests (fast unit tests only by default)
 test:
-	@echo "Running unit tests in parallel..."
-	uv run pytest -m "not integration and not performance" -n 4
+	@echo "Running fast unit tests in parallel..."
+	uv run pytest -m "not integration and not performance and not slow" -n auto
+
+# Run all unit tests including slow
+test-unit:
+	@echo "Running all unit tests (including slow)..."
+	uv run pytest -m "not integration and not performance" -n auto
 
 # Run all tests (unit + integration + performance)
 test-all:
@@ -98,6 +105,11 @@ test-integration:
 test-performance:
 	@echo "Running performance tests..."
 	uv run pytest -m performance
+
+# Run only slow tests
+test-slow:
+	@echo "Running slow tests..."
+	uv run pytest -m slow -n auto
 
 # Run unit + integration tests (no performance)
 test-ci:

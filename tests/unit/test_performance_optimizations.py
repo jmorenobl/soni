@@ -143,6 +143,7 @@ async def test_nlu_cache_miss():
         assert mock_acall.call_count == 2
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_nlu_cache_ttl_expiry():
     """Test that NLU cache expires after TTL"""
@@ -255,6 +256,7 @@ def test_scoping_cache_miss():
     # Actions might be different due to different slots
 
 
+@pytest.mark.slow
 def test_scoping_cache_ttl_expiry():
     """Test that scoping cache expires after TTL"""
     # Arrange
