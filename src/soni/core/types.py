@@ -69,10 +69,14 @@ ConversationState = Literal[
 
 
 class RuntimeContext(TypedDict):
-    """Runtime context with injected dependencies (for LangGraph context_schema)."""
+    """Runtime context with injected dependencies.
 
-    flow_manager: Any  # Will be typed properly with interfaces
-    nlu_provider: Any
-    action_handler: Any
-    scope_manager: Any
-    normalizer: Any
+    This context is passed to all node functions and contains configuration
+    and service dependencies needed for dialogue processing.
+    """
+
+    config: Any  # SoniConfig (avoid circular import)
+    scope_manager: Any  # IScopeManager
+    normalizer: Any  # INormalizer
+    action_handler: Any  # IActionHandler
+    du: Any  # INLUProvider

@@ -4,7 +4,37 @@ import pytest
 
 from soni.core.config import SoniConfig
 from soni.core.scope import ScopeManager
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    get_all_slots,
+    get_current_flow,
+    push_flow,
+    set_slot,
+)
+
+
+@pytest.fixture
+def empty_state():
+    """Create an empty DialogueState for testing"""
+    return create_empty_state()
+
+
+@pytest.fixture
+def state_with_flow():
+    """Create a DialogueState with book_flight flow"""
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    return state
+
+
+@pytest.fixture
+def state_with_slots():
+    """Create a DialogueState with book_flight flow and some slots"""
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")
+    return state
 
 
 def test_scope_manager_initialization():
@@ -52,7 +82,7 @@ def test_scope_manager_global_actions():
     """Test that global actions are always included"""
     # Arrange
     scope_manager = ScopeManager()
-    state = DialogueState(current_flow="none")
+    state = create_empty_state()
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -95,7 +125,8 @@ def test_scope_manager_flow_actions():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="book_flight")
+    state = create_empty_state()
+    push_flow(state, "book_flight")
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -135,10 +166,9 @@ def test_scope_manager_pending_slots():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(
-        current_flow="book_flight",
-        slots={"origin": "Madrid"},  # destination and date are pending
-    )
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")  # destination and date are pending
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -178,7 +208,7 @@ def test_scope_manager_no_flow():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="none")
+    state = create_empty_state()
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -192,7 +222,7 @@ def test_scope_manager_with_dict_state():
     """Test that get_available_actions works with dict state"""
     # Arrange
     scope_manager = ScopeManager()
-    state_dict = {"current_flow": "none", "slots": {}}
+    state_dict = create_empty_state()
 
     # Act
     actions = scope_manager.get_available_actions(state_dict)
@@ -230,10 +260,10 @@ def test_scope_manager_all_slots_filled():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(
-        current_flow="book_flight",
-        slots={"origin": "Madrid", "destination": "Barcelona"},  # All slots filled
-    )
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")
+    set_slot(state, "destination", "Barcelona")  # All slots filled
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -270,7 +300,8 @@ def test_scope_manager_empty_flow():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="book_flight")
+    state = create_empty_state()
+    push_flow(state, "book_flight")
 
     # Act
     actions = scope_manager.get_available_actions(state)
@@ -314,7 +345,8 @@ def test_scope_manager_cache_hit():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="book_flight")
+    state = create_empty_state()
+    push_flow(state, "book_flight")
 
     # Act - first call (cache miss)
     actions1 = scope_manager.get_available_actions(state)
@@ -513,10 +545,9 @@ def test_get_pending_slots():
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
     flow_config = config.flows["book_flight"]
-    state = DialogueState(
-        current_flow="book_flight",
-        slots={"origin": "Madrid"},  # destination and date are pending
-    )
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")  # destination and date are pending
 
     # Act
     pending = scope_manager._get_pending_slots(flow_config, state)
@@ -685,9 +716,15 @@ def test_get_cache_key():
     """Test cache key generation"""
     # Arrange
     scope_manager = ScopeManager()
-    state1 = DialogueState(current_flow="book_flight", slots={"origin": "Madrid"})
-    state2 = DialogueState(current_flow="book_flight", slots={"origin": "Madrid"})
-    state3 = DialogueState(current_flow="book_flight", slots={"origin": "Barcelona"})
+    state1 = create_empty_state()
+    push_flow(state1, "book_flight")
+    set_slot(state1, "origin", "Madrid")
+    state2 = create_empty_state()
+    push_flow(state2, "book_flight")
+    set_slot(state2, "origin", "Madrid")
+    state3 = create_empty_state()
+    push_flow(state3, "book_flight")
+    set_slot(state3, "origin", "Barcelona")
 
     # Act
     key1 = scope_manager._get_cache_key(state1)
@@ -734,7 +771,7 @@ def test_get_available_flows_when_no_flow():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="none")
+    state = create_empty_state()
 
     # Act
     available_flows = scope_manager.get_available_flows(state)
@@ -775,7 +812,8 @@ def test_get_available_flows_when_in_flow():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="book_flight")
+    state = create_empty_state()
+    push_flow(state, "book_flight")
 
     # Act
     available_flows = scope_manager.get_available_flows(state)
@@ -809,7 +847,7 @@ def test_get_available_flows_with_dict_state():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    state_dict = {"current_flow": "none", "slots": {}}
+    state_dict = create_empty_state()
 
     # Act
     available_flows = scope_manager.get_available_flows(state_dict)
@@ -830,7 +868,7 @@ def test_get_available_flows_empty_config():
         actions={},
     )
     scope_manager = ScopeManager(config)
-    state = DialogueState(current_flow="none")
+    state = create_empty_state()
 
     # Act
     available_flows = scope_manager.get_available_flows(state)

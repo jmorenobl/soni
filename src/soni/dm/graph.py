@@ -24,7 +24,7 @@ from soni.core.interfaces import (
     IScopeManager,
 )
 from soni.core.scope import ScopeManager
-from soni.core.state import DialogueState, RuntimeContext
+from soni.core.state import DialogueState, RuntimeContext, create_runtime_context
 from soni.dm.persistence import CheckpointerFactory
 from soni.dm.validators import FlowValidator
 from soni.du.modules import SoniDU
@@ -208,7 +208,7 @@ class SoniGraphBuilder:
         )
 
         # Create runtime context with all dependencies
-        context = RuntimeContext(
+        context = create_runtime_context(
             config=self.config,
             scope_manager=self.scope_manager,
             normalizer=self.normalizer,

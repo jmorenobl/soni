@@ -5,8 +5,8 @@ from collections.abc import Callable
 from typing import Any, Literal
 
 from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
-from soni.core.state import DialogueState
-from soni.core.types import DialogueState as DialogueStateTypedDict
+from soni.core.state import DialogueState, get_slot, state_from_dict
+from soni.core.types import DialogueState as DialogueStateType
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,10 @@ def should_continue(state: DialogueState | dict[str, Any]) -> str:
         This is a placeholder for future routing logic.
         Currently, flows are linear and routing is handled by DAG edges.
     """
-    if isinstance(state, dict):
-        state = DialogueState.from_dict(state)
+    # state_from_dict expects dict only, so check type first
+    if not isinstance(state, dict):
+        # Already DialogueState (TypedDict)
+        pass
 
     # For linear flows, routing is handled by sequential edges
     # This function is reserved for future conditional routing
@@ -46,8 +48,10 @@ def route_by_intent(state: DialogueState | dict[str, Any]) -> str:
     Note:
         This is a placeholder for future intent-based routing.
     """
-    if isinstance(state, dict):
-        state = DialogueState.from_dict(state)
+    # state_from_dict expects dict only, so check type first
+    if not isinstance(state, dict):
+        # Already DialogueState (TypedDict)
+        pass
 
     # Placeholder for future intent-based routing
     # For now, flows are explicitly called
@@ -68,8 +72,10 @@ def create_branch_router(
         Router function that takes state and returns target step name
 
     Example:
+        >>> state = create_empty_state()
+        >>> push_flow(state, "test_flow")
+        >>> set_slot(state, "status", "ok")
         >>> router = create_branch_router("status", {"ok": "continue", "error": "handle_error"})
-        >>> state = DialogueState(slots={"status": "ok"})
         >>> router(state)
         'continue'
     """
@@ -87,23 +93,30 @@ def create_branch_router(
         Raises:
             ValueError: If input variable not found or value not in cases
         """
-        # Convert dict to DialogueState if needed
+        # Ensure we have DialogueState (TypedDict)
         if isinstance(state, dict):
-            state = DialogueState.from_dict(state)
+            # Convert if plain dict
+            if "flow_stack" not in state:
+                state = state_from_dict(state)
+        # Otherwise it's already a DialogueState (TypedDict is a dict)
 
         # Get value from slots (where map_outputs stores variables)
-        value = state.get_slot(input_var)
+        value = get_slot(state, input_var)
 
         if value is None:
+            # Get available slots for error message
+            from soni.core.state import get_all_slots
+
+            all_slots = get_all_slots(state)
             logger.warning(
                 f"Branch router: input variable '{input_var}' not found in state slots",
-                extra={"input_var": input_var, "available_slots": list(state.slots.keys())},
+                extra={"input_var": input_var, "available_slots": list(all_slots.keys())},
             )
             # Try to find a default case or raise error
             # For now, raise error - could be extended to support default case
             raise ValueError(
                 f"Branch router: input variable '{input_var}' not found in state. "
-                f"Available slots: {list(state.slots.keys())}"
+                f"Available slots: {list(all_slots.keys())}"
             )
 
         # Convert value to string for comparison (cases keys are strings)
@@ -178,10 +191,11 @@ def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:
     Returns:
         "end" if the flow should stop (wait for user input), "next" otherwise.
     """
-    if not state.trace:
+    trace = state.get("trace", [])
+    if not trace:
         return "next"
 
-    last_event = state.trace[-1]
+    last_event = trace[-1]
     event_type = last_event.get("event")
 
     # Stop if we just asked for a slot or encountered a validation error
@@ -191,7 +205,7 @@ def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:
     return "next"
 
 
-def route_after_understand(state: DialogueStateTypedDict) -> str:
+def route_after_understand(state: DialogueStateType) -> str:
     """
     Route based on NLU result.
 
@@ -234,7 +248,7 @@ def route_after_understand(state: DialogueStateTypedDict) -> str:
             return "generate_response"
 
 
-def route_after_validate(state: DialogueStateTypedDict) -> str:
+def route_after_validate(state: DialogueStateType) -> str:
     """
     Route after slot validation.
 

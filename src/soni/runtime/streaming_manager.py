@@ -4,7 +4,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from soni.core.state import DialogueState
+from soni.core.state import DialogueState, state_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class StreamingManager:
         config = {"configurable": {"thread_id": user_id}}
 
         async for event in graph.astream(
-            state.to_dict(),
+            state_to_dict(state),
             config=config,
             stream_mode="updates",
         ):

@@ -4,7 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+    push_flow,
+    set_slot,
+)
 from soni.runtime import RuntimeLoop
 
 
@@ -42,9 +50,16 @@ async def test_runtime_uses_scoped_actions(skip_without_api_key):
         assert runtime.scope_manager is not None, "ScopeManager should be initialized"
 
         # Verify scoping is working by checking available actions
-        from soni.core.state import DialogueState
+        from soni.core.state import (
+            DialogueState,
+            create_empty_state,
+            create_initial_state,
+            get_all_slots,
+            get_current_flow,
+        )
 
-        state = DialogueState(current_flow="book_flight")
+        state = create_empty_state()
+        push_flow(state, "book_flight")
         scoped_actions = runtime.scope_manager.get_available_actions(state)
         assert isinstance(scoped_actions, list), "Scoped actions should be a list"
         assert len(scoped_actions) > 0, "Should have at least some scoped actions"
@@ -59,7 +74,8 @@ async def test_scoping_reduces_actions():
     # Arrange
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
-    state = DialogueState(current_flow="book_flight")
+    state = create_empty_state()
+    push_flow(state, "book_flight")
 
     try:
         # Act
@@ -85,10 +101,12 @@ async def test_different_flows_have_different_actions():
 
     try:
         # Act
-        state1 = DialogueState(current_flow="book_flight")
+        state1 = create_empty_state()
+        push_flow(state1, "book_flight")
         actions1 = runtime.scope_manager.get_available_actions(state1)
 
-        state2 = DialogueState(current_flow="none")
+        state2 = create_empty_state()
+        push_flow(state2, "none")
         actions2 = runtime.scope_manager.get_available_actions(state2)
 
         # Assert

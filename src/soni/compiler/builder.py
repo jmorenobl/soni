@@ -10,7 +10,7 @@ from soni.compiler.parser import ParsedStep
 from soni.core.config import SoniConfig
 from soni.core.errors import CompilationError
 from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
-from soni.core.state import DialogueState, RuntimeContext
+from soni.core.state import DialogueState, RuntimeContext, create_runtime_context
 
 logger = logging.getLogger(__name__)
 
@@ -504,7 +504,7 @@ class StepCompiler:
         """Build LangGraph StateGraph from DAG."""
 
         # Create runtime context
-        context = RuntimeContext(
+        context = create_runtime_context(
             config=self.config,
             scope_manager=self.scope_manager or self._create_default_scope_manager(),
             normalizer=self.normalizer or self._create_default_normalizer(),
@@ -630,10 +630,9 @@ class StepCompiler:
             # Branch nodes are pass-through - routing is handled by conditional edges
             async def branch_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
                 """Pass-through node for branches - routing handled by conditional edges."""
-                # Just return state unchanged
-                if isinstance(state, dict):
-                    return state
-                return state.to_dict()
+                # TypedDict is structurally a dict, safe to return directly
+                # LangGraph always passes dict, not TypedDict at runtime
+                return dict(state)
 
             return branch_node
 

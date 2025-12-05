@@ -7,7 +7,15 @@ import pytest
 
 from soni.core.config import ConfigLoader, SoniConfig
 from soni.core.scope import ScopeManager
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+    push_flow,
+    set_slot,
+)
 
 
 def count_tokens(text: str) -> int:
@@ -117,7 +125,9 @@ def test_scoping_latency_impact():
     config = SoniConfig(**config_dict)
 
     scope_manager = ScopeManager(config=config)
-    state = DialogueState(current_flow="book_flight", slots={"origin": "Madrid"})
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")
 
     # Act - Measure scoping latency
     num_iterations = 100
@@ -159,7 +169,9 @@ def test_scoping_cache_performance():
     config = SoniConfig(**config_dict)
 
     scope_manager = ScopeManager(config=config)
-    state = DialogueState(current_flow="book_flight", slots={"origin": "Madrid"})
+    state = create_empty_state()
+    push_flow(state, "book_flight")
+    set_slot(state, "origin", "Madrid")
 
     # Act - First call (cache miss)
     start_time = time.time()

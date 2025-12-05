@@ -8,7 +8,13 @@ import dspy
 import pytest
 
 from soni.core.scope import ScopeManager
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 from soni.du.models import DialogueContext, MessageType, NLUOutput, SlotValue
 from soni.du.modules import SoniDU
 

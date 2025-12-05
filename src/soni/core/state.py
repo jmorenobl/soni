@@ -1,15 +1,19 @@
-"""Dialogue state management for Soni Framework."""
+"""Dialogue state management for Soni Framework.
+
+This module provides TypedDict-based state management for LangGraph compatibility.
+All state operations are functional (immutable by convention) to ensure proper
+state tracking and checkpointing.
+"""
 
 from __future__ import annotations
 
 import copy
 import json
 import time
-from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from soni.core.errors import ValidationError
-from soni.core.types import DialogueState as DialogueStateTypedDict
+from soni.core.types import DialogueState, FlowContext, RuntimeContext
 from soni.core.validators import validate_state_consistency, validate_transition
 
 if TYPE_CHECKING:
@@ -20,154 +24,98 @@ else:
     from soni.core.interfaces import IActionHandler, INLUProvider, INormalizer, IScopeManager
 
 
-@dataclass
-class DialogueState:
-    """Represents the state of a dialogue conversation."""
-
-    messages: list[dict[str, str]] = field(default_factory=list)
-    current_flow: str = "none"
-    slots: dict[str, Any] = field(default_factory=dict)
-    pending_action: str | None = None
-    last_response: str = ""
-    turn_count: int = 0
-    trace: list[dict[str, Any]] = field(default_factory=list)
-    summary: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert state to dictionary for serialization."""
-        return asdict(self)
-
-    def to_json(self) -> str:
-        """Serialize state to JSON string."""
-        return json.dumps(self.to_dict(), default=str)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DialogueState:
-        """Create DialogueState from dictionary."""
-        return cls(
-            messages=data.get("messages", []),
-            current_flow=data.get("current_flow", "none"),
-            slots=data.get("slots", {}),
-            pending_action=data.get("pending_action"),
-            last_response=data.get("last_response", ""),
-            turn_count=data.get("turn_count", 0),
-            trace=data.get("trace", []),
-            summary=data.get("summary"),
-        )
-
-    @classmethod
-    def from_json(cls, json_str: str) -> DialogueState:
-        """Create DialogueState from JSON string."""
-        data = json.loads(json_str)
-        return cls.from_dict(data)
-
-    def add_message(self, role: str, content: str) -> None:
-        """Add a message to the conversation history."""
-        self.messages.append({"role": role, "content": content})
-
-    def get_user_messages(self) -> list[str]:
-        """Get all user messages."""
-        return [msg["content"] for msg in self.messages if msg.get("role") == "user"]
-
-    def get_assistant_messages(self) -> list[str]:
-        """Get all assistant messages."""
-        return [msg["content"] for msg in self.messages if msg.get("role") == "assistant"]
-
-    def get_slot(self, slot_name: str, default: Any = None) -> Any:
-        """Get a slot value by name."""
-        return self.slots.get(slot_name, default)
-
-    def set_slot(self, slot_name: str, value: Any) -> None:
-        """Set a slot value."""
-        self.slots[slot_name] = value
-
-    def has_slot(self, slot_name: str) -> bool:
-        """Check if a slot is filled."""
-        return slot_name in self.slots and self.slots[slot_name] is not None
-
-    def clear_slots(self) -> None:
-        """Clear all slots."""
-        self.slots.clear()
-
-    def increment_turn(self) -> None:
-        """Increment turn counter."""
-        self.turn_count += 1
-
-    def add_trace(self, event: str, data: dict[str, Any]) -> None:
-        """Add a trace event for debugging."""
-        self.trace.append({"event": event, "data": data})
+# ============================================================================
+# RuntimeContext Helper Functions
+# ============================================================================
 
 
-@dataclass
-class RuntimeContext:
-    """Runtime context containing configuration and dependencies.
+def create_runtime_context(
+    config: SoniConfig,
+    scope_manager: IScopeManager,
+    normalizer: INormalizer,
+    action_handler: IActionHandler,
+    du: INLUProvider,
+) -> RuntimeContext:
+    """Create a RuntimeContext with all dependencies.
 
-    This class separates configuration and dependencies from dialogue state,
-    maintaining clean separation of concerns and enabling proper serialization.
-
-    Attributes:
+    Args:
         config: Soni configuration
         scope_manager: Scope manager for action filtering
         normalizer: Slot normalizer for value normalization
         action_handler: Handler for executing actions
         du: NLU provider for dialogue understanding
+
+    Returns:
+        RuntimeContext TypedDict
     """
-
-    config: SoniConfig  # Use string annotation to avoid circular import
-    scope_manager: IScopeManager
-    normalizer: INormalizer
-    action_handler: IActionHandler
-    du: INLUProvider
-
-    def get_slot_config(self, slot_name: str) -> Any:
-        """Get configuration for a specific slot.
-
-        Args:
-            slot_name: Name of the slot
-
-        Returns:
-            Slot configuration
-
-        Raises:
-            KeyError: If slot not found in config
-        """
-        return self.config.slots[slot_name]
-
-    def get_action_config(self, action_name: str) -> Any:
-        """Get configuration for a specific action.
-
-        Args:
-            action_name: Name of the action
-
-        Returns:
-            Action configuration
-
-        Raises:
-            KeyError: If action not found in config
-        """
-        return self.config.actions[action_name]
-
-    def get_flow_config(self, flow_name: str) -> Any:
-        """Get configuration for a specific flow.
-
-        Args:
-            flow_name: Name of the flow
-
-        Returns:
-            Flow configuration
-
-        Raises:
-            KeyError: If flow not found in config
-        """
-        return self.config.flows[flow_name]
+    return {
+        "config": config,
+        "scope_manager": scope_manager,
+        "normalizer": normalizer,
+        "action_handler": action_handler,
+        "du": du,
+    }
 
 
-# Helper functions for TypedDict DialogueState (Phase 1)
-# Note: The DialogueState dataclass above is still used in existing code
-# and will be migrated in later phases. These helpers are for new code.
+def get_slot_config(context: RuntimeContext, slot_name: str) -> Any:
+    """Get configuration for a specific slot.
+
+    Args:
+        context: Runtime context
+        slot_name: Name of the slot
+
+    Returns:
+        Slot configuration
+
+    Raises:
+        KeyError: If slot not found in config
+    """
+    config = context["config"]
+    return config.slots[slot_name]
 
 
-def create_empty_state() -> DialogueStateTypedDict:
+def get_action_config(context: RuntimeContext, action_name: str) -> Any:
+    """Get configuration for a specific action.
+
+    Args:
+        context: Runtime context
+        action_name: Name of the action
+
+    Returns:
+        Action configuration
+
+    Raises:
+        KeyError: If action not found in config
+    """
+    config = context["config"]
+    return config.actions[action_name]
+
+
+def get_flow_config(context: RuntimeContext, flow_name: str) -> Any:
+    """Get configuration for a specific flow.
+
+    Args:
+        context: Runtime context
+        flow_name: Name of the flow
+
+    Returns:
+        Flow configuration
+
+    Raises:
+        KeyError: If flow not found in config
+    """
+    config = context["config"]
+    return config.flows[flow_name]
+
+
+# ============================================================================
+# DialogueState Helper Functions (TypedDict-based)
+# ============================================================================
+# These functions provide a functional API for working with DialogueState
+# TypedDict, ensuring immutability and proper state tracking for LangGraph.
+
+
+def create_empty_state() -> DialogueState:
     """Create an empty DialogueState with defaults.
 
     Returns:
@@ -192,7 +140,7 @@ def create_empty_state() -> DialogueStateTypedDict:
     }
 
 
-def create_initial_state(user_message: str) -> DialogueStateTypedDict:
+def create_initial_state(user_message: str) -> DialogueState:
     """Create initial state for new conversation.
 
     Args:
@@ -216,7 +164,7 @@ def create_initial_state(user_message: str) -> DialogueStateTypedDict:
 
 
 def update_state(
-    state: DialogueStateTypedDict,
+    state: DialogueState,
     updates: dict[str, Any],
     validate: bool = True,
 ) -> None:
@@ -238,17 +186,19 @@ def update_state(
             updates["conversation_state"],
         )
 
-    # Apply updates
+    # Apply updates to state dict
+    # Cast to plain dict for dynamic key assignment (safe after validation)
+    state_dict = cast(dict[str, Any], state)
     for key, value in updates.items():
-        if key in state:
-            state[key] = value  # type: ignore
+        if key in state_dict:
+            state_dict[key] = value
 
     # Validate final state consistency
     if validate:
         validate_state_consistency(state)
 
 
-def state_to_dict(state: DialogueStateTypedDict) -> dict[str, Any]:
+def state_to_dict(state: DialogueState) -> dict[str, Any]:
     """
     Serialize DialogueState to JSON-compatible dict.
 
@@ -262,7 +212,7 @@ def state_to_dict(state: DialogueStateTypedDict) -> dict[str, Any]:
     return copy.deepcopy(dict(state))
 
 
-def state_from_dict(data: dict[str, Any]) -> DialogueStateTypedDict:
+def state_from_dict(data: dict[str, Any]) -> DialogueState:
     """
     Deserialize DialogueState from dict.
 
@@ -295,7 +245,8 @@ def state_from_dict(data: dict[str, Any]) -> DialogueStateTypedDict:
                 field=required_field,
             )
 
-    state: DialogueStateTypedDict = data  # type: ignore
+    # Cast dict to DialogueState after validation (safe - all required fields present)
+    state = cast(DialogueState, data)
 
     # Validate consistency
     validate_state_consistency(state)
@@ -303,12 +254,282 @@ def state_from_dict(data: dict[str, Any]) -> DialogueStateTypedDict:
     return state
 
 
-def state_to_json(state: DialogueStateTypedDict) -> str:
+def state_to_json(state: DialogueState) -> str:
     """Serialize state to JSON string."""
     return json.dumps(state_to_dict(state), indent=2)
 
 
-def state_from_json(json_str: str) -> DialogueStateTypedDict:
+def state_from_json(json_str: str) -> DialogueState:
     """Deserialize state from JSON string."""
     data = json.loads(json_str)
     return state_from_dict(data)
+
+
+# ============================================================================
+# Message Operations
+# ============================================================================
+
+
+def add_message(state: DialogueState | dict[str, Any], role: str, content: str) -> None:
+    """Add a message to the conversation history (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        role: Message role ('user' or 'assistant')
+        content: Message content
+    """
+    if "messages" not in state:
+        state["messages"] = []
+    state["messages"].append({"role": role, "content": content})
+
+
+def get_user_messages(state: DialogueState | dict[str, Any]) -> list[str]:
+    """Get all user messages from state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        List of user message contents
+    """
+    return [msg["content"] for msg in state["messages"] if msg.get("role") == "user"]
+
+
+def get_assistant_messages(state: DialogueState | dict[str, Any]) -> list[str]:
+    """Get all assistant messages from state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        List of assistant message contents
+    """
+    return [msg["content"] for msg in state["messages"] if msg.get("role") == "assistant"]
+
+
+# ============================================================================
+# Slot Operations
+# ============================================================================
+
+
+def get_slot(state: DialogueState | dict[str, Any], slot_name: str, default: Any = None) -> Any:
+    """Get a slot value by name from active flow.
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        slot_name: Name of the slot
+        default: Default value if slot not found
+
+    Returns:
+        Slot value or default
+    """
+    # Get active flow from flow_stack
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_flow = flow_stack[-1]
+        flow_id = active_flow["flow_id"]
+        flow_slots = state.get("flow_slots", {})
+        return flow_slots.get(flow_id, {}).get(slot_name, default)
+    return default
+
+
+def set_slot(state: DialogueState | dict[str, Any], slot_name: str, value: Any) -> None:
+    """Set a slot value in active flow (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        slot_name: Name of the slot
+        value: Value to set
+    """
+    # Get active flow from flow_stack
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_flow = flow_stack[-1]
+        flow_id = active_flow["flow_id"]
+        flow_slots = state.get("flow_slots", {})
+        if flow_id not in flow_slots:
+            flow_slots[flow_id] = {}
+        flow_slots[flow_id][slot_name] = value
+
+
+def has_slot(state: DialogueState | dict[str, Any], slot_name: str) -> bool:
+    """Check if a slot is filled in active flow.
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        slot_name: Name of the slot
+
+    Returns:
+        True if slot exists and is not None
+    """
+    value = get_slot(state, slot_name)
+    return value is not None
+
+
+def clear_slots(state: DialogueState | dict[str, Any]) -> None:
+    """Clear all slots in active flow (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+    """
+    # Clear slots for active flow
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_flow = flow_stack[-1]
+        flow_id = active_flow["flow_id"]
+        flow_slots = state.get("flow_slots", {})
+        if flow_id in flow_slots:
+            flow_slots[flow_id].clear()
+
+
+# ============================================================================
+# Turn and Trace Operations
+# ============================================================================
+
+
+def increment_turn(state: DialogueState | dict[str, Any]) -> None:
+    """Increment turn counter (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+    """
+    state["turn_count"] += 1
+
+
+def add_trace(state: DialogueState | dict[str, Any], event: str, data: dict[str, Any]) -> None:
+    """Add a trace event for debugging (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        event: Event name
+        data: Event data
+    """
+    state["trace"].append({"event": event, "data": data})
+
+
+# ============================================================================
+# Flow Operations
+# ============================================================================
+
+
+def get_current_flow(state: DialogueState | dict[str, Any]) -> str:
+    """Get current active flow name.
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+
+    Returns:
+        Active flow name or "none" if no active flow
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        return flow_stack[-1]["flow_name"]
+    return "none"
+
+
+def get_current_flow_context(state: DialogueState | dict[str, Any]) -> FlowContext | None:
+    """Get current active flow context.
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+
+    Returns:
+        Active flow context or None if no active flow
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        return flow_stack[-1]
+    return None
+
+
+def push_flow(
+    state: DialogueState | dict[str, Any],
+    flow_name: str,
+    flow_id: str | None = None,
+    context: str | None = None,
+) -> None:
+    """Push a new flow onto the flow stack (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        flow_name: Name of the flow to activate
+        flow_id: Optional unique ID for this flow instance (auto-generated if None)
+        context: Optional context string for the flow
+    """
+    if flow_id is None:
+        flow_id = f"{flow_name}_{int(time.time() * 1000)}"
+
+    flow_context: FlowContext = {
+        "flow_id": flow_id,
+        "flow_name": flow_name,
+        "flow_state": "active",
+        "current_step": None,
+        "outputs": {},
+        "started_at": time.time(),
+        "paused_at": None,
+        "completed_at": None,
+        "context": context,
+    }
+
+    flow_stack = state.get("flow_stack", [])
+    flow_stack.append(flow_context)
+    state["flow_stack"] = flow_stack
+
+    # Initialize slots for this flow
+    flow_slots = state.get("flow_slots", {})
+    if flow_id not in flow_slots:
+        flow_slots[flow_id] = {}
+    state["flow_slots"] = flow_slots
+
+
+def pop_flow(state: DialogueState | dict[str, Any]) -> FlowContext | None:
+    """Pop the current flow from the flow stack (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+
+    Returns:
+        Popped flow context or None if stack was empty
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        popped = flow_stack.pop()
+        state["flow_stack"] = flow_stack
+        return popped
+    return None
+
+
+def get_all_slots(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
+    """Get all slots from active flow as a flat dictionary.
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+
+    Returns:
+        Dictionary of all slots in active flow (empty dict if no active flow)
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_flow = flow_stack[-1]
+        flow_id = active_flow["flow_id"]
+        flow_slots = state.get("flow_slots", {})
+        return flow_slots.get(flow_id, {}).copy()
+    return {}
+
+
+def set_all_slots(state: DialogueState | dict[str, Any], slots: dict[str, Any]) -> None:
+    """Set all slots for active flow (mutates state in place).
+
+    Args:
+        state: Current dialogue state (dict or DialogueState TypedDict)
+        slots: Dictionary of slot values to set
+    """
+    flow_stack = state.get("flow_stack", [])
+    if flow_stack:
+        active_flow = flow_stack[-1]
+        flow_id = active_flow["flow_id"]
+        flow_slots = state.get("flow_slots", {})
+        if flow_id not in flow_slots:
+            flow_slots[flow_id] = {}
+        flow_slots[flow_id].update(slots)
+        state["flow_slots"] = flow_slots

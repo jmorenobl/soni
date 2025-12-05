@@ -6,7 +6,13 @@ from langgraph.graph import StateGraph
 from soni.compiler.builder import StepCompiler
 from soni.compiler.parser import StepParser
 from soni.core.config import SoniConfig, StepConfig
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 
 
 @pytest.fixture
@@ -65,7 +71,7 @@ def test_parse_and_compile_linear_flow(booking_config: SoniConfig):
     flow_config = booking_config.flows["book_flight"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
     graph = compiler.compile("book_flight", parsed_steps)
 
     # Assert
@@ -84,7 +90,7 @@ def test_compiler_generates_correct_node_sequence(booking_config: SoniConfig):
     parser = StepParser()
     compiler = StepCompiler(config=booking_config)
     flow_config = booking_config.flows["book_flight"]
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
 
     # Act
     dag = compiler._generate_dag("book_flight", parsed_steps)
@@ -104,7 +110,7 @@ def test_compiler_generates_sequential_edges(booking_config: SoniConfig):
     parser = StepParser()
     compiler = StepCompiler(config=booking_config)
     flow_config = booking_config.flows["book_flight"]
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
 
     # Act
     dag = compiler._generate_dag("book_flight", parsed_steps)
@@ -167,7 +173,7 @@ def test_compiler_handles_action_with_map_outputs(booking_config: SoniConfig):
     parser = StepParser()
     compiler = StepCompiler(config=config)
     flow_config = config.flows["test_flow"]
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
 
     # Act
     dag = compiler._generate_dag("test_flow", parsed_steps)

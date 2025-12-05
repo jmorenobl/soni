@@ -3,7 +3,12 @@
 import logging
 from typing import Any
 
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    state_from_dict,
+    state_to_dict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +42,12 @@ class ConversationManager:
         snapshot = await self.graph.aget_state(config)
 
         if snapshot and snapshot.values:
-            state = DialogueState.from_dict(snapshot.values)
+            state = state_from_dict(snapshot.values)
             logger.debug(f"Loaded existing state for user {user_id}")
             return state
         else:
             logger.debug(f"Creating new state for user {user_id}")
-            return DialogueState()
+            return create_empty_state()
 
     async def save_state(
         self,
@@ -57,5 +62,5 @@ class ConversationManager:
             state: DialogueState to save
         """
         config = {"configurable": {"thread_id": user_id}}
-        await self.graph.aupdate_state(config, state.to_dict())
+        await self.graph.aupdate_state(config, state_to_dict(state))
         logger.debug(f"Saved state for user {user_id}")

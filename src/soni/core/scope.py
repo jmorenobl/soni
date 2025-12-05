@@ -8,7 +8,7 @@ from cachetools import TTLCache
 from soni.core.config import SoniConfig
 from soni.core.interfaces import IScopeManager
 from soni.core.security import SecurityGuardrails
-from soni.core.state import DialogueState
+from soni.core.state import DialogueState, get_all_slots, get_current_flow
 from soni.utils.hashing import generate_cache_key_from_dict
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class ScopeManager(IScopeManager):
 
     def _get_cache_key(
         self,
-        state: DialogueState,
+        state: DialogueState | dict[str, Any],
     ) -> str:
         """
         Generate cache key for scoping request.
@@ -108,9 +108,10 @@ class ScopeManager(IScopeManager):
             32-character hexadecimal MD5 hash string
 
         Example:
-            >>> state = DialogueState(
-            ...     current_flow="booking", slots={"origin": "NYC", "destination": "LAX"}
-            ... )
+            >>> state = create_empty_state()
+            >>> push_flow(state, "booking")
+            >>> set_slot(state, "origin", "NYC")
+            >>> set_slot(state, "destination", "LAX")
             >>> manager._get_cache_key(state)
             'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
 
@@ -121,10 +122,12 @@ class ScopeManager(IScopeManager):
             This ensures scoped actions are recalculated for different contexts.
         """
         # Create hash based on flow and slots (main factors for scoping)
+        current_flow = get_current_flow(state)
+        all_slots = get_all_slots(state)
         return generate_cache_key_from_dict(
             {
-                "flow": state.current_flow,
-                "slots": state.slots,
+                "flow": current_flow,
+                "slots": all_slots,
             }
         )
 
@@ -141,9 +144,9 @@ class ScopeManager(IScopeManager):
         Returns:
             List of available action names
         """
-        # Convert dict to DialogueState if needed
-        if isinstance(state, dict):
-            state = DialogueState.from_dict(state)
+        # Import here to avoid circular import
+        # state can be DialogueState (TypedDict) or dict - both work with our helper functions
+        # No conversion needed since get_current_flow and get_all_slots handle both
 
         # Check cache first
         cache_key = self._get_cache_key(state)
@@ -158,7 +161,7 @@ class ScopeManager(IScopeManager):
         # Start with global actions (always available)
         actions: list[str] = self.global_actions.copy()
 
-        current_flow = state.current_flow
+        current_flow = get_current_flow(state)
 
         if current_flow and current_flow != "none":
             # We're in a flow - only include actions relevant to this flow
@@ -321,7 +324,9 @@ class ScopeManager(IScopeManager):
             logger.warning(f"Failed to extract expected slots from flow '{flow_to_check}': {e}")
             return []
 
-    def _get_pending_slots(self, flow_config: Any, state: DialogueState) -> list[str]:
+    def _get_pending_slots(
+        self, flow_config: Any, state: DialogueState | dict[str, Any]
+    ) -> list[str]:
         """
         Get list of slots that still need to be collected.
 
@@ -336,9 +341,10 @@ class ScopeManager(IScopeManager):
 
         # Extract slots from flow steps
         collect_slots = self._extract_collect_slots(flow_config)
+        all_slots = get_all_slots(state)
         for slot_name in collect_slots:
             # Check if slot is already filled
-            if slot_name and slot_name not in state.slots:
+            if slot_name and slot_name not in all_slots:
                 pending.append(slot_name)
 
         return pending
@@ -405,11 +411,11 @@ class ScopeManager(IScopeManager):
             List of available flow names (not start_* actions) when current_flow="none",
             empty list when in an active flow
         """
-        # Convert dict to DialogueState if needed
-        if isinstance(state, dict):
-            state = DialogueState.from_dict(state)
+        # Import here to avoid circular import
+        # state can be DialogueState (TypedDict) or dict - both work with our helper functions
+        # No conversion needed since get_current_flow handle both
 
-        current_flow = state.current_flow
+        current_flow = get_current_flow(state)
 
         # Only return flows when no flow is active
         if not current_flow or current_flow == "none":

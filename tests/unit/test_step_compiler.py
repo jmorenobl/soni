@@ -7,7 +7,13 @@ from soni.compiler.builder import StepCompiler
 from soni.compiler.parser import ParsedStep
 from soni.core.config import SoniConfig
 from soni.core.errors import CompilationError
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 
 
 @pytest.fixture

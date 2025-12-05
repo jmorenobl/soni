@@ -5,7 +5,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from soni.core.config import SoniConfig
-from soni.core.state import DialogueState, RuntimeContext
+from soni.core.state import (
+    DialogueState,
+    RuntimeContext,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 
 
 def test_runtime_context_creation():
@@ -136,7 +143,7 @@ def test_runtime_context_get_slot_config_not_found():
 def test_dialogue_state_has_no_config_attribute():
     """Test that DialogueState does not have config attribute"""
     # Arrange & Act
-    state = DialogueState()
+    state = create_empty_state()
 
     # Assert
     assert not hasattr(state, "config")
@@ -156,9 +163,9 @@ def test_dialogue_state_is_serializable():
     deserialized = DialogueState.from_dict(serialized)
 
     # Assert
-    assert deserialized.messages == state.messages
-    assert deserialized.slots == state.slots
-    assert deserialized.current_flow == state.current_flow
+    assert deserialized.messages == state["messages"]
+    assert deserialized.slots == get_all_slots(state)
+    assert deserialized.current_flow == get_current_flow(state)
     assert not hasattr(deserialized, "config")
 
 

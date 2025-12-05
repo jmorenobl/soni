@@ -4,7 +4,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 from soni.runtime.streaming_manager import StreamingManager
 
 
@@ -54,7 +60,7 @@ async def test_stream_response_with_empty_state(streaming_manager, mock_graph):
     """Test stream_response with empty state"""
     # Arrange
     user_id = "test-user-2"
-    state = DialogueState()
+    state = create_empty_state()
 
     async def mock_astream(*args, **kwargs):
         yield {"event": "test"}
@@ -143,7 +149,7 @@ async def test_stream_response_no_events(streaming_manager, mock_graph):
     """Test stream_response handles no events"""
     # Arrange
     user_id = "test-user-5"
-    state = DialogueState()
+    state = create_empty_state()
 
     async def mock_astream(*args, **kwargs):
         # Yield nothing
@@ -200,7 +206,7 @@ async def test_stream_response_preserves_event_order(streaming_manager, mock_gra
     """Test stream_response preserves event order"""
     # Arrange
     user_id = "test-user-6"
-    state = DialogueState()
+    state = create_empty_state()
 
     async def mock_astream(*args, **kwargs):
         for i in range(10):
@@ -224,7 +230,7 @@ async def test_stream_response_error_handling(streaming_manager, mock_graph):
     """Test stream_response handles errors from graph"""
     # Arrange
     user_id = "test-user-7"
-    state = DialogueState()
+    state = create_empty_state()
 
     async def mock_astream(*args, **kwargs):
         yield {"event": "start"}
@@ -275,7 +281,7 @@ async def test_stream_response_uses_updates_mode(streaming_manager, mock_graph):
     """Test stream_response uses 'updates' stream mode"""
     # Arrange
     user_id = "test-user-9"
-    state = DialogueState()
+    state = create_empty_state()
 
     received_kwargs = None
 
@@ -305,7 +311,7 @@ async def test_stream_response_with_different_user_ids(streaming_manager, mock_g
         "user-123-456",
         "UUID-LIKE-STRING-HERE",
     ]
-    state = DialogueState()
+    state = create_empty_state()
 
     for user_id in test_user_ids:
         received_config = None
@@ -330,7 +336,7 @@ async def test_stream_response_large_number_of_events(streaming_manager, mock_gr
     """Test stream_response handles large number of events"""
     # Arrange
     user_id = "test-user-10"
-    state = DialogueState()
+    state = create_empty_state()
     event_count = 1000
 
     async def mock_astream(*args, **kwargs):
@@ -355,7 +361,7 @@ async def test_stream_response_is_async_generator(streaming_manager, mock_graph)
     """Test stream_response returns an async generator"""
     # Arrange
     user_id = "test-user-11"
-    state = DialogueState()
+    state = create_empty_state()
 
     async def mock_astream(*args, **kwargs):
         yield {"event": "test"}

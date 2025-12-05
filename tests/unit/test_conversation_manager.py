@@ -4,7 +4,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    get_all_slots,
+    get_current_flow,
+    push_flow,
+    set_slot,
+)
 from soni.runtime.conversation_manager import ConversationManager
 
 
@@ -46,9 +53,9 @@ async def test_get_or_create_state_creates_new(conversation_manager, mock_graph)
     state = await conversation_manager.get_or_create_state(user_id)
 
     # Assert
-    assert isinstance(state, DialogueState)
-    assert state.current_flow == "none"
-    assert state.turn_count == 0
+    assert isinstance(state, dict)
+    assert get_current_flow(state) == "none"
+    assert state["turn_count"] == 0
     mock_graph.aget_state.assert_called_once_with({"configurable": {"thread_id": user_id}})
 
 
@@ -57,28 +64,26 @@ async def test_get_or_create_state_loads_existing(conversation_manager, mock_gra
     """Test get_or_create_state loads existing state"""
     # Arrange
     user_id = "test-user-2"
-    existing_state_dict = {
-        "messages": [{"role": "user", "content": "Hello"}],
-        "slots": {"destination": "Paris"},
-        "current_flow": "book_flight",
-        "turn_count": 1,
-        "last_response": "Hi there!",
-        "pending_action": None,
-        "trace": [],
-        "summary": None,
-    }
+    # Create a proper state with new schema
+    existing_state = create_empty_state()
+    existing_state["messages"] = [{"role": "user", "content": "Hello"}]
+    existing_state["last_response"] = "Hi there!"
+    existing_state["turn_count"] = 1
+    push_flow(existing_state, "book_flight")
+    set_slot(existing_state, "destination", "Paris")
+
     mock_snapshot = MagicMock()
-    mock_snapshot.values = existing_state_dict
+    mock_snapshot.values = existing_state
     mock_graph.aget_state.return_value = mock_snapshot
 
     # Act
     state = await conversation_manager.get_or_create_state(user_id)
 
     # Assert
-    assert isinstance(state, DialogueState)
-    assert state.current_flow == "book_flight"
-    assert state.turn_count == 1
-    assert state.slots == {"destination": "Paris"}
+    assert isinstance(state, dict)
+    assert get_current_flow(state) == "book_flight"
+    assert state["turn_count"] == 1
+    assert get_all_slots(state) == {"destination": "Paris"}
     mock_graph.aget_state.assert_called_once_with({"configurable": {"thread_id": user_id}})
 
 
@@ -95,9 +100,9 @@ async def test_get_or_create_state_with_empty_snapshot(conversation_manager, moc
     state = await conversation_manager.get_or_create_state(user_id)
 
     # Assert
-    assert isinstance(state, DialogueState)
+    assert isinstance(state, dict)
     # Should create new state when values are empty
-    assert state.turn_count == 0
+    assert state["turn_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -111,8 +116,8 @@ async def test_get_or_create_state_with_none_snapshot(conversation_manager, mock
     state = await conversation_manager.get_or_create_state(user_id)
 
     # Assert
-    assert isinstance(state, DialogueState)
-    assert state.turn_count == 0
+    assert isinstance(state, dict)
+    assert state["turn_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -120,12 +125,11 @@ async def test_save_state(conversation_manager, mock_graph):
     """Test save_state saves state to graph"""
     # Arrange
     user_id = "test-user-5"
-    state = DialogueState(
-        messages=[{"role": "user", "content": "Hello"}],
-        slots={"name": "John"},
-        current_flow="greet",
-        turn_count=1,
-    )
+    state = create_empty_state()
+    state["messages"] = [{"role": "user", "content": "Hello"}]
+    state["turn_count"] = 1
+    push_flow(state, "greet")
+    set_slot(state, "name", "John")
 
     # Act
     await conversation_manager.save_state(user_id, state)
@@ -134,7 +138,7 @@ async def test_save_state(conversation_manager, mock_graph):
     mock_graph.aupdate_state.assert_called_once()
     call_args = mock_graph.aupdate_state.call_args
     assert call_args[0][0] == {"configurable": {"thread_id": user_id}}
-    assert call_args[0][1]["current_flow"] == "greet"
+    assert get_current_flow(call_args[0][1]) == "greet"
     assert call_args[0][1]["turn_count"] == 1
 
 
@@ -143,7 +147,7 @@ async def test_save_state_with_empty_state(conversation_manager, mock_graph):
     """Test save_state saves empty state"""
     # Arrange
     user_id = "test-user-6"
-    state = DialogueState()
+    state = create_empty_state()
 
     # Act
     await conversation_manager.save_state(user_id, state)
@@ -152,7 +156,7 @@ async def test_save_state_with_empty_state(conversation_manager, mock_graph):
     mock_graph.aupdate_state.assert_called_once()
     call_args = mock_graph.aupdate_state.call_args
     assert call_args[0][0] == {"configurable": {"thread_id": user_id}}
-    assert call_args[0][1]["current_flow"] == "none"
+    assert get_current_flow(call_args[0][1]) == "none"
     assert call_args[0][1]["turn_count"] == 0
 
 
@@ -163,11 +167,20 @@ async def test_get_or_create_state_multiple_users(conversation_manager, mock_gra
     user_id_1 = "user-1"
     user_id_2 = "user-2"
 
+    # Create states with new schema
+    state_1 = create_empty_state()
+    state_1["turn_count"] = 1
+    push_flow(state_1, "flow1")
+
+    state_2 = create_empty_state()
+    state_2["turn_count"] = 2
+    push_flow(state_2, "flow2")
+
     mock_snapshot_1 = MagicMock()
-    mock_snapshot_1.values = {"current_flow": "flow1", "turn_count": 1}
+    mock_snapshot_1.values = state_1
 
     mock_snapshot_2 = MagicMock()
-    mock_snapshot_2.values = {"current_flow": "flow2", "turn_count": 2}
+    mock_snapshot_2.values = state_2
 
     # Configure mock to return different snapshots based on user_id
     def side_effect(config):
@@ -179,14 +192,14 @@ async def test_get_or_create_state_multiple_users(conversation_manager, mock_gra
     mock_graph.aget_state.side_effect = side_effect
 
     # Act
-    state_1 = await conversation_manager.get_or_create_state(user_id_1)
-    state_2 = await conversation_manager.get_or_create_state(user_id_2)
+    result_1 = await conversation_manager.get_or_create_state(user_id_1)
+    result_2 = await conversation_manager.get_or_create_state(user_id_2)
 
     # Assert
-    assert state_1.current_flow == "flow1"
-    assert state_1.turn_count == 1
-    assert state_2.current_flow == "flow2"
-    assert state_2.turn_count == 2
+    assert get_current_flow(result_1) == "flow1"
+    assert result_1["turn_count"] == 1
+    assert get_current_flow(result_2) == "flow2"
+    assert result_2["turn_count"] == 2
     assert mock_graph.aget_state.call_count == 2
 
 
@@ -196,8 +209,14 @@ async def test_save_state_multiple_users(conversation_manager, mock_graph):
     # Arrange
     user_id_1 = "user-1"
     user_id_2 = "user-2"
-    state_1 = DialogueState(current_flow="flow1", turn_count=1)
-    state_2 = DialogueState(current_flow="flow2", turn_count=2)
+
+    state_1 = create_empty_state()
+    state_1["turn_count"] = 1
+    push_flow(state_1, "flow1")
+
+    state_2 = create_empty_state()
+    state_2["turn_count"] = 2
+    push_flow(state_2, "flow2")
 
     # Act
     await conversation_manager.save_state(user_id_1, state_1)
@@ -209,10 +228,10 @@ async def test_save_state_multiple_users(conversation_manager, mock_graph):
     call_2 = mock_graph.aupdate_state.call_args_list[1]
 
     assert call_1[0][0]["configurable"]["thread_id"] == user_id_1
-    assert call_1[0][1]["current_flow"] == "flow1"
+    assert get_current_flow(call_1[0][1]) == "flow1"
 
     assert call_2[0][0]["configurable"]["thread_id"] == user_id_2
-    assert call_2[0][1]["current_flow"] == "flow2"
+    assert get_current_flow(call_2[0][1]) == "flow2"
 
 
 @pytest.mark.asyncio
@@ -220,35 +239,41 @@ async def test_get_or_create_state_with_complex_state(conversation_manager, mock
     """Test get_or_create_state loads complex state correctly"""
     # Arrange
     user_id = "test-user-complex"
-    complex_state_dict = {
-        "messages": [
-            {"role": "user", "content": "I want to book a flight"},
-            {"role": "assistant", "content": "Where would you like to go?"},
-        ],
-        "slots": {"origin": "NYC", "destination": "Paris", "date": "2024-12-25"},
-        "current_flow": "book_flight",
-        "turn_count": 3,
-        "last_response": "Great! Let me help you with that.",
-        "pending_action": "search_flights",
-        "trace": [
-            {"turn": 1, "intent": "book_flight"},
-            {"turn": 2, "slot": "origin"},
-        ],
-        "summary": "User wants to book a flight from NYC to Paris",
-    }
+
+    # Create complex state with new schema
+    complex_state = create_empty_state()
+    complex_state["messages"] = [
+        {"role": "user", "content": "I want to book a flight"},
+        {"role": "assistant", "content": "Where would you like to go?"},
+    ]
+    complex_state["turn_count"] = 3
+    complex_state["last_response"] = "Great! Let me help you with that."
+    complex_state["metadata"]["summary"] = "User wants to book a flight from NYC to Paris"
+    complex_state["trace"] = [
+        {"turn": 1, "intent": "book_flight"},
+        {"turn": 2, "slot": "origin"},
+    ]
+
+    # Push flow and set slots
+    push_flow(complex_state, "book_flight")
+    set_slot(complex_state, "origin", "NYC")
+    set_slot(complex_state, "destination", "Paris")
+    set_slot(complex_state, "date", "2024-12-25")
+
     mock_snapshot = MagicMock()
-    mock_snapshot.values = complex_state_dict
+    mock_snapshot.values = complex_state
     mock_graph.aget_state.return_value = mock_snapshot
 
     # Act
     state = await conversation_manager.get_or_create_state(user_id)
 
     # Assert
-    assert isinstance(state, DialogueState)
-    assert len(state.messages) == 2
-    assert len(state.slots) == 3
-    assert state.pending_action == "search_flights"
-    assert len(state.trace) == 2
+    assert isinstance(state, dict)
+    assert len(state["messages"]) == 2
+    all_slots = get_all_slots(state)
+    assert len(all_slots) == 3
+    assert state.get("pending_action") is None
+    assert len(state["trace"]) == 2
 
 
 @pytest.mark.asyncio
@@ -256,19 +281,20 @@ async def test_save_state_preserves_complex_data(conversation_manager, mock_grap
     """Test save_state preserves complex state data"""
     # Arrange
     user_id = "test-user-preserve"
-    state = DialogueState(
-        messages=[
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi!"},
-        ],
-        slots={"name": "Alice", "age": "25"},
-        current_flow="profile",
-        turn_count=5,
-        last_response="Nice to meet you!",
-        pending_action="create_profile",
-        trace=[{"event": "test"}],
-        summary="Creating user profile",
-    )
+
+    state = create_empty_state()
+    state["messages"] = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi!"},
+    ]
+    state["turn_count"] = 5
+    state["last_response"] = "Nice to meet you!"
+    state["metadata"]["summary"] = "Creating user profile"
+    state["trace"] = [{"event": "test"}]
+
+    push_flow(state, "profile")
+    set_slot(state, "name", "Alice")
+    set_slot(state, "age", "25")
 
     # Act
     await conversation_manager.save_state(user_id, state)
@@ -276,10 +302,11 @@ async def test_save_state_preserves_complex_data(conversation_manager, mock_grap
     # Assert
     call_args = mock_graph.aupdate_state.call_args[0][1]
     assert len(call_args["messages"]) == 2
-    assert len(call_args["slots"]) == 2
-    assert call_args["pending_action"] == "create_profile"
+    all_slots = get_all_slots(call_args)
+    assert len(all_slots) == 2
+    assert call_args.get("pending_action") is None
     assert len(call_args["trace"]) == 1
-    assert call_args["summary"] == "Creating user profile"
+    assert call_args["metadata"]["summary"] == "Creating user profile"
 
 
 @pytest.mark.asyncio
@@ -307,7 +334,7 @@ async def test_save_state_calls_graph_with_correct_config(conversation_manager, 
     """Test save_state calls graph with correct config format"""
     # Arrange
     user_id = "test-save-config"
-    state = DialogueState()
+    state = create_empty_state()
 
     # Act
     await conversation_manager.save_state(user_id, state)
@@ -337,7 +364,7 @@ async def test_save_state_error_handling(conversation_manager, mock_graph):
     """Test save_state handles graph errors"""
     # Arrange
     user_id = "test-save-error"
-    state = DialogueState()
+    state = create_empty_state()
     mock_graph.aupdate_state.side_effect = Exception("Save error")
 
     # Act & Assert

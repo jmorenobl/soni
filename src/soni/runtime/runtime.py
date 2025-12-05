@@ -22,7 +22,15 @@ from soni.core.interfaces import (
 )
 from soni.core.scope import ScopeManager
 from soni.core.security import sanitize_user_id, sanitize_user_message
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    add_message,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+    state_from_dict,
+    state_to_dict,
+)
 from soni.dm.graph import SoniGraphBuilder
 from soni.du.modules import SoniDU
 from soni.du.normalizer import SlotNormalizer
@@ -335,19 +343,16 @@ class RuntimeLoop:
         # Create or update state with user message
         if existing_state_snapshot and existing_state_snapshot.values:
             # Load existing state from checkpoint
-            state = DialogueState.from_dict(existing_state_snapshot.values)
-            state.add_message("user", user_msg)
+            state = state_from_dict(existing_state_snapshot.values)
+            add_message(state, "user", user_msg)
+            all_slots = get_all_slots(state)
             logger.debug(
-                f"Updated existing state: {len(state.messages)} messages, "
-                f"{len(state.slots)} slots, turn {state.turn_count}"
+                f"Updated existing state: {len(state['messages'])} messages, "
+                f"{len(all_slots)} slots, turn {state['turn_count']}"
             )
         else:
-            # Create new state
-            state = DialogueState(
-                messages=[{"role": "user", "content": user_msg}],
-                current_flow="none",
-                slots={},
-            )
+            # Create new state with new schema
+            state = create_initial_state(user_msg)
             logger.debug("Created new state for new conversation")
 
         return state
@@ -383,6 +388,7 @@ class RuntimeLoop:
         # Log scoping metrics
         total_actions = len(self.config.actions) if hasattr(self.config, "actions") else 0
         scoped_count = len(scoped_actions)
+        current_flow = get_current_flow(state)
         if total_actions > 0:
             reduction = (
                 ((total_actions - scoped_count) / total_actions * 100) if total_actions > 0 else 0
@@ -395,14 +401,14 @@ class RuntimeLoop:
                     "total_actions": total_actions,
                     "scoped_actions": scoped_count,
                     "reduction_percent": reduction,
-                    "current_flow": state.current_flow,
+                    "current_flow": current_flow,
                 },
             )
 
         # Execute graph
         config = {"configurable": {"thread_id": user_id}}
         result_raw = await self.graph.ainvoke(
-            state.to_dict(),
+            state_to_dict(state),
             config=config,
         )
 
@@ -413,7 +419,7 @@ class RuntimeLoop:
             f"Graph execution completed for user {user_id}",
             extra={
                 "user_id": user_id,
-                "turn_count": state.turn_count + 1,
+                "turn_count": state["turn_count"] + 1,
                 "current_flow": result.get("current_flow"),
             },
         )
@@ -577,7 +583,7 @@ class RuntimeLoop:
             if self.conversation_manager is None:
                 raise SoniError("ConversationManager not initialized")
             state = await self.conversation_manager.get_or_create_state(sanitized_user_id)
-            state.add_message("user", sanitized_msg)
+            add_message(state, "user", sanitized_msg)
 
             # Get scoped actions based on current state
             scoped_actions = self.scope_manager.get_available_actions(state)

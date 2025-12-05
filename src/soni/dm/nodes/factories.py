@@ -6,7 +6,14 @@ from typing import Any, cast
 from soni.compiler.dag import DAGNode, NodeType
 from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
 from soni.core.interfaces import INLUProvider, INormalizer, IScopeManager
-from soni.core.state import DialogueState, RuntimeContext
+from soni.core.state import (
+    DialogueState,
+    RuntimeContext,
+    get_all_slots,
+    get_slot,
+    get_slot_config,
+    get_user_messages,
+)
 from soni.dm.node_factory_registry import NodeFactoryRegistry
 from soni.du.models import MessageType, NLUOutput, SlotValue
 from soni.validation.registry import ValidatorRegistry
@@ -14,22 +21,23 @@ from soni.validation.registry import ValidatorRegistry
 logger = logging.getLogger(__name__)
 
 
-def _ensure_dialogue_state(state: DialogueState | dict[str, Any]) -> DialogueState:
+def _ensure_dialogue_state(state: DialogueState | dict[str, Any]) -> DialogueState | dict[str, Any]:
     """
-    Ensure state is a DialogueState instance.
+        Return state as-is (no conversion needed).
 
-    Converts dict state to DialogueState if needed. This is necessary because
-    LangGraph may pass state as a dict in some contexts, but our node functions
-    expect DialogueState for type safety and convenience methods.
+        This function used to convert dict to DialogueState, but since Dialog
 
-    Args:
-        state: State as dict (from LangGraph) or DialogueState instance
+    ueState
+        is now a TypedDict (which is compatible with dict at runtime), and our helper
+        functions work with both, no conversion is needed.
 
-    Returns:
-        DialogueState instance (converted from dict if needed)
+        Args:
+            state: State as dict or DialogueState (both work with helper functions)
+
+        Returns:
+            State as-is (DialogueState TypedDict or dict)
     """
-    if isinstance(state, dict):
-        return DialogueState.from_dict(state)
+    # No conversion needed - helper functions handle both DialogueState and dict
     return state
 
 
@@ -45,7 +53,7 @@ def _get_trace_safely(state: DialogueState | dict[str, Any]) -> list[dict[str, A
     """
     try:
         state_obj = _ensure_dialogue_state(state)
-        return state_obj.trace
+        return state_obj.get("trace", [])
     except Exception as e:
         logger.debug(
             f"Error accessing trace safely: {e}",
@@ -54,7 +62,7 @@ def _get_trace_safely(state: DialogueState | dict[str, Any]) -> list[dict[str, A
         )
         if isinstance(state, dict):
             return cast(list[dict[str, Any]], state.get("trace", []))
-        return cast(list[dict[str, Any]], getattr(state, "trace", []))
+        return []
 
 
 def create_understand_node(
@@ -86,7 +94,7 @@ def create_understand_node(
         try:
             state = _ensure_dialogue_state(state)
 
-            user_messages = state.get_user_messages()
+            user_messages = get_user_messages(state)
             if not user_messages:
                 logger.warning("No user messages in state")
                 return {
@@ -101,15 +109,20 @@ def create_understand_node(
             from soni.du.models import DialogueContext
 
             # dspy.History accepts a list of message dicts directly
-            history_messages = state.messages[:-1]  # All messages except the last one
+            messages = state.get("messages", [])
+            history_messages = messages[:-1]  # All messages except the last one
             history = dspy.History(messages=history_messages)
 
             available_actions = scope_manager.get_available_actions(state)
             available_flows = scope_manager.get_available_flows(state)
 
-            if state.current_flow and state.current_flow != "none":
+            # Get current flow name
+            from soni.core.state import get_current_flow
+
+            current_flow = get_current_flow(state)
+            if current_flow and current_flow != "none":
                 expected_slots = scope_manager.get_expected_slots(
-                    flow_name=state.current_flow,
+                    flow_name=current_flow,
                     available_actions=available_actions,
                 )
             else:
@@ -119,12 +132,15 @@ def create_understand_node(
                     f"NLU will infer from available_flows: {available_flows}"
                 )
 
+            # Get all current slots
+            current_slots = get_all_slots(state)
+
             # Create DialogueContext
             dialogue_context = DialogueContext(
-                current_slots=state.slots,
+                current_slots=current_slots,
                 available_actions=available_actions,
                 available_flows=available_flows,
-                current_flow=state.current_flow,
+                current_flow=current_flow,
                 expected_slots=expected_slots,
             )
 
@@ -169,7 +185,7 @@ def create_understand_node(
                     normalized_dict: dict[str, Any] = {}
                     for slot_name, slot_value in normalized_slots.items():
                         try:
-                            slot_config = context.get_slot_config(slot_name)
+                            slot_config = get_slot_config(context, slot_name)
                             normalization_config = getattr(slot_config, "normalization", None)
                             entity_config = {
                                 "name": slot_name,
@@ -216,10 +232,13 @@ def create_understand_node(
                     )
                     raise
 
-            updated_slots = state.slots.copy()
-            slots_before = updated_slots.copy()
-            updated_slots.update(normalized_slots)
-            slots_after = updated_slots.copy()
+            # Update slots - need to merge with existing slots
+            from soni.core.state import get_current_flow, push_flow, set_all_slots
+
+            current_slots = get_all_slots(state)
+            slots_before = current_slots.copy()
+            current_slots.update(normalized_slots)
+            slots_after = current_slots.copy()
 
             if normalized_slots:
                 logger.info(
@@ -232,17 +251,19 @@ def create_understand_node(
                     },
                 )
 
+            # Determine new flow
+            current_flow_name = get_current_flow(state)
+            config = context["config"]
             new_current_flow = activate_flow_by_intent(
                 command=nlu_result.command,
-                current_flow=state.current_flow,
-                config=context.config,
+                current_flow=current_flow_name,
+                config=config,
             )
 
+            # Build updates dict
+            trace = state.get("trace", [])
             updates: dict[str, Any] = {
-                "slots": updated_slots,
-                "pending_action": nlu_result.command if nlu_result.command else None,
-                "current_flow": new_current_flow,
-                "trace": state.trace
+                "trace": trace
                 + [
                     {
                         "event": "nlu_result",
@@ -255,6 +276,18 @@ def create_understand_node(
                     }
                 ],
             }
+
+            # If flow changed, update flow_stack
+            if new_current_flow != current_flow_name:
+                if new_current_flow and new_current_flow != "none":
+                    # Push new flow onto stack
+                    push_flow(state, new_current_flow)
+                    updates["flow_stack"] = state.get("flow_stack", [])
+
+            # Update slots in state
+            if normalized_slots:
+                set_all_slots(state, current_slots)
+                updates["flow_slots"] = state.get("flow_slots", {})
 
             if failed_slots:
                 updates["trace"][-1]["data"]["normalization_failed"] = True
@@ -329,8 +362,8 @@ async def collect_slot_node(
     """
     try:
         state = _ensure_dialogue_state(state)
-        slot_config = context.get_slot_config(slot_name)
-        slot_value = state.get_slot(slot_name)
+        slot_config = get_slot_config(context, slot_name)
+        slot_value = get_slot(state, slot_name)
 
         is_filled = (
             slot_value is not None
@@ -338,13 +371,18 @@ async def collect_slot_node(
             and (not isinstance(slot_value, str) or slot_value.strip() != "")
         )
 
+        # Get current flow for logging
+        from soni.core.state import get_current_flow
+
+        current_flow = get_current_flow(state)
+
         logger.debug(
             f"Checking slot '{slot_name}': value={slot_value}, is_filled={is_filled}",
             extra={
                 "slot_name": slot_name,
                 "slot_value": slot_value,
                 "is_filled": is_filled,
-                "current_flow": state.current_flow,
+                "current_flow": current_flow,
             },
         )
 
@@ -361,12 +399,17 @@ async def collect_slot_node(
                             f"failed format validation with '{slot_config.validator}' - "
                             f"re-collecting from user"
                         )
+                        # Clear the invalid slot
+                        from soni.core.state import set_slot
+
+                        set_slot(state, slot_name, None)
+                        trace = state.get("trace", [])
                         return {
-                            "slots": {slot_name: None},
+                            "flow_slots": state.get("flow_slots", {}),
                             "last_response": (
                                 f"Invalid format for {slot_name}. Please provide a valid value."
                             ),
-                            "trace": state.trace
+                            "trace": trace
                             + [
                                 {
                                     "event": EVENT_VALIDATION_ERROR,
@@ -388,10 +431,12 @@ async def collect_slot_node(
             return {}
 
         prompt = slot_config.prompt
+        messages = state.get("messages", [])
+        trace = state.get("trace", [])
         updates = {
             "last_response": prompt,
-            "messages": state.messages + [{"role": "assistant", "content": prompt}],
-            "trace": state.trace
+            "messages": messages + [{"role": "assistant", "content": prompt}],
+            "trace": trace
             + [
                 {
                     "event": EVENT_SLOT_COLLECTION,
@@ -404,7 +449,7 @@ async def collect_slot_node(
             f"Prompting for slot '{slot_name}': {prompt}",
             extra={
                 "slot_name": slot_name,
-                "current_flow": state.current_flow,
+                "current_flow": current_flow,
             },
         )
 
@@ -479,19 +524,31 @@ def create_action_node_factory(
     async def action_node_wrapper(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
         state = _ensure_dialogue_state(state)
 
-        action_handler = context.action_handler
-        action_config = context.get_action_config(action_name)
+        from soni.core.state import get_action_config
+
+        action_handler = context["action_handler"]
+        action_config = get_action_config(context, action_name)
 
         action_inputs: dict[str, Any] = {}
         for input_name in action_config.inputs:
             # Try to get from slots first, then from state directly
-            slot_value = state.get_slot(input_name)
+            slot_value = get_slot(state, input_name)
             if slot_value is not None:
                 action_inputs[input_name] = slot_value
-            elif hasattr(state, input_name):
-                action_inputs[input_name] = getattr(state, input_name)
-            elif isinstance(state, dict) and input_name in state:
-                action_inputs[input_name] = state[input_name]
+            else:
+                # Try getting from state dict directly (for special top-level fields)
+                # These are unlikely to be action inputs but handle them just in case
+                # Only check for common top-level state fields
+                if isinstance(state, dict) and input_name in (
+                    "user_message",
+                    "last_response",
+                    "conversation_state",
+                    "turn_count",
+                ):
+                    try:
+                        action_inputs[input_name] = state.get(input_name)
+                    except (KeyError, TypeError):
+                        pass
 
         try:
             action_result = await action_handler.execute(
@@ -499,8 +556,9 @@ def create_action_node_factory(
                 slots=action_inputs,
             )
 
+            trace = state.get("trace", [])
             updates: dict[str, Any] = {
-                "trace": state.trace
+                "trace": trace
                 + [
                     {
                         "event": "action_executed",
@@ -513,20 +571,28 @@ def create_action_node_factory(
                 ],
             }
 
+            # Map outputs to slots if mapping specified
             if map_outputs:
+                from soni.core.state import set_all_slots
+
                 mapped_slots: dict[str, Any] = {}
                 for state_var, action_output in map_outputs.items():
                     if action_output in action_result:
                         mapped_slots[state_var] = action_result[action_output]
                 if mapped_slots:
-                    current_slots = state.slots.copy()
+                    current_slots = get_all_slots(state)
                     current_slots.update(mapped_slots)
-                    updates["slots"] = current_slots
+                    set_all_slots(state, current_slots)
+                    updates["flow_slots"] = state.get("flow_slots", {})
             else:
+                # No mapping - store all action results as slots
                 if action_result:
-                    current_slots = state.slots.copy()
+                    from soni.core.state import set_all_slots
+
+                    current_slots = get_all_slots(state)
                     current_slots.update(action_result)
-                    updates["slots"] = current_slots
+                    set_all_slots(state, current_slots)
+                    updates["flow_slots"] = state.get("flow_slots", {})
 
             logger.info(
                 f"Action '{action_name}' executed successfully",
@@ -555,9 +621,9 @@ def create_action_node_factory(
 def create_understand_factory(node: DAGNode, context: RuntimeContext) -> Any:
     """Factory for UNDERSTAND nodes."""
     return create_understand_node(
-        scope_manager=context.scope_manager,
-        normalizer=context.normalizer,
-        nlu_provider=context.du,
+        scope_manager=context["scope_manager"],
+        normalizer=context["normalizer"],
+        nlu_provider=context["du"],
         context=context,
     )
 

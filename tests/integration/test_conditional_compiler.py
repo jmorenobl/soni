@@ -15,7 +15,13 @@ from soni.core.config import (
     StepConfig,
 )
 from soni.core.errors import CompilationError
-from soni.core.state import DialogueState
+from soni.core.state import (
+    DialogueState,
+    create_empty_state,
+    create_initial_state,
+    get_all_slots,
+    get_current_flow,
+)
 
 
 @pytest.fixture
@@ -73,7 +79,7 @@ def test_compile_flow_with_branches(conditional_config: SoniConfig):
     flow_config = conditional_config.flows["modify_booking"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
     graph = compiler.compile("modify_booking", parsed_steps)
 
     # Assert
@@ -116,7 +122,7 @@ def test_compile_flow_with_jumps():
     flow_config = config.flows["retry_flow"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
     dag = compiler._generate_dag("retry_flow", parsed_steps)
 
     # Assert
@@ -169,7 +175,7 @@ def test_compile_flow_with_branches_and_jumps():
     flow_config = config.flows["complex_flow"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
     graph = compiler.compile("complex_flow", parsed_steps)
 
     # Assert
@@ -206,7 +212,7 @@ def test_compiler_rejects_invalid_branch_target():
     flow_config = config.flows["invalid_flow"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
 
     # Assert
     with pytest.raises(CompilationError) as exc_info:
@@ -242,7 +248,7 @@ def test_compiler_rejects_invalid_jump_target():
     flow_config = config.flows["invalid_flow"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
 
     # Assert
     with pytest.raises(CompilationError) as exc_info:
@@ -295,7 +301,7 @@ def test_compiler_handles_multiple_branches():
     flow_config = config.flows["multi_branch_flow"]
 
     # Act
-    parsed_steps = parser.parse(flow_config.steps)
+    parsed_steps = parser.parse(flow_config.steps or [])
     graph = compiler.compile("multi_branch_flow", parsed_steps)
 
     # Assert
