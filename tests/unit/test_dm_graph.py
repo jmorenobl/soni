@@ -42,6 +42,9 @@ async def test_builder_initialization():
     assert builder.config == config
     assert builder.checkpointer is not None
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_build_manual_linear_flow():
@@ -57,6 +60,9 @@ async def test_build_manual_linear_flow():
     assert graph is not None
     # graph.compile() returns a CompiledStateGraph, not StateGraph
     assert hasattr(graph, "invoke") or hasattr(graph, "ainvoke")
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio
@@ -75,6 +81,9 @@ async def test_build_manual_nonexistent_flow():
     with pytest.raises(ValidationError):
         await builder.build_manual("nonexistent")
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_checkpointer_creation():
@@ -88,6 +97,9 @@ async def test_checkpointer_creation():
 
     # Assert
     assert builder.checkpointer is not None
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio
@@ -106,6 +118,9 @@ async def test_build_manual_validates_slots():
     graph = await builder.build_manual("book_flight")
     assert graph is not None
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_build_manual_validates_actions():
@@ -117,6 +132,9 @@ async def test_build_manual_validates_actions():
     # Act & Assert - should work with valid config
     graph = await builder.build_manual("book_flight")
     assert graph is not None
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio

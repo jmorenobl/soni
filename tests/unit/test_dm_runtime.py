@@ -42,6 +42,9 @@ async def test_build_graph_structure(sample_config):
     # Verify graph has invoke/ainvoke methods
     assert hasattr(graph, "invoke") or hasattr(graph, "ainvoke")
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_build_graph_with_checkpointer(sample_config):
@@ -57,6 +60,9 @@ async def test_build_graph_with_checkpointer(sample_config):
     assert graph is not None
     assert builder.checkpointer is not None
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_build_graph_nonexistent_flow(sample_config):
@@ -69,6 +75,9 @@ async def test_build_graph_nonexistent_flow(sample_config):
     # Act & Assert
     with pytest.raises(ValidationError, match="Flow 'nonexistent' not found"):
         await builder.build_manual("nonexistent")
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.slow
@@ -112,6 +121,9 @@ async def test_execute_linear_flow_basic(sample_config):
         assert result is not None
         assert isinstance(result, dict)
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.slow
 @pytest.mark.asyncio
@@ -145,6 +157,9 @@ async def test_execute_flow_with_action_basic(sample_config):
         # Assert
         assert result is not None
         assert isinstance(result, dict)
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.slow
@@ -204,6 +219,9 @@ async def test_state_persistence_basic(sample_config, tmp_path):
         assert result1 is not None
         assert result2 is not None
         # Note: Full persistence verification depends on LangGraph checkpointing
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.slow
@@ -266,6 +284,9 @@ async def test_state_isolation_basic(sample_config, tmp_path):
         assert result2 is not None
         # Note: Full isolation verification depends on LangGraph checkpointing
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.slow
 @pytest.mark.asyncio
@@ -305,6 +326,9 @@ async def test_handle_nlu_error(sample_config):
             # The important thing is that the graph structure is correct
             pass
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.slow
 @pytest.mark.asyncio
@@ -342,6 +366,9 @@ async def test_handle_action_error(sample_config):
             # If exception is raised, that's also acceptable for MVP
             # The important thing is that the graph structure is correct
             pass
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.slow
@@ -382,3 +409,6 @@ async def test_handle_missing_slot(sample_config):
         # Graph should prompt for missing slots
         assert result is not None
         # Note: Actual verification depends on collect_slot_node behavior
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()

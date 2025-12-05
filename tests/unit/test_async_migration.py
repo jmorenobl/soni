@@ -32,6 +32,9 @@ async def test_checkpointer_is_async():
     assert hasattr(builder.checkpointer, "aget")
     assert hasattr(builder.checkpointer, "aput")
 
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_all_nodes_are_async():
@@ -51,6 +54,9 @@ async def test_all_nodes_are_async():
     # Get nodes from graph (this may require accessing internal structure)
     assert graph is not None
     # The graph should be compiled successfully, which means all nodes are valid
+
+    # Cleanup to prevent ResourceWarning
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio
