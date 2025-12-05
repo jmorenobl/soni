@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from soni.core.types import DialogueState as DialogueStateTypedDict
+from soni.core.validators import validate_state_consistency, validate_transition
 
 if TYPE_CHECKING:
     from soni.core.config import SoniConfig
@@ -210,3 +211,36 @@ def create_initial_state(user_message: str) -> DialogueStateTypedDict:
         }
     ]
     return state
+
+
+def update_state(
+    state: DialogueStateTypedDict,
+    updates: dict[str, Any],
+    validate: bool = True,
+) -> None:
+    """
+    Update dialogue state with validation.
+
+    Args:
+        state: Current dialogue state (modified in place)
+        updates: Partial updates to apply
+        validate: Whether to validate transition (default True)
+
+    Raises:
+        ValidationError: If update would create invalid state
+    """
+    # Validate conversation_state transition if changing
+    if validate and "conversation_state" in updates:
+        validate_transition(
+            state["conversation_state"],
+            updates["conversation_state"],
+        )
+
+    # Apply updates
+    for key, value in updates.items():
+        if key in state:
+            state[key] = value  # type: ignore
+
+    # Validate final state consistency
+    if validate:
+        validate_state_consistency(state)

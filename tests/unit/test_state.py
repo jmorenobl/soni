@@ -2,7 +2,8 @@
 
 import pytest
 
-from soni.core.state import create_empty_state, create_initial_state
+from soni.core.errors import ValidationError
+from soni.core.state import create_empty_state, create_initial_state, update_state
 from soni.core.types import DialogueState
 
 
@@ -64,3 +65,51 @@ def test_create_initial_state_uses_empty_state():
     assert state["user_message"] == test_message
     assert state["conversation_state"] == "understanding"
     assert state["turn_count"] == 1
+
+
+def test_update_state_valid_transition():
+    """Test update_state with valid transition."""
+    # Arrange
+    state = create_empty_state()
+    state["conversation_state"] = "idle"
+
+    # Act
+    update_state(state, {"conversation_state": "understanding"})
+
+    # Assert
+    assert state["conversation_state"] == "understanding"
+
+
+def test_update_state_invalid_transition_raises():
+    """Test update_state with invalid transition raises."""
+    # Arrange
+    state = create_empty_state()
+    state["conversation_state"] = "idle"
+
+    # Act & Assert
+    with pytest.raises(ValidationError):
+        update_state(state, {"conversation_state": "executing_action"})
+
+
+def test_update_state_multiple_fields():
+    """Test update_state can update multiple fields."""
+    # Arrange
+    state = create_empty_state()
+
+    # Act
+    update_state(state, {"turn_count": 5, "user_message": "Hello"})
+
+    # Assert
+    assert state["turn_count"] == 5
+    assert state["user_message"] == "Hello"
+
+
+def test_update_state_skip_validation():
+    """Test update_state can skip validation."""
+    # Arrange
+    state = create_empty_state()
+    state["conversation_state"] = "idle"
+
+    # Act & Assert - Should not raise even with invalid transition
+    update_state(state, {"conversation_state": "executing_action"}, validate=False)
+    assert state["conversation_state"] == "executing_action"
