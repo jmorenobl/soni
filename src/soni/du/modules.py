@@ -106,6 +106,9 @@ class SoniDU(dspy.Module):
         This is a pure function (no side effects) that centralizes the conversion
         logic to avoid duplication (DRY principle).
 
+        Used by DSPyNLUProvider.understand() to adapt dict-based interface
+        to structured types for predict().
+
         Args:
             dialogue_context: Dict with current_slots, available_actions, etc.
 
@@ -128,34 +131,6 @@ class SoniDU(dspy.Module):
         )
 
         return history, context
-
-    async def understand(
-        self,
-        user_message: str,
-        dialogue_context: dict[str, Any],
-    ) -> dict[str, Any]:
-        """High-level async interface for NLU (INLUProvider interface).
-
-        This is a thin adapter that converts dict-based interface to the
-        structured interface of predict(). Follows Adapter Pattern and SRP:
-        - Single responsibility: Type adaptation only
-        - Delegates actual work to predict()
-
-        Args:
-            user_message: User's input message
-            dialogue_context: Dict with current_slots, available_actions, etc.
-
-        Returns:
-            Dict with message_type, command, slots, confidence, and reasoning
-        """
-        # Convert dict to structured types (DRY: uses centralized conversion)
-        history, context = self._dict_to_structured_types(dialogue_context)
-
-        # Delegate to predict() (the actual implementation)
-        result = await self.predict(user_message, history, context)
-
-        # Convert structured result back to dict
-        return dict(result.model_dump())
 
     async def predict(
         self,

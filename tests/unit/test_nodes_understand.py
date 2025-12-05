@@ -6,6 +6,7 @@ import pytest
 
 from soni.core.state import create_initial_state
 from soni.dm.nodes.understand import understand_node
+from soni.du.models import MessageType, NLUOutput
 
 
 @pytest.mark.asyncio
@@ -15,14 +16,15 @@ async def test_understand_node_calls_nlu():
     state = create_initial_state("Hello")
 
     # Mock runtime context
+    # understand_node now uses predict() with structured types
     mock_nlu = AsyncMock()
-    mock_nlu.understand.return_value = {
-        "message_type": "interruption",
-        "command": "greet",
-        "slots": [],
-        "confidence": 0.9,
-        "reasoning": "greeting",
-    }
+    mock_nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.INTERRUPTION,
+        command="greet",
+        slots=[],
+        confidence=0.9,
+        reasoning="greeting",
+    )
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = None
@@ -44,7 +46,7 @@ async def test_understand_node_calls_nlu():
     # Assert
     assert result["conversation_state"] == "understanding"
     assert result["nlu_result"]["command"] == "greet"
-    mock_nlu.understand.assert_called_once()
+    mock_nlu.predict.assert_called_once()
     assert "last_nlu_call" in result
 
 
@@ -69,13 +71,15 @@ async def test_understand_node_with_active_flow():
     state["flow_slots"] = {"flow_1": {"origin": "Madrid"}}
 
     mock_nlu = AsyncMock()
-    mock_nlu.understand.return_value = {
-        "message_type": "slot_value",
-        "command": "book_flight",
-        "slots": [{"name": "destination", "value": "Barcelona"}],
-        "confidence": 0.95,
-        "reasoning": "destination provided",
-    }
+    from soni.du.models import SlotValue
+
+    mock_nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="book_flight",
+        slots=[SlotValue(name="destination", value="Barcelona", confidence=0.95)],
+        confidence=0.95,
+        reasoning="destination provided",
+    )
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = {
@@ -98,13 +102,15 @@ async def test_understand_node_with_active_flow():
     result = await understand_node(state, mock_runtime)
 
     # Assert
+    # message_type is serialized as enum value string
     assert result["nlu_result"]["message_type"] == "slot_value"
-    # Verify dialogue context includes current slots
-    call_args = mock_nlu.understand.call_args
+    # Verify predict was called with structured types
+    call_args = mock_nlu.predict.call_args
     assert call_args[0][0] == "I want to book a flight"
-    dialogue_context = call_args[0][1]
-    assert dialogue_context["current_flow"] == "book_flight"
-    assert "origin" in dialogue_context["current_slots"]
+    # Second arg is dspy.History, third is DialogueContext
+    dialogue_context = call_args[0][2]  # DialogueContext object
+    assert dialogue_context.current_flow == "book_flight"
+    assert "origin" in dialogue_context.current_slots
 
 
 @pytest.mark.asyncio
@@ -127,13 +133,15 @@ async def test_understand_node_passes_expected_slots():
     ]
 
     mock_nlu = AsyncMock()
-    mock_nlu.understand.return_value = {
-        "message_type": "slot_value",
-        "command": "book_flight",
-        "slots": [{"name": "destination", "value": "Paris"}],
-        "confidence": 0.95,
-        "reasoning": "destination provided",
-    }
+    from soni.du.models import SlotValue
+
+    mock_nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="book_flight",
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
+        confidence=0.95,
+        reasoning="destination provided",
+    )
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = {
@@ -158,12 +166,12 @@ async def test_understand_node_passes_expected_slots():
     result = await understand_node(state, mock_runtime)
 
     # Assert
+    # message_type is serialized as enum value string
     assert result["nlu_result"]["message_type"] == "slot_value"
     # Verify expected_slots were passed to NLU
-    call_args = mock_nlu.understand.call_args
-    dialogue_context = call_args[0][1]
-    assert "expected_slots" in dialogue_context
-    assert dialogue_context["expected_slots"] == ["origin", "destination", "departure_date"]
+    call_args = mock_nlu.predict.call_args
+    dialogue_context = call_args[0][2]  # DialogueContext object
+    assert dialogue_context.expected_slots == ["origin", "destination", "departure_date"]
     # Verify get_expected_slots was called with correct arguments
     mock_scope_manager.get_expected_slots.assert_called_once_with(
         flow_name="book_flight",
@@ -179,13 +187,13 @@ async def test_understand_node_no_expected_slots_when_no_flow():
     # No flow_stack - no active flow
 
     mock_nlu = AsyncMock()
-    mock_nlu.understand.return_value = {
-        "message_type": "interruption",
-        "command": "greet",
-        "slots": [],
-        "confidence": 0.9,
-        "reasoning": "greeting",
-    }
+    mock_nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.INTERRUPTION,
+        command="greet",
+        slots=[],
+        confidence=0.9,
+        reasoning="greeting",
+    )
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.get_active_context.return_value = None
@@ -209,8 +217,8 @@ async def test_understand_node_no_expected_slots_when_no_flow():
     # Assert
     assert result["conversation_state"] == "understanding"
     # Verify expected_slots is empty when no flow
-    call_args = mock_nlu.understand.call_args
-    dialogue_context = call_args[0][1]
-    assert dialogue_context["expected_slots"] == []
+    call_args = mock_nlu.predict.call_args
+    dialogue_context = call_args[0][2]  # DialogueContext object
+    assert dialogue_context.expected_slots == []
     # Verify get_expected_slots was NOT called
     mock_scope_manager.get_expected_slots.assert_not_called()

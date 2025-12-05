@@ -16,15 +16,12 @@ else:
 
 
 class INLUProvider(Protocol):
-    """Interface for NLU providers."""
+    """Interface for NLU providers.
 
-    async def understand(
-        self,
-        user_message: str,
-        dialogue_context: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Understand user message and return NLU result."""
-        ...
+    The main method is predict() which uses structured types.
+    understand() is provided for compatibility with dict-based interfaces
+    (e.g., DSPyNLUProvider implements INLUProvider interface).
+    """
 
     async def predict(
         self,
@@ -32,7 +29,38 @@ class INLUProvider(Protocol):
         history: Any,  # dspy.History
         context: Any,  # DialogueContext
     ) -> Any:
-        """Predict NLU result using DSPy module (newer API)."""
+        """Predict NLU result using structured types (main method).
+
+        This is the primary method used by nodes (e.g., understand_node).
+        Uses structured types (dspy.History, DialogueContext) for type safety.
+
+        Args:
+            user_message: User's input message
+            history: Conversation history (dspy.History)
+            context: Dialogue context (DialogueContext)
+
+        Returns:
+            NLUOutput (or dict if implementation returns serialized)
+        """
+        ...
+
+    async def understand(
+        self,
+        user_message: str,
+        dialogue_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Understand user message and return NLU result (dict-based interface).
+
+        This method is provided for compatibility with dict-based interfaces.
+        Implementations should convert dict → structured types and call predict().
+
+        Args:
+            user_message: User's input message
+            dialogue_context: Dict with current_slots, available_actions, etc.
+
+        Returns:
+            Dict with message_type, command, slots, confidence, and reasoning
+        """
         ...
 
 

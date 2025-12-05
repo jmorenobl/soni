@@ -9,8 +9,10 @@ from soni.du.modules import SoniDU
 class DSPyNLUProvider(INLUProvider):
     """NLU provider using DSPy SoniDU module.
 
-    This is a thin wrapper that delegates to SoniDU.understand().
-    Follows Adapter Pattern: adapts INLUProvider interface to SoniDU interface.
+    This is a thin wrapper that adapts INLUProvider interface (dict-based)
+    to SoniDU.predict() (structured types).
+
+    Uses predict() directly instead of understand() adapter for consistency.
     """
 
     def __init__(self, module: SoniDU) -> None:
@@ -28,10 +30,8 @@ class DSPyNLUProvider(INLUProvider):
     ) -> dict[str, Any]:
         """Understand user message and return NLU result.
 
-        This method delegates to SoniDU.understand() which handles:
-        - Type conversion (dict → structured types)
-        - Caching
-        - Actual NLU prediction
+        Adapts dict-based interface to structured types and uses predict() directly.
+        This eliminates the need for SoniDU.understand() adapter.
 
         Args:
             user_message: User's input
@@ -47,6 +47,12 @@ class DSPyNLUProvider(INLUProvider):
         Returns:
             Serialized NLUOutput as dict
         """
-        # Delegate to SoniDU.understand() which handles all conversion and caching
-        # This eliminates code duplication (DRY principle)
-        return await self.module.understand(user_message, dialogue_context)
+        # Convert dict to structured types (same logic as understand_node)
+        # Use centralized conversion from SoniDU
+        history, context = SoniDU._dict_to_structured_types(dialogue_context)
+
+        # Use predict() directly (no adapter needed)
+        result = await self.module.predict(user_message, history, context)
+
+        # Convert structured result back to dict
+        return dict(result.model_dump())

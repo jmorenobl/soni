@@ -56,26 +56,46 @@ async def understand_node(
     # Get the specific slot we're waiting for (if any)
     waiting_for_slot = state.get("waiting_for_slot")
 
-    dialogue_context = {
-        "current_slots": (state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}),
-        "available_actions": available_actions,
-        "available_flows": scope_manager.get_available_flows(state),
-        "current_flow": current_flow_name,
-        "expected_slots": expected_slots,
-        "waiting_for_slot": waiting_for_slot,  # Prioritize this slot
-        "history": state["messages"][-5:] if state["messages"] else [],  # Last 5 messages
-    }
+    # Build structured types directly (no adapter needed)
+    # This follows the design in docs/design/05-message-flow.md
+    import dspy
+
+    from soni.du.models import DialogueContext
+
+    # Build conversation history
+    history_messages = state["messages"][-5:] if state["messages"] else []  # Last 5 messages
+    history = dspy.History(messages=history_messages)
+
+    # Build structured dialogue context
+    dialogue_context = DialogueContext(
+        current_slots=(state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}),
+        available_actions=available_actions,
+        available_flows=scope_manager.get_available_flows(state),
+        current_flow=current_flow_name,
+        expected_slots=expected_slots,
+        current_prompted_slot=waiting_for_slot,  # Prioritize this slot
+    )
 
     logger.debug(
         f"NLU context: waiting_for_slot={waiting_for_slot}, expected_slots={expected_slots}",
         extra={"waiting_for_slot": waiting_for_slot, "expected_slots": expected_slots},
     )
 
-    # Call NLU
-    nlu_result = await nlu_provider.understand(
+    # Call NLU with structured types directly (no adapter)
+    # Use predict() which is the main method, understand() is just a legacy adapter
+    nlu_result_raw = await nlu_provider.predict(
         state["user_message"],
+        history,
         dialogue_context,
     )
+
+    # Convert NLUOutput to dict for state storage
+    # (DialogueState uses dict, not Pydantic models)
+    if hasattr(nlu_result_raw, "model_dump"):
+        nlu_result = nlu_result_raw.model_dump()
+    else:
+        # Fallback if already a dict (shouldn't happen with SoniDU)
+        nlu_result = nlu_result_raw if isinstance(nlu_result_raw, dict) else {}
 
     return {
         "nlu_result": nlu_result,
