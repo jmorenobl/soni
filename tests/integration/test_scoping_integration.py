@@ -16,6 +16,7 @@ from soni.core.state import (
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_runtime_uses_scoped_actions(skip_without_api_key):
     """
@@ -68,6 +69,7 @@ async def test_runtime_uses_scoped_actions(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_scoping_reduces_actions():
     """Test that scoping reduces number of actions"""
@@ -92,6 +94,7 @@ async def test_scoping_reduces_actions():
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_different_flows_have_different_actions():
     """Test that different flows have different scoped actions"""

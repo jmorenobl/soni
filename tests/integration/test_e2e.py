@@ -69,6 +69,7 @@ async def runtime(config_path):
         Path(temp_config_path).unlink(missing_ok=True)
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_flight_booking_complete_flow(runtime, skip_without_api_key):
     """
@@ -167,6 +168,7 @@ async def test_e2e_flight_booking_complete_flow(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.skip(
     reason="Requires AsyncSqliteSaver for full async support. "
@@ -209,6 +211,7 @@ async def test_e2e_state_persistence(runtime):
     assert len(response4) > 0
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.skip(
     reason="Requires AsyncSqliteSaver for full async support. "
@@ -250,6 +253,7 @@ async def test_e2e_multiple_conversations(runtime):
     assert response2_user1 != response2_user2
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.skip(
     reason="Requires AsyncSqliteSaver for full async support. "
@@ -281,6 +285,7 @@ async def test_e2e_error_handling(runtime):
     assert isinstance(response2, str)
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_configuration_loading(skip_without_api_key):
     """
@@ -318,6 +323,7 @@ async def test_e2e_configuration_loading(skip_without_api_key):
     await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_slot_correction(runtime, skip_without_api_key):
     """
@@ -371,6 +377,7 @@ async def test_e2e_slot_correction(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_context_switching(runtime, skip_without_api_key):
     """
@@ -419,6 +426,7 @@ async def test_e2e_context_switching(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_error_recovery(runtime, skip_without_api_key):
     """
@@ -459,6 +467,7 @@ async def test_e2e_error_recovery(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_slot_validation(runtime, skip_without_api_key):
     """
@@ -507,6 +516,7 @@ async def test_e2e_slot_validation(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_multi_turn_persistence(runtime, skip_without_api_key):
     """
@@ -574,6 +584,7 @@ async def test_e2e_multi_turn_persistence(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_multiple_users_isolation(runtime, skip_without_api_key):
     """
@@ -632,6 +643,7 @@ async def test_e2e_multiple_users_isolation(runtime, skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_e2e_normalization_integration(runtime, skip_without_api_key):
     """

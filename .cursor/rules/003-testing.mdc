@@ -1,0 +1,475 @@
+---
+name: Testing Patterns & Best Practices
+version: "1.0"
+description: AAA pattern, pytest conventions, async testing, fixtures, and mocking strategies
+globs:
+  - "tests/**/*.py"
+  - "src/soni/**/*test*.py"
+alwaysApply: false
+---
+
+# Testing Patterns & Best Practices
+
+## AAA Pattern (Arrange-Act-Assert)
+
+**MANDATORY**: All tests must follow the AAA pattern with clear comment separation.
+
+### Basic AAA Structure
+```python
+def test_flow_manager_push():
+    """Test that FlowManager correctly pushes new flow instance."""
+    # Arrange - Set up test data and conditions
+    config = SoniConfig()
+    manager = FlowManager(config)
+    state = create_initial_state()
+
+    # Act - Execute the function being tested
+    flow_id = manager.push_flow(state, "book_flight", inputs={"origin": "Madrid"})
+
+    # Assert - Verify the expected outcome
+    assert flow_id.startswith("book_flight_")
+    assert len(state["flow_stack"]) == 1
+    assert state["flow_stack"][0]["flow_name"] == "book_flight"
+    assert state["flow_slots"][flow_id]["origin"] == "Madrid"
+```
+
+### AAA with Async
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_nlu_prediction():
+    """Test NLU prediction returns structured output."""
+    # Arrange
+    nlu_module = SoniDU()
+    user_message = "I want to book a flight"
+    history = dspy.History(messages=[])
+    context = DialogueContext(current_flow="none")
+
+    # Act
+    result = await nlu_module.predict(
+        user_message=user_message,
+        history=history,
+        context=context
+    )
+
+    # Assert
+    assert result.message_type == MessageType.INTERRUPTION
+    assert result.command == "book_flight"
+    assert result.confidence > 0.8
+```
+
+### Combined Phases (For Simple Tests)
+```python
+def test_simple_validation():
+    """Test email validator accepts valid email."""
+    # Arrange & Act
+    result = validate_email("user@example.com")
+
+    # Assert
+    assert result is True
+```
+
+## Test Structure
+
+### File Naming
+```
+tests/
+├── unit/              # Isolated unit tests
+│   ├── test_state.py
+│   ├── test_flow_manager.py
+│   └── test_nlu.py
+└── integration/       # Integration tests
+    ├── test_graph.py
+    ├── test_runtime.py
+    └── test_dm_integration.py
+```
+
+### Test Function Naming
+```python
+# ✅ CORRECT - Descriptive test names
+def test_flow_manager_push_flow_creates_unique_id():
+    pass
+
+def test_flow_manager_pop_flow_resumes_previous():
+    pass
+
+def test_nlu_prediction_handles_empty_message():
+    pass
+
+# ❌ WRONG - Vague names
+def test_flow():
+    pass
+
+def test_nlu():
+    pass
+```
+
+### Docstrings
+**Mandatory**: Every test must have a clear docstring.
+
+```python
+def test_flow_manager_enforces_stack_limit():
+    """
+    Test that FlowManager enforces maximum stack depth limit.
+
+    When the stack reaches max depth, the configured strategy
+    (cancel_oldest, reject_new) should be applied.
+    """
+    # Arrange
+    # ...
+```
+
+## Pytest Fixtures
+
+### Common Setup with Fixtures
+```python
+import pytest
+from soni.core.config import SoniConfig
+from soni.flow.manager import FlowManager
+
+@pytest.fixture
+def config() -> SoniConfig:
+    """Create test configuration."""
+    return SoniConfig(
+        flow_stack_limit=5,
+        stack_limit_strategy="reject_new"
+    )
+
+@pytest.fixture
+def flow_manager(config: SoniConfig) -> FlowManager:
+    """Create FlowManager instance for testing."""
+    return FlowManager(config)
+
+@pytest.fixture
+def initial_state() -> DialogueState:
+    """Create initial dialogue state."""
+    return {
+        "messages": [],
+        "flow_stack": [],
+        "flow_slots": {},
+        "conversation_state": "idle",
+        # ...
+    }
+
+# Usage
+def test_with_fixtures(flow_manager: FlowManager, initial_state: DialogueState):
+    """Test using fixtures."""
+    # Arrange
+    # (fixtures already arranged)
+
+    # Act
+    flow_id = flow_manager.push_flow(initial_state, "book_flight")
+
+    # Assert
+    assert len(initial_state["flow_stack"]) == 1
+```
+
+### Fixture Scopes
+```python
+@pytest.fixture(scope="session")
+def expensive_setup():
+    """Run once per test session."""
+    # Expensive initialization
+    return resource
+
+@pytest.fixture(scope="module")
+def module_resource():
+    """Run once per module."""
+    return resource
+
+@pytest.fixture(scope="function")  # Default
+def function_resource():
+    """Run once per test function."""
+    return resource
+```
+
+## Async Testing
+
+### pytest-asyncio
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_async_operation():
+    """Test async function."""
+    # Arrange
+    input_data = "test"
+
+    # Act
+    result = await async_function(input_data)
+
+    # Assert
+    assert result == expected
+```
+
+### Async Fixtures
+```python
+@pytest.fixture
+async def async_client():
+    """Create async HTTP client."""
+    async with httpx.AsyncClient() as client:
+        yield client
+
+@pytest.mark.asyncio
+async def test_with_async_fixture(async_client):
+    """Test using async fixture."""
+    # Arrange & Act
+    response = await async_client.get("https://api.example.com")
+
+    # Assert
+    assert response.status_code == 200
+```
+
+## Mocking and Fakes
+
+### DummyLM for DSPy Testing
+**Use DummyLM for cost-free, fast unit tests.**
+
+```python
+from dspy.utils.dummies import DummyLM
+
+@pytest.fixture
+def nlu_module() -> SoniDU:
+    """Create NLU module with DummyLM."""
+    lm = DummyLM([
+        {
+            "result": {
+                "message_type": "interruption",
+                "command": "book_flight",
+                "slots": [],
+                "confidence": 0.95,
+                "reasoning": "User wants to book a flight"
+            }
+        }
+    ])
+    dspy.configure(lm=lm)
+    return SoniDU()
+
+@pytest.mark.asyncio
+async def test_nlu_with_dummy_lm(nlu_module: SoniDU):
+    """Test NLU without actual LLM calls."""
+    # Arrange
+    user_message = "I want to book a flight"
+    history = dspy.History(messages=[])
+    context = DialogueContext()
+
+    # Act
+    result = await nlu_module.predict(
+        user_message=user_message,
+        history=history,
+        context=context
+    )
+
+    # Assert
+    assert result.command == "book_flight"
+    assert result.message_type == MessageType.INTERRUPTION
+```
+
+### InMemorySaver for LangGraph Testing
+**Use InMemorySaver for fast, isolated graph tests.**
+
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+
+@pytest.mark.asyncio
+async def test_dialogue_flow():
+    """Test complete dialogue flow with in-memory checkpointer."""
+    # Arrange
+    checkpointer = InMemorySaver()
+    graph = build_graph(config, checkpointer=checkpointer)
+    config_dict = {"configurable": {"thread_id": "test-user-1"}}
+
+    # Act
+    result = await graph.ainvoke(
+        {"user_message": "Book a flight"},
+        config_dict
+    )
+
+    # Assert
+    assert result["conversation_state"] == "waiting_for_slot"
+    assert result["waiting_for_slot"] == "origin"
+```
+
+### unittest.mock for Protocols
+```python
+from unittest.mock import AsyncMock, Mock
+
+@pytest.mark.asyncio
+async def test_node_with_mocked_nlu():
+    """Test node with mocked NLU provider."""
+    # Arrange
+    mock_nlu = AsyncMock(spec=INLUProvider)
+    mock_nlu.understand.return_value = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="continue",
+        slots=[SlotValue(name="origin", value="Madrid", confidence=0.95)],
+        confidence=0.95,
+        reasoning="User provided origin"
+    )
+
+    context = RuntimeContext(nlu_provider=mock_nlu, ...)
+    state = {"user_message": "Madrid", ...}
+
+    # Act
+    result = await understand_node(state, context)
+
+    # Assert
+    mock_nlu.understand.assert_called_once()
+    assert result["nlu_result"]["command"] == "continue"
+```
+
+## Cleanup and Teardown
+
+### Try/Finally for Cleanup
+```python
+def test_with_cleanup():
+    """Test with cleanup section."""
+    # Arrange
+    original_function = module.function
+    module.function = mock_function
+
+    try:
+        # Act
+        result = perform_operation()
+
+        # Assert
+        assert result == expected
+    finally:
+        # Cleanup
+        module.function = original_function
+```
+
+### Fixture Teardown
+```python
+@pytest.fixture
+def resource():
+    """Fixture with cleanup."""
+    # Setup
+    resource = create_resource()
+
+    yield resource
+
+    # Teardown
+    resource.cleanup()
+```
+
+## Test Coverage
+
+### Minimum Target
+- **80% coverage** (configured in pyproject.toml)
+
+### Run Coverage
+```bash
+# Run with coverage report
+uv run pytest --cov=soni --cov-report=html
+
+# Open coverage report
+open htmlcov/index.html
+```
+
+### Coverage Configuration
+```toml
+# pyproject.toml
+[tool.coverage.run]
+source = ["src/soni"]
+omit = ["*/tests/*", "*/experiments/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+```
+
+## Test Execution
+
+### Run All Tests
+```bash
+uv run pytest
+```
+
+### Run Specific File
+```bash
+uv run pytest tests/unit/test_state.py
+```
+
+### Run Specific Test
+```bash
+uv run pytest tests/unit/test_state.py::test_flow_manager_push
+```
+
+### Run with Markers
+```bash
+# Run only async tests
+uv run pytest -m asyncio
+
+# Run only unit tests
+uv run pytest tests/unit/
+
+# Run only integration tests
+uv run pytest tests/integration/
+```
+
+## Relaxed Test Rules
+
+Tests have relaxed linting rules (configured in pyproject.toml):
+
+```toml
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "B008",  # Allow function calls in default arguments (fixtures)
+    "B006",  # Allow mutable default arguments (fixtures)
+    "S101",  # Allow assert (tests use assertions)
+    "ARG",   # Allow unused arguments (fixtures)
+]
+```
+
+## Anti-Patterns to Avoid
+
+### Don't Batch Assertions
+```python
+# ❌ WRONG - Multiple unrelated tests in one
+def test_everything():
+    assert function1() == expected1
+    assert function2() == expected2
+    assert function3() == expected3
+
+# ✅ CORRECT - Separate tests
+def test_function1():
+    assert function1() == expected1
+
+def test_function2():
+    assert function2() == expected2
+```
+
+### Don't Skip AAA Comments
+```python
+# ❌ WRONG - No clear separation
+def test_something():
+    config = SoniConfig()
+    manager = FlowManager(config)
+    result = manager.push_flow(state, "book_flight")
+    assert result is not None
+
+# ✅ CORRECT - Clear AAA structure
+def test_something():
+    # Arrange
+    config = SoniConfig()
+    manager = FlowManager(config)
+
+    # Act
+    result = manager.push_flow(state, "book_flight")
+
+    # Assert
+    assert result is not None
+```
+
+## References
+
+See @tests/unit/ for unit test examples.
+See @tests/integration/ for integration test examples.
+See @pyproject.toml for pytest and coverage configuration.

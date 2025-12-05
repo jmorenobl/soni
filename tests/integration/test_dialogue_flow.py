@@ -17,6 +17,7 @@ from soni.du.provider import DSPyNLUProvider
 from soni.flow.manager import FlowManager
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_complete_dialogue_flow():
     """Test complete booking flow with interrupts and resumption."""
@@ -106,6 +107,7 @@ async def test_complete_dialogue_flow():
             pytest.skip(f"Graph invocation needs adjustment: {e}")
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_graph_builds_and_compiles():
     """Test that graph builds and compiles successfully."""

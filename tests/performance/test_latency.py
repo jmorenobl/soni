@@ -9,6 +9,7 @@ import pytest
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_latency_p95(skip_without_api_key):
     """
@@ -67,6 +68,7 @@ async def test_latency_p95(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_latency_metrics(skip_without_api_key):
     """

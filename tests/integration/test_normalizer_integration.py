@@ -8,6 +8,7 @@ from soni.core.config import ConfigLoader, SoniConfig
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_runtime_initializes_normalizer():
     """Test that RuntimeLoop initializes normalizer correctly"""
@@ -26,6 +27,7 @@ async def test_runtime_initializes_normalizer():
     await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_normalizer_in_graph_node(skip_without_api_key):
     """

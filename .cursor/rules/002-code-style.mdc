@@ -1,0 +1,423 @@
+---
+name: Code Style & Conventions
+version: "1.0"
+description: PEP 8, type hints, docstrings, naming conventions, and formatting rules
+globs:
+  - "src/soni/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: true
+---
+
+# Code Style & Conventions
+
+## PEP 8 Compliance
+
+**Strict adherence to PEP 8** with Ruff configuration in `pyproject.toml`.
+
+### Line Length
+- **Maximum**: 100 characters (configured in pyproject.toml)
+- **Preferred**: 80-90 characters for readability
+
+### Quotes
+- **Use double quotes** for strings (Ruff configuration)
+
+```python
+# ✅ CORRECT
+message = "Hello, world!"
+error = "Invalid slot value"
+
+# ❌ WRONG
+message = 'Hello, world!'  # Single quotes
+```
+
+### Imports
+Automatically ordered with Ruff (isort):
+
+```python
+# ✅ CORRECT - Order: stdlib, third-party, local
+import asyncio
+import time
+from typing import Any
+
+import dspy
+from pydantic import BaseModel
+
+from soni.core.state import DialogueState
+from soni.core.interfaces import INLUProvider
+
+# ❌ WRONG - Mixed order
+from soni.core.state import DialogueState
+import asyncio
+from pydantic import BaseModel
+```
+
+**Import Style**:
+- **Absolute imports**: Always use `from soni.` prefix
+- **No relative imports**: Avoid `from . import` or `from .. import`
+
+```python
+# ✅ CORRECT
+from soni.core.state import DialogueState
+from soni.dm.nodes.understand import understand_node
+
+# ❌ WRONG
+from .state import DialogueState
+from ..nodes.understand import understand_node
+```
+
+## Type Hints
+
+**Mandatory for all public functions and methods.**
+
+### Modern Python 3.11+ Syntax
+```python
+# ✅ CORRECT - Modern syntax
+def process_slots(slots: dict[str, Any]) -> list[str]:
+    pass
+
+def get_user(user_id: str) -> User | None:
+    pass
+
+# ❌ WRONG - Old syntax
+from typing import Dict, List, Optional
+
+def process_slots(slots: Dict[str, Any]) -> List[str]:
+    pass
+
+def get_user(user_id: str) -> Optional[User]:
+    pass
+```
+
+### Protocol Usage
+```python
+# ✅ CORRECT - Protocol for interfaces
+from typing import Protocol
+
+class INLUProvider(Protocol):
+    async def understand(self, msg: str, ctx: DialogueContext) -> NLUOutput:
+        ...
+
+# Usage
+async def node(state: DialogueState, nlu: INLUProvider) -> dict:
+    result = await nlu.understand(...)
+```
+
+### TYPE_CHECKING for Circular Imports
+```python
+# ✅ CORRECT - Avoid circular imports
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from soni.core.state import DialogueState
+
+async def process(state: "DialogueState") -> dict:  # String annotation
+    pass
+```
+
+## Docstrings
+
+**Google-style docstrings** for all public functions and classes.
+
+### Function Docstring Template
+```python
+def process_message(param1: str, param2: int) -> dict[str, Any]:
+    """
+    Brief one-line description.
+
+    More detailed description if necessary. Explain the purpose,
+    behavior, and any important considerations.
+
+    Args:
+        param1: Description of parameter 1
+        param2: Description of parameter 2
+
+    Returns:
+        Description of return value
+
+    Raises:
+        ValidationError: When parameter is invalid
+        NLUError: When NLU processing fails
+    """
+```
+
+### Class Docstring Template
+```python
+class FlowManager:
+    """
+    Manages flow execution stack and data heap.
+
+    Responsibilities:
+    - Push/Pop flow instances
+    - Data access (get/set slots)
+    - Stack depth enforcement
+    - Memory pruning
+
+    Example:
+        >>> manager = FlowManager(config)
+        >>> flow_id = manager.push_flow(state, "book_flight")
+        >>> manager.set_slot(state, "origin", "Madrid")
+    """
+```
+
+### Async Function Docstring
+```python
+async def execute_action(name: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Execute registered action asynchronously.
+
+    Args:
+        name: Action name registered in ActionRegistry
+        inputs: Input parameters for the action
+
+    Returns:
+        Dictionary with action outputs
+
+    Raises:
+        ActionNotFoundError: When action is not registered
+        ValidationError: When inputs are invalid
+    """
+```
+
+## Naming Conventions
+
+### Classes
+**PascalCase**
+
+```python
+# ✅ CORRECT
+class DialogueState:
+    pass
+
+class FlowManager:
+    pass
+
+class SoniDU(dspy.Module):
+    pass
+
+# ❌ WRONG
+class dialogue_state:  # snake_case
+    pass
+
+class flowManager:  # camelCase
+    pass
+```
+
+### Functions and Variables
+**snake_case**
+
+```python
+# ✅ CORRECT
+def process_message(user_id: str) -> str:
+    current_state = get_state(user_id)
+    return current_state
+
+# ❌ WRONG
+def processMessage(userId: str) -> str:  # camelCase
+    currentState = getState(userId)
+    return currentState
+```
+
+### Constants
+**UPPER_SNAKE_CASE**
+
+```python
+# ✅ CORRECT
+MAX_RETRIES = 3
+DEFAULT_TIMEOUT = 30
+API_BASE_URL = "https://api.example.com"
+
+# ❌ WRONG
+max_retries = 3  # Not uppercase
+defaultTimeout = 30  # camelCase
+```
+
+### Private Functions/Modules
+**Prefix with `_`**
+
+```python
+# ✅ CORRECT
+def _internal_helper(value: str) -> str:
+    """Private helper function."""
+    return value.strip()
+
+def _validate_config(config: dict) -> bool:
+    """Internal validation."""
+    return True
+
+# Public API
+def process_data(data: str) -> str:
+    cleaned = _internal_helper(data)
+    return cleaned
+```
+
+### Type Variables
+**PascalCase**
+
+```python
+# ✅ CORRECT
+from typing import TypeVar
+
+T = TypeVar("T")
+K = TypeVar("K")
+V = TypeVar("V")
+
+def get_value(key: K, default: T) -> T | None:
+    pass
+```
+
+## Comments
+
+### Inline Comments
+```python
+# ✅ CORRECT - Explain WHY, not WHAT
+# Pause current flow to prevent state conflicts
+if state["flow_stack"]:
+    state["flow_stack"][-1]["flow_state"] = "paused"
+
+# ❌ WRONG - Obvious WHAT
+# Set flow state to paused
+state["flow_stack"][-1]["flow_state"] = "paused"
+```
+
+### TODO Comments
+```python
+# ✅ CORRECT - Specific and actionable
+# TODO: Implement retry logic for transient API failures (issue #123)
+# TODO: Add caching for NLU results (expected latency reduction: 50ms)
+
+# ❌ WRONG - Vague
+# TODO: Fix this
+# TODO: Improve performance
+```
+
+## Language
+
+**ALL text in English**:
+- Code comments
+- Docstrings
+- Variable names
+- Commit messages
+- Error messages
+- Log messages
+
+```python
+# ✅ CORRECT
+def validate_booking_reference(ref: str) -> bool:
+    """Validate booking reference format."""
+    if not ref:
+        raise ValidationError("Booking reference cannot be empty")
+    return True
+
+# ❌ WRONG
+def validar_referencia_reserva(ref: str) -> bool:
+    """Valida el formato de la referencia."""
+    if not ref:
+        raise ValidationError("La referencia no puede estar vacía")
+    return True
+```
+
+## Error Handling
+
+### Exception Messages
+```python
+# ✅ CORRECT - Clear, English, with context
+raise ValidationError(
+    "Invalid slot value",
+    field="destination",
+    value=raw_value,
+    context={"flow": current_flow, "expected_type": "city"}
+)
+
+# ❌ WRONG - Vague, no context
+raise ValidationError("Bad value")
+```
+
+### Logging
+```python
+# ✅ CORRECT - Structured with context
+logger.info(
+    "NLU prediction completed",
+    extra={
+        "event": "nlu_prediction",
+        "command": result.command,
+        "confidence": result.confidence,
+        "latency_ms": latency
+    }
+)
+
+# ❌ WRONG - Unstructured
+logger.info(f"NLU done: {result.command}")
+```
+
+## Code Quality Tools
+
+### Ruff (Linting & Formatting)
+```bash
+# Run before committing
+uv run ruff check .
+uv run ruff format .
+```
+
+### Mypy (Type Checking)
+```bash
+# Run before committing
+uv run mypy src/soni
+```
+
+### Pre-commit Hooks
+Automatically runs:
+- Ruff linting
+- Ruff formatting
+- Mypy type checking
+- Relevant tests
+
+## Anti-Patterns to Avoid
+
+### Don't Use Emojis
+```python
+# ❌ WRONG
+def process_message(msg: str) -> str:
+    return f"✅ Message processed: {msg}"
+
+# ✅ CORRECT
+def process_message(msg: str) -> str:
+    return f"Message processed: {msg}"
+```
+
+**Exception**: Only use emojis if user explicitly requests them.
+
+### Don't Over-Engineer
+```python
+# ❌ WRONG - Unnecessary abstraction
+class ValueWrapper:
+    def __init__(self, value):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+result = ValueWrapper("hello").get()
+
+# ✅ CORRECT - Simple and direct
+result = "hello"
+```
+
+### Don't Add Unused Code
+```python
+# ❌ WRONG - Backwards compatibility hack
+def new_function(param: str) -> str:
+    return param
+
+def old_function(param: str) -> str:  # ❌ Unused, just delete it
+    return new_function(param)
+
+# ✅ CORRECT - Clean removal
+def new_function(param: str) -> str:
+    return param
+```
+
+## References
+
+See @pyproject.toml for complete Ruff and Mypy configuration.
+See @.pre-commit-config.yaml for pre-commit hook setup.

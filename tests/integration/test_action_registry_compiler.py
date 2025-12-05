@@ -10,6 +10,7 @@ from soni.compiler.flow_compiler import FlowCompiler
 from soni.core.config import SoniConfig
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_compiler_uses_action_registry():
     """Test that compiler uses ActionRegistry for actions"""
@@ -60,6 +61,7 @@ def test_yaml_no_contains_handler_paths():
                     )
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_auto_discovery_imports_actions():
     """Test that auto-discovery imports actions correctly"""

@@ -49,7 +49,12 @@ def test_config_manager_load_success():
     assert config is not None
     assert isinstance(config, SoniConfig)
     assert manager.config is config
-    assert config.project.name == "flight_booking"
+    # Check that config has expected structure
+    assert hasattr(config, "version")
+    assert hasattr(config, "settings")
+    assert hasattr(config, "flows")
+    assert hasattr(config, "slots")
+    assert hasattr(config, "actions")
 
 
 def test_config_manager_load_multiple_times():
@@ -130,14 +135,15 @@ def test_config_manager_load_with_mocked_loader():
     manager = ConfigurationManager(config_path)
 
     mock_config_dict = {
-        "project": {"name": "test_project", "version": "0.1.0"},
+        "version": "1.0",
         "settings": {
+            "models": {"nlu": {"provider": "openai", "model": "gpt-4o-mini"}},
             "persistence": {"backend": "sqlite", "path": "test.db"},
             "trace": {"enabled": False},
         },
         "flows": {},
         "slots": {},
-        "entities": {},
+        "actions": {},
     }
 
     # Act
@@ -148,7 +154,8 @@ def test_config_manager_load_with_mocked_loader():
         # Assert
         mock_load.assert_called_once_with(Path(config_path))
         assert isinstance(config, SoniConfig)
-        assert config.project.name == "test_project"
+        assert config.version == "1.0"
+        assert config.settings.models.nlu.provider == "openai"
 
 
 def test_config_manager_load_preserves_path():

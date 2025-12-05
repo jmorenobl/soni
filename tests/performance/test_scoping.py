@@ -28,6 +28,7 @@ def count_tokens(text: str) -> int:
     return len(text) // 4
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_scoping_token_reduction():
     """

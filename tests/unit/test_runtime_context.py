@@ -11,8 +11,15 @@ from soni.core.state import (
     create_empty_state,
     create_initial_state,
     create_runtime_context,
+    get_action_config,
     get_all_slots,
     get_current_flow,
+    get_flow_config,
+    get_slot_config,
+    push_flow,
+    set_slot,
+    state_from_dict,
+    state_to_dict,
 )
 
 
@@ -41,11 +48,12 @@ def test_runtime_context_creation():
     )
 
     # Assert
-    assert context.config is config
-    assert context.scope_manager is mock_scope
-    assert context.normalizer is mock_normalizer
-    assert context.action_handler is mock_handler
-    assert context.du is mock_du
+    # RuntimeContext is now TypedDict (dict), use dict access
+    assert context["config"] is config
+    assert context["scope_manager"] is mock_scope
+    assert context["normalizer"] is mock_normalizer
+    assert context["action_handler"] is mock_handler
+    assert context["du"] is mock_du
 
 
 def test_runtime_context_get_slot_config():
@@ -64,7 +72,8 @@ def test_runtime_context_get_slot_config():
     )
 
     # Act
-    slot_config = context.get_slot_config("destination")
+    # Use helper function instead of method
+    slot_config = get_slot_config(context, "destination")
 
     # Assert
     assert hasattr(slot_config, "type")
@@ -87,7 +96,8 @@ def test_runtime_context_get_action_config():
     )
 
     # Act
-    action_config = context.get_action_config("search_available_flights")
+    # Use helper function instead of method
+    action_config = get_action_config(context, "search_available_flights")
 
     # Assert
     assert hasattr(action_config, "inputs")
@@ -111,7 +121,8 @@ def test_runtime_context_get_flow_config():
     )
 
     # Act
-    flow_config = context.get_flow_config("book_flight")
+    # Use helper function instead of method
+    flow_config = get_flow_config(context, "book_flight")
 
     # Assert
     assert hasattr(flow_config, "steps")
@@ -137,8 +148,9 @@ def test_runtime_context_get_slot_config_not_found():
     )
 
     # Act & Assert
+    # Use helper function instead of method
     with pytest.raises(KeyError):
-        context.get_slot_config("nonexistent_slot")
+        get_slot_config(context, "nonexistent_slot")
 
 
 def test_dialogue_state_has_no_config_attribute():
@@ -153,21 +165,20 @@ def test_dialogue_state_has_no_config_attribute():
 def test_dialogue_state_is_serializable():
     """Test that DialogueState can be serialized without runtime dependencies"""
     # Arrange
-    state = DialogueState(
-        messages=[{"role": "user", "content": "Hello"}],
-        slots={"destination": "Paris"},
-        current_flow="book_flight",
-    )
+    state = create_empty_state()
+    state["messages"] = [{"role": "user", "content": "Hello"}]
+    push_flow(state, "book_flight")
+    set_slot(state, "destination", "Paris")
 
     # Act
-    serialized = state.to_dict()
-    deserialized = DialogueState.from_dict(serialized)
+    serialized = state_to_dict(state)
+    deserialized = state_from_dict(serialized)
 
     # Assert
-    assert deserialized.messages == state["messages"]
-    assert deserialized.slots == get_all_slots(state)
-    assert deserialized.current_flow == get_current_flow(state)
-    assert not hasattr(deserialized, "config")
+    assert deserialized["messages"] == state["messages"]
+    assert get_all_slots(deserialized) == get_all_slots(state)
+    assert get_current_flow(deserialized) == get_current_flow(state)
+    assert "config" not in deserialized  # No runtime dependencies in state
 
 
 def test_node_factories_require_runtime_context():

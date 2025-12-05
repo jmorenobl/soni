@@ -102,9 +102,9 @@ async def test_execute_linear_flow_basic(sample_config):
         )
 
         # Act
-        # Execute graph using LangGraph API (sync for MVP with SqliteSaver)
+        # Execute graph using LangGraph async API (required for AsyncSqliteSaver)
         config = {"configurable": {"thread_id": "test_user"}}
-        result = graph.invoke(initial_state, config)
+        result = await graph.ainvoke(initial_state, config)
 
         # Assert
         # Verify graph executed without errors
@@ -138,7 +138,7 @@ async def test_execute_flow_with_action_basic(sample_config):
 
         # Act
         config = {"configurable": {"thread_id": "test_user"}}
-        result = graph.invoke(initial_state, config)
+        result = await graph.ainvoke(initial_state, config)
 
         # Assert
         assert result is not None
@@ -181,7 +181,7 @@ async def test_state_persistence_basic(sample_config, tmp_path):
 
         # Act
         # Execute first turn
-        result1 = graph.invoke(initial_state, config)
+        result1 = await graph.ainvoke(initial_state, config)
 
         # Execute second turn (should have persisted state)
         second_state = {
@@ -194,7 +194,7 @@ async def test_state_persistence_basic(sample_config, tmp_path):
             "trace": [],
             "summary": None,
         }
-        result2 = graph.invoke(second_state, config)
+        result2 = await graph.ainvoke(second_state, config)
 
         # Assert
         # Verify both turns executed
@@ -250,11 +250,11 @@ async def test_state_isolation_basic(sample_config, tmp_path):
         # Act
         # Execute for user1
         config1 = {"configurable": {"thread_id": user1_id}}
-        result1 = graph.invoke(initial_state1, config1)
+        result1 = await graph.ainvoke(initial_state1, config1)
 
         # Execute for user2
         config2 = {"configurable": {"thread_id": user2_id}}
-        result2 = graph.invoke(initial_state2, config2)
+        result2 = await graph.ainvoke(initial_state2, config2)
 
         # Assert
         # Verify each user executed independently
@@ -292,7 +292,7 @@ async def test_handle_nlu_error(sample_config):
         # Graph execution should handle the error
         # Note: Depending on error handling, this might raise or return error state
         try:
-            result = graph.invoke(initial_state, config)
+            result = await graph.ainvoke(initial_state, config)
             # If no exception, verify error is handled in state
             assert result is not None
         except Exception:
@@ -329,7 +329,7 @@ async def test_handle_action_error(sample_config):
         config = {"configurable": {"thread_id": "test_user"}}
         # Graph execution should handle the error
         try:
-            result = graph.invoke(initial_state, config)
+            result = await graph.ainvoke(initial_state, config)
             # If no exception, verify error is handled in state
             assert result is not None
         except Exception:
@@ -369,7 +369,7 @@ async def test_handle_missing_slot(sample_config):
 
         # Act
         config = {"configurable": {"thread_id": "test_user"}}
-        result = graph.invoke(initial_state, config)
+        result = await graph.ainvoke(initial_state, config)
 
         # Assert
         # Graph should prompt for missing slots

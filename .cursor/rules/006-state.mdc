@@ -1,0 +1,423 @@
+---
+name: State Management & FlowManager
+version: "1.0"
+description: DialogueState schema, FlowManager operations, flow_id vs flow_name, and serialization patterns
+globs:
+  - "src/soni/core/state.py"
+  - "src/soni/flow/manager.py"
+  - "src/soni/dm/**/*.py"
+alwaysApply: false
+---
+
+# State Management & FlowManager
+
+## DialogueState Schema
+
+**CRITICAL**: Must use TypedDict (not Pydantic BaseModel) - LangGraph requirement.
+
+### Complete Schema
+```python
+from typing import TypedDict, Annotated, Any, Literal
+from langchain_core.messages import AnyMessage
+from langgraph.graph import add_messages
+
+FlowState = Literal["active", "paused", "completed", "cancelled", "abandoned", "error"]
+
+class FlowContext(TypedDict):
+    """Context for a specific flow execution instance."""
+    flow_id: str              # Unique instance ID (e.g., 'book_flight_3a7f')
+    flow_name: str            # Flow definition name (e.g., 'book_flight')
+    flow_state: FlowState
+    current_step: str | None
+    outputs: dict[str, Any]
+    started_at: float
+    paused_at: float | None
+    completed_at: float | None
+    context: str | None       # Reason for starting/pausing
+
+class DialogueState(TypedDict):
+    """Complete dialogue state for LangGraph."""
+
+    # Core communication
+    messages: Annotated[list[AnyMessage], add_messages]
+    last_response: str
+
+    # Flow management
+    flow_stack: list[FlowContext]
+    flow_slots: dict[str, dict[str, Any]]  # Key: flow_id, Value: slots
+
+    # Conversation state
+    conversation_state: str  # ConversationState enum value (as string)
+    current_step: str | None
+    waiting_for_slot: str | None
+
+    # NLU tracking
+    last_nlu_call: float | None
+
+    # Digression tracking
+    digression_depth: int
+    last_digression_type: str | None
+
+    # Metadata & audit
+    turn_count: int
+    trace: list[dict[str, Any]]
+    metadata: dict[str, Any]  # Contains completed_flows, error info
+```
+
+### Why TypedDict?
+```python
+# ✅ CORRECT - LangGraph requirement
+class DialogueState(TypedDict):
+    messages: list[AnyMessage]
+    flow_stack: list[FlowContext]
+
+# ❌ WRONG - Not supported by LangGraph
+class DialogueState(BaseModel):  # Pydantic
+    messages: list[AnyMessage]
+    flow_stack: list[FlowContext]
+```
+
+## flow_id vs flow_name Distinction
+
+**CRITICAL**: Always use `flow_id` for data access, not `flow_name`.
+
+### The Problem
+```python
+# ❌ WRONG - Fails with multiple instances
+flow_name = "book_flight"
+slots = state["flow_slots"][flow_name]  # Which instance?
+
+# With concurrent flows:
+state["flow_slots"]["book_flight"]  # ❌ Collision!
+```
+
+### The Solution
+```python
+# ✅ CORRECT - Unique flow_id per instance
+active_ctx = flow_manager.get_active_context(state)
+flow_id = active_ctx["flow_id"]  # "book_flight_3a7f"
+slots = state["flow_slots"][flow_id]  # ✅ Correct instance
+
+# Multiple concurrent flows
+state["flow_slots"]["book_flight_3a7f"] = {...}  # Instance 1
+state["flow_slots"]["book_flight_f8b2"] = {...}  # Instance 2
+```
+
+### Example Scenario
+```python
+# User starts booking flight (Instance 1)
+flow_id_1 = flow_manager.push_flow(state, "book_flight")
+# flow_id_1 = "book_flight_3a7f"
+
+# User interrupts, wants to check existing booking (Instance 2)
+flow_id_2 = flow_manager.push_flow(state, "check_booking")
+# flow_id_2 = "check_booking_f8b2"
+
+# User wants to book another flight while checking (Instance 3)
+flow_id_3 = flow_manager.push_flow(state, "book_flight")
+# flow_id_3 = "book_flight_9d1c"
+
+# Now we have:
+state["flow_stack"] = [
+    {"flow_id": "book_flight_3a7f", "flow_state": "paused", ...},
+    {"flow_id": "check_booking_f8b2", "flow_state": "paused", ...},
+    {"flow_id": "book_flight_9d1c", "flow_state": "active", ...}
+]
+
+state["flow_slots"] = {
+    "book_flight_3a7f": {"origin": "Madrid", ...},      # Instance 1
+    "check_booking_f8b2": {"booking_ref": "BK123", ...}, # Instance 2
+    "book_flight_9d1c": {"origin": "Barcelona", ...}    # Instance 3
+}
+```
+
+## FlowManager Operations
+
+### Push Flow
+```python
+flow_id = flow_manager.push_flow(
+    state,
+    flow_name="book_flight",
+    inputs={"origin": "Madrid"},
+    reason="User wants to book a flight"
+)
+
+# Result:
+# - Pauses current flow (if any)
+# - Generates unique flow_id
+# - Adds to flow_stack
+# - Initializes flow_slots[flow_id] with inputs
+# - Returns flow_id
+```
+
+### Pop Flow
+```python
+flow_manager.pop_flow(
+    state,
+    outputs={"booking_ref": "BK-123", "status": "confirmed"},
+    result="completed"
+)
+
+# Result:
+# - Removes from flow_stack
+# - Finalizes with outputs and result
+# - Archives to metadata["completed_flows"]
+# - Resumes previous flow (if any)
+```
+
+### Get Active Context
+```python
+# ✅ CORRECT
+active_ctx = flow_manager.get_active_context(state)
+if active_ctx:
+    flow_id = active_ctx["flow_id"]
+    flow_name = active_ctx["flow_name"]
+    current_step = active_ctx["current_step"]
+
+# ❌ WRONG - Direct access
+current_flow = state["flow_stack"][-1]  # Bypass encapsulation
+```
+
+### Get/Set Slots
+```python
+# ✅ CORRECT - Through FlowManager
+origin = flow_manager.get_slot(state, "origin")
+flow_manager.set_slot(state, "destination", "Barcelona")
+
+# ❌ WRONG - Direct access
+active_ctx = state["flow_stack"][-1]
+flow_id = active_ctx["flow_id"]
+origin = state["flow_slots"][flow_id]["origin"]  # Bypass encapsulation
+```
+
+## Serialization Pattern
+
+**CRITICAL**: Serialize complex objects before storing in state.
+
+### Pydantic Models
+```python
+# ✅ CORRECT
+nlu_result = await nlu_provider.understand(...)
+return {
+    "nlu_result": nlu_result.model_dump(),  # Serialize Pydantic
+}
+
+# ❌ WRONG
+return {
+    "nlu_result": nlu_result,  # Object (not JSON-serializable)
+}
+```
+
+### Enums
+```python
+# ✅ CORRECT
+from soni.core.types import ConversationState
+
+return {
+    "conversation_state": ConversationState.UNDERSTANDING.value,  # String
+}
+
+# ❌ WRONG
+return {
+    "conversation_state": ConversationState.UNDERSTANDING,  # Enum object
+}
+```
+
+### Datetime
+```python
+# ✅ CORRECT
+from datetime import datetime
+
+return {
+    "timestamp": time.time(),  # Unix timestamp (float)
+    "created_at": datetime.now().isoformat(),  # ISO string
+}
+
+# ❌ WRONG
+return {
+    "created_at": datetime.now(),  # datetime object
+}
+```
+
+## Cross-Flow Data Transfer
+
+**Data transfer is explicit** via inputs/outputs.
+
+### Pattern
+```python
+# 1. Flow completes with outputs
+flow_manager.pop_flow(
+    state,
+    outputs={"booking_ref": "BK-123", "status": "confirmed"}
+)
+
+# 2. Extract from archive
+last_completed = state["metadata"]["completed_flows"][-1]
+booking_ref = last_completed["outputs"]["booking_ref"]
+
+# 3. Start new flow with explicit inputs
+flow_manager.push_flow(
+    state,
+    "modify_booking",
+    inputs={"booking_ref": booking_ref}
+)
+```
+
+### Anti-Pattern
+```python
+# ❌ WRONG - Implicit shared state
+# Flow 1 sets global variable
+state["global_booking_ref"] = "BK-123"
+
+# Flow 2 reads global variable
+booking_ref = state["global_booking_ref"]  # Tight coupling
+```
+
+## FlowManager Implementation
+
+### Complete Example
+```python
+import uuid
+import time
+from soni.core.state import DialogueState, FlowContext
+from soni.core.config import SoniConfig
+
+class FlowManager:
+    """Manages flow execution stack and data heap."""
+
+    def __init__(self, config: SoniConfig):
+        self.config = config
+        self._strategies = {
+            "cancel_oldest": self._strategy_cancel_oldest,
+            "reject_new": self._strategy_reject_new
+        }
+
+    def push_flow(
+        self,
+        state: DialogueState,
+        flow_name: str,
+        inputs: dict[str, Any] | None = None,
+        reason: str | None = None
+    ) -> str:
+        """Start a new flow instance."""
+        # 1. Enforce Stack Limit
+        self._enforce_stack_limit(state)
+
+        # 2. Pause current flow
+        if state["flow_stack"]:
+            current = state["flow_stack"][-1]
+            current["flow_state"] = "paused"
+            current["paused_at"] = time.time()
+            current["context"] = reason
+
+        # 3. Generate ID and Context
+        flow_id = f"{flow_name}_{uuid.uuid4().hex[:8]}"
+
+        new_context: FlowContext = {
+            "flow_id": flow_id,
+            "flow_name": flow_name,
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": time.time(),
+            "paused_at": None,
+            "completed_at": None,
+            "context": reason
+        }
+        state["flow_stack"].append(new_context)
+
+        # 4. Initialize Data Heap
+        state["flow_slots"][flow_id] = inputs or {}
+
+        return flow_id
+
+    def pop_flow(
+        self,
+        state: DialogueState,
+        outputs: dict[str, Any] | None = None,
+        result: FlowState = "completed"
+    ) -> None:
+        """Finish current flow instance."""
+        if not state["flow_stack"]:
+            return
+
+        # 1. Pop
+        completed_flow = state["flow_stack"].pop()
+
+        # 2. Finalize and Archive
+        completed_flow["flow_state"] = result
+        completed_flow["completed_at"] = time.time()
+        if outputs:
+            completed_flow["outputs"] = outputs
+
+        state["metadata"].setdefault("completed_flows", []).append(completed_flow)
+
+        # 3. Resume Previous
+        if state["flow_stack"]:
+            previous = state["flow_stack"][-1]
+            previous["flow_state"] = "active"
+            previous["paused_at"] = None
+
+    def get_active_context(self, state: DialogueState) -> FlowContext | None:
+        """Get currently active flow context (top of stack)."""
+        return state["flow_stack"][-1] if state["flow_stack"] else None
+
+    def get_slot(self, state: DialogueState, slot_name: str) -> Any:
+        """Get slot value from active flow."""
+        ctx = self.get_active_context(state)
+        if not ctx:
+            return None
+        return state["flow_slots"].get(ctx["flow_id"], {}).get(slot_name)
+
+    def set_slot(self, state: DialogueState, slot_name: str, value: Any) -> None:
+        """Set slot value in active flow."""
+        ctx = self.get_active_context(state)
+        if ctx:
+            if ctx["flow_id"] not in state["flow_slots"]:
+                state["flow_slots"][ctx["flow_id"]] = {}
+            state["flow_slots"][ctx["flow_id"]][slot_name] = value
+
+    def _enforce_stack_limit(self, state: DialogueState) -> None:
+        """Enforce maximum stack depth."""
+        limit = self.config.flow_stack_limit
+        if len(state["flow_stack"]) >= limit:
+            strategy = self._strategies[self.config.stack_limit_strategy]
+            strategy(state)
+```
+
+## Best Practices
+
+### 1. Never Bypass FlowManager
+```python
+# ✅ CORRECT - Through FlowManager
+flow_manager.push_flow(state, "book_flight")
+flow_manager.set_slot(state, "origin", "Madrid")
+
+# ❌ WRONG - Direct manipulation
+state["flow_stack"].append(...)
+state["flow_slots"]["book_flight"]["origin"] = "Madrid"
+```
+
+### 2. Always Use flow_id
+```python
+# ✅ CORRECT
+flow_id = active_ctx["flow_id"]
+slots = state["flow_slots"][flow_id]
+
+# ❌ WRONG
+flow_name = active_ctx["flow_name"]
+slots = state["flow_slots"][flow_name]
+```
+
+### 3. Serialize Before Storing
+All complex objects must be serialized to JSON-compatible types.
+
+### 4. Explicit Data Transfer
+Use inputs/outputs for cross-flow data, not shared global state.
+
+## References
+
+See @src/soni/core/state.py for complete DialogueState definition.
+See @src/soni/flow/manager.py for FlowManager implementation.
+See @docs/design/04-state-machine.md for state transitions.
+See @docs/design/07-flow-management.md for complete flow patterns.

@@ -27,6 +27,7 @@ def client_with_runtime(test_runtime, monkeypatch):
     return TestClient(app)
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_streaming_endpoint_returns_sse(client_with_runtime):
     """Test that streaming endpoint returns SSE format"""
@@ -48,6 +49,7 @@ async def test_streaming_endpoint_returns_sse(client_with_runtime):
     assert response.headers["Cache-Control"] == "no-cache"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_streaming_endpoint_yields_tokens(client_with_runtime):
     """Test that streaming endpoint yields tokens"""
@@ -79,6 +81,7 @@ async def test_streaming_endpoint_yields_tokens(client_with_runtime):
     assert len(tokens) > 0
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_streaming_endpoint_sends_done_event(client_with_runtime):
     """
@@ -123,6 +126,7 @@ async def test_streaming_endpoint_sends_done_event(client_with_runtime):
         assert len(completion_events) > 0, "Stream should send completion event"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_streaming_endpoint_handles_errors(client_with_runtime):
     """Test that streaming endpoint handles errors in stream"""
@@ -158,6 +162,7 @@ async def test_streaming_endpoint_handles_errors(client_with_runtime):
         assert response.status_code >= 400
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_streaming_endpoint_preserves_state(client_with_runtime):
     """Test that streaming endpoint preserves state between requests"""

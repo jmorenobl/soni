@@ -38,11 +38,13 @@ class ConversationManager:
         Returns:
             DialogueState instance (existing or new)
         """
+
         config = {"configurable": {"thread_id": user_id}}
         snapshot = await self.graph.aget_state(config)
 
         if snapshot and snapshot.values:
-            state = state_from_dict(snapshot.values)
+            # Load existing state (allow partial to handle incomplete snapshots)
+            state = state_from_dict(snapshot.values, allow_partial=True)
             logger.debug(f"Loaded existing state for user {user_id}")
             return state
         else:

@@ -53,6 +53,7 @@ async def run_e2e_conversation(
     return time.time() - start_time
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_e2e_latency_p95(skip_without_api_key):
     """
@@ -101,6 +102,7 @@ async def test_e2e_latency_p95(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_concurrent_throughput(skip_without_api_key):
     """
@@ -150,6 +152,7 @@ async def test_concurrent_throughput(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_memory_usage(skip_without_api_key):
     """
@@ -188,6 +191,7 @@ async def test_memory_usage(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_cpu_usage(skip_without_api_key):
     """

@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from soni.core.config import ConfigLoader, SoniConfig
+from soni.core.errors import ConfigurationError
 
 
 class ConfigurationManager:
@@ -28,6 +31,12 @@ class ConfigurationManager:
         Raises:
             ConfigurationError: If configuration cannot be loaded or validated
         """
-        config_dict = ConfigLoader.load(self.config_path)
-        self.config = SoniConfig(**config_dict)
-        return self.config
+        try:
+            config_dict = ConfigLoader.load(self.config_path)
+            self.config = SoniConfig(**config_dict)
+            return self.config
+        except ValidationError as e:
+            raise ConfigurationError(
+                f"Invalid configuration schema: {e}",
+                context={"config_path": str(self.config_path)},
+            ) from e

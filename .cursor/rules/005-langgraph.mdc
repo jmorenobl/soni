@@ -1,0 +1,460 @@
+---
+name: LangGraph Patterns & Integration
+version: "1.0"
+description: Graph building, nodes, routing, interrupt/resume, checkpointers, and dependency injection
+globs:
+  - "src/soni/dm/**/*.py"
+  - "src/soni/runtime/**/*.py"
+alwaysApply: false
+---
+
+# LangGraph Patterns & Integration
+
+## Graph Construction
+
+### StateGraph with Context Schema
+```python
+from langgraph.graph import StateGraph, START, END
+from soni.core.state import DialogueState
+from soni.runtime.context import RuntimeContext
+
+def build_graph(config: SoniConfig) -> CompiledGraph:
+    """Build LangGraph from Soni configuration."""
+
+    # Create graph with schemas
+    builder = StateGraph(
+        state_schema=DialogueState,  # TypedDict
+        context_schema=RuntimeContext  # dataclass for DI
+    )
+
+    # Add nodes
+    builder.add_node("understand", understand_node)
+    builder.add_node("validate_slot", validate_slot_node)
+    builder.add_node("handle_digression", handle_digression_node)
+    builder.add_node("execute_action", execute_action_node)
+
+    # Entry point: START → understand (ALWAYS)
+    builder.add_edge(START, "understand")
+
+    # Conditional routing
+    builder.add_conditional_edges(
+        "understand",
+        route_after_understand,
+        {
+            "validate_slot": "validate_slot",
+            "handle_digression": "handle_digression",
+            "execute_action": "execute_action"
+        }
+    )
+
+    # Back to understand after digression
+    builder.add_edge("handle_digression", "understand")
+
+    # Action → END
+    builder.add_edge("execute_action", END)
+
+    # Compile with checkpointer
+    checkpointer = create_checkpointer(config)
+    return builder.compile(checkpointer=checkpointer)
+```
+
+## Node Implementation
+
+### Node Signature
+**CRITICAL**: All nodes must be `async def` with state and context parameters.
+
+```python
+async def understand_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> dict[str, Any]:
+    """
+    Node that performs NLU understanding.
+
+    Args:
+        state: Current dialogue state
+        context: Runtime context with injected dependencies
+
+    Returns:
+        Partial state updates (not full state)
+    """
+    # Access injected dependencies
+    flow_manager = context.flow_manager
+    nlu_provider = context.nlu_provider
+
+    # Build NLU context
+    dialogue_context = build_nlu_context(state, flow_manager)
+    history = build_history(state)
+
+    # Call NLU
+    nlu_result = await nlu_provider.understand(
+        state["user_message"],
+        dialogue_context
+    )
+
+    # Return partial updates
+    return {
+        "nlu_result": nlu_result.model_dump(),  # Serialize
+        "conversation_state": "understanding",
+        "last_nlu_call": time.time()
+    }
+```
+
+### Partial State Updates
+**CRITICAL**: Nodes return partial updates, not full state.
+
+```python
+# ✅ CORRECT - Partial updates
+return {
+    "nlu_result": nlu_result.model_dump(),
+    "conversation_state": "understanding"
+}
+
+# ❌ WRONG - Full state
+return state  # Don't return full state
+```
+
+### Node with Multiple Operations
+```python
+async def validate_slot_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> dict[str, Any]:
+    """Validate slot value."""
+    flow_manager = context.flow_manager
+    normalizer = context.normalizer
+
+    # Get slot value from NLU result
+    nlu_result = NLUOutput(**state["nlu_result"])
+    slot_value = nlu_result.slots[0]  # Assuming single slot
+
+    # Normalize
+    normalized = await normalizer.normalize(
+        slot_value.value,
+        slot_type=slot_value.name
+    )
+
+    # Validate
+    is_valid = await context.validator.validate(
+        normalized,
+        slot_name=slot_value.name
+    )
+
+    if is_valid:
+        # Set slot
+        flow_manager.set_slot(state, slot_value.name, normalized)
+
+        return {
+            "conversation_state": "slot_validated",
+            "waiting_for_slot": None
+        }
+    else:
+        return {
+            "conversation_state": "slot_invalid",
+            "last_response": f"Invalid value for {slot_value.name}. Please try again."
+        }
+```
+
+## Routing Functions
+
+### Conditional Routing
+```python
+def route_after_understand(state: DialogueState) -> str:
+    """
+    Route after understand node based on NLU result.
+
+    Returns:
+        Next node name
+    """
+    nlu_result = NLUOutput(**state["nlu_result"])
+
+    if nlu_result.message_type == MessageType.SLOT_VALUE:
+        return "validate_slot"
+    elif nlu_result.message_type == MessageType.DIGRESSION:
+        return "handle_digression"
+    elif nlu_result.message_type == MessageType.INTERRUPTION:
+        return "handle_intent_change"
+    else:
+        return "collect_next_slot"
+```
+
+### Multi-Path Routing
+```python
+def route_after_action(state: DialogueState) -> str:
+    """Route after action execution."""
+    action_result = state.get("action_result")
+
+    if action_result.get("success"):
+        if state["flow_stack"]:
+            return "collect_next_slot"
+        else:
+            return END
+    else:
+        return "handle_error"
+```
+
+## Interrupt and Resume Pattern
+
+### Using interrupt()
+```python
+from langgraph.types import interrupt
+
+async def collect_slot_node(state: DialogueState, context: RuntimeContext) -> dict:
+    """Collect slot from user with interrupt."""
+    flow_manager = context.flow_manager
+    active_ctx = flow_manager.get_active_context(state)
+
+    # Determine next slot to collect
+    next_slot = determine_next_slot(state, active_ctx)
+
+    if next_slot:
+        # Generate prompt
+        prompt = generate_slot_prompt(next_slot, active_ctx)
+
+        # Pause here - wait for user response
+        user_response = interrupt({
+            "type": "slot_request",
+            "slot": next_slot,
+            "prompt": prompt
+        })
+
+        # This code executes after resume
+        return {
+            "user_message": user_response,
+            "waiting_for_slot": next_slot,
+            "last_response": prompt
+        }
+    else:
+        return {"conversation_state": "all_slots_collected"}
+```
+
+### Resuming with Command
+```python
+from langgraph.types import Command
+
+# In RuntimeLoop
+async def process_message(self, msg: str, user_id: str) -> str:
+    config = {"configurable": {"thread_id": user_id}}
+
+    # Check current state
+    current_state = await self.graph.aget_state(config)
+
+    if current_state.next:
+        # Interrupted - resume with user message
+        result = await self.graph.ainvoke(
+            Command(resume={"user_message": msg}),
+            config=config
+        )
+    else:
+        # New or completed - start fresh
+        input_state = create_initial_state()
+        input_state["user_message"] = msg
+        result = await self.graph.ainvoke(input_state, config=config)
+
+    return result["last_response"]
+```
+
+## Checkpointers
+
+### Async Checkpointers
+**CRITICAL**: Always use async checkpointers.
+
+```python
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.checkpoint.postgres import PostgresSaver
+
+def create_checkpointer(config: SoniConfig) -> BaseCheckpointSaver:
+    """Create checkpointer based on configuration."""
+    backend = config.persistence.backend
+
+    if backend == "sqlite":
+        return AsyncSqliteSaver.from_conn_string("dialogue_state.db")
+    elif backend == "postgresql":
+        return PostgresSaver.from_conn_string(config.persistence.connection_string)
+    elif backend == "redis":
+        import redis.asyncio as redis
+        client = redis.from_url(config.persistence.connection_string)
+        return RedisSaver(client)
+    else:
+        raise ConfigurationError(f"Unknown backend: {backend}")
+```
+
+### Checkpointer Comparison
+
+| Backend | Type | Use Case | Latency | ACID |
+|---------|------|----------|---------|------|
+| `InMemorySaver` | Sync/Async | Testing | < 1ms | No |
+| `AsyncSqliteSaver` | Async | Development | ~5ms | Yes |
+| `PostgresSaver` | Async | Production (< 1K users) | ~10ms | Yes |
+| `RedisSaver` | Async | Production (> 1K users) | ~2ms | No |
+
+**Recommendation**: Use `PostgresSaver` for production.
+
+## Dependency Injection with RuntimeContext
+
+### RuntimeContext Definition
+```python
+from dataclasses import dataclass
+
+@dataclass
+class RuntimeContext:
+    """Dependency injection container."""
+    config: SoniConfig
+    flow_manager: FlowManager
+    nlu_provider: INLUProvider
+    action_handler: IActionHandler
+    scope_manager: IScopeManager
+    normalizer: INormalizer
+```
+
+### Passing Context to Graph
+```python
+# In RuntimeLoop
+def __init__(self, config: SoniConfig, ...):
+    # Create dependencies
+    self.flow_manager = FlowManager(config)
+    self.nlu_provider = create_nlu_provider(config)
+
+    # Create context
+    self.context = RuntimeContext(
+        config=config,
+        flow_manager=self.flow_manager,
+        nlu_provider=self.nlu_provider,
+        # ...
+    )
+
+    # Compile graph with context
+    self.graph = build_graph(config).with_context(self.context)
+```
+
+### Accessing Context in Nodes
+```python
+async def node(state: DialogueState, context: RuntimeContext) -> dict:
+    # Access injected dependencies
+    flow_manager = context.flow_manager
+    nlu_provider = context.nlu_provider
+
+    # Use dependencies
+    result = await nlu_provider.understand(...)
+```
+
+## Streaming
+
+### Token Streaming
+```python
+async def process_message_stream(
+    self,
+    msg: str,
+    user_id: str
+) -> AsyncGenerator[str, None]:
+    """Process message with token streaming."""
+    config = {"configurable": {"thread_id": user_id}}
+
+    async for event in self.graph.astream(
+        {"user_message": msg},
+        config=config
+    ):
+        if event.get("type") == "token":
+            yield event["content"]
+```
+
+### Event Streaming
+```python
+async for event in graph.astream_events(input_state, config):
+    if event["event"] == "on_chain_start":
+        print(f"Started: {event['name']}")
+    elif event["event"] == "on_chain_end":
+        print(f"Finished: {event['name']}")
+```
+
+## Testing with InMemorySaver
+
+### Fast Graph Testing
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+import pytest
+
+@pytest.mark.asyncio
+async def test_dialogue_flow():
+    """Test complete dialogue flow."""
+    # Arrange
+    checkpointer = InMemorySaver()
+    graph = build_graph(config, checkpointer=checkpointer)
+    config_dict = {"configurable": {"thread_id": "test-user-1"}}
+
+    # Act
+    result = await graph.ainvoke(
+        {"user_message": "Book a flight"},
+        config_dict
+    )
+
+    # Assert
+    assert result["conversation_state"] == "waiting_for_slot"
+    assert result["waiting_for_slot"] == "origin"
+```
+
+## Message Processing Pipeline
+
+**CRITICAL**: Every message MUST go through NLU first.
+
+```
+User Message
+  ↓
+RuntimeLoop.process_message()
+  ↓
+Check LangGraph State (aget_state)
+  ├─ If interrupted → Resume with Command(resume=msg)
+  └─ If new/completed → Invoke with initial state
+  ↓
+ALWAYS → Understand Node (NLU)
+  ↓
+Conditional Routing (based on NLU result)
+  ├─ Slot Value → Validate Node
+  ├─ Digression → DigressionHandler (NO stack change)
+  ├─ Intent Change → Push/Pop Flow (stack change)
+  └─ Continue → Next Step
+```
+
+## Best Practices
+
+### 1. Always Use Async
+```python
+# ✅ CORRECT
+async def node(state: DialogueState, context: RuntimeContext) -> dict:
+    result = await async_operation()
+    return {"field": result}
+
+# ❌ WRONG
+def node(state: DialogueState, context: RuntimeContext) -> dict:  # Not async
+    result = sync_operation()  # Blocks event loop
+    return {"field": result}
+```
+
+### 2. Serialize Before Storing
+```python
+# ✅ CORRECT
+return {
+    "nlu_result": nlu_result.model_dump(),  # Pydantic → dict
+    "conversation_state": state_enum.value  # Enum → string
+}
+
+# ❌ WRONG
+return {
+    "nlu_result": nlu_result,  # Object (not JSON-serializable)
+    "conversation_state": state_enum  # Enum (not JSON-serializable)
+}
+```
+
+### 3. Inject Dependencies
+Use RuntimeContext, not global state or hardcoded instances.
+
+### 4. Return Partial Updates
+Nodes return only changed fields, not full state.
+
+## References
+
+See @src/soni/dm/graph.py for graph construction.
+See @src/soni/dm/nodes/ for node implementations.
+See @src/soni/dm/routing.py for routing functions.
+See @src/soni/runtime/runtime.py for RuntimeLoop.
+See @docs/design/08-langgraph-integration.md for complete patterns.

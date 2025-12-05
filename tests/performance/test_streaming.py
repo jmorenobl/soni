@@ -8,6 +8,7 @@ import pytest
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_streaming_correctness(skip_without_api_key):
     """
@@ -47,6 +48,7 @@ async def test_streaming_correctness(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_streaming_order(skip_without_api_key):
     """
@@ -86,6 +88,7 @@ async def test_streaming_order(skip_without_api_key):
         await runtime.cleanup()
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_streaming_first_token_latency(skip_without_api_key):
     """

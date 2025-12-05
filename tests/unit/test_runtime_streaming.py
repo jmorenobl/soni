@@ -9,6 +9,7 @@ from soni.core.errors import ValidationError
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_process_message_stream_yields_tokens():
     """Test that process_message_stream yields tokens"""
@@ -34,6 +35,7 @@ async def test_process_message_stream_yields_tokens():
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_process_message_stream_first_token_latency():
     """Test that first token is sent quickly"""
@@ -62,6 +64,7 @@ async def test_process_message_stream_first_token_latency():
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_process_message_stream_handles_errors():
     """Test that streaming handles errors gracefully"""
@@ -80,6 +83,7 @@ async def test_process_message_stream_handles_errors():
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_process_message_stream_preserves_state():
     """Test that streaming preserves state between tokens"""
@@ -114,6 +118,7 @@ async def test_process_message_stream_preserves_state():
         await runtime.cleanup()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_process_message_stream_returns_strings():
     """Test that streaming yields strings compatible with SSE"""

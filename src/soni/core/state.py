@@ -212,20 +212,34 @@ def state_to_dict(state: DialogueState) -> dict[str, Any]:
     return copy.deepcopy(dict(state))
 
 
-def state_from_dict(data: dict[str, Any]) -> DialogueState:
+def state_from_dict(data: dict[str, Any], allow_partial: bool = False) -> DialogueState:
     """
     Deserialize DialogueState from dict.
 
     Args:
         data: Dictionary with state data
+        allow_partial: If True, fill missing fields with defaults instead of raising error
 
     Returns:
         DialogueState
 
     Raises:
-        ValidationError: If data is invalid
+        ValidationError: If data is invalid and allow_partial=False
     """
-    # Validate required fields
+    # If allow_partial, merge with default state
+    if allow_partial:
+        default_state = create_empty_state()
+        # Merge: default first, then data (data takes precedence)
+        # Use update to avoid TypedDict literal-required error
+        merged: dict[str, Any] = dict(default_state)
+        merged.update(data)
+        # Cast early for type checking
+        merged_state = cast(DialogueState, merged)
+        # Validate consistency
+        validate_state_consistency(merged_state)
+        return merged_state
+
+    # Validate required fields (strict mode)
     required_fields = [
         "user_message",
         "last_response",

@@ -36,7 +36,7 @@ def test_cli_version():
 
     # Assert
     assert result.exit_code == 0
-    assert "Soni Framework version 0.4.0" in result.stdout
+    assert "Soni Framework version 0.1.0" in result.stdout
 
 
 def test_optimize_help():

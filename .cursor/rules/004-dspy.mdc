@@ -1,0 +1,445 @@
+---
+name: DSPy Integration & Optimization
+version: "1.0"
+description: DSPy modules, signatures, structured types, optimization patterns, and production-ready NLU
+globs:
+  - "src/soni/du/**/*.py"
+  - "scripts/optimize_*.py"
+  - "experiments/**/*.py"
+alwaysApply: false
+---
+
+# DSPy Integration & Optimization
+
+## DSPy Module Structure
+
+### Module Inheritance
+**CRITICAL**: All DSPy modules MUST inherit from `dspy.Module` and call `super().__init__()`.
+
+```python
+import dspy
+
+# ✅ CORRECT
+class SoniDU(dspy.Module):
+    def __init__(self, cache_size: int = 1000):
+        super().__init__()  # CRITICAL: Must call this
+        self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
+
+# ❌ WRONG - Missing super().__init__()
+class SoniDU(dspy.Module):
+    def __init__(self):
+        self.predictor = dspy.ChainOfThought(DialogueUnderstanding)  # Will fail
+```
+
+### Forward Methods
+Implement both `forward()` (sync for optimizers) and `aforward()` (async for runtime).
+
+```python
+class SoniDU(dspy.Module):
+    def forward(
+        self,
+        user_message: str,
+        history: dspy.History,
+        context: DialogueContext
+    ) -> dspy.Prediction:
+        """Sync forward pass for DSPy optimizers."""
+        return self.predictor(
+            user_message=user_message,
+            history=history,
+            context=context
+        )
+
+    async def aforward(
+        self,
+        user_message: str,
+        history: dspy.History,
+        context: DialogueContext
+    ) -> dspy.Prediction:
+        """Async forward pass for production runtime."""
+        return await self.predictor.acall(
+            user_message=user_message,
+            history=history,
+            context=context
+        )
+```
+
+## Structured Types with Pydantic
+
+### NLU Output Models
+```python
+from pydantic import BaseModel, Field
+from enum import Enum
+
+class MessageType(str, Enum):
+    """Type of user message."""
+    SLOT_VALUE = "slot_value"
+    CORRECTION = "correction"
+    INTERRUPTION = "interruption"
+    DIGRESSION = "digression"
+    CLARIFICATION = "clarification"
+    CONFIRMATION = "confirmation"
+    CONTINUATION = "continuation"
+
+class SlotValue(BaseModel):
+    """Extracted slot value with metadata."""
+    name: str = Field(description="Slot name")
+    value: Any = Field(description="Extracted value")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score")
+
+class NLUOutput(BaseModel):
+    """Structured NLU output."""
+    message_type: MessageType = Field(description="Type of message")
+    command: str = Field(description="Detected intent/command")
+    slots: list[SlotValue] = Field(default_factory=list, description="Extracted slots")
+    confidence: float = Field(ge=0.0, le=1.0, description="Overall confidence")
+    reasoning: str = Field(description="Chain-of-thought reasoning")
+```
+
+### Context Models
+```python
+class DialogueContext(BaseModel):
+    """Current dialogue context."""
+    current_slots: dict[str, Any] = Field(default_factory=dict)
+    available_actions: list[str] = Field(default_factory=list)
+    available_flows: list[str] = Field(default_factory=list)
+    current_flow: str = Field(default="none")
+    expected_slots: list[str] = Field(default_factory=list)
+```
+
+## DSPy Signatures
+
+### Signature Definition
+```python
+import dspy
+
+class DialogueUnderstanding(dspy.Signature):
+    """Extract user intent and entities with structured types."""
+
+    user_message: str = dspy.InputField(
+        desc="The user's current message"
+    )
+    history: dspy.History = dspy.InputField(
+        desc="Conversation history"
+    )
+    context: DialogueContext = dspy.InputField(
+        desc="Current dialogue context with available actions and flows"
+    )
+    current_datetime: str = dspy.InputField(
+        default="",
+        desc="Current date and time in ISO format"
+    )
+
+    result: NLUOutput = dspy.OutputField(
+        desc="Structured NLU result with intent, slots, and reasoning"
+    )
+```
+
+## Conversation History with dspy.History
+
+### Building History
+```python
+import dspy
+from soni.core.state import DialogueState
+
+def build_history(state: DialogueState) -> dspy.History:
+    """Convert DialogueState messages to dspy.History."""
+    messages = []
+    for msg in state["messages"]:
+        messages.append({
+            "role": msg["role"],
+            "content": msg["content"]
+        })
+    return dspy.History(messages=messages)
+```
+
+### Usage in Module
+```python
+# In RuntimeLoop or node
+history = build_history(state)
+
+result = await nlu_module.aforward(
+    user_message=state["user_message"],
+    history=history,  # dspy.History object
+    context=dialogue_context
+)
+```
+
+## Production-Ready NLU Module
+
+### Complete Implementation
+```python
+import dspy
+from datetime import datetime
+from cachetools import TTLCache
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SoniDU(dspy.Module):
+    """Production-ready NLU module with caching and error handling."""
+
+    def __init__(self, cache_size: int = 1000, cache_ttl: int = 300):
+        super().__init__()
+        self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
+
+        # TTL cache for NLU results
+        self.nlu_cache: TTLCache[str, NLUOutput] = TTLCache(
+            maxsize=cache_size,
+            ttl=cache_ttl
+        )
+
+    def forward(self, user_message: str, history: dspy.History, context: DialogueContext) -> dspy.Prediction:
+        """Sync forward for optimizers."""
+        return self.predictor(
+            user_message=user_message,
+            history=history,
+            context=context,
+            current_datetime=datetime.now().isoformat()
+        )
+
+    async def aforward(self, user_message: str, history: dspy.History, context: DialogueContext) -> dspy.Prediction:
+        """Async forward for runtime."""
+        return await self.predictor.acall(
+            user_message=user_message,
+            history=history,
+            context=context,
+            current_datetime=datetime.now().isoformat()
+        )
+
+    async def predict(
+        self,
+        user_message: str,
+        history: dspy.History,
+        context: DialogueContext
+    ) -> NLUOutput:
+        """
+        High-level prediction method with caching and error handling.
+
+        This is the main entry point for runtime NLU calls.
+        """
+        # Validation
+        if not user_message or not user_message.strip():
+            raise ValueError("user_message cannot be empty")
+
+        try:
+            # Check cache
+            cache_key = self._get_cache_key(user_message, history, context)
+            if cache_key in self.nlu_cache:
+                logger.debug("NLU cache hit", extra={"cache_key": cache_key})
+                return self.nlu_cache[cache_key]
+
+            # Call NLU
+            prediction = await self.aforward(
+                user_message=user_message,
+                history=history,
+                context=context
+            )
+
+            # Extract structured result (no parsing needed!)
+            result: NLUOutput = prediction.result
+
+            # Cache and return
+            self.nlu_cache[cache_key] = result
+            logger.info(
+                "NLU prediction",
+                extra={
+                    "command": result.command,
+                    "confidence": result.confidence,
+                    "message_type": result.message_type.value
+                }
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"NLU prediction error: {e}", exc_info=True)
+            # Graceful degradation
+            return NLUOutput(
+                message_type=MessageType.CONTINUATION,
+                command="unknown",
+                slots=[],
+                confidence=0.0,
+                reasoning=f"Error during prediction: {type(e).__name__}"
+            )
+
+    def _get_cache_key(
+        self,
+        user_message: str,
+        history: dspy.History,
+        context: DialogueContext
+    ) -> str:
+        """Generate cache key for NLU result."""
+        from soni.utils.hashing import generate_cache_key
+        return generate_cache_key(
+            user_message,
+            history.messages,
+            context.model_dump()
+        )
+```
+
+## DSPy Optimization
+
+### Training Data Creation
+```python
+import dspy
+
+# Create examples with structured types
+trainset: list[dspy.Example] = [
+    dspy.Example(
+        user_message="I want to book a flight",
+        history=dspy.History(messages=[]),
+        context=DialogueContext(
+            current_slots={},
+            available_actions=["book_flight", "search_flights"],
+            available_flows=["book_flight"],
+            current_flow="none",
+            expected_slots=["origin", "destination", "departure_date"]
+        ),
+        current_datetime="2024-12-02T10:00:00",
+        result=NLUOutput(
+            message_type=MessageType.INTERRUPTION,
+            command="book_flight",
+            slots=[],
+            confidence=0.95,
+            reasoning="User explicitly states intent to book a flight"
+        )
+    ).with_inputs("user_message", "history", "context", "current_datetime"),
+    # ... more examples
+]
+```
+
+### Metric Definition
+```python
+def intent_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
+    """Metric: Intent detection accuracy."""
+    return float(prediction.result.command == example.result.command)
+
+def slot_f1(example: dspy.Example, prediction: dspy.Prediction) -> float:
+    """Metric: Slot extraction F1 score."""
+    expected_slots = {s.name for s in example.result.slots}
+    predicted_slots = {s.name for s in prediction.result.slots}
+
+    if not expected_slots and not predicted_slots:
+        return 1.0
+
+    tp = len(expected_slots & predicted_slots)
+    fp = len(predicted_slots - expected_slots)
+    fn = len(expected_slots - predicted_slots)
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+
+    return 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+```
+
+### MIPROv2 Optimization
+```python
+from dspy.teleprompt import MIPROv2
+
+# Configure LM
+lm = dspy.LM("openai/gpt-4o-mini", temperature=0.0)
+dspy.configure(lm=lm)
+
+# Create optimizer
+optimizer = MIPROv2(
+    metric=intent_accuracy,
+    num_candidates=10,
+    init_temperature=1.0
+)
+
+# Optimize
+module = SoniDU()
+optimized_module = optimizer.compile(
+    module,
+    trainset=trainset,
+    num_trials=50,
+    max_bootstrapped_demos=4,
+    max_labeled_demos=4
+)
+
+# Save
+optimized_module.save("soni_du_optimized.json")
+```
+
+### Loading Optimized Module
+```python
+# Load optimized module
+module = SoniDU()
+module.load("soni_du_optimized.json")
+
+# Use in production
+result = await module.predict(user_message, history, context)
+```
+
+## Testing with DummyLM
+
+### Unit Tests Without LLM Calls
+```python
+from dspy.utils.dummies import DummyLM
+import pytest
+
+@pytest.fixture
+def nlu_module() -> SoniDU:
+    """Create NLU module with DummyLM."""
+    lm = DummyLM([
+        {
+            "result": {
+                "message_type": "interruption",
+                "command": "book_flight",
+                "slots": [],
+                "confidence": 0.95,
+                "reasoning": "User wants to book a flight"
+            }
+        }
+    ])
+    dspy.configure(lm=lm)
+    return SoniDU()
+
+@pytest.mark.asyncio
+async def test_nlu_prediction(nlu_module: SoniDU):
+    """Test NLU prediction with DummyLM."""
+    # Arrange
+    user_message = "I want to book a flight"
+    history = dspy.History(messages=[])
+    context = DialogueContext()
+
+    # Act
+    result = await nlu_module.predict(
+        user_message=user_message,
+        history=history,
+        context=context
+    )
+
+    # Assert
+    assert result.command == "book_flight"
+    assert result.message_type == MessageType.INTERRUPTION
+```
+
+## Best Practices
+
+### 1. Always Use Structured Types
+```python
+# ✅ CORRECT - Pydantic models
+result: NLUOutput = prediction.result
+command = result.command  # Type-safe access
+
+# ❌ WRONG - Dictionary parsing
+result = json.loads(prediction.result)
+command = result.get("command")  # No type safety
+```
+
+### 2. Cache Aggressively
+Use TTLCache for NLU results (typical TTL: 5 minutes).
+
+### 3. Graceful Degradation
+Always return fallback NLUOutput on errors, never crash.
+
+### 4. Structured Logging
+Log NLU predictions with structured context for monitoring.
+
+## References
+
+See @src/soni/du/modules.py for complete SoniDU implementation.
+See @src/soni/du/signatures.py for signature definitions.
+See @src/soni/du/models.py for Pydantic models.
+See @docs/design/06-nlu-system.md for NLU architecture.
+See @docs/design/09-dspy-optimization.md for optimization strategies.

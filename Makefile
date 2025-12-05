@@ -12,14 +12,27 @@ help:
 	@echo "  make build              - Build the package"
 	@echo "  make clean              - Clean build artifacts"
 	@echo "  make check              - Run all checks (test, lint, type-check)"
-	@echo "  make test               - Run tests"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test               - Run unit tests in parallel (default, fast)"
+	@echo "  make test-all           - Run all tests in parallel"
+	@echo "  make test-integration   - Run integration tests (sequential)"
+	@echo "  make test-performance   - Run performance tests (sequential)"
+	@echo "  make test-ci            - Run unit + integration in parallel (for CI)"
+	@echo "  make test-sequential    - Run unit tests sequentially (for debugging)"
+	@echo ""
+	@echo "Code Quality:"
 	@echo "  make lint               - Run linting"
 	@echo "  make type-check         - Run type checking"
 	@echo "  make format             - Format code"
+	@echo ""
+	@echo "Publishing:"
 	@echo "  make publish-testpypi   - Publish to TestPyPI"
 	@echo "  make publish-pypi       - Publish to PyPI"
 	@echo "  make install-testpypi   - Install from TestPyPI (for testing)"
 	@echo "  make verify             - Verify package contents"
+	@echo ""
+	@echo "Documentation:"
 	@echo "  make docs               - Build documentation"
 	@echo "  make docs-serve         - Serve documentation locally (dev server)"
 	@echo "  make docs-build         - Build documentation to site/"
@@ -66,10 +79,35 @@ docs-clean:
 check: test lint type-check
 	@echo "All checks passed!"
 
-# Run tests
+# Run tests (unit tests only by default)
 test:
-	@echo "Running tests..."
-	uv run pytest
+	@echo "Running unit tests in parallel..."
+	uv run pytest -m "not integration and not performance" -n auto
+
+# Run all tests (unit + integration + performance)
+test-all:
+	@echo "Running all tests..."
+	uv run pytest -n auto
+
+# Run integration tests only
+test-integration:
+	@echo "Running integration tests..."
+	uv run pytest -m integration
+
+# Run performance tests only
+test-performance:
+	@echo "Running performance tests..."
+	uv run pytest -m performance
+
+# Run unit + integration tests (no performance)
+test-ci:
+	@echo "Running unit and integration tests..."
+	uv run pytest -m "not performance" -n auto
+
+# Run tests without parallelization (useful for debugging)
+test-sequential:
+	@echo "Running unit tests sequentially..."
+	uv run pytest -m "not integration and not performance"
 
 # Run linting
 lint:

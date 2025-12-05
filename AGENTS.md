@@ -1,795 +1,178 @@
 # Soni Framework - Agent Instructions
 
-This document defines the rules and conventions for developing the Soni framework, a conversational dialogue system with automatic prompt optimization.
+**Quick Overview**: Conversational dialogue system with automatic DSPy prompt optimization and LangGraph execution.
 
-## Architecture and Fundamental Principles
+## Core Principles
 
-### Zero-Leakage Architecture (Hexagonal)
+### Architecture
+- **Zero-Leakage (Hexagonal)**: YAML describes WHAT, Python implements HOW
+- **SOLID Compliance**: SRP, OCP, LSP, ISP, DIP throughout codebase
+- **Async-First**: All I/O operations must be `async def`
+- **Pure Data**: TypedDict for state, serialize complex objects with `.model_dump()`
 
-- **Separation of Concerns**: YAML (core) only describes WHAT should happen, not HOW. Technical details (HTTP, regex, SQL) live in Python code.
-- **Action Registry**: Actions are defined as semantic contracts in YAML and implemented in Python with `@ActionRegistry.register`.
-- **Validator Registry**: Validators are referenced by semantic name in YAML and implemented in Python with `@ValidatorRegistry.register`.
-- **Output Mapping**: Use `map_outputs` in action steps to decouple technical data structures from flat flow variables.
+### Language
+- **English Only**: All documentation, code, comments, commits, and errors in English
 
-### SOLID Principles
+## Key Components
 
-- **Abstract Interfaces**: Use Python `Protocol` to define contracts (see `core/interfaces.py`).
-- **Dependency Inversion**: Depend on abstractions (`INLUProvider`, `IDialogueManager`, `IActionHandler`, `IScopeManager`, `INormalizer`), not concrete implementations. All constructors accept Protocols as optional parameters.
-- **Single Responsibility**: Each module has a single, well-defined responsibility. God Objects have been eliminated through refactoring.
-- **Decoupling**: Code must be testable through interface mocking. Use `RuntimeContext` to pass dependencies to nodes, not `state.config`.
+### RuntimeLoop (Orchestrator)
+Main orchestrator - delegates to specialized components, no business logic.
 
-### Async-First Architecture
+### FlowManager (SRP)
+Dedicated class for flow stack management (push/pop/get/set slots).
 
-- **Everything is async**: All I/O operations, LLM calls, and dialogue processing must be `async def`.
-- **No sync versions**: The framework is exclusively asynchronous. Do not create sync-to-async wrappers.
-- **Native streaming**: Use `AsyncGenerator` for token and response streaming.
-- **Async I/O**: Use `aiosqlite`, `asyncpg`, `aioredis` for persistence. Never use sync versions.
+**Critical**: Use `flow_id` (unique instance) not `flow_name` (definition) for data access.
 
-## Code Conventions
+### DigressionHandler (Coordinator)
+Coordinates question/help handling. **Does NOT modify flow stack**.
 
-### Style and Formatting
+### SoniDU (DSPy Module)
+NLU module with structured types (NLUOutput, DialogueContext, SlotValue).
 
-- **PEP 8**: Strictly follow PEP 8.
-- **Ruff**: Use `ruff` for linting and formatting. Configuration in `pyproject.toml`.
-- **Max line length**: 100 characters (configured in `pyproject.toml`).
-- **Quotes**: Use double quotes for strings (ruff configuration).
-- **Imports**: Automatically ordered with `ruff` (isort).
+## Critical Patterns
 
-### Type Hints
+### 1. Every Message Through NLU First
+```
+User Message → RuntimeLoop → Check State → ALWAYS: Understand Node (NLU)
+  ↓
+Conditional Routing:
+  ├─ Slot Value → Validate
+  ├─ Digression → DigressionHandler (NO stack change)
+  ├─ Intent Change → Push/Pop Flow (stack change)
+  └─ Continue → Next Step
+```
 
-- **Mandatory**: All public functions and methods must have complete type hints.
-- **Modern `typing` usage**: Prefer modern `typing` types:
-  - `list[str]` instead of `List[str]` (Python 3.9+)
-  - `dict[str, Any]` instead of `Dict[str, Any]`
-  - `str | None` instead of `Optional[str]` (Python 3.10+)
-- **Protocols**: Use `Protocol` for interfaces (see `core/interfaces.py`).
-- **Type checking**: Run `mypy src/soni` before committing.
+### 2. flow_id vs flow_name
+```python
+# ✅ CORRECT
+active_ctx = flow_manager.get_active_context(state)
+flow_id = active_ctx["flow_id"]  # "book_flight_3a7f"
+slots = state["flow_slots"][flow_id]
 
-### Docstrings
+# ❌ WRONG
+flow_name = active_ctx["flow_name"]  # "book_flight"
+slots = state["flow_slots"][flow_name]  # FAILS with multiple instances
+```
 
-- **Google style**: Use Google-style docstrings for all public functions and classes.
-- **Structure**:
-  ```python
-  def function_name(param1: str, param2: int) -> dict[str, Any]:
-      """
-      Brief one-line description.
+### 3. TypedDict for State
+```python
+# ✅ CORRECT - LangGraph requirement
+class DialogueState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+    flow_stack: list[FlowContext]
+    # ...
 
-      More detailed description if necessary.
+# ❌ WRONG
+class DialogueState(BaseModel):  # Pydantic not supported
+```
 
-      Args:
-          param1: Description of parameter 1
-          param2: Description of parameter 2
+### 4. Serialization Pattern
+```python
+# ✅ CORRECT
+return {
+    "nlu_result": nlu_result.model_dump(),  # Serialize
+    "conversation_state": ConversationState.UNDERSTANDING.value  # Enum to string
+}
 
-      Returns:
-          Description of return value
+# ❌ WRONG
+return {
+    "nlu_result": nlu_result,  # Object (not JSON-serializable)
+}
+```
 
-      Raises:
-          ValidationError: When parameter is invalid
-      """
-  ```
-
-### Naming Conventions
-
-- **Classes**: PascalCase (`DialogueState`, `SoniDU`)
-- **Functions and variables**: snake_case (`process_message`, `user_id`)
-- **Constants**: UPPER_SNAKE_CASE (`MAX_RETRIES`, `DEFAULT_TIMEOUT`)
-- **Private modules**: Prefix `_` for internal functions/modules (`_create_node`, `_internal_utils.py`)
-- **Type variables**: PascalCase (`T`, `K`, `V`)
+### 5. Dependency Injection
+```python
+# Use RuntimeContext in nodes
+async def understand_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> dict[str, Any]:
+    flow_manager = context.flow_manager  # Access dependencies
+    nlu_provider = context.nlu_provider
+```
 
 ## Project Structure
 
-### Module Organization
-
 ```
 src/soni/
-├── core/          # Interfaces, state, errors (framework core)
+├── core/          # Interfaces, state, errors, types, config
 ├── du/            # Dialogue Understanding (DSPy modules)
-├── dm/            # Dialogue Management (LangGraph integration)
+├── dm/            # Dialogue Management (LangGraph)
+│   └── nodes/     # LangGraph node implementations (package)
 ├── compiler/      # YAML to Graph compilation
-├── actions/       # Action Registry and base actions
-├── validation/    # Validator Registry and base validators
-├── server/        # FastAPI endpoints and WebSocket
-└── cli/           # CLI commands
+├── actions/       # Action Registry
+├── validation/    # Validator Registry
+├── server/        # FastAPI
+├── cli/           # CLI commands
+├── config/        # Configuration package
+├── flow/          # FlowManager
+├── observability/ # Logging
+├── runtime/       # RuntimeLoop and managers
+└── utils/         # Utilities
 ```
 
-### Import Rules
-
-- **Absolute imports**: Use absolute imports from `soni.`:
-  ```python
-  from soni.core.state import DialogueState
-  from soni.core.interfaces import INLUProvider
-  ```
-- **Avoid circular imports**: Use `from __future__ import annotations` and strings for type hints when necessary.
-- **Type imports**: Separate type imports:
-  ```python
-  from typing import TYPE_CHECKING
-
-  if TYPE_CHECKING:
-      from soni.core.state import DialogueState
-  ```
-
-## Error Handling
-
-### Exception Hierarchy
-
-- **Base**: `SoniError` (in `core/errors.py`)
-- **Specific**: `NLUError`, `ValidationError`, `ActionNotFoundError`, `CompilationError`, `ConfigurationError`, `PersistenceError`
-- **Language**: All error messages must be in English.
-- **Context**: Always include relevant context in exceptions (in English):
-  ```python
-  raise ValidationError(
-      "Invalid slot value",
-      field="destination",
-      value=raw_value,
-      context={"flow": current_flow}
-  )
-  ```
-
-### Validation and Sanitization
-
-- **Validate inputs**: All external inputs must be validated before processing.
-- **Sanitize**: Sanitize user inputs to prevent injections.
-- **Clear messages**: Error messages must be clear, useful for debugging, and in English.
-
-## Testing
-
-### Test Structure
-
-- **Unit tests**: `tests/unit/` - Isolated tests for individual functions/classes
-- **Integration tests**: `tests/integration/` - Integration tests between components
-- **Naming**: `test_*.py` for files, `test_*` for functions
-- **Coverage**: Minimum target 80% (configured in `pyproject.toml`)
-
-### Testing Conventions
-
-- **AAA Pattern**: All tests must follow the Arrange-Act-Assert (AAA) pattern:
-  ```python
-  def test_function_name():
-      """Test description explaining what is being tested"""
-      # Arrange - Set up test data and conditions
-      user = User(name="John", age=30)
-
-      # Act - Execute the function being tested
-      result = user.get_greeting()
-
-      # Assert - Verify the expected outcome
-      assert result == "Hello, John!"
-  ```
-  - **Arrange**: Set up all test preconditions and inputs
-  - **Act**: Execute the function or method being tested
-  - **Assert**: Verify the outcome matches expectations
-  - Use `# Arrange`, `# Act`, `# Assert` comments to clearly separate phases
-  - For simple tests, combine phases: `# Arrange & Act` or `# Act & Assert`
-
-- **Async tests**: Use `pytest-asyncio` for async tests:
-  ```python
-  import pytest
-
-  @pytest.mark.asyncio
-  async def test_async_function():
-      # Arrange
-      input_data = "test"
-
-      # Act
-      result = await async_function(input_data)
-
-      # Assert
-      assert result == expected
-  ```
-
-- **Cleanup**: For tests with mocks or resources, use try/finally:
-  ```python
-  def test_with_mock():
-      """Test with cleanup section"""
-      # Arrange
-      original_function = module.function
-      module.function = mock_function
-
-      try:
-          # Act
-          result = perform_operation()
-
-          # Assert
-          assert result == expected
-      finally:
-          # Cleanup
-          module.function = original_function
-  ```
-
-- **Fixtures**: Use pytest fixtures for common setup.
-- **Mocks**: Use `unittest.mock` or `pytest-mock` to mock interfaces.
-- **Descriptive docstrings**: Each test must have a clear docstring explaining what it validates.
-
-### Relaxed Test Rules
-
-- Tests can use more relaxed rules (see `pyproject.toml`):
-  - `B008`: Allow function calls in default arguments (common in fixtures)
-  - `B006`: Allow mutable default arguments (common in fixtures)
-  - `S101`: Allow `assert` (tests use assertions)
-  - `ARG`: Allow unused arguments (common in fixtures)
-
-## DSPy Integration
-
-### DSPy Modules
-
-- **Inheritance**: DU modules must inherit from `dspy.Module`:
-  ```python
-  class SoniDU(dspy.Module):
-      def __init__(self):
-          super().__init__()  # CRITICAL: Call super().__init__()
-  ```
-- **Async methods**: Implement `aforward()` for async runtime and `forward()` for sync optimizers.
-- **Signatures**: Define DSPy Signatures in `du/signatures.py` with clear fields and descriptions.
-
-### Optimization
-
-- **Optimizers**: MIPROv2, SIMBA, GEPA, BootstrapFewShot
-- **Metrics**: Define business metrics (`intent_accuracy`, `slot_f1`)
-- **Serialization**: Use `.save()` and `.load()` for optimized modules.
-
-## LangGraph Integration
-
-### Graph Building
-
-- **Async nodes**: All nodes must be `async def`.
-- **StateGraph**: Use LangGraph's `StateGraph` with `DialogueState`.
-- **Checkpointers**: Use async checkpointers (`SqliteSaver`, `PostgresSaver`, `RedisSaver`).
-- **Streaming**: Use `astream()` for event streaming.
-
-### Step Compiler
-
-- **Procedural DSL**: The compiler translates procedural steps (`steps`) to `StateGraph`.
-- **Implicit next**: Steps connect sequentially by default.
-- **Explicit jumps**: Use `jump_to` to break sequentiality when necessary.
-- **Branches**: Implement branching logic with `add_conditional_edges`.
-
-## YAML DSL
-
-### DSL Principles
-
-- **Pure semantic**: YAML only describes WHAT, not HOW.
-- **Readability**: Must be readable for business analysts, not just developers.
-- **No technical details**: Do not include URLs, HTTP methods, regex, JSONPath in YAML.
-- **Contracts**: Define action contracts (inputs/outputs) instead of implementations.
-
-### YAML Structure
-
-- **Declarative flows**: For simple slot-filling, use declarative syntax.
-- **Procedural flows**: For complex logic, use `process` with `steps`.
-- **Entities**: Define entities globally with normalization and semantic validators.
-- **Actions**: Define actions as contracts (inputs/outputs), not implementations.
-
-### Procedural Flow Example
-
-```yaml
-flows:
-  modify_booking:
-    process:
-      - step: request_id
-        type: collect
-        slot: booking_ref
-
-      - step: verify_status
-        type: action
-        call: check_booking_rules
-        map_outputs:
-          status: api_status
-          rejection_reason: reason
-
-      - step: decide_path
-        type: branch
-        input: api_status
-        cases:
-          modifiable: continue
-          not_modifiable: jump_to_explain
-```
-
-## Registries and Decorators
-
-### Action Registry
-
-- **Registration**: Use `@ActionRegistry.register("action_name")` to register actions.
-- **Async implementation**: All actions must be `async def`.
-- **Contracts**: Actions must comply with contracts defined in YAML (inputs/outputs).
-
-### Validator Registry
-
-- **Registration**: Use `@ValidatorRegistry.register("validator_name")` to register validators.
-- **Implementation**: Can be sync or async as needed.
-- **Semantic names**: Use descriptive names (`booking_ref_format`, `future_date_only`).
-
-## Persistence and State
-
-### DialogueState
-
-- **Prefer immutability**: Prefer creating new states instead of mutating existing ones.
-- **Serialization**: Use `to_dict()` and `from_dict()` for serialization.
-- **Messages**: Store messages as `list[dict[str, str]]` with `role` and `content`.
-
-### Checkpointers
-
-- **Backends**: SQLite (development), PostgreSQL/Redis (production).
-- **Async**: Always use async checkpointers.
-- **Configuration**: Configuration in YAML under `settings.persistence`.
-
-## Logging and Tracing
-
-### Logging
-
-- **Structured**: Use structured logging for debugging and auditing.
-- **Language**: All log messages must be in English.
-- **Levels**: DEBUG, INFO, WARNING, ERROR as appropriate.
-- **Context**: Include relevant context (user_id, flow, turn_count) in logs.
-
-### Tracing
-
-- **Complete trace**: Record each turn with NLU result, policy decision, and state snapshot.
-- **Audit**: Enable `audit_log` in configuration for compliance.
-- **Performance**: Record latency and resource usage metrics.
-
-## Security
-
-### Guardrails
-
-- **Action validation**: Validate that only allowed actions are executed.
-- **Intent validation**: Block disallowed intents.
-- **Confidence thresholds**: Validate confidence levels for critical actions.
-- **Dynamic scoping**: Filter available actions based on context (reduces hallucinations).
-
-### Input Sanitization
-
-- **Sanitize everything**: All user inputs must be sanitized.
-- **Strict validation**: Validate types, formats, and ranges before processing.
-- **Prevent injections**: Prevent SQL injection, XSS, and other attacks.
-
-## Documentation
-
-### Language
-
-- **English Only**: All documentation, code comments, commit messages, and user-facing text must be in English.
-- **Global Audience**: This is an open-source project with a global community. English ensures accessibility for all contributors and users.
-- **Consistency**: Use clear, professional English throughout the project.
-
-### Code Documentation
-
-- **Docstrings**: All public functions and classes must have docstrings in English.
-- **Examples**: Include usage examples in docstrings when useful (in English).
-- **Type hints**: Type hints are documentation, use them consistently.
-- **Comments**: Code comments must be in English and explain "why" not "what".
-
-### Project Documentation
-
-- **ADRs**: Document important architectural decisions in `docs/adr/` (in English).
-- **README**: Keep README.md updated with setup and basic usage (in English).
-- **Examples**: Provide complete examples in `examples/` with English documentation.
-- **Release Notes**: All release notes and changelog entries must be in English.
-- **User Guides**: All user-facing documentation must be in English.
-
-## Git and Commits
-
-### Conventional Commits
-
-- **Format**: `type: description`
-- **Types**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
-- **Language**: All commit messages must be in English.
-- **Body**: Include details in commit body when necessary (in English).
-- **Example**:
-  ```
-  feat: add streaming support to RuntimeLoop
-
-  - Implement process_message_stream method
-  - Add SSE endpoint in FastAPI server
-  - Add tests for streaming functionality
-  ```
-
-### Pre-commit Hooks
-
-- **Automatic**: Hooks run automatically on commit.
-- **Ruff**: Automatic linting and formatting.
-- **Mypy**: Type checking (excludes experiments/).
-- **Tests**: Run relevant tests before commit.
-
-### Task Implementation Workflow
-
-The process for implementing tasks follows this workflow using the `workflow/` directory (which is gitignored for local task management):
-
-1. **Start with the first task**: Move the first task from `workflow/tasks/backlog/` to `workflow/tasks/current/`.
-2. **Implement the task**: Execute the implementation according to the task specifications.
-3. **Quality checks and commit**: When all checks pass:
-   - `ruff check .` and `ruff format .` must pass
-   - `mypy src/soni` must pass
-   - All relevant tests must pass
-   - Make a commit following the conventional commits format
-4. **Move to done**: Move the completed task from `workflow/tasks/current/` to `workflow/tasks/done/`.
-5. **Repeat**: Start again with the next task from the backlog.
-6. **Continue**: Repeat this process until all tasks in the backlog are completed.
-
-This workflow ensures:
-- **Incremental progress**: One task at a time, fully completed before moving to the next
-- **Quality gates**: Code quality checks (ruff, mypy) and tests must pass before committing
-- **Clear tracking**: Tasks move through backlog → current → done, providing clear visibility of progress
-- **Atomic commits**: Each task results in a single, well-tested commit
-
-## Performance and Optimization
-
-### Latency
-
-- **Differentiated models**: Use fast models (`gpt-4o-mini`) for NLU, powerful models for generation.
-- **Streaming**: Use streaming to reduce perceived latency.
-- **Caching**: Implement aggressive caching when appropriate.
-- **Scoping**: Reduce context using dynamic scoping.
-
-### Resources
-
-- **Async I/O**: Use async I/O for maximum throughput.
-- **Batching**: Group operations when possible.
-- **Lazy loading**: Load resources only when needed.
-
-## Dependencies
-
-### Version Management
-
-- **Ranges**: Use compatible version ranges (e.g., `>=3.0.4,<4.0.0`).
-- **Updates**: Allow patch and minor updates, prevent major breaking changes.
-- **Python**: Requires Python 3.11+ (improved async, modern type hints).
-
-### Main Dependencies
-
-- **DSPy**: `>=3.0.4,<4.0.0` - Automatic prompt optimization
-- **LangGraph**: `>=1.0.4,<2.0.0` - Dialogue management
-- **FastAPI**: `>=0.122.0,<1.0.0` - Async web API
-- **Pydantic**: `>=2.12.5,<3.0.0` - Data validation
-
-### Reference Code
-
-- **`ref/` directory**: Contains the source code of the main libraries (DSPy and LangGraph) for reference purposes only. This code is available for consultation when implementing integrations or understanding library internals, but should not be modified or imported directly.
-
-## Using `uv` Package Manager
-
-This project uses [`uv`](https://github.com/astral-sh/uv) as the package manager. `uv` is a fast Python package installer and resolver written in Rust.
-
-### Installation
-
-If `uv` is not installed, install it with:
+## Detailed Guidelines
+
+For comprehensive implementation details, see:
+
+- **Architecture & SOLID**: `.cursor/rules/001-architecture.mdc`
+- **Code Style & Conventions**: `.cursor/rules/002-code-style.mdc`
+- **Testing Patterns**: `.cursor/rules/003-testing.mdc`
+- **DSPy Integration**: `.cursor/rules/004-dspy.mdc`
+- **LangGraph Patterns**: `.cursor/rules/005-langgraph.mdc`
+- **State Management**: `.cursor/rules/006-state.mdc`
+- **YAML DSL**: `.cursor/rules/007-yaml-dsl.mdc`
+- **Deployment & Tools**: `.cursor/rules/008-deployment.mdc`
+
+## Design Documentation
+
+Complete architectural details:
+- **Index**: `docs/design/README.md`
+- **Architecture**: `docs/design/02-architecture.md`
+- **Components**: `docs/design/03-components.md`
+- **State Machine**: `docs/design/04-state-machine.md`
+- **Message Flow**: `docs/design/05-message-flow.md`
+- **NLU System**: `docs/design/06-nlu-system.md`
+- **Flow Management**: `docs/design/07-flow-management.md`
+- **LangGraph Integration**: `docs/design/08-langgraph-integration.md`
+- **DSPy Optimization**: `docs/design/09-dspy-optimization.md`
+- **DSL Specification**: `docs/design/10-dsl-specification/`
+
+## Quick Reference Commands
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Or with pip:
-
-```bash
-pip install uv
-```
-
-### Common Commands
-
-#### Adding Dependencies
-
-- **Add a runtime dependency**:
-  ```bash
-  uv add package-name
-  ```
-
-- **Add a development dependency**:
-  ```bash
-  uv add --dev package-name
-  ```
-
-- **Add with version constraint**:
-  ```bash
-  uv add "package-name>=1.0.0,<2.0.0"
-  ```
-
-- **Add to a dependency group**:
-  ```bash
-  uv add --group dev package-name
-  ```
-
-#### Removing Dependencies
-
-- **Remove a package**:
-  ```bash
-  uv remove package-name
-  ```
-
-- **Remove from a dependency group**:
-  ```bash
-  uv remove --group dev package-name
-  ```
-
-#### Running Commands
-
-- **Run a command in the project environment**:
-  ```bash
-  uv run command
-  ```
-
-- **Run Python scripts**:
-  ```bash
-  uv run python script.py
-  ```
-
-- **Run with arguments**:
-  ```bash
-  uv run pytest tests/
-  uv run ruff check .
-  uv run mypy src/soni
-  ```
-
-#### Synchronizing Dependencies
-
-- **Sync dependencies** (install/update all packages from `pyproject.toml`):
-  ```bash
-  uv sync
-  ```
-
-- **Sync with specific groups**:
-  ```bash
-  uv sync --group dev
-  ```
-
-- **Sync without installing the project itself**:
-  ```bash
-  uv sync --no-install-project
-  ```
-
-#### Other Useful Commands
-
-- **Show installed packages**:
-  ```bash
-  uv pip list
-  ```
-
-- **Update all dependencies**:
-  ```bash
-  uv sync --upgrade
-  ```
-
-- **Lock dependencies** (update `uv.lock`):
-  ```bash
-  uv lock
-  ```
-
-- **Create a virtual environment**:
-  ```bash
-  uv venv
-  ```
-
-- **Activate virtual environment** (if created separately):
-  ```bash
-  source .venv/bin/activate  # Linux/macOS
-  .venv\Scripts\activate      # Windows
-  ```
-
-### Workflow Examples
-
-**Initial setup**:
-```bash
-# Clone repository
-git clone <repo-url>
-cd soni
-
-# Install all dependencies
+# Setup
 uv sync
-
-# Install pre-commit hooks
 uv run pre-commit install
-```
 
-**Adding a new dependency**:
-```bash
-# Add runtime dependency
-uv add httpx
+# Development
+uv run pytest                    # Run tests
+uv run ruff check . && ruff format .  # Lint & format
+uv run mypy src/soni            # Type check
 
-# Add dev dependency
-uv add --dev pytest-cov
-
-# Sync to install
-uv sync
-```
-
-**Running tests**:
-```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=soni
-
-# Run specific test file
-uv run pytest tests/unit/test_state.py
-```
-
-**Code quality checks**:
-```bash
-# Lint and format
-uv run ruff check .
-uv run ruff format .
-
-# Type checking
-uv run mypy src/soni
-```
-
-**Validation scripts**:
-```bash
-# Validate configuration
-uv run python scripts/validate_config.py
-
-# Validate runtime (end-to-end)
-uv run python scripts/validate_runtime.py
-```
-
-### Notes
-
-- `uv` automatically manages the virtual environment in `.venv/`
-- Dependencies are defined in `pyproject.toml` under `[project.dependencies]` and `[dependency-groups]`
-- The lock file `uv.lock` ensures reproducible installs
-- Always use `uv run` to execute commands in the project environment
-- Never manually activate `.venv` - `uv run` handles it automatically
-
-## Validation Scripts
-
-The project includes validation scripts in the `scripts/` directory for testing and validating different components of the framework.
-
-### Available Scripts
-
-#### `scripts/validate_config.py`
-
-Validates YAML configuration files to ensure they conform to the Soni configuration schema.
-
-**Usage:**
-```bash
-# Validate the example configuration
+# Validation
 uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
-
-# Validate any configuration file
-uv run python scripts/validate_config.py path/to/config.yaml
-```
-
-**What it validates:**
-- Configuration schema compliance
-- Required fields presence
-- Type validation
-- Flow, slot, and action definitions
-
-#### `scripts/validate_runtime.py`
-
-Validates the LangGraph runtime end-to-end, including graph construction, state management, and checkpointing integration.
-
-**Usage:**
-```bash
-# Run full runtime validation
 uv run python scripts/validate_runtime.py
+
+# Server
+uv run soni server --config examples/flight_booking/soni.yaml
+
+# Optimization
+uv run soni optimize --config examples/flight_booking/soni.yaml
 ```
-
-**What it validates:**
-- Configuration loading from YAML
-- Graph construction from flow definitions
-- Checkpointer (SQLite) integration
-- State serialization/deserialization
-- Graph structure and node connectivity
-
-**Output:**
-- Detailed logging of each validation step
-- Success/failure status for each component
-- Summary report at the end
-- Exit code 0 on success, 1 on failure
-
-### When to Use Validation Scripts
-
-- **After configuration changes**: Run `validate_config.py` to ensure YAML changes are valid
-- **After runtime changes**: Run `validate_runtime.py` to verify the runtime still works end-to-end
-- **Before committing**: Use validation scripts as part of pre-commit checks
-- **During development**: Use to quickly test changes without running full test suite
-- **Debugging**: Use to isolate issues in specific components
-
-### Adding New Validation Scripts
-
-When adding new validation scripts:
-
-1. **Place in `scripts/` directory**: All validation scripts should be in `scripts/`
-2. **Follow naming convention**: Use `validate_<component>.py` format
-3. **Include logging**: Use structured logging with clear success/failure messages
-4. **Return exit codes**: Return 0 on success, 1 on failure for CI/CD integration
-5. **Document in AGENTS.md**: Add script description to this section
-
-## Examples and Templates
-
-### New Action
-
-```python
-from soni.actions import ActionRegistry
-
-@ActionRegistry.register("my_action")
-async def my_action(param1: str, param2: int) -> dict[str, Any]:
-    """
-    Action description.
-
-    Args:
-        param1: Parameter description
-        param2: Parameter description
-
-    Returns:
-        Dictionary with outputs according to YAML contract
-    """
-    # Implementation here
-    return {"output1": value1, "output2": value2}
-```
-
-### New Validator
-
-```python
-from soni.validation.registry import ValidatorRegistry
-
-@ValidatorRegistry.register("my_validator")
-def validate_my_field(value: str) -> bool:
-    """
-    Validates the field format.
-
-    Args:
-        value: Value to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    # Validation logic
-    return bool(re.match(r"^pattern$", value))
-```
-
-**Note:** Import the module containing your validators in your application entry point to auto-register them.
-
-### New DSPy Module
-
-```python
-import dspy
-from soni.du.signatures import MySignature
-
-class MyModule(dspy.Module):
-    def __init__(self):
-        super().__init__()
-        self.predictor = dspy.ChainOfThought(MySignature)
-
-    async def aforward(self, input: str) -> dspy.Prediction:
-        """Async runtime."""
-        return await self.predictor.acall(input=input)
-
-    def forward(self, input: str) -> dspy.Prediction:
-        """For sync optimizers."""
-        return self.predictor(input=input)
-```
-
-## Versioning and Compatibility
-
-### Pre-v1.0 Development
-
-- **No backward compatibility required**: Until version 1.0.0, the framework is in active development and breaking changes are acceptable.
-- **Focus on correct design**: Prioritize architectural correctness over maintaining compatibility with previous versions.
-- **Document breaking changes**: While not required to maintain compatibility, document significant architectural changes in ADRs and release notes.
-- **Post-v1.0**: After v1.0.0, follow semantic versioning and maintain backward compatibility within major versions.
-
-### Semantic Versioning (Post-v1.0)
-
-- **Major versions (1.x.x → 2.x.x)**: Breaking changes allowed
-- **Minor versions (1.0.x → 1.1.x)**: New features, backward compatible
-- **Patch versions (1.0.0 → 1.0.1)**: Bug fixes, backward compatible
 
 ## Important Reminders
 
-1. **English Only**: All documentation, code comments, commit messages, error messages, and user-facing text must be in English.
-2. **Async-first**: Everything must be async. Do not create sync versions.
-3. **Type hints**: Mandatory for all public functions.
-4. **Docstrings**: Mandatory for all public functions and classes (in English).
-5. **Tests**: Write tests for new functionality following AAA pattern.
-6. **AAA Pattern**: All tests must use Arrange-Act-Assert structure with clear comments (in English).
-7. **Semantic YAML**: YAML must not contain technical details.
-8. **Interfaces**: Use Protocols for decoupling.
-9. **Error handling**: Use appropriate exception hierarchy with English messages.
-10. **Logging**: Include relevant context in logs (in English).
-11. **Conventional Commits**: Follow commit format (in English).
-12. **Pre-commit**: Ensure hooks pass before committing.
-13. **No Retrocompatibility Pre-v1.0**: Focus on correct design, not maintaining compatibility with previous versions.
+1. **English Only**: All text in English
+2. **Async-first**: Everything must be `async def`
+3. **Type hints**: Mandatory with modern Python 3.11+ syntax
+4. **SOLID Principles**: Follow SRP, OCP, LSP, ISP, DIP
+5. **Pure Data**: TypedDict for state, serialize before storing
+6. **flow_id not flow_name**: Use flow_id for instance identity
+7. **No Retrocompatibility Pre-v1.0**: Focus on correct design
 
 ---
 
-**Last updated**: Based on ADR-001 v1.3 and current project structure.
+**Version**: 1.0 (Hybrid)
+**Last Updated**: 2025-12-05
+**Status**: Production-ready with modular .mdc rules

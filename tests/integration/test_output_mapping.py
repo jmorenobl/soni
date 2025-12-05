@@ -15,10 +15,13 @@ from soni.core.state import (
     get_all_slots,
     get_current_flow,
     get_slot,
+    push_flow,
+    set_slot,
 )
 from soni.dm.nodes.factories import create_action_node_factory
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_action_node_applies_map_outputs():
     """Test that action node applies map_outputs correctly"""
@@ -69,25 +72,30 @@ async def test_action_node_applies_map_outputs():
         map_outputs=map_outputs,
     )
 
-    state = DialogueState(
-        slots={"param": "test"},
-        messages=[],
-        current_flow="test_flow",
-    )
+    # Create state with new schema
+    state = create_empty_state()
+    push_flow(state, "test_flow")
+    set_slot(state, "param", "test")
 
     # Act
     updates = await factory(state)
 
     # Assert
-    assert "result" in updates["slots"]
-    assert get_slot(updates, "result") == "success"
-    assert "data" in updates["slots"]
-    assert get_slot(updates, "data") == {"key": "value"}
-    assert "api_metadata" not in updates["slots"]  # Not mapped
-    assert "api_result" not in updates["slots"]  # Mapped to "result"
-    assert "api_data" not in updates["slots"]  # Mapped to "data"
+    # With map_outputs, slots are mapped to new names
+    # Check flow_slots after applying updates (merge updates into state)
+    final_state = state.copy()
+    if "flow_slots" in updates:
+        final_state["flow_slots"] = updates["flow_slots"]
+
+    assert get_slot(final_state, "result") == "success"
+    assert get_slot(final_state, "data") == {"key": "value"}
+    # Original output names should not be in slots (mapped)
+    assert get_slot(final_state, "api_metadata") is None  # Not mapped
+    assert get_slot(final_state, "api_result") is None  # Mapped to "result"
+    assert get_slot(final_state, "api_data") is None  # Mapped to "data"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_action_node_without_map_outputs():
     """Test backward compatibility when map_outputs is None"""
@@ -129,20 +137,21 @@ async def test_action_node_without_map_outputs():
         map_outputs=None,  # No mapping
     )
 
-    state = DialogueState(
-        slots={},
-        messages=[],
-        current_flow="test_flow",
-    )
+    # Create state with new schema
+    state = create_empty_state()
+    push_flow(state, "test_flow")
 
     # Act
     updates = await factory(state)
 
     # Assert
-    assert "output1" in updates["slots"]
-    assert "output2" in updates["slots"]
-    assert get_slot(updates, "output1") == "value1"
-    assert get_slot(updates, "output2") == "value2"
+    # Without map_outputs, all action outputs go to slots directly
+    final_state = state.copy()
+    if "flow_slots" in updates:
+        final_state["flow_slots"] = updates["flow_slots"]
+
+    assert get_slot(final_state, "output1") == "value1"
+    assert get_slot(final_state, "output2") == "value2"
 
 
 def test_validate_map_outputs():

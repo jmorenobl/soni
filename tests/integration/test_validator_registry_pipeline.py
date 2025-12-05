@@ -70,6 +70,7 @@ def test_builtin_validators_registered():
         )
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_collect_node_uses_validator_registry():
     """Test that collect nodes use ValidatorRegistry for validation"""

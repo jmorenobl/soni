@@ -1,0 +1,314 @@
+---
+name: Soni Architecture & SOLID Principles
+version: "1.0"
+description: Core architectural principles, SOLID compliance, and component responsibilities
+globs:
+  - "src/soni/**/*.py"
+  - "docs/design/**/*.md"
+alwaysApply: true
+---
+
+# Soni Architecture & SOLID Principles
+
+## Zero-Leakage Architecture (Hexagonal)
+
+**Principle**: Complete separation between business logic (WHAT) and technical implementation (HOW).
+
+### YAML Layer (WHAT)
+```yaml
+# ✅ CORRECT - Semantic only
+flows:
+  book_flight:
+    slots:
+      - name: origin
+        type: city
+        prompt: "Where would you like to fly from?"
+
+actions:
+  search_flights:
+    inputs:
+      - origin
+      - destination
+    outputs:
+      - flights
+      - total_price
+```
+
+```yaml
+# ❌ WRONG - Technical details leaked
+flows:
+  book_flight:
+    slots:
+      - name: origin
+        api_url: "https://api.example.com/cities"  # ❌ HTTP detail
+        regex: "^[A-Z]{3}$"  # ❌ Validation detail
+```
+
+### Python Layer (HOW)
+```python
+# ✅ CORRECT - Technical implementation
+@ActionRegistry.register("search_flights")
+async def search_flights(origin: str, destination: str) -> dict[str, Any]:
+    """Search flights via HTTP API."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.example.com/flights",
+            params={"from": origin, "to": destination}
+        )
+    return {"flights": response.json()["data"], "total_price": response.json()["price"]}
+```
+
+## SOLID Principles Implementation
+
+### Single Responsibility Principle (SRP)
+
+Each component has ONE clear responsibility:
+
+#### ✅ RuntimeLoop - Orchestration ONLY
+```python
+class RuntimeLoop:
+    """Orchestrates conversation processing. NO business logic."""
+
+    async def process_message(self, msg: str, user_id: str) -> str:
+        # 1. Check state
+        current_state = await self.graph.aget_state(config)
+
+        # 2. Resume or invoke
+        if current_state.next:
+            result = await self.graph.ainvoke(Command(resume=msg), config)
+        else:
+            result = await self.graph.ainvoke(initial_state, config)
+
+        return result["last_response"]
+```
+
+**Does NOT**:
+- ❌ Manage flows (delegates to FlowManager)
+- ❌ Handle digressions (delegates to DigressionHandler)
+- ❌ Execute actions (delegates to ActionHandler)
+
+#### ✅ FlowManager - Flow Stack Management ONLY
+```python
+class FlowManager:
+    """Manages flow execution stack. NO other concerns."""
+
+    def push_flow(self, state: DialogueState, flow_name: str, ...) -> str:
+        """Start new flow instance."""
+        # Stack limit enforcement
+        self._enforce_stack_limit(state)
+
+        # Pause current
+        if state["flow_stack"]:
+            state["flow_stack"][-1]["flow_state"] = "paused"
+
+        # Generate ID and push
+        flow_id = f"{flow_name}_{uuid.uuid4().hex[:8]}"
+        state["flow_stack"].append(new_context)
+        state["flow_slots"][flow_id] = inputs or {}
+
+        return flow_id
+```
+
+**Does NOT**:
+- ❌ Execute NLU (delegates to NLUProvider)
+- ❌ Validate slots (delegates to Validators)
+- ❌ Generate responses (delegates to ResponseGenerator)
+
+#### ✅ DigressionHandler - Digression Coordination ONLY
+```python
+class DigressionHandler:
+    """Coordinates digression handling. NO flow manipulation."""
+
+    async def handle(self, state: DialogueState, digression_type: str, ...) -> str:
+        if digression_type == "question":
+            response = await self.knowledge_base.answer_question(...)
+        elif digression_type == "help":
+            response = await self.help_generator.generate_help(...)
+
+        # Re-prompt original question
+        reprompt = self._generate_reprompt(state)
+        return f"{response}\n\n{reprompt}"
+```
+
+**Critical**: Does NOT modify `flow_stack`.
+
+### Open/Closed Principle (OCP)
+
+#### ✅ Strategy Pattern for Stack Limiting
+```python
+class FlowManager:
+    def __init__(self, config: SoniConfig):
+        # Open for extension via strategies
+        self._strategies = {
+            "cancel_oldest": self._strategy_cancel_oldest,
+            "reject_new": self._strategy_reject_new,
+            "warn_user": self._strategy_warn_user
+        }
+
+    def _enforce_stack_limit(self, state: DialogueState) -> None:
+        limit = self.config.flow_stack_limit
+        if len(state["flow_stack"]) >= limit:
+            strategy = self._strategies[self.config.stack_limit_strategy]
+            strategy(state)  # Extensible without modifying core
+```
+
+**Add new strategy WITHOUT modifying FlowManager**:
+```python
+# In configuration
+flow_stack_limit: 5
+stack_limit_strategy: "adaptive"  # New strategy
+
+# Implementation
+def _strategy_adaptive(self, state: DialogueState) -> None:
+    # Custom logic based on flow priorities
+    pass
+```
+
+#### ✅ Registry Pattern for Actions
+```python
+# Open for extension - add actions without modifying framework
+@ActionRegistry.register("new_action")
+async def new_action(param: str) -> dict[str, Any]:
+    return {"result": "..."}
+```
+
+### Liskov Substitution Principle (LSP)
+
+#### ✅ Checkpointer Substitution
+```python
+# All checkpointers implement same interface
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
+# Can substitute any checkpointer
+def create_checkpointer(backend: str) -> BaseCheckpointSaver:
+    if backend == "sqlite":
+        return AsyncSqliteSaver.from_conn_string("...")
+    elif backend == "postgresql":
+        return PostgresSaver.from_conn_string("...")
+    elif backend == "redis":
+        return RedisSaver(client=...)
+
+    # All work identically - no behavioral changes
+```
+
+### Interface Segregation Principle (ISP)
+
+#### ✅ Separate NLU Interfaces
+```python
+# Runtime interface - minimal
+class INLUProvider(Protocol):
+    """Interface for runtime NLU calls."""
+    async def understand(
+        self,
+        user_message: str,
+        context: DialogueContext
+    ) -> NLUOutput:
+        ...
+
+# Optimization interface - separate
+class INLUModule(Protocol):
+    """Interface for DSPy optimization."""
+    def forward(self, ...): ...
+    async def aforward(self, ...): ...
+```
+
+**Why separate**: Runtime doesn't need `forward()`, optimizers don't need async.
+
+### Dependency Inversion Principle (DIP)
+
+#### ✅ RuntimeContext Dependency Injection
+```python
+@dataclass
+class RuntimeContext:
+    """Dependency injection container."""
+    config: SoniConfig
+    flow_manager: FlowManager
+    nlu_provider: INLUProvider  # Abstraction, not concrete
+    action_handler: IActionHandler  # Abstraction
+    scope_manager: IScopeManager  # Abstraction
+    normalizer: INormalizer  # Abstraction
+
+# Nodes depend on abstractions
+async def understand_node(
+    state: DialogueState,
+    context: RuntimeContext
+) -> dict[str, Any]:
+    # Access via abstraction
+    nlu_result = await context.nlu_provider.understand(...)
+
+    # Can swap implementations without changing node
+    return {"nlu_result": nlu_result.model_dump()}
+```
+
+#### ❌ BAD - Direct Dependency
+```python
+# ❌ WRONG - Hardcoded concrete class
+from soni.du.modules import SoniDU
+
+async def understand_node(state: DialogueState) -> dict:
+    nlu = SoniDU()  # ❌ Tight coupling
+    result = await nlu.predict(...)
+```
+
+## Component Responsibilities
+
+### RuntimeLoop
+- **Responsibility**: Orchestrate message processing
+- **Delegates to**: Graph (LangGraph), FlowManager, DigressionHandler
+- **Does NOT**: Execute business logic
+
+### FlowManager
+- **Responsibility**: Manage flow stack (push/pop/data access)
+- **Owns**: flow_stack, flow_slots
+- **Does NOT**: Execute NLU, validate, generate responses
+
+### DigressionHandler
+- **Responsibility**: Coordinate digression handling
+- **Delegates to**: KnowledgeBase, HelpGenerator
+- **Does NOT**: Modify flow_stack
+
+### KnowledgeBase
+- **Responsibility**: Answer domain questions
+- **Does NOT**: Generate help, handle flows
+
+### HelpGenerator
+- **Responsibility**: Generate contextual help
+- **Does NOT**: Answer questions, handle flows
+
+### SoniDU (NLU Module)
+- **Responsibility**: Natural language understanding
+- **Does NOT**: Manage flows, execute actions
+
+### ActionHandler
+- **Responsibility**: Execute registered actions
+- **Does NOT**: Manage flows, perform NLU
+
+## Async-First Architecture
+
+**Rule**: Everything I/O related MUST be `async def`.
+
+```python
+# ✅ CORRECT
+async def execute_action(name: str, inputs: dict) -> dict:
+    result = await action_registry.execute(name, inputs)
+    return result
+
+# ✅ CORRECT
+async def save_checkpoint(state: DialogueState) -> None:
+    await checkpointer.aput(config, state, metadata)
+
+# ❌ WRONG - Blocking I/O
+def execute_action(name: str, inputs: dict) -> dict:
+    result = requests.get("...")  # ❌ Sync blocking call
+    return result
+```
+
+**No sync versions**: Don't create sync-to-async wrappers.
+
+## References
+
+See @docs/design/02-architecture.md for complete architectural overview.
+See @docs/design/03-components.md for detailed component specifications.
+See @src/soni/runtime/runtime.py for RuntimeLoop implementation.
+See @src/soni/flow/manager.py for FlowManager implementation.
+See @src/soni/core/interfaces.py for all Protocol definitions.

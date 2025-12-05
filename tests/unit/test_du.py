@@ -146,6 +146,10 @@ def test_soni_du_forward_with_mock():
     # Arrange
     from unittest.mock import AsyncMock, patch
 
+    import dspy
+
+    from soni.du.models import DialogueContext
+
     du = SoniDU()
     mock_prediction = MagicMock()
     mock_prediction.result = NLUOutput(
@@ -156,15 +160,21 @@ def test_soni_du_forward_with_mock():
         reasoning="Test reasoning",
     )
 
+    # Create context with new signature
+    context = DialogueContext(
+        current_slots={},
+        available_actions=["book_flight"],
+        available_flows=["book_flight"],
+        current_flow="none",
+    )
+
     # Act
     with patch.object(du, "predictor", return_value=mock_prediction):
         result = du.forward(
             user_message="I want to book a flight",
-            dialogue_history="",
-            current_slots="{}",
-            available_actions='["book_flight"]',
-            available_flows='["book_flight"]',
-            current_flow="none",
+            history=dspy.History(messages=[]),
+            context=context,
+            current_datetime="",
         )
 
     # Assert
@@ -178,6 +188,10 @@ async def test_soni_du_aforward_with_mock():
     # Arrange
     from unittest.mock import AsyncMock, patch
 
+    import dspy
+
+    from soni.du.models import DialogueContext
+
     du = SoniDU()
     mock_prediction = MagicMock()
     mock_prediction.result = NLUOutput(
@@ -188,15 +202,22 @@ async def test_soni_du_aforward_with_mock():
         reasoning="Test reasoning",
     )
 
+    # Create context with new signature
+    context = DialogueContext(
+        current_slots={},
+        available_actions=[],
+        available_flows=[],
+        current_flow="none",
+    )
+
     # Act
-    with patch.object(du, "predictor", new_callable=AsyncMock, return_value=mock_prediction):
+    # Note: predictor.acall is the async method, not predictor itself
+    with patch.object(du.predictor, "acall", new_callable=AsyncMock, return_value=mock_prediction):
         result = await du.aforward(
             user_message="Test message",
-            dialogue_history="",
-            current_slots="{}",
-            available_actions="[]",
-            available_flows="[]",
-            current_flow="none",
+            history=dspy.History(messages=[]),
+            context=context,
+            current_datetime="",
         )
 
     # Assert

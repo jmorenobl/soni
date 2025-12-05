@@ -9,6 +9,7 @@ import pytest
 from soni.runtime import RuntimeLoop
 
 
+@pytest.mark.performance
 @pytest.mark.asyncio
 async def test_throughput_concurrent(skip_without_api_key):
     """

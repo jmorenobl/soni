@@ -9,6 +9,7 @@ from soni.core.state import create_initial_state
 from soni.dm.builder import build_graph
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_graph_construction():
     """Test graph builds without errors."""
@@ -30,6 +31,7 @@ async def test_graph_construction():
     assert hasattr(graph, "nodes")
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_graph_with_checkpointer():
     """Test graph builds with custom checkpointer."""
@@ -50,6 +52,7 @@ async def test_graph_with_checkpointer():
     assert graph is not None
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_graph_entry_point():
     """Test graph has correct entry point."""
