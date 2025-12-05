@@ -611,36 +611,22 @@ class StepCompiler:
         """
         Create node function from DAG node.
 
+        Uses NodeFactoryRegistry to get the appropriate factory function.
+        This follows the same pattern as SoniGraphBuilder.
+
         Note:
             Return type is `Any` because LangGraph's node types are complex
             internal types that are not easily expressible in type hints.
             The actual return type is an async function that takes
             DialogueState | dict[str, Any] and returns dict[str, Any] (state updates).
         """
-        from soni.dm.nodes import (
-            create_action_node_factory,
-            create_collect_node_factory,
-            create_understand_node,
-        )
+        # Ensure nodes package is imported to register factories
+        # This is done lazily to avoid circular imports
+        from soni.dm import nodes  # noqa: F401
+        from soni.dm.node_factory_registry import NodeFactoryRegistry
 
-        if node.type == NodeType.UNDERSTAND:
-            return create_understand_node(
-                scope_manager=context.scope_manager,
-                normalizer=context.normalizer,
-                nlu_provider=context.du,
-                context=context,
-            )
-        elif node.type == NodeType.COLLECT:
-            return create_collect_node_factory(
-                slot_name=node.config["slot_name"],
-                context=context,
-            )
-        elif node.type == NodeType.ACTION:
-            return create_action_node_factory(
-                action_name=node.config["action_name"],
-                context=context,
-            )
-        elif node.type == NodeType.BRANCH:
+        # Branch nodes don't have factories - they're handled by conditional edges
+        if node.type == NodeType.BRANCH:
             # Branch nodes are pass-through - routing is handled by conditional edges
             async def branch_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
                 """Pass-through node for branches - routing handled by conditional edges."""
@@ -650,11 +636,10 @@ class StepCompiler:
                 return state.to_dict()
 
             return branch_node
-        else:
-            raise CompilationError(
-                f"Unsupported node type: {node.type}",
-                node_id=node.id,
-            )
+
+        # Get factory from registry and create node
+        factory = NodeFactoryRegistry.get(node.type)
+        return factory(node, context)
 
     def _create_default_scope_manager(self) -> IScopeManager:
         """Create default scope manager."""

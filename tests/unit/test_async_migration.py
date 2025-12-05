@@ -88,7 +88,7 @@ def test_understand_node_is_async():
     from unittest.mock import MagicMock
 
     from soni.core.state import RuntimeContext
-    from soni.dm.nodes import create_understand_node
+    from soni.dm.nodes.factories import create_understand_node
 
     mock_scope = MagicMock()
     mock_normalizer = MagicMock()
@@ -113,7 +113,7 @@ def test_collect_slot_node_is_async():
     from unittest.mock import MagicMock
 
     from soni.core.state import RuntimeContext
-    from soni.dm.nodes import create_collect_node_factory
+    from soni.dm.nodes.factories import create_collect_node_factory
 
     mock_context = MagicMock(spec=RuntimeContext)
 
@@ -132,7 +132,7 @@ def test_action_node_is_async():
     # Arrange
     from unittest.mock import MagicMock
 
-    from soni.dm.nodes import create_action_node_factory
+    from soni.dm.nodes.factories import create_action_node_factory
 
     mock_context = MagicMock()
     mock_context.action_handler = MagicMock()

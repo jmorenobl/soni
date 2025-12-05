@@ -164,7 +164,7 @@ def test_dialogue_state_is_serializable():
 
 def test_node_factories_require_runtime_context():
     """Test that node factories require RuntimeContext"""
-    from soni.dm.nodes import (
+    from soni.dm.nodes.factories import (
         create_action_node_factory,
         create_collect_node_factory,
         create_understand_node,
