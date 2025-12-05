@@ -83,6 +83,8 @@ async def test_factory_strategy_pattern():
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
         assert sqlite_cm is not None
+        # Cleanup SQLite checkpointer to prevent ResourceWarning
+        await sqlite_cm.__aexit__(None, None, None)
 
 
 @pytest.mark.asyncio

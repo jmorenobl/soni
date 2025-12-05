@@ -260,8 +260,11 @@ def test_streaming_endpoint_nlu_error(client_with_runtime, monkeypatch):
     message = "Incomprehensible message"
 
     # Mock process_message_stream to raise NLUError
+    # Note: This must be an async generator function (async def with yield)
+    # to match the signature of process_message_stream
     async def mock_stream_nlu_error(user_msg: str, user_id: str) -> AsyncGenerator[str, None]:
         raise NLUError("Cannot understand message")
+        yield  # Unreachable, but needed for type checker to recognize as AsyncGenerator
 
     # Patch via module-level runtime
     from soni.server import api
