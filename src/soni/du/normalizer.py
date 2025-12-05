@@ -1,6 +1,7 @@
 """Slot normalization layer for Soni Framework."""
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 import dspy
@@ -95,6 +96,8 @@ class SlotNormalizer(INormalizer):
             normalized = self._trim(value)
         elif strategy == "lowercase":
             normalized = self._lowercase(value)
+        elif strategy == "natural_date":
+            normalized = await self._natural_date(value)
         elif strategy == "llm_correction":
             normalized = await self._llm_correction(value, entity_config)
         else:
@@ -118,6 +121,101 @@ class SlotNormalizer(INormalizer):
         if value is None:
             return ""
         return str(value).lower().strip()
+
+    async def _natural_date(self, value: Any) -> str:
+        """Convert natural language dates to ISO format.
+
+        Handles expressions like:
+        - "tomorrow", "today", "yesterday"
+        - "next Monday", "next Friday"
+        - "in 3 days", "in a week"
+        - ISO format dates (passed through)
+
+        Args:
+            value: Natural language date expression
+
+        Returns:
+            ISO format date string (YYYY-MM-DD)
+        """
+        if value is None:
+            return ""
+
+        value_str = str(value).strip().lower()
+        today = datetime.now().date()
+
+        # Try direct ISO parsing first
+        try:
+            parsed = datetime.fromisoformat(value_str.upper() if "t" in value_str else value_str)
+            return parsed.date().isoformat()
+        except ValueError:
+            pass
+
+        # Handle relative dates
+        relative_dates = {
+            "today": today,
+            "tomorrow": today + timedelta(days=1),
+            "yesterday": today - timedelta(days=1),
+            "day after tomorrow": today + timedelta(days=2),
+        }
+
+        if value_str in relative_dates:
+            return relative_dates[value_str].isoformat()
+
+        # Handle "next <weekday>"
+        weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        for i, weekday in enumerate(weekdays):
+            if f"next {weekday}" in value_str:
+                days_ahead = i - today.weekday()
+                if days_ahead <= 0:
+                    days_ahead += 7
+                return (today + timedelta(days=days_ahead)).isoformat()
+
+        # Handle "in X days/weeks"
+        if "in " in value_str:
+            import re
+
+            match = re.search(r"in\s+(\d+|a|an)\s+(day|days|week|weeks)", value_str)
+            if match:
+                amount = 1 if match.group(1) in ("a", "an") else int(match.group(1))
+                unit = match.group(2)
+                if "week" in unit:
+                    amount *= 7
+                return (today + timedelta(days=amount)).isoformat()
+
+        # Fallback: use LLM for complex cases
+        return await self._llm_date_parsing(value_str)
+
+    async def _llm_date_parsing(self, value: str) -> str:
+        """Use LLM to parse complex date expressions.
+
+        Args:
+            value: Date expression to parse
+
+        Returns:
+            ISO format date string
+        """
+        today_str = datetime.now().date().isoformat()
+        prompt = f"""Convert the following date expression to ISO format (YYYY-MM-DD).
+Today's date is {today_str}.
+
+Date expression: "{value}"
+
+Return ONLY the date in YYYY-MM-DD format, nothing else."""
+
+        try:
+            response = await self.llm.acall(prompt)
+            response_str = str(response) if response is not None else ""
+            date_str = response_str.strip().strip('"').strip("'")
+
+            # Validate the result
+            datetime.fromisoformat(date_str)
+            logger.info(f"LLM parsed date '{value}' -> '{date_str}'")
+            return date_str
+
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Failed to parse date '{value}': {e}")
+            # Return original value - validator will catch it
+            return value
 
     async def _llm_correction(
         self,

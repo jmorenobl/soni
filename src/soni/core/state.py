@@ -130,6 +130,7 @@ def create_empty_state() -> DialogueState:
         "conversation_state": "idle",
         "current_step": None,
         "waiting_for_slot": None,
+        "current_prompted_slot": None,
         "nlu_result": None,
         "last_nlu_call": None,
         "digression_depth": 0,

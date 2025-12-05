@@ -137,6 +137,9 @@ def create_understand_node(
             # Get all current slots
             current_slots = get_all_slots(state)
 
+            # Get currently prompted slot (if any)
+            current_prompted_slot = state.get("current_prompted_slot")
+
             # Create DialogueContext
             dialogue_context = DialogueContext(
                 current_slots=current_slots,
@@ -144,6 +147,7 @@ def create_understand_node(
                 available_flows=available_flows,
                 current_flow=current_flow,
                 expected_slots=expected_slots,
+                current_prompted_slot=current_prompted_slot,
             )
 
             nlu_result_raw = await nlu_provider.predict(
@@ -179,8 +183,81 @@ def create_understand_node(
                     reasoning="",
                 )
 
+            # Determine target flow BEFORE slot validation
+            # This ensures we use the correct expected_slots for the flow being activated
+            from soni.core.state import get_current_flow
+
+            current_flow_name = get_current_flow(state)
+            config = context["config"]
+            target_flow = activate_flow_by_intent(
+                command=nlu_result.command,
+                current_flow=current_flow_name,
+                config=config,
+            )
+
+            # Get expected_slots for TARGET flow (may differ from current flow)
+            if target_flow and target_flow != current_flow_name and target_flow != "none":
+                # New flow being activated - use its expected_slots
+                target_expected_slots = scope_manager.get_expected_slots(
+                    flow_name=target_flow,
+                    available_actions=available_actions,
+                )
+                logger.debug(
+                    f"Flow activation detected: {current_flow_name} -> {target_flow}, "
+                    f"using target flow expected_slots: {target_expected_slots}"
+                )
+            else:
+                # Staying in current flow - use current expected_slots
+                target_expected_slots = expected_slots
+
             # Normalize extracted slots
-            normalized_slots = {slot.name: slot.value for slot in nlu_result.slots}
+            # When we have a current_prompted_slot and the NLU extracts a slot_value,
+            # use the prompted slot name to ensure correct assignment
+            current_prompted_slot = state.get("current_prompted_slot")
+            normalized_slots: dict[str, Any] = {}
+
+            if nlu_result.slots:
+                expected_set = set(target_expected_slots)
+
+                if (
+                    current_prompted_slot
+                    and nlu_result.message_type.value == "slot_value"
+                    and len(nlu_result.slots) == 1
+                ):
+                    # User responded to a direct prompt
+                    extracted_slot = nlu_result.slots[0]
+
+                    # Check if NLU's slot name matches the prompted slot or is unknown
+                    if (
+                        extracted_slot.name == current_prompted_slot
+                        or extracted_slot.name not in expected_set
+                    ):
+                        # Assign to prompted slot
+                        normalized_slots[current_prompted_slot] = extracted_slot.value
+                        logger.debug(
+                            f"Assigned value '{extracted_slot.value}' to prompted slot "
+                            f"'{current_prompted_slot}' (NLU named it '{extracted_slot.name}')"
+                        )
+                    else:
+                        # NLU recognized a DIFFERENT known slot - respect NLU's semantic analysis
+                        # This happens when user provides unexpected info (e.g., date when asked for city)
+                        normalized_slots[extracted_slot.name] = extracted_slot.value
+                        logger.info(
+                            f"NLU extracted '{extracted_slot.name}' but prompted for "
+                            f"'{current_prompted_slot}' - respecting NLU's semantic analysis"
+                        )
+                else:
+                    # Multiple slots or no prompt context - validate against target flow's slots
+                    for slot in nlu_result.slots:
+                        if slot.name in expected_set:
+                            normalized_slots[slot.name] = slot.value
+                        else:
+                            # Log warning for unknown slot names
+                            logger.warning(
+                                f"NLU extracted unknown slot '{slot.name}' "
+                                f"(expected: {target_expected_slots}). Discarding value: {slot.value}"
+                            )
+
             failed_slots: list[dict[str, Any]] = []
             if normalized_slots:
                 try:
@@ -235,7 +312,7 @@ def create_understand_node(
                     raise
 
             # Update slots - need to merge with existing slots
-            from soni.core.state import get_current_flow, push_flow, set_all_slots
+            from soni.core.state import push_flow, set_all_slots
 
             current_slots = get_all_slots(state)
             slots_before = current_slots.copy()
@@ -253,14 +330,8 @@ def create_understand_node(
                     },
                 )
 
-            # Determine new flow
-            current_flow_name = get_current_flow(state)
-            config = context["config"]
-            new_current_flow = activate_flow_by_intent(
-                command=nlu_result.command,
-                current_flow=current_flow_name,
-                config=config,
-            )
+            # Use target_flow determined earlier (before slot validation)
+            new_current_flow = target_flow
 
             # Build updates dict
             trace = state.get("trace", [])
@@ -309,6 +380,10 @@ def create_understand_node(
                 f"confidence={nlu_result.confidence:.2f}, "
                 f"slots={normalized_slots}"
             )
+
+            # Clear prompted slot after processing to avoid carrying it to next turn
+            if current_prompted_slot and normalized_slots:
+                updates["current_prompted_slot"] = None
 
             return updates
 
@@ -436,6 +511,7 @@ async def collect_slot_node(
         trace = state.get("trace", [])
         updates = {
             "last_response": prompt,
+            "current_prompted_slot": slot_name,  # Track which slot we're asking for
             "messages": messages + [{"role": "assistant", "content": prompt}],
             "trace": trace
             + [

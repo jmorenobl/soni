@@ -150,6 +150,9 @@ slots:
     prompt: "What is your departure date?"
     required: true
     validator: future_date_only
+    # Normalize natural language dates to ISO format before validation
+    normalization:
+      strategy: natural_date
 
 # Action definitions - external handlers that perform business logic
 # Actions are decoupled from implementation: YAML defines contracts, Python implements

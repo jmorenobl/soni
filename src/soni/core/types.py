@@ -40,6 +40,7 @@ class DialogueState(TypedDict):
     conversation_state: str
     current_step: str | None
     waiting_for_slot: str | None
+    current_prompted_slot: str | None
 
     # NLU results
     nlu_result: dict[str, Any] | None

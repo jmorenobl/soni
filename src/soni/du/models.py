@@ -23,8 +23,11 @@ class MessageType(str, Enum):
 class SlotValue(BaseModel):
     """Extracted slot value with metadata."""
 
-    name: str = Field(description="Slot name (must match expected_slots)")
-    value: Any = Field(description="Extracted value")
+    name: str = Field(
+        description="Slot name - MUST be one of the names in context.expected_slots. "
+        "If current_prompted_slot is set, use that exact name for the extracted value."
+    )
+    value: Any = Field(description="Extracted value from user message")
     confidence: float = Field(ge=0.0, le=1.0, description="Extraction confidence")
 
 
@@ -46,3 +49,7 @@ class DialogueContext(BaseModel):
     available_flows: list[str] = Field(default_factory=list, description="Available flows")
     current_flow: str = Field(default="none", description="Active flow")
     expected_slots: list[str] = Field(default_factory=list, description="Expected slot names")
+    current_prompted_slot: str | None = Field(
+        default=None,
+        description="Slot currently being prompted for - user's response should fill this slot",
+    )
