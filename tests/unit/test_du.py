@@ -45,102 +45,6 @@ def test_soni_du_initialization():
     assert du.nlu_cache is not None
 
 
-@pytest.mark.skip(reason="Requires LM configuration - use mocked test instead")
-def test_soni_du_forward_signature():
-    """Test that forward method has correct parameter signature
-
-    This test requires a configured LM to run. Use test_soni_du_forward_with_mock
-    for testing without LM configuration.
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure minimal DummyLM for signature validation
-    lm = DummyLM([{"result": "test"}])
-    dspy.configure(lm=lm)
-
-    du = SoniDU()
-
-    # Act
-    result = du.forward(
-        user_message="I want to book a flight",
-        dialogue_history="",
-        current_slots="{}",
-        available_actions='["book_flight"]',
-        available_flows='["book_flight"]',
-        current_flow="none",
-    )
-
-    # Assert - Signature is correct if execution completes
-    assert result is not None
-
-
-@pytest.mark.skip(reason="Requires LM configuration - use mocked test instead")
-@pytest.mark.asyncio
-async def test_soni_du_aforward():
-    """Test async forward method has correct interface
-
-    This test requires a configured LM to run. Use test_soni_du_aforward_with_mock
-    for testing without LM configuration.
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure minimal DummyLM for interface validation
-    lm = DummyLM([{"result": "test"}])
-    dspy.configure(lm=lm)
-
-    du = SoniDU()
-
-    # Act
-    result = await du.aforward(
-        user_message="Test message",
-        dialogue_history="",
-        current_slots="{}",
-        available_actions="[]",
-        available_flows="[]",
-        current_flow="none",
-    )
-
-    # Assert - Interface works if execution completes
-    assert result is not None
-
-
-@pytest.mark.skip(reason="Requires LM configuration - use mocked test instead")
-@pytest.mark.asyncio
-async def test_soni_du_predict():
-    """Test high-level predict method returns NLUOutput
-
-    This test requires a configured LM to run. Use test_soni_du_predict_with_mock
-    for testing without LM configuration.
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure minimal DummyLM
-    lm = DummyLM([{"result": "test"}])
-    dspy.configure(lm=lm)
-
-    du = SoniDU()
-
-    # Act
-    result = await du.predict(
-        user_message="I want to book a flight to Paris",
-        dialogue_history="",
-        current_slots={},
-        available_actions=["book_flight", "help"],
-        available_flows=["book_flight"],
-        current_flow="none",
-    )
-
-    # Assert
-    assert isinstance(result, NLUOutput)
-    assert result.command is not None
-
-
 def test_soni_du_forward_with_mock():
     """Test forward method with mocked predictor"""
     # Arrange
@@ -463,13 +367,13 @@ def test_soni_du_serialization(tmp_path):
         pytest.skip(f"Serialization test skipped: {e}")
 
 
-@pytest.mark.skip(reason="Requires DSPy LM configuration and API key")
+@pytest.mark.integration
+@pytest.mark.asyncio
 def test_soni_du_integration_real_dspy():
     """
     Integration test with real DSPy LM (requires API key).
 
-    This test is skipped by default but can be run manually with:
-    pytest tests/unit/test_du.py::test_soni_du_integration_real_dspy -v
+    This test runs with integration tests: make test-integration
 
     Requires OPENAI_API_KEY environment variable.
     """

@@ -52,8 +52,12 @@ def create_minimal_trainset() -> list[dspy.Example]:
     return examples
 
 
+@pytest.mark.integration
 def test_optimize_soni_du_returns_module_and_metrics():
-    """Test that optimize_soni_du returns both module and metrics"""
+    """Test that optimize_soni_du returns both module and metrics
+
+    Integration test - runs with: make test-integration
+    """
     # Arrange
     import dspy
     from dspy.utils.dummies import DummyLM
@@ -74,24 +78,20 @@ def test_optimize_soni_du_returns_module_and_metrics():
     trainset = create_minimal_trainset()
 
     # Act
-    try:
-        optimized_module, metrics = optimize_soni_du(
-            trainset=trainset,
-            optimizer_type="MIPROv2",
-            num_trials=2,  # Minimal for testing
-            timeout_seconds=60,
-        )
+    optimized_module, metrics = optimize_soni_du(
+        trainset=trainset,
+        optimizer_type="MIPROv2",
+        num_trials=2,  # Minimal for testing
+        timeout_seconds=60,
+    )
 
-        # Assert
-        assert isinstance(optimized_module, SoniDU)
-        assert isinstance(metrics, dict)
-        assert "baseline_accuracy" in metrics
-        assert "optimized_accuracy" in metrics
-        assert "improvement" in metrics
-        assert "improvement_pct" in metrics
-    except Exception as e:
-        # MIPROv2 may have specific requirements even with DummyLM
-        pytest.skip(f"Optimization test skipped: {e}")
+    # Assert
+    assert isinstance(optimized_module, SoniDU)
+    assert isinstance(metrics, dict)
+    assert "baseline_accuracy" in metrics
+    assert "optimized_accuracy" in metrics
+    assert "improvement" in metrics
+    assert "improvement_pct" in metrics
 
 
 def test_optimize_soni_du_unsupported_optimizer():
@@ -108,8 +108,12 @@ def test_optimize_soni_du_unsupported_optimizer():
         )
 
 
+@pytest.mark.integration
 def test_optimize_soni_du_saves_module(tmp_path):
-    """Test that optimize_soni_du can save optimized module"""
+    """Test that optimize_soni_du can save optimized module
+
+    Integration test - runs with: make test-integration
+    """
     # Arrange
     import dspy
     from dspy.utils.dummies import DummyLM
@@ -130,21 +134,18 @@ def test_optimize_soni_du_saves_module(tmp_path):
     output_dir = tmp_path / "models"
 
     # Act
-    try:
-        optimized_module, metrics = optimize_soni_du(
-            trainset=trainset,
-            optimizer_type="MIPROv2",
-            num_trials=2,
-            timeout_seconds=60,
-            output_dir=output_dir,
-        )
+    optimized_module, metrics = optimize_soni_du(
+        trainset=trainset,
+        optimizer_type="MIPROv2",
+        num_trials=2,
+        timeout_seconds=60,
+        output_dir=output_dir,
+    )
 
-        # Assert
-        assert isinstance(optimized_module, SoniDU)
-        module_path = output_dir / "optimized_nlu.json"
-        assert module_path.exists(), "Module file should be created"
-    except Exception as e:
-        pytest.skip(f"Optimization test skipped: {e}")
+    # Assert
+    assert isinstance(optimized_module, SoniDU)
+    module_path = output_dir / "optimized_nlu.json"
+    assert module_path.exists(), "Module file should be created"
 
 
 def test_load_optimized_module_file_not_found():
@@ -168,13 +169,12 @@ def test_load_optimized_module_invalid_file(tmp_path):
         load_optimized_module(invalid_file)
 
 
-@pytest.mark.skip(reason="Requires DSPy LM configuration and API key")
+@pytest.mark.integration
 def test_optimize_soni_du_integration():
     """
-    Integration test for full optimization pipeline (requires API key).
+    Integration test for full optimization pipeline with real LM.
 
-    This test is skipped by default but can be run manually with:
-    pytest tests/unit/test_optimizers.py::test_optimize_soni_du_integration -v
+    This test runs with integration tests: make test-integration
 
     Requires OPENAI_API_KEY environment variable.
     """

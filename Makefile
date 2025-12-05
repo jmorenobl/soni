@@ -82,7 +82,7 @@ check: test lint type-check
 # Run tests (unit tests only by default)
 test:
 	@echo "Running unit tests in parallel..."
-	uv run pytest -m "not integration and not performance" -n auto
+	uv run pytest -m "not integration and not performance" -n 4
 
 # Run all tests (unit + integration + performance)
 test-all:
