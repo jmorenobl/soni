@@ -1,6 +1,6 @@
 """Core interfaces (Protocols) for Soni Framework following SOLID principles."""
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from soni.core.types import DialogueState as DialogueStateTypedDict
 from soni.core.types import FlowContext
@@ -8,11 +8,11 @@ from soni.core.types import FlowContext
 if TYPE_CHECKING:
     from soni.core.state import DialogueState as DialogueStateDataclass
 
-    DialogueState = DialogueStateTypedDict | DialogueStateDataclass | dict[str, Any]
+    DialogueState: TypeAlias = DialogueStateTypedDict | DialogueStateDataclass | dict[str, Any]
 else:
     # Runtime: use TypedDict version for Protocol compatibility
     # The actual implementation will handle both types
-    DialogueState = DialogueStateTypedDict | dict[str, Any]
+    DialogueState: TypeAlias = DialogueStateTypedDict | dict[str, Any]
 
 
 class INLUProvider(Protocol):
