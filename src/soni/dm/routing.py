@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
 from soni.core.state import DialogueState
+from soni.core.types import DialogueState as DialogueStateTypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +189,71 @@ def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:
         return "end"
 
     return "next"
+
+
+def route_after_understand(state: DialogueStateTypedDict) -> str:
+    """
+    Route based on NLU result.
+
+    Pattern: Routing Function (synchronous, returns node name)
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Name of next node to execute
+    """
+    nlu_result = state.get("nlu_result")
+
+    if not nlu_result:
+        return "generate_response"
+
+    message_type = nlu_result.get("message_type")
+
+    # Route based on message type
+    match message_type:
+        case "slot_value":
+            return "validate_slot"
+        case "correction":
+            return "handle_correction"
+        case "modification":
+            return "handle_modification"
+        case "interruption":
+            return "handle_intent_change"
+        case "digression":
+            return "handle_digression"
+        case "clarification":
+            return "handle_clarification"
+        case "cancellation":
+            return "handle_cancellation"
+        case "confirmation":
+            return "handle_confirmation"
+        case "continuation":
+            return "continue_flow"
+        case _:
+            return "generate_response"
+
+
+def route_after_validate(state: DialogueStateTypedDict) -> str:
+    """
+    Route after slot validation.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    # Check if all required slots filled
+    flow_stack = state.get("flow_stack", [])
+    active_flow = flow_stack[-1] if flow_stack else None
+
+    if not active_flow:
+        return "generate_response"
+
+    # TODO: Check slot requirements from flow definition
+    # For now, simple logic
+    if state.get("all_slots_filled"):
+        return "execute_action"
+    else:
+        return "collect_next_slot"
