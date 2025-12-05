@@ -10,6 +10,7 @@ from soni.core.state import (
     RuntimeContext,
     create_empty_state,
     create_initial_state,
+    create_runtime_context,
     get_all_slots,
     get_current_flow,
 )
@@ -31,7 +32,7 @@ def test_runtime_context_creation():
     mock_du = MagicMock()
 
     # Act
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=mock_scope,
         normalizer=mock_normalizer,
@@ -54,7 +55,7 @@ def test_runtime_context_get_slot_config():
 
     config_path = Path("examples/flight_booking/soni.yaml")
     config = SoniConfig.from_yaml(config_path)
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
         normalizer=MagicMock(),
@@ -77,7 +78,7 @@ def test_runtime_context_get_action_config():
 
     config_path = Path("examples/flight_booking/soni.yaml")
     config = SoniConfig.from_yaml(config_path)
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
         normalizer=MagicMock(),
@@ -101,7 +102,7 @@ def test_runtime_context_get_flow_config():
 
     config_path = Path("examples/flight_booking/soni.yaml")
     config = SoniConfig.from_yaml(config_path)
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
         normalizer=MagicMock(),
@@ -127,7 +128,7 @@ def test_runtime_context_get_slot_config_not_found():
         slots={},
         actions={},
     )
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
         normalizer=MagicMock(),
@@ -189,7 +190,7 @@ def test_node_factories_require_runtime_context():
     mock_normalizer = MagicMock()
     mock_handler = MagicMock()
     mock_du = MagicMock()
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=mock_scope,
         normalizer=mock_normalizer,

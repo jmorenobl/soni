@@ -10,8 +10,10 @@ from soni.core.state import (
     DialogueState,
     create_empty_state,
     create_initial_state,
+    create_runtime_context,
     get_all_slots,
     get_current_flow,
+    set_slot,
 )
 from soni.dm.graph import SoniGraphBuilder
 from soni.dm.nodes import understand_node
@@ -157,7 +159,7 @@ async def test_understand_node_with_message():
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -177,9 +179,11 @@ async def test_understand_node_with_message():
     result = await understand_fn(state)
 
     # Assert
-    assert "slots" in result
-    assert result["slots"]["destination"] == "Paris"
-    assert result["pending_action"] == "book_flight"
+    # Check slots using helper (slots are now in flow_slots)
+    from soni.core.state import get_slot
+
+    assert get_slot(result, "destination") == "Paris"
+    assert result.get("pending_action") == "book_flight"
     # Verify available_flows was passed to NLU
     assert len(predict_calls) > 0, "NLU predict should have been called"
     assert "available_flows" in predict_calls[0], "available_flows should be passed to NLU"
@@ -206,7 +210,7 @@ async def test_collect_slot_node_prompts_user():
     action_handler = ActionHandler(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -247,7 +251,7 @@ async def test_action_node_executes_handler():
     normalizer = SlotNormalizer(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -262,9 +266,11 @@ async def test_action_node_executes_handler():
     result = await action_fn(state)
 
     # Assert
+    from soni.core.state import get_slot
+
     mock_handler.execute.assert_called_once()
-    assert "slots" in result
-    assert "flights" in result["slots"]
+    # Check if flights was added as a slot (action outputs go to slots)
+    assert get_slot(result, "flights") is not None
 
 
 @pytest.mark.asyncio
@@ -406,7 +412,7 @@ async def test_understand_node_no_messages():
     action_handler = ActionHandler(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -442,23 +448,23 @@ async def test_collect_slot_node_already_filled():
     config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
     # Create state with slot filled and trace event showing it was explicitly collected
     from soni.core.events import EVENT_SLOT_COLLECTION
+    from soni.core.state import create_runtime_context
 
-    state = DialogueState(
-        slots={"origin": "NYC"},
-        trace=[
-            {
-                "event": EVENT_SLOT_COLLECTION,
-                "data": {"slot": "origin", "prompt": "Which city are you departing from?"},
-            }
-        ],
-    )
+    state = create_empty_state()
+    set_slot(state, "origin", "NYC")
+    state["trace"] = [
+        {
+            "event": EVENT_SLOT_COLLECTION,
+            "data": {"slot": "origin", "prompt": "Which city are you departing from?"},
+        }
+    ]
 
     scope_manager = ScopeManager(config=config)
     normalizer = SlotNormalizer(config=config)
     action_handler = ActionHandler(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -492,7 +498,7 @@ async def test_collect_slot_node_missing_slot_config():
     action_handler = ActionHandler(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,
@@ -529,7 +535,7 @@ async def test_action_node_missing_input_slot():
     action_handler = ActionHandler(config=config)
     du = SoniDU()
 
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=scope_manager,
         normalizer=normalizer,

@@ -11,8 +11,10 @@ from soni.core.state import (
     RuntimeContext,
     create_empty_state,
     create_initial_state,
+    create_runtime_context,
     get_all_slots,
     get_current_flow,
+    get_slot,
 )
 from soni.dm.nodes.factories import create_action_node_factory
 
@@ -48,7 +50,7 @@ async def test_action_node_applies_map_outputs():
     from soni.du.normalizer import SlotNormalizer
 
     action_handler = ActionHandler(config)
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=ScopeManager(config=config),
         normalizer=SlotNormalizer(config=config),
@@ -78,9 +80,9 @@ async def test_action_node_applies_map_outputs():
 
     # Assert
     assert "result" in updates["slots"]
-    assert updates["slots"]["result"] == "success"
+    assert get_slot(updates, "result") == "success"
     assert "data" in updates["slots"]
-    assert updates["slots"]["data"] == {"key": "value"}
+    assert get_slot(updates, "data") == {"key": "value"}
     assert "api_metadata" not in updates["slots"]  # Not mapped
     assert "api_result" not in updates["slots"]  # Mapped to "result"
     assert "api_data" not in updates["slots"]  # Mapped to "data"
@@ -113,7 +115,7 @@ async def test_action_node_without_map_outputs():
     from soni.du.normalizer import SlotNormalizer
 
     action_handler = ActionHandler(config)
-    context = RuntimeContext(
+    context = create_runtime_context(
         config=config,
         scope_manager=ScopeManager(config=config),
         normalizer=SlotNormalizer(config=config),
@@ -139,8 +141,8 @@ async def test_action_node_without_map_outputs():
     # Assert
     assert "output1" in updates["slots"]
     assert "output2" in updates["slots"]
-    assert updates["slots"]["output1"] == "value1"
-    assert updates["slots"]["output2"] == "value2"
+    assert get_slot(updates, "output1") == "value1"
+    assert get_slot(updates, "output2") == "value2"
 
 
 def test_validate_map_outputs():
