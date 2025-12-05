@@ -37,6 +37,7 @@ dependencies = [
     "typer>=0.15.0,<1.0.0",
     "cachetools>=5.3.0,<6.0.0",
     "python-dotenv>=1.2.1",
+    "dateparser>=1.2.0,<2.0.0",
 ]
 
 [project.scripts]
@@ -141,6 +142,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["pythonjsonlogger", "pythonjsonlogger.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["dateparser", "dateparser.*"]
 ignore_missing_imports = true
 
 # Relaxed rules for test files

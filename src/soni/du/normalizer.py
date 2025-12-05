@@ -1,9 +1,10 @@
 """Slot normalization layer for Soni Framework."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
+import dateparser
 import dspy
 from cachetools import TTLCache
 
@@ -123,16 +124,18 @@ class SlotNormalizer(INormalizer):
         return str(value).lower().strip()
 
     async def _natural_date(self, value: Any) -> str:
-        """Convert natural language dates to ISO format.
+        """Convert natural language dates to ISO format using dateparser.
 
+        Supports multiple languages automatically (e.g., "mañana", "demain", "morgen").
         Handles expressions like:
-        - "tomorrow", "today", "yesterday"
-        - "next Monday", "next Friday"
-        - "in 3 days", "in a week"
+        - Relative dates: "tomorrow", "mañana", "demain", "yesterday", "ayer"
+        - Weekdays: "next Monday", "próximo lunes", "lundi prochain"
+        - Relative time: "in 3 days", "en 3 días", "dans 3 jours"
         - ISO format dates (passed through)
+        - Various date formats in multiple languages
 
         Args:
-            value: Natural language date expression
+            value: Natural language date expression in any supported language
 
         Returns:
             ISO format date string (YYYY-MM-DD)
@@ -140,50 +143,41 @@ class SlotNormalizer(INormalizer):
         if value is None:
             return ""
 
-        value_str = str(value).strip().lower()
-        today = datetime.now().date()
+        value_str = str(value).strip()
 
-        # Try direct ISO parsing first
+        # Try direct ISO parsing first (fast path)
         try:
             parsed = datetime.fromisoformat(value_str.upper() if "t" in value_str else value_str)
             return parsed.date().isoformat()
         except ValueError:
             pass
 
-        # Handle relative dates
-        relative_dates = {
-            "today": today,
-            "tomorrow": today + timedelta(days=1),
-            "yesterday": today - timedelta(days=1),
-            "day after tomorrow": today + timedelta(days=2),
-        }
+        # Use dateparser for multi-language natural date parsing
+        # dateparser automatically detects language and handles:
+        # - Multiple languages (English, Spanish, French, German, etc.)
+        # - Relative dates ("tomorrow", "mañana", "demain")
+        # - Weekdays ("next Monday", "próximo lunes")
+        # - Various date formats
+        try:
+            parsed_date = dateparser.parse(
+                value_str,
+                settings={
+                    "RELATIVE_BASE": datetime.now(),
+                    "PREFER_DATES_FROM": "future",  # For booking systems, prefer future dates
+                    "RETURN_AS_TIMEZONE_AWARE": False,
+                },
+            )
 
-        if value_str in relative_dates:
-            return relative_dates[value_str].isoformat()
+            if parsed_date and isinstance(parsed_date, datetime):
+                date_str: str = parsed_date.date().isoformat()
+                return date_str
+            else:
+                logger.debug(f"dateparser could not parse '{value_str}', falling back to LLM")
+                return await self._llm_date_parsing(value_str)
 
-        # Handle "next <weekday>"
-        weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        for i, weekday in enumerate(weekdays):
-            if f"next {weekday}" in value_str:
-                days_ahead = i - today.weekday()
-                if days_ahead <= 0:
-                    days_ahead += 7
-                return (today + timedelta(days=days_ahead)).isoformat()
-
-        # Handle "in X days/weeks"
-        if "in " in value_str:
-            import re
-
-            match = re.search(r"in\s+(\d+|a|an)\s+(day|days|week|weeks)", value_str)
-            if match:
-                amount = 1 if match.group(1) in ("a", "an") else int(match.group(1))
-                unit = match.group(2)
-                if "week" in unit:
-                    amount *= 7
-                return (today + timedelta(days=amount)).isoformat()
-
-        # Fallback: use LLM for complex cases
-        return await self._llm_date_parsing(value_str)
+        except Exception as e:
+            logger.warning(f"dateparser error for '{value_str}': {e}, falling back to LLM")
+            return await self._llm_date_parsing(value_str)
 
     async def _llm_date_parsing(self, value: str) -> str:
         """Use LLM to parse complex date expressions.
@@ -200,12 +194,24 @@ Today's date is {today_str}.
 
 Date expression: "{value}"
 
-Return ONLY the date in YYYY-MM-DD format, nothing else."""
+Return ONLY the date in YYYY-MM-DD format, nothing else. Do not return a list or array."""
 
         try:
             response = await self.llm.acall(prompt)
             response_str = str(response) if response is not None else ""
-            date_str = response_str.strip().strip('"').strip("'")
+
+            # Handle list responses (sometimes LLM returns ['2025-12-10'])
+            if response_str.startswith("[") and response_str.endswith("]"):
+                import ast
+
+                try:
+                    parsed_list = ast.literal_eval(response_str)
+                    if isinstance(parsed_list, list) and len(parsed_list) > 0:
+                        response_str = str(parsed_list[0])
+                except (ValueError, SyntaxError):
+                    pass
+
+            date_str = response_str.strip().strip('"').strip("'").strip()
 
             # Validate the result
             datetime.fromisoformat(date_str)
