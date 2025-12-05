@@ -130,15 +130,30 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
     Returns:
         Average accuracy score (0.0 to 1.0)
     """
+    from soni.du.models import DialogueContext
+
     scores = []
     for example_idx, example in enumerate(trainset):
         try:
+            # Extract structured inputs from example
+            # Examples should have history and context fields (new format)
+            if hasattr(example, "history"):
+                history = example.history
+            else:
+                history = dspy.History(messages=[])
+
+            if hasattr(example, "context"):
+                context = example.context
+            else:
+                context = DialogueContext()
+
+            current_datetime = getattr(example, "current_datetime", "")
+
             prediction = module.forward(
                 user_message=example.user_message,
-                dialogue_history=example.dialogue_history,
-                current_slots=example.current_slots,
-                available_actions=example.available_actions,
-                current_flow=example.current_flow,
+                history=history,
+                context=context,
+                current_datetime=current_datetime,
             )
             score = intent_accuracy_metric(example, prediction)
             scores.append(score)
