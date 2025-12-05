@@ -498,7 +498,6 @@ from dspy.utils.dummies import DummyLM
 from langgraph.types import Command
 from soni.dm.builder import build_graph
 from soni.du.modules import SoniDU
-from soni.du.provider import DSPyNLUProvider
 from soni.flow.manager import FlowManager
 from soni.core.state import create_initial_state
 from unittest.mock import MagicMock, AsyncMock
@@ -535,7 +534,7 @@ async def test_complete_dialogue_flow():
 
     # Create dependencies
     nlu_module = SoniDU()
-    nlu_provider = DSPyNLUProvider(nlu_module)
+    nlu_provider = nlu_module  # SoniDU implements INLUProvider directly
     flow_manager = FlowManager()
 
     mock_action_handler = AsyncMock()

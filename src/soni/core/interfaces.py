@@ -19,8 +19,7 @@ class INLUProvider(Protocol):
     """Interface for NLU providers.
 
     The main method is predict() which uses structured types.
-    understand() is provided for compatibility with dict-based interfaces
-    (e.g., DSPyNLUProvider implements INLUProvider interface).
+    understand() is provided for compatibility with dict-based interfaces.
     """
 
     async def predict(

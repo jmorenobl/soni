@@ -5,7 +5,6 @@ import pytest
 from dspy.utils.dummies import DummyLM
 
 from soni.du.modules import SoniDU
-from soni.du.provider import DSPyNLUProvider
 
 
 @pytest.fixture
@@ -31,10 +30,10 @@ def dummy_lm():
 
 @pytest.mark.asyncio
 async def test_dspy_nlu_provider(dummy_lm):
-    """Test DSPyNLUProvider with DummyLM."""
+    """Test SoniDU with DummyLM (implements INLUProvider directly)."""
     # Arrange
     module = SoniDU()
-    provider = DSPyNLUProvider(module)
+    provider = module  # Use SoniDU directly (implements INLUProvider)
 
     dialogue_context = {
         "current_slots": {},
@@ -58,10 +57,10 @@ async def test_dspy_nlu_provider(dummy_lm):
 
 @pytest.mark.asyncio
 async def test_dspy_nlu_provider_with_history(dummy_lm):
-    """Test DSPyNLUProvider with conversation history."""
+    """Test SoniDU with conversation history (implements INLUProvider directly)."""
     # Arrange
     module = SoniDU()
-    provider = DSPyNLUProvider(module)
+    provider = module  # Use SoniDU directly (implements INLUProvider)
 
     dialogue_context = {
         "current_slots": {"origin": "Madrid"},
@@ -85,10 +84,10 @@ async def test_dspy_nlu_provider_with_history(dummy_lm):
 
 @pytest.mark.asyncio
 async def test_dspy_nlu_provider_missing_fields(dummy_lm):
-    """Test DSPyNLUProvider handles missing context fields."""
+    """Test SoniDU handles missing context fields (implements INLUProvider directly)."""
     # Arrange
     module = SoniDU()
-    provider = DSPyNLUProvider(module)
+    provider = module  # Use SoniDU directly (implements INLUProvider)
 
     dialogue_context = {}  # Empty context
 

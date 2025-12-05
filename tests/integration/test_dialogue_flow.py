@@ -13,7 +13,6 @@ from soni.core.state import create_initial_state
 from soni.dm.builder import build_graph
 from soni.du.modules import SoniDU
 from soni.du.normalizer import SlotNormalizer
-from soni.du.provider import DSPyNLUProvider
 from soni.flow.manager import FlowManager
 
 
@@ -50,7 +49,7 @@ async def test_complete_dialogue_flow():
     with dspy.context(lm=lm):
         # Create dependencies
         nlu_module = SoniDU()
-        nlu_provider = DSPyNLUProvider(nlu_module)
+        nlu_provider = nlu_module  # Use SoniDU directly (implements INLUProvider)
 
         # Create minimal config for testing
         config = SoniConfig.from_dict(
@@ -146,7 +145,7 @@ async def test_graph_builds_and_compiles():
 
         context = {
             "flow_manager": FlowManager(),
-            "nlu_provider": DSPyNLUProvider(SoniDU()),
+            "nlu_provider": SoniDU(),
             "action_handler": AsyncMock(),
             "scope_manager": ScopeManager(config=config),
             "normalizer": SlotNormalizer(config=config),
