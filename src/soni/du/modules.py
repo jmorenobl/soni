@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
+from typing import Any
 
 import dspy
 from cachetools import TTLCache
@@ -95,22 +96,21 @@ class SoniDU(dspy.Module):
             current_datetime=current_datetime,
         )
 
-    async def understand(
-        self,
-        user_message: str,
-        dialogue_context: dict,
-    ) -> dict:
-        """High-level async interface for NLU (INLUProvider interface).
+    @staticmethod
+    def _dict_to_structured_types(
+        dialogue_context: dict[str, Any],
+    ) -> tuple[dspy.History, DialogueContext]:
+        """
+        Convert dict-based dialogue context to structured types.
 
-        This method adapts the dict-based interface expected by understand_node
-        to the typed interface of predict().
+        This is a pure function (no side effects) that centralizes the conversion
+        logic to avoid duplication (DRY principle).
 
         Args:
-            user_message: User's input message
             dialogue_context: Dict with current_slots, available_actions, etc.
 
         Returns:
-            Dict with message_type, command, slots, confidence, and reasoning
+            Tuple of (history, context) as structured types
         """
         # Convert history from dialogue_context
         history_messages = dialogue_context.get("history", [])
@@ -127,8 +127,34 @@ class SoniDU(dspy.Module):
             current_prompted_slot=dialogue_context.get("waiting_for_slot"),
         )
 
-        # Call predict and return as dict
+        return history, context
+
+    async def understand(
+        self,
+        user_message: str,
+        dialogue_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """High-level async interface for NLU (INLUProvider interface).
+
+        This is a thin adapter that converts dict-based interface to the
+        structured interface of predict(). Follows Adapter Pattern and SRP:
+        - Single responsibility: Type adaptation only
+        - Delegates actual work to predict()
+
+        Args:
+            user_message: User's input message
+            dialogue_context: Dict with current_slots, available_actions, etc.
+
+        Returns:
+            Dict with message_type, command, slots, confidence, and reasoning
+        """
+        # Convert dict to structured types (DRY: uses centralized conversion)
+        history, context = self._dict_to_structured_types(dialogue_context)
+
+        # Delegate to predict() (the actual implementation)
         result = await self.predict(user_message, history, context)
+
+        # Convert structured result back to dict
         return dict(result.model_dump())
 
     async def predict(

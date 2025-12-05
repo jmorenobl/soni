@@ -2,15 +2,16 @@
 
 from typing import Any
 
-import dspy
-
 from soni.core.interfaces import INLUProvider
-from soni.du.models import DialogueContext, NLUOutput
 from soni.du.modules import SoniDU
 
 
 class DSPyNLUProvider(INLUProvider):
-    """NLU provider using DSPy SoniDU module."""
+    """NLU provider using DSPy SoniDU module.
+
+    This is a thin wrapper that delegates to SoniDU.understand().
+    Follows Adapter Pattern: adapts INLUProvider interface to SoniDU interface.
+    """
 
     def __init__(self, module: SoniDU) -> None:
         """Initialize provider with SoniDU module.
@@ -27,6 +28,11 @@ class DSPyNLUProvider(INLUProvider):
     ) -> dict[str, Any]:
         """Understand user message and return NLU result.
 
+        This method delegates to SoniDU.understand() which handles:
+        - Type conversion (dict → structured types)
+        - Caching
+        - Actual NLU prediction
+
         Args:
             user_message: User's input
             dialogue_context: Context dict with fields:
@@ -36,29 +42,11 @@ class DSPyNLUProvider(INLUProvider):
                 - current_flow: str
                 - expected_slots: list[str]
                 - history: list[dict] (optional)
+                - waiting_for_slot: str | None (optional)
 
         Returns:
             Serialized NLUOutput as dict
         """
-        # Build structured context
-        context = DialogueContext(
-            current_slots=dialogue_context.get("current_slots", {}),
-            available_actions=dialogue_context.get("available_actions", []),
-            available_flows=dialogue_context.get("available_flows", []),
-            current_flow=dialogue_context.get("current_flow", "none"),
-            expected_slots=dialogue_context.get("expected_slots", []),
-        )
-
-        # Build history
-        history_data = dialogue_context.get("history", [])
-        history = dspy.History(messages=history_data)
-
-        # Call NLU
-        result: NLUOutput = await self.module.predict(
-            user_message=user_message,
-            history=history,
-            context=context,
-        )
-
-        # Return serialized
-        return dict(result.model_dump())
+        # Delegate to SoniDU.understand() which handles all conversion and caching
+        # This eliminates code duplication (DRY principle)
+        return await self.module.understand(user_message, dialogue_context)
