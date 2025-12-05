@@ -45,13 +45,13 @@ def test_base_error_without_context():
 def test_validation_error_inheritance():
     """Test ValidationError is a SoniError."""
     # Arrange & Act
-    error = ValidationError("Invalid slot", slot="origin", value="invalid")
+    error = ValidationError("Invalid slot", field="slot", value="origin")
 
     # Assert
     assert isinstance(error, SoniError)
     assert "Invalid slot" in str(error)
-    assert "slot=origin" in str(error)
-    assert "value=invalid" in str(error)
+    assert error.field == "slot"
+    assert error.value == "origin"
 
 
 def test_all_error_types_inherit_from_soni_error():

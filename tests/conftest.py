@@ -92,3 +92,36 @@ def clear_registries():
     # Clear after test (in case test registered something)
     ActionRegistry.clear()
     ValidatorRegistry.clear()
+
+
+@pytest.fixture
+async def runtime_loop():
+    """
+    Fixture that provides a RuntimeLoop instance with automatic cleanup.
+
+    This fixture handles the creation and cleanup of RuntimeLoop instances,
+    ensuring resources are properly released after each test.
+
+    Usage:
+        async def test_something(runtime_loop):
+            runtime = await runtime_loop("examples/flight_booking/soni.yaml")
+            # Use runtime...
+            # Cleanup happens automatically
+    """
+    from pathlib import Path
+
+    from soni.runtime import RuntimeLoop
+
+    runtimes = []
+
+    async def _create_runtime(config_path: str | Path, **kwargs) -> RuntimeLoop:
+        """Create a RuntimeLoop with the given config path and options"""
+        runtime = RuntimeLoop(Path(config_path), **kwargs)
+        runtimes.append(runtime)
+        return runtime
+
+    yield _create_runtime
+
+    # Cleanup all created runtimes
+    for runtime in runtimes:
+        await runtime.cleanup()

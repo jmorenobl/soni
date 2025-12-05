@@ -1,8 +1,5 @@
 """Tests for output mapping in action nodes."""
 
-import importlib.util
-from pathlib import Path
-
 import pytest
 
 from soni.actions.registry import ActionRegistry
@@ -10,16 +7,7 @@ from soni.compiler.builder import StepCompiler
 from soni.compiler.parser import StepParser
 from soni.core.config import ActionConfig, SoniConfig
 from soni.core.state import DialogueState, RuntimeContext
-
-# Import factory functions from nodes.py file (not the nodes/ package)
-nodes_file_path = Path(__file__).parent.parent.parent / "src" / "soni" / "dm" / "nodes.py"
-spec = importlib.util.spec_from_file_location("soni.dm.nodes_file", nodes_file_path)
-if spec is None or spec.loader is None:
-    raise ImportError(f"Could not load nodes.py from {nodes_file_path}")
-nodes_file = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(nodes_file)
-
-create_action_node_factory = nodes_file.create_action_node_factory
+from soni.dm.nodes.factories import create_action_node_factory
 
 
 @pytest.mark.asyncio

@@ -98,16 +98,12 @@ async def test_execute_linear_flow_basic(sample_config):
         # Act
         # Execute graph using LangGraph API (sync for MVP with SqliteSaver)
         config = {"configurable": {"thread_id": "test_user"}}
-        try:
-            result = graph.invoke(initial_state, config)
-            # Assert
-            # Verify graph executed without errors
-            assert result is not None
-            assert isinstance(result, dict)
-        except Exception as e:
-            # For MVP, if execution fails due to node implementation details,
-            # that's acceptable - we verify graph structure is correct
-            pytest.skip(f"Graph execution test skipped due to: {e}")
+        result = graph.invoke(initial_state, config)
+
+        # Assert
+        # Verify graph executed without errors
+        assert result is not None
+        assert isinstance(result, dict)
 
 
 @pytest.mark.asyncio
@@ -136,15 +132,11 @@ async def test_execute_flow_with_action_basic(sample_config):
 
         # Act
         config = {"configurable": {"thread_id": "test_user"}}
-        try:
-            result = graph.invoke(initial_state, config)
-            # Assert
-            assert result is not None
-            assert isinstance(result, dict)
-        except Exception as e:
-            # For MVP, if execution fails due to node implementation details,
-            # that's acceptable - we verify graph structure is correct
-            pytest.skip(f"Graph execution test skipped due to: {e}")
+        result = graph.invoke(initial_state, config)
+
+        # Assert
+        assert result is not None
+        assert isinstance(result, dict)
 
 
 @pytest.mark.asyncio
@@ -182,30 +174,27 @@ async def test_state_persistence_basic(sample_config, tmp_path):
         )
 
         # Act
-        try:
-            # Execute first turn
-            result1 = graph.invoke(initial_state, config)
+        # Execute first turn
+        result1 = graph.invoke(initial_state, config)
 
-            # Execute second turn (should have persisted state)
-            second_state = {
-                "messages": [{"role": "user", "content": "From NYC"}],
-                "slots": {},
-                "current_flow": "book_flight",
-                "pending_action": None,
-                "last_response": "",
-                "turn_count": 0,
-                "trace": [],
-                "summary": None,
-            }
-            result2 = graph.invoke(second_state, config)
+        # Execute second turn (should have persisted state)
+        second_state = {
+            "messages": [{"role": "user", "content": "From NYC"}],
+            "slots": {},
+            "current_flow": "book_flight",
+            "pending_action": None,
+            "last_response": "",
+            "turn_count": 0,
+            "trace": [],
+            "summary": None,
+        }
+        result2 = graph.invoke(second_state, config)
 
-            # Assert
-            # Verify both turns executed
-            assert result1 is not None
-            assert result2 is not None
-            # Note: Full persistence verification depends on LangGraph checkpointing
-        except Exception as e:
-            pytest.skip(f"Persistence test skipped due to: {e}")
+        # Assert
+        # Verify both turns executed
+        assert result1 is not None
+        assert result2 is not None
+        # Note: Full persistence verification depends on LangGraph checkpointing
 
 
 @pytest.mark.asyncio
@@ -253,22 +242,19 @@ async def test_state_isolation_basic(sample_config, tmp_path):
         )
 
         # Act
-        try:
-            # Execute for user1
-            config1 = {"configurable": {"thread_id": user1_id}}
-            result1 = graph.invoke(initial_state1, config1)
+        # Execute for user1
+        config1 = {"configurable": {"thread_id": user1_id}}
+        result1 = graph.invoke(initial_state1, config1)
 
-            # Execute for user2
-            config2 = {"configurable": {"thread_id": user2_id}}
-            result2 = graph.invoke(initial_state2, config2)
+        # Execute for user2
+        config2 = {"configurable": {"thread_id": user2_id}}
+        result2 = graph.invoke(initial_state2, config2)
 
-            # Assert
-            # Verify each user executed independently
-            assert result1 is not None
-            assert result2 is not None
-            # Note: Full isolation verification depends on LangGraph checkpointing
-        except Exception as e:
-            pytest.skip(f"Isolation test skipped due to: {e}")
+        # Assert
+        # Verify each user executed independently
+        assert result1 is not None
+        assert result2 is not None
+        # Note: Full isolation verification depends on LangGraph checkpointing
 
 
 @pytest.mark.asyncio
@@ -377,12 +363,9 @@ async def test_handle_missing_slot(sample_config):
 
         # Act
         config = {"configurable": {"thread_id": "test_user"}}
-        try:
-            result = graph.invoke(initial_state, config)
-            # Assert
-            # Graph should prompt for missing slots
-            assert result is not None
-            # Note: Actual verification depends on collect_slot_node behavior
-        except Exception as e:
-            # For MVP, if execution fails, that's acceptable
-            pytest.skip(f"Missing slot test skipped due to: {e}")
+        result = graph.invoke(initial_state, config)
+
+        # Assert
+        # Graph should prompt for missing slots
+        assert result is not None
+        # Note: Actual verification depends on collect_slot_node behavior
