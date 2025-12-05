@@ -281,52 +281,12 @@ async def test_soni_du_predict_missing_attributes():
         du.acall = original_acall
 
 
-@pytest.mark.skip(reason="DummyLM has limitations with complex Pydantic models in signatures")
-def test_soni_du_forward_with_dummy_lm():
-    """Test forward method with DummyLM
-
-    Note: This test is skipped because DummyLM has limitations parsing
-    complex Pydantic models (NLUOutput) in DSPy signatures. For real testing,
-    use a configured LM or integration tests.
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure DummyLM - DSPy will parse the response according to signature
-    # The signature expects result field with NLUOutput structure
-    dummy_responses = [
-        '{"result": {"message_type": "slot_value", "command": "book_flight", "slots": [{"name": "destination", "value": "Paris", "confidence": 0.95}], "confidence": 0.95, "reasoning": "User wants to book a flight to Paris"}}'
-    ]
-    lm = DummyLM(dummy_responses)
-    dspy.configure(lm=lm)
-
-    du = SoniDU()
-
-    # Act
-    history = dspy.History(messages=[])
-    context = DialogueContext(
-        current_slots={},
-        available_actions=["book_flight"],
-        available_flows=["book_flight"],
-        current_flow="none",
-        expected_slots=[],
-    )
-    result = du.forward(
-        user_message="I want to book a flight to Paris",
-        history=history,
-        context=context,
-    )
-
-    # Assert
-    assert result is not None
-    assert hasattr(result, "result")
-    # Result should be NLUOutput (or dict representation from DSPy)
-    result_data = result.result
-    if isinstance(result_data, NLUOutput):
-        assert result_data.command == "book_flight"
-    elif isinstance(result_data, dict):
-        assert result_data.get("command") == "book_flight" or "book_flight" in str(result_data)
+# NOTE: DummyLM Testing
+# We don't use DSPy's DummyLM for testing SoniDU because DummyLM has limitations
+# with complex Pydantic models (NLUOutput with nested SlotValue models and enums).
+# Instead, we use AsyncMock which provides better control and supports Pydantic models.
+# See test_soni_du_forward_with_mock() and test_soni_du_predict_with_mock() above
+# for the mock-based testing approach.
 
 
 def test_soni_du_serialization(tmp_path):

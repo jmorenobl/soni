@@ -33,6 +33,10 @@ from soni.runtime import RuntimeLoop
 
 # Configure logging to be less noisy for libraries, but clear for our script
 logging.basicConfig(level=logging.WARNING)
+# Enable INFO logging for Soni to see high-level "gears" (NLU, Scoping, etc.)
+logging.getLogger("soni").setLevel(logging.INFO)
+# logging.getLogger("soni").setLevel(logging.DEBUG) # Uncomment for deeper inspection
+
 logger = logging.getLogger("soni_debugger")
 logger.setLevel(logging.INFO)
 
