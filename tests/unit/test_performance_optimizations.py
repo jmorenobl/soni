@@ -4,11 +4,12 @@ import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import dspy
 import pytest
 
 from soni.core.scope import ScopeManager
 from soni.core.state import DialogueState
-from soni.du.models import NLUOutput
+from soni.du.models import DialogueContext, MessageType, NLUOutput, SlotValue
 from soni.du.modules import SoniDU
 
 
@@ -18,17 +19,24 @@ async def test_nlu_cache_hit():
     # Arrange
     du = SoniDU(cache_size=100, cache_ttl=60)
     user_message = "I want to book a flight"
-    dialogue_history = ""
-    current_slots = {}
-    available_actions = ["book_flight", "cancel_booking"]
-    current_flow = "none"
+    history = dspy.History(messages=[])
+    context = DialogueContext(
+        current_slots={},
+        available_actions=["book_flight", "cancel_booking"],
+        available_flows=["book_flight"],
+        current_flow="none",
+        expected_slots=[],
+    )
 
-    # Mock the acall to return a prediction
+    # Mock the acall to return a prediction with NLUOutput
     mock_prediction = MagicMock()
-    mock_prediction.structured_command = "book_flight"
-    mock_prediction.extracted_slots = '{"destination": "Paris"}'
-    mock_prediction.confidence = "0.9"
-    mock_prediction.reasoning = "User wants to book a flight"
+    mock_prediction.result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="book_flight",
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+        confidence=0.9,
+        reasoning="User wants to book a flight",
+    )
 
     with patch.object(du, "acall", new_callable=AsyncMock) as mock_acall:
         mock_acall.return_value = mock_prediction
@@ -36,20 +44,16 @@ async def test_nlu_cache_hit():
         # Act - First call (cache miss)
         result1 = await du.predict(
             user_message=user_message,
-            dialogue_history=dialogue_history,
-            current_slots=current_slots,
-            available_actions=available_actions,
-            current_flow=current_flow,
+            history=history,
+            context=context,
         )
 
         # Second call (cache hit)
         start_time = time.time()
         result2 = await du.predict(
             user_message=user_message,
-            dialogue_history=dialogue_history,
-            current_slots=current_slots,
-            available_actions=available_actions,
-            current_flow=current_flow,
+            history=history,
+            context=context,
         )
         elapsed = time.time() - start_time
 
@@ -73,38 +77,56 @@ async def test_nlu_cache_miss():
     # Arrange
     du = SoniDU(cache_size=100, cache_ttl=60)
 
-    # Mock the acall to return different predictions
+    # Mock the acall to return different predictions with NLUOutput
     mock_prediction1 = MagicMock()
-    mock_prediction1.structured_command = "book_flight"
-    mock_prediction1.extracted_slots = '{"destination": "Paris"}'
-    mock_prediction1.confidence = "0.9"
-    mock_prediction1.reasoning = "User wants to book"
+    mock_prediction1.result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="book_flight",
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+        confidence=0.9,
+        reasoning="User wants to book",
+    )
 
     mock_prediction2 = MagicMock()
-    mock_prediction2.structured_command = "cancel_booking"
-    mock_prediction2.extracted_slots = "{}"
-    mock_prediction2.confidence = "0.8"
-    mock_prediction2.reasoning = "User wants to cancel"
+    mock_prediction2.result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="cancel_booking",
+        slots=[],
+        confidence=0.8,
+        reasoning="User wants to cancel",
+    )
 
     with patch.object(du, "acall", new_callable=AsyncMock) as mock_acall:
         mock_acall.side_effect = [mock_prediction1, mock_prediction2]
 
         # Act - First call
-        result1 = await du.predict(
-            user_message="I want to book a flight",
-            dialogue_history="",
+        history1 = dspy.History(messages=[])
+        context1 = DialogueContext(
             current_slots={},
             available_actions=["book_flight"],
+            available_flows=["book_flight"],
             current_flow="none",
+            expected_slots=[],
+        )
+        result1 = await du.predict(
+            user_message="I want to book a flight",
+            history=history1,
+            context=context1,
         )
 
         # Second call with different message (cache miss)
-        result2 = await du.predict(
-            user_message="I want to cancel my booking",
-            dialogue_history="",
+        history2 = dspy.History(messages=[])
+        context2 = DialogueContext(
             current_slots={},
             available_actions=["cancel_booking"],
+            available_flows=["cancel_booking"],
             current_flow="none",
+            expected_slots=[],
+        )
+        result2 = await du.predict(
+            user_message="I want to cancel my booking",
+            history=history2,
+            context=context2,
         )
 
         # Assert
@@ -121,13 +143,24 @@ async def test_nlu_cache_ttl_expiry():
     # Arrange
     du = SoniDU(cache_size=100, cache_ttl=1)  # 1 second TTL
     user_message = "I want to book a flight"
+    history = dspy.History(messages=[])
+    context = DialogueContext(
+        current_slots={},
+        available_actions=["book_flight"],
+        available_flows=["book_flight"],
+        current_flow="none",
+        expected_slots=[],
+    )
 
-    # Mock the acall to return a prediction
+    # Mock the acall to return a prediction with NLUOutput
     mock_prediction = MagicMock()
-    mock_prediction.structured_command = "book_flight"
-    mock_prediction.extracted_slots = '{"destination": "Paris"}'
-    mock_prediction.confidence = "0.9"
-    mock_prediction.reasoning = "User wants to book"
+    mock_prediction.result = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="book_flight",
+        slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+        confidence=0.9,
+        reasoning="User wants to book",
+    )
 
     with patch.object(du, "acall", new_callable=AsyncMock) as mock_acall:
         mock_acall.return_value = mock_prediction
@@ -135,10 +168,8 @@ async def test_nlu_cache_ttl_expiry():
         # Act - First call (cache miss)
         result1 = await du.predict(
             user_message=user_message,
-            dialogue_history="",
-            current_slots={},
-            available_actions=["book_flight"],
-            current_flow="none",
+            history=history,
+            context=context,
         )
 
         # Wait for TTL to expire
@@ -147,10 +178,8 @@ async def test_nlu_cache_ttl_expiry():
         # Second call (should be cache miss due to expiry)
         result2 = await du.predict(
             user_message=user_message,
-            dialogue_history="",
-            current_slots={},
-            available_actions=["book_flight"],
-            current_flow="none",
+            history=history,
+            context=context,
         )
 
         # Assert
