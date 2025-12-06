@@ -18,7 +18,7 @@ from soni.core.state import (
 
 @pytest.fixture
 def sample_config() -> SoniConfig:
-    """Create sample configuration for testing."""
+    """Create sample configuration for testing with memory backend."""
     config_dict = {
         "version": "1.0",
         "settings": {
@@ -28,6 +28,9 @@ def sample_config() -> SoniConfig:
                     "model": "gpt-4o-mini",
                     "temperature": 0.1,
                 },
+            },
+            "persistence": {
+                "backend": "memory",
             },
         },
         "flows": {

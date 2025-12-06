@@ -12,8 +12,10 @@ from soni.core.config import SoniConfig
 def test_compiler_creates_dag_with_nodes():
     """Test compiler creates DAG with correct nodes"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act
@@ -31,8 +33,10 @@ def test_compiler_creates_dag_with_nodes():
 def test_compiler_creates_sequential_edges():
     """Test compiler connects nodes sequentially"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act
@@ -55,8 +59,10 @@ def test_compiler_creates_sequential_edges():
 def test_compiler_raises_on_missing_flow():
     """Test compiler raises KeyError for missing flow"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act & Assert
@@ -69,8 +75,10 @@ def test_compiler_raises_on_missing_flow():
 def test_compiler_creates_collect_node():
     """Test compiler creates collect node with correct config"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act
@@ -87,8 +95,10 @@ def test_compiler_creates_collect_node():
 def test_compiler_creates_action_node():
     """Test compiler creates action node with correct config"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act
@@ -107,8 +117,10 @@ def test_compiler_creates_action_node():
 def test_compiler_dag_has_correct_structure():
     """Test DAG has correct structure with entry point"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     compiler = FlowCompiler(config)
 
     # Act

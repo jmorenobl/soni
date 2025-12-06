@@ -13,18 +13,34 @@ from soni.runtime import RuntimeLoop
 async def test_runtime_initializes_normalizer():
     """Test that RuntimeLoop initializes normalizer correctly"""
     # Arrange
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
 
-    # Act
-    runtime = RuntimeLoop(config_path)
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
-    # Assert
-    assert hasattr(runtime, "normalizer")
-    assert runtime.normalizer is not None
-    assert runtime.normalizer.config is not None
+    try:
+        # Act
+        runtime = RuntimeLoop(temp_config_path)
 
-    # Cleanup
-    await runtime.cleanup()
+        # Assert
+        assert hasattr(runtime, "normalizer")
+        assert runtime.normalizer is not None
+        assert runtime.normalizer.config is not None
+
+        # Cleanup
+        await runtime.cleanup()
+    finally:
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.integration
@@ -39,14 +55,27 @@ async def test_normalizer_in_graph_node(skip_without_api_key):
     requires additional slots.
     """
     # Arrange
+    import tempfile
+
+    import yaml
+
     from soni.core.errors import SoniError
+    from tests.conftest import load_test_config
 
     config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-normalizer-1"
-    user_msg = "I want to book a flight from  Madrid  "  # Extra spaces to test normalization
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-normalizer-1"
+        user_msg = "I want to book a flight from  Madrid  "  # Extra spaces to test normalization
+
         # Act
         # Initialize graph to ensure normalizer is set up
         await runtime._ensure_graph_initialized()
@@ -80,3 +109,4 @@ async def test_normalizer_in_graph_node(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)

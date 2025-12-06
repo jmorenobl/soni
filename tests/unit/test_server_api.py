@@ -20,19 +20,37 @@ def client():
 @pytest.fixture
 async def mock_runtime(monkeypatch):
     """Mock runtime for testing with automatic cleanup"""
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    mock_runtime = RuntimeLoop(config_path)
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
 
-    # Mock process_message to avoid actual execution
-    async def mock_process_message(user_msg: str, user_id: str) -> str:
-        if not user_msg.strip():
-            raise ValidationError("Message cannot be empty")
-        return f"Mock response to: {user_msg}"
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
-    mock_runtime.process_message = mock_process_message
-    yield mock_runtime
-    # Cleanup connections after test
-    await mock_runtime.cleanup()
+    try:
+        mock_runtime = RuntimeLoop(temp_config_path)
+
+        # Mock process_message to avoid actual execution
+        async def mock_process_message(user_msg: str, user_id: str) -> str:
+            if not user_msg.strip():
+                raise ValidationError("Message cannot be empty")
+            return f"Mock response to: {user_msg}"
+
+        mock_runtime.process_message = mock_process_message
+        yield mock_runtime
+        # Cleanup connections after test
+        await mock_runtime.cleanup()
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 def test_health_endpoint(client):
@@ -300,7 +318,7 @@ async def test_startup_event(monkeypatch, tmp_path):
     # Arrange
     from soni.server.api import app, lifespan
 
-    # Create a temporary config file
+    # Create a temporary config file with memory backend for tests
     config_file = tmp_path / "test_config.yaml"
     config_file.write_text(
         """
@@ -310,6 +328,8 @@ settings:
     nlu:
       provider: openai
       model: gpt-4o-mini
+  persistence:
+    backend: memory
 flows:
   test_flow:
     description: "Test flow"
@@ -343,7 +363,7 @@ async def test_startup_event_with_optimized_du(monkeypatch, tmp_path):
     # Arrange
     from soni.server.api import app, lifespan
 
-    # Create temporary config and DU files
+    # Create temporary config and DU files with memory backend for tests
     config_file = tmp_path / "test_config.yaml"
     config_file.write_text(
         """
@@ -353,6 +373,8 @@ settings:
     nlu:
       provider: openai
       model: gpt-4o-mini
+  persistence:
+    backend: memory
 flows:
   test_flow:
     description: "Test flow"

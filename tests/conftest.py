@@ -94,6 +94,48 @@ def clear_registries():
     ValidatorRegistry.clear()
 
 
+def configure_test_config_for_memory(config):
+    """
+    Helper function to configure a SoniConfig instance to use memory backend for tests.
+
+    This ensures tests use MemorySaver instead of SQLite, providing:
+    - Faster test execution (no I/O)
+    - Better test isolation (no shared database state)
+    - No need for database cleanup
+
+    SQLite should only be used for development, not for tests.
+
+    Args:
+        config: SoniConfig instance to modify
+
+    Returns:
+        Modified SoniConfig instance (same object, modified in place)
+    """
+    if hasattr(config, "settings") and hasattr(config.settings, "persistence"):
+        config.settings.persistence.backend = "memory"
+    return config
+
+
+def load_test_config(config_path: str | Path):
+    """
+    Load a SoniConfig from YAML file and configure it for testing (memory backend).
+
+    This is a convenience function for tests that need to load configuration files.
+    It automatically configures the persistence backend to 'memory' for faster,
+    isolated tests.
+
+    Args:
+        config_path: Path to YAML configuration file
+
+    Returns:
+        SoniConfig instance configured with memory backend
+    """
+    from soni.core.config import SoniConfig
+
+    config = SoniConfig.from_yaml(config_path)
+    return configure_test_config_for_memory(config)
+
+
 @pytest.fixture
 async def runtime_loop():
     """
@@ -101,6 +143,7 @@ async def runtime_loop():
 
     This fixture handles the creation and cleanup of RuntimeLoop instances,
     ensuring resources are properly released after each test.
+    Automatically configures memory backend for tests to avoid SQLite warnings.
 
     Usage:
         async def test_something(runtime_loop):
@@ -108,15 +151,28 @@ async def runtime_loop():
             # Use runtime...
             # Cleanup happens automatically
     """
+    import tempfile
     from pathlib import Path
+
+    import yaml
 
     from soni.runtime import RuntimeLoop
 
     runtimes = []
+    temp_files = []
 
     async def _create_runtime(config_path: str | Path, **kwargs) -> RuntimeLoop:
         """Create a RuntimeLoop with the given config path and options"""
-        runtime = RuntimeLoop(Path(config_path), **kwargs)
+        # Load config and configure memory backend for tests
+        config = load_test_config(config_path)
+
+        # Create temporary config file with memory backend
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config.model_dump(), f)
+            temp_config_path = f.name
+            temp_files.append(temp_config_path)
+
+        runtime = RuntimeLoop(Path(temp_config_path), **kwargs)
         runtimes.append(runtime)
         return runtime
 
@@ -125,3 +181,7 @@ async def runtime_loop():
     # Cleanup all created runtimes
     for runtime in runtimes:
         await runtime.cleanup()
+
+    # Cleanup temporary config files
+    for temp_file in temp_files:
+        Path(temp_file).unlink(missing_ok=True)

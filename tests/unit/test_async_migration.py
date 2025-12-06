@@ -16,6 +16,8 @@ async def test_checkpointer_is_async():
     config_path = Path("examples/flight_booking/soni.yaml")
     config_dict = ConfigLoader.load(config_path)
     config = SoniConfig(**config_dict)
+    # Configure memory backend for tests
+    config.settings.persistence.backend = "memory"
 
     # Act
     builder = SoniGraphBuilder(config)
@@ -23,11 +25,11 @@ async def test_checkpointer_is_async():
     await builder.build_manual(flow_name="book_flight")
 
     # Assert
-    # Verify that checkpointer is AsyncSqliteSaver (which supports async methods)
+    # Verify that checkpointer is InMemorySaver (which supports async methods)
     assert builder.checkpointer is not None
-    # Check that it's AsyncSqliteSaver and has async methods
+    # Check that it's InMemorySaver and has async methods
     checkpointer_type = type(builder.checkpointer).__name__
-    assert checkpointer_type == "AsyncSqliteSaver"
+    assert checkpointer_type == "InMemorySaver"
     # Verify it has async methods
     assert hasattr(builder.checkpointer, "aget")
     assert hasattr(builder.checkpointer, "aput")
@@ -43,6 +45,8 @@ async def test_all_nodes_are_async():
     config_path = Path("examples/flight_booking/soni.yaml")
     config_dict = ConfigLoader.load(config_path)
     config = SoniConfig(**config_dict)
+    # Configure memory backend for tests
+    config.settings.persistence.backend = "memory"
     builder = SoniGraphBuilder(config)
     await builder.initialize()  # Initialize checkpointer first
 

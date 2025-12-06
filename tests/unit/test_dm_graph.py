@@ -25,13 +25,14 @@ from soni.dm.nodes.factories import (
     create_collect_node_factory,
     create_understand_node,
 )
+from tests.conftest import load_test_config
 
 
 @pytest.mark.asyncio
 async def test_builder_initialization():
     """Test that builder initializes correctly"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Act
     builder = SoniGraphBuilder(config)
@@ -50,7 +51,7 @@ async def test_builder_initialization():
 async def test_build_manual_linear_flow():
     """Test building a simple linear flow"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
     # Act
@@ -69,7 +70,7 @@ async def test_build_manual_linear_flow():
 async def test_build_manual_nonexistent_flow():
     """Test that building non-existent flow raises error"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
     await builder.initialize()
 
@@ -87,9 +88,11 @@ async def test_build_manual_nonexistent_flow():
 
 @pytest.mark.asyncio
 async def test_checkpointer_creation():
-    """Test that checkpointer is created for SQLite"""
+    """Test that checkpointer is created for memory backend"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    # Configure memory backend for tests
+    config.settings.persistence.backend = "memory"
 
     # Act
     builder = SoniGraphBuilder(config)
@@ -106,7 +109,7 @@ async def test_checkpointer_creation():
 async def test_build_manual_validates_slots():
     """Test that building a flow validates referenced slots exist"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
     # Modify flow to reference non-existent slot
@@ -126,7 +129,7 @@ async def test_build_manual_validates_slots():
 async def test_build_manual_validates_actions():
     """Test that building a flow validates referenced actions exist"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
     # Act & Assert - should work with valid config
@@ -146,7 +149,7 @@ async def test_understand_node_with_message():
     from soni.core.state import RuntimeContext
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Create state with new schema
     state = create_empty_state()
@@ -218,7 +221,7 @@ async def test_collect_slot_node_prompts_user():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     state = DialogueState(
         slots={},
     )
@@ -256,7 +259,7 @@ async def test_action_node_executes_handler():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Create state with new schema
     state = create_empty_state()
@@ -298,9 +301,9 @@ async def test_action_node_executes_handler():
 
 @pytest.mark.asyncio
 async def test_builder_cleanup():
-    """Test that builder cleanup closes checkpointer context manager"""
+    """Test that builder cleanup handles checkpointer properly"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
     # Initialize checkpointer (lazy initialization)
@@ -308,13 +311,16 @@ async def test_builder_cleanup():
 
     # Verify checkpointer was created
     assert builder.checkpointer is not None
-    assert builder._checkpointer_cm is not None
+    # With memory backend, _checkpointer_cm is None (InMemorySaver doesn't need context manager)
+    # With sqlite backend, _checkpointer_cm would not be None
+    # For memory backend tests, we just verify checkpointer exists
 
     # Act
     await builder.cleanup()
 
     # Assert
     assert builder.checkpointer is None
+    # _checkpointer_cm should remain None (it was None for InMemorySaver)
     assert builder._checkpointer_cm is None
 
 
@@ -322,7 +328,7 @@ async def test_builder_cleanup():
 async def test_builder_cleanup_no_checkpointer():
     """Test that cleanup handles case when no checkpointer exists"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     # Modify config to disable persistence
     config.settings.persistence.backend = "none"
     builder = SoniGraphBuilder(config)
@@ -341,7 +347,7 @@ async def test_builder_cleanup_no_checkpointer():
 async def test_builder_cleanup_called_twice():
     """Test that cleanup can be called multiple times safely"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     builder = SoniGraphBuilder(config)
 
     # Initialize checkpointer first
@@ -359,7 +365,7 @@ async def test_builder_cleanup_called_twice():
 async def test_builder_warns_if_not_cleaned_up():
     """Test SoniGraphBuilder warns if cleanup() not called"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Act - create builder without cleanup
     builder = SoniGraphBuilder(config)
@@ -377,7 +383,7 @@ async def test_builder_warns_if_not_cleaned_up():
 async def test_builder_no_warning_after_cleanup():
     """Test SoniGraphBuilder doesn't warn if cleanup() called"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Act
     with warnings.catch_warnings(record=True) as w:
@@ -387,19 +393,26 @@ async def test_builder_no_warning_after_cleanup():
         await builder.initialize()
         await builder.cleanup()  # Proper cleanup
         assert builder._cleaned_up is True
+        assert builder.checkpointer is None  # Verify cleanup worked
 
         del builder
         import gc
 
         gc.collect()
 
-        # Assert - no resource warnings about cleanup
+        # Assert - no resource warnings about cleanup from our builder
+        # Filter for warnings specifically about SoniGraphBuilder not being cleaned up
+        # Ignore other ResourceWarnings (e.g., from SQLite connections in other tests)
         resource_warnings = [
             warning
             for warning in w
             if issubclass(warning.category, ResourceWarning)
-            and "not cleaned up" in str(warning.message)
+            and (
+                "not cleaned up" in str(warning.message).lower()
+                or "SoniGraphBuilder" in str(warning.message)
+            )
         ]
+        # With memory backend, there should be no cleanup warnings
         assert len(resource_warnings) == 0
 
 
@@ -407,7 +420,7 @@ async def test_builder_no_warning_after_cleanup():
 async def test_checkpointer_creation_unsupported_backend():
     """Test that unsupported persistence backend logs warning and returns None"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     config.settings.persistence.backend = "unsupported"
 
     # Act
@@ -427,7 +440,7 @@ async def test_understand_node_no_messages():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     state = DialogueState(messages=[], slots={})
 
     scope_manager = ScopeManager(config=config)
@@ -468,7 +481,7 @@ async def test_collect_slot_node_already_filled():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     # Create state with slot filled and trace event showing it was explicitly collected
     from soni.core.events import EVENT_SLOT_COLLECTION
     from soni.core.state import create_runtime_context
@@ -516,7 +529,7 @@ async def test_collect_slot_node_missing_slot_config():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     state = DialogueState(slots={})
 
     scope_manager = ScopeManager(config=config)
@@ -551,7 +564,7 @@ async def test_action_node_missing_input_slot():
     from soni.du.modules import SoniDU
     from soni.du.normalizer import SlotNormalizer
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
     # Create state with new schema - Missing destination and departure_date
     state = create_empty_state()

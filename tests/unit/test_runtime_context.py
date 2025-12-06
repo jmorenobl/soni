@@ -61,8 +61,10 @@ def test_runtime_context_get_slot_config():
     # Arrange
     from pathlib import Path
 
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
@@ -85,8 +87,10 @@ def test_runtime_context_get_action_config():
     # Arrange
     from pathlib import Path
 
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),
@@ -110,8 +114,10 @@ def test_runtime_context_get_flow_config():
     # Arrange
     from pathlib import Path
 
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     context = create_runtime_context(
         config=config,
         scope_manager=MagicMock(),

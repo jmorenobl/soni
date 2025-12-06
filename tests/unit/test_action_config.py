@@ -73,13 +73,13 @@ async def test_action_handler_requires_registry():
     """Test ActionHandler requires actions in registry"""
     from soni.actions.base import ActionHandler
     from soni.actions.registry import ActionRegistry
-    from soni.core.config import SoniConfig
     from soni.core.errors import ActionNotFoundError
+    from tests.conftest import load_test_config
 
     # Arrange
     ActionRegistry.clear()
 
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Act & Assert

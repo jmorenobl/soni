@@ -309,18 +309,31 @@ async def test_e2e_configuration_loading(skip_without_api_key):
     assert len(config.slots) > 0
     assert len(config.actions) > 0
 
-    # Act - Create runtime with config
-    runtime = RuntimeLoop(config_path)
-    # Initialize graph (lazy initialization)
-    await runtime._ensure_graph_initialized()
+    # Act - Create runtime with config (configure memory backend for tests)
+    config.settings.persistence.backend = "memory"
 
-    # Assert - Runtime is initialized
-    assert runtime.config is not None
-    assert runtime.graph is not None
-    assert runtime.du is not None
+    # Create temporary config file with memory backend
+    import tempfile
 
-    # Cleanup
-    await runtime.cleanup()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime = RuntimeLoop(temp_config_path)
+        # Initialize graph (lazy initialization)
+        await runtime._ensure_graph_initialized()
+
+        # Assert - Runtime is initialized
+        assert runtime.config is not None
+        assert runtime.graph is not None
+        assert runtime.du is not None
+
+        # Cleanup
+        await runtime.cleanup()
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.integration

@@ -18,8 +18,11 @@ from soni.dm.graph import SoniGraphBuilder
 
 @pytest.fixture
 def sample_config():
-    """Load sample configuration for testing"""
-    return SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    """Load sample configuration for testing with memory backend"""
+    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    # Configure memory backend for tests (faster, better isolation)
+    config.settings.persistence.backend = "memory"
+    return config
 
 
 @pytest.fixture
@@ -164,11 +167,10 @@ async def test_execute_flow_with_action_basic(sample_config):
 
 @pytest.mark.slow
 @pytest.mark.asyncio
-async def test_state_persistence_basic(sample_config, tmp_path):
+async def test_state_persistence_basic(sample_config):
     """Test that state can persist between turns"""
     # Arrange
-    # Use temporary database
-    sample_config.settings.persistence.path = str(tmp_path / "test.db")
+    # sample_config already uses memory backend (configured in fixture)
     builder = SoniGraphBuilder(sample_config)
     graph = await builder.build_manual("book_flight")
 
@@ -226,10 +228,10 @@ async def test_state_persistence_basic(sample_config, tmp_path):
 
 @pytest.mark.slow
 @pytest.mark.asyncio
-async def test_state_isolation_basic(sample_config, tmp_path):
+async def test_state_isolation_basic(sample_config):
     """Test that different users have isolated state"""
     # Arrange
-    sample_config.settings.persistence.path = str(tmp_path / "test.db")
+    # sample_config already uses memory backend (configured in fixture)
     builder = SoniGraphBuilder(sample_config)
     graph = await builder.build_manual("book_flight")
 

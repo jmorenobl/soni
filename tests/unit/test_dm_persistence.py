@@ -6,6 +6,38 @@ from soni.core.config import PersistenceConfig
 from soni.dm.persistence import CheckpointerFactory
 
 
+@pytest.fixture
+async def sqlite_checkpointer():
+    """
+    Fixture that creates and cleans up a SQLite checkpointer for testing.
+
+    This fixture ensures proper cleanup of SQLite connections to prevent ResourceWarnings.
+    Uses try/finally to guarantee cleanup even if tests fail.
+    """
+    config = PersistenceConfig(backend="sqlite", path=":memory:")
+    checkpointer = None
+    cm = None
+
+    try:
+        checkpointer, cm = await CheckpointerFactory.create(config)
+        yield checkpointer, cm
+    finally:
+        # Always cleanup, even if test fails or checkpointer creation fails
+        if cm is not None:
+            try:
+                # Properly close the async context manager
+                await cm.__aexit__(None, None, None)
+            except Exception as e:
+                # Log but don't fail on cleanup errors
+                import logging
+
+                logging.getLogger(__name__).debug(f"Error during SQLite cleanup: {e}")
+            finally:
+                # Ensure references are cleared
+                cm = None
+                checkpointer = None
+
+
 @pytest.mark.asyncio
 async def test_create_memory_checkpointer():
     """Test that memory checkpointer is created correctly"""
@@ -53,7 +85,7 @@ async def test_memory_checkpointer_is_base_checkpoint_saver():
 
 
 @pytest.mark.asyncio
-async def test_factory_strategy_pattern():
+async def test_factory_strategy_pattern(sqlite_checkpointer):
     """Test that Strategy Pattern works correctly for all backends"""
     # Arrange & Act - Test memory backend
     memory_config = PersistenceConfig(backend="memory")
@@ -75,16 +107,14 @@ async def test_factory_strategy_pattern():
     assert none_cm is None
 
     # Arrange & Act - Test sqlite backend (may fail if aiosqlite not available)
-    sqlite_config = PersistenceConfig(backend="sqlite", path=":memory:")
-    sqlite_checkpointer, sqlite_cm = await CheckpointerFactory.create(sqlite_config)
+    sqlite_checkpointer_instance, sqlite_cm = sqlite_checkpointer
 
     # Assert - SQLite (may be None if creation fails)
-    if sqlite_checkpointer is not None:
+    if sqlite_checkpointer_instance is not None:
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
         assert sqlite_cm is not None
-        # Cleanup SQLite checkpointer to prevent ResourceWarning
-        await sqlite_cm.__aexit__(None, None, None)
+        assert isinstance(sqlite_checkpointer_instance, AsyncSqliteSaver)
 
 
 @pytest.mark.asyncio
@@ -102,13 +132,10 @@ async def test_factory_unknown_backend():
 
 
 @pytest.mark.asyncio
-async def test_create_sqlite_checkpointer():
+async def test_create_sqlite_checkpointer(sqlite_checkpointer):
     """Test that SQLite checkpointer is created correctly"""
-    # Arrange
-    config = PersistenceConfig(backend="sqlite", path=":memory:")
-
     # Act
-    checkpointer, cm = await CheckpointerFactory.create(config)
+    checkpointer, cm = sqlite_checkpointer
 
     # Assert
     # May be None if aiosqlite is not available or creation fails
@@ -116,9 +143,7 @@ async def test_create_sqlite_checkpointer():
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
         assert cm is not None
-        # Cleanup
-        if cm is not None:
-            await cm.__aexit__(None, None, None)
+        assert isinstance(checkpointer, AsyncSqliteSaver)
 
 
 @pytest.mark.asyncio

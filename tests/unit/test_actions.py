@@ -15,7 +15,9 @@ async def test_execute_sync_handler():
     """Test executing a synchronous handler"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register handler in ActionRegistry
@@ -40,7 +42,9 @@ async def test_execute_async_handler():
     """Test executing an asynchronous handler"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register async handler in ActionRegistry
@@ -63,7 +67,9 @@ async def test_execute_async_handler():
 async def test_execute_nonexistent_action():
     """Test that executing non-existent action raises error"""
     # Arrange
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Act & Assert
@@ -76,7 +82,9 @@ async def test_execute_missing_input():
     """Test that missing required input raises error"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register handler in ActionRegistry
@@ -94,7 +102,9 @@ async def test_load_handler_caching():
     """Test that handlers are retrieved from registry (no caching needed)"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     def mock_search(origin: str, destination: str, departure_date: str) -> dict:
@@ -122,7 +132,9 @@ async def test_execute_handler_exception():
     """Test that handler execution exceptions are caught and re-raised as RuntimeError"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register handler that raises exception
@@ -144,7 +156,9 @@ async def test_execute_handler_non_dict_result():
     """Test that non-dict results are converted to dict"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register handler that returns non-dict
@@ -170,7 +184,9 @@ async def test_execute_handler_object_result():
     """Test that object results with __dict__ are converted to dict"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Create a simple object with __dict__
@@ -201,7 +217,9 @@ async def test_execute_missing_outputs():
     """Test that missing expected outputs log warning but don't fail"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Register handler that returns incomplete outputs
@@ -226,7 +244,9 @@ async def test_action_handler_requires_registry_no_fallback():
     """Test that ActionHandler requires ActionRegistry and doesn't fallback to handler path"""
     # Arrange
     ActionRegistry.clear()
-    config = SoniConfig.from_yaml("examples/flight_booking/soni.yaml")
+    from tests.conftest import load_test_config
+
+    config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
     # Create a config with handler path (deprecated, should be ignored)

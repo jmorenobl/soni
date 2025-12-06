@@ -12,8 +12,10 @@ from soni.dm.validators import FlowValidator
 def test_flow_validator_validates_existing_flow():
     """Test validator accepts valid flow"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     validator = FlowValidator(config)
 
     # Act & Assert (no exception)
@@ -23,8 +25,10 @@ def test_flow_validator_validates_existing_flow():
 def test_flow_validator_raises_on_missing_flow():
     """Test validator raises ValidationError for missing flow"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     validator = FlowValidator(config)
 
     # Act & Assert
@@ -41,8 +45,10 @@ def test_flow_validator_raises_on_missing_flow():
 def test_flow_validator_raises_on_missing_slot():
     """Test validator raises ValidationError when flow references non-existent slot"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
 
     # Create a flow with invalid slot reference
     from soni.core.config import FlowConfig, StepConfig
@@ -76,8 +82,10 @@ def test_flow_validator_raises_on_missing_slot():
 def test_flow_validator_raises_on_missing_action():
     """Test validator raises ValidationError when flow references non-existent action"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
 
     # Create a flow with invalid action reference
     from soni.core.config import FlowConfig, StepConfig
@@ -111,8 +119,10 @@ def test_flow_validator_raises_on_missing_action():
 def test_flow_validator_validates_valid_flow_with_slots_and_actions():
     """Test validator accepts flow with valid slots and actions"""
     # Arrange
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    config = SoniConfig.from_yaml(config_path)
+    config = load_test_config(config_path)
     validator = FlowValidator(config)
 
     # Act & Assert (no exception)

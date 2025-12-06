@@ -26,12 +26,26 @@ async def test_runtime_uses_scoped_actions(skip_without_api_key):
     to reduce the number of available actions based on current state.
     """
     # Arrange
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-user-1"
-    user_msg = "I want to book a flight"  # Message that triggers flow
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-user-1"
+        user_msg = "I want to book a flight"  # Message that triggers flow
+
         # Act
         # Initialize graph to ensure scope_manager is set up
         await runtime._ensure_graph_initialized()
@@ -67,6 +81,7 @@ async def test_runtime_uses_scoped_actions(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.integration
@@ -74,12 +89,26 @@ async def test_runtime_uses_scoped_actions(skip_without_api_key):
 async def test_scoping_reduces_actions():
     """Test that scoping reduces number of actions"""
     # Arrange
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    state = create_empty_state()
-    push_flow(state, "book_flight")
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        state = create_empty_state()
+        push_flow(state, "book_flight")
+
         # Act
         scoped_actions = runtime.scope_manager.get_available_actions(state)
 
@@ -92,6 +121,7 @@ async def test_scoping_reduces_actions():
         assert "restart" in scoped_actions
     finally:
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.integration
@@ -99,10 +129,24 @@ async def test_scoping_reduces_actions():
 async def test_different_flows_have_different_actions():
     """Test that different flows have different scoped actions"""
     # Arrange
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+
         # Act
         state1 = create_empty_state()
         push_flow(state1, "book_flight")
@@ -123,3 +167,4 @@ async def test_different_flows_have_different_actions():
         assert len(actions2) > 0
     finally:
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)

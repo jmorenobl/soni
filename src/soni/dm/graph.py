@@ -118,9 +118,11 @@ class SoniGraphBuilder:
         Note:
             This method is idempotent: calling it multiple times is safe.
             Sets _cleaned_up flag to prevent ResourceWarning in __del__.
+            For InMemorySaver (no context manager), only clears the reference.
         """
         if not self._cleaned_up:
             if self._checkpointer_cm is not None:
+                # Has context manager (e.g., AsyncSqliteSaver) - need to close it
                 try:
                     await self._checkpointer_cm.__aexit__(None, None, None)
                     logger.info("Checkpointer context manager closed successfully")
@@ -139,6 +141,11 @@ class SoniGraphBuilder:
                 finally:
                     self._checkpointer_cm = None
                     self.checkpointer = None
+            elif self.checkpointer is not None:
+                # No context manager (e.g., InMemorySaver) - just clear reference
+                # InMemorySaver doesn't need cleanup, but we clear it for consistency
+                self.checkpointer = None
+                logger.debug("InMemorySaver checkpointer cleared (no cleanup needed)")
             self._cleaned_up = True
 
     def __del__(self) -> None:

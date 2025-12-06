@@ -199,33 +199,67 @@ async def test_process_message_handles_graph_error(runtime_loop):
 async def test_runtime_cleanup():
     """Test that RuntimeLoop cleanup calls builder cleanup"""
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
+    import tempfile
 
-    # Initialize checkpointer (lazy initialization)
-    await runtime.builder.initialize()
+    import yaml
 
-    # Verify builder exists
-    assert runtime.builder is not None
-    assert runtime.builder.checkpointer is not None
+    from tests.conftest import load_test_config
 
-    # Act
-    await runtime.cleanup()
+    # Load config and configure memory backend for tests
+    config = load_test_config("examples/flight_booking/soni.yaml")
 
-    # Assert - builder's checkpointer should be closed
-    assert runtime.builder.checkpointer is None
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime = RuntimeLoop(temp_config_path)
+
+        # Initialize checkpointer (lazy initialization)
+        await runtime.builder.initialize()
+
+        # Verify builder exists
+        assert runtime.builder is not None
+        assert runtime.builder.checkpointer is not None
+
+        # Act
+        await runtime.cleanup()
+
+        # Assert - builder's checkpointer should be closed
+        assert runtime.builder.checkpointer is None
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
 async def test_runtime_cleanup_called_multiple_times():
     """Test that RuntimeLoop cleanup can be called multiple times safely"""
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
+    import tempfile
 
-    # Act
-    await runtime.cleanup()
-    await runtime.cleanup()  # Should not raise error
+    import yaml
+
+    from tests.conftest import load_test_config
+
+    # Load config and configure memory backend for tests
+    config = load_test_config("examples/flight_booking/soni.yaml")
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime = RuntimeLoop(temp_config_path)
+
+        # Act
+        await runtime.cleanup()
+        await runtime.cleanup()  # Should not raise error
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
     # Assert
     assert runtime.builder.checkpointer is None

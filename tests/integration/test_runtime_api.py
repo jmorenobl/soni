@@ -12,11 +12,29 @@ from soni.server.api import app
 @pytest.fixture
 async def test_runtime():
     """Create test runtime instance with automatic cleanup"""
+    import tempfile
+
+    import yaml
+
+    from tests.conftest import load_test_config
+
     config_path = Path("examples/flight_booking/soni.yaml")
-    runtime_instance = RuntimeLoop(config_path)
-    yield runtime_instance
-    # Cleanup connections after test
-    await runtime_instance.cleanup()
+    # Load config and configure memory backend for tests
+    config = load_test_config(config_path)
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime_instance = RuntimeLoop(temp_config_path)
+        yield runtime_instance
+        # Cleanup connections after test
+        await runtime_instance.cleanup()
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.fixture
