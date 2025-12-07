@@ -180,7 +180,7 @@ def test_scope_manager_pending_slots():
 
 
 def test_scope_manager_no_flow():
-    """Test that flow start actions are available when no flow is active"""
+    """Test that no start_ prefix actions are added when no flow is active"""
     # Arrange
     config_dict = {
         "version": "0.1",
@@ -213,9 +213,16 @@ def test_scope_manager_no_flow():
     # Act
     actions = scope_manager.get_available_actions(state)
 
-    # Assert
-    assert "start_book_flight" in actions
-    assert "start_modify_booking" in actions
+    # Assert - should NOT have start_ prefix actions
+    assert "start_book_flight" not in actions
+    assert "start_modify_booking" not in actions
+    # Should still have global actions
+    assert "help" in actions
+    assert "cancel" in actions
+    # Flow names should come from get_available_flows(), not as actions
+    available_flows = scope_manager.get_available_flows(state)
+    assert "book_flight" in available_flows
+    assert "modify_booking" in available_flows
 
 
 def test_scope_manager_with_dict_state():
@@ -598,8 +605,8 @@ def test_get_expected_slots_with_flow_name():
     assert len(expected_slots) == 3
 
 
-def test_get_expected_slots_infer_from_actions():
-    """Test inferring flow from available actions"""
+def test_get_expected_slots_no_flow_name_returns_empty():
+    """Test that get_expected_slots returns empty when no flow_name provided"""
     # Arrange
     config_dict = {
         "version": "0.1",
@@ -626,17 +633,12 @@ def test_get_expected_slots_infer_from_actions():
     }
     config = SoniConfig(**config_dict)
     scope_manager = ScopeManager(config)
-    available_actions = ["start_book_flight", "help", "cancel"]
 
-    # Act
-    expected_slots = scope_manager.get_expected_slots(
-        flow_name=None, available_actions=available_actions
-    )
+    # Act - No flow_name, should return empty (no longer infers from start_ actions)
+    expected_slots = scope_manager.get_expected_slots(flow_name=None, available_actions=[])
 
     # Assert
-    assert "origin" in expected_slots
-    assert "destination" in expected_slots
-    assert len(expected_slots) == 2
+    assert expected_slots == []
 
 
 def test_get_expected_slots_flow_not_found():

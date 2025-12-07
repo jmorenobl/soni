@@ -180,11 +180,16 @@ def activate_flow_by_intent(
         logger.info(f"Activating flow '{command}' based on intent (exact match)")
         return command
 
-    # 2. Handle 'start_<flow>' pattern (common NLU output)
+    # 2. Handle 'start_<flow>' pattern (DEPRECATED - legacy code)
+    # NOTE: This pattern should no longer be generated after removing start_ prefix from scope.py
+    # Keeping temporarily with warning to catch any remaining sources
     if command.startswith("start_"):
         flow_name = command[6:]  # Remove 'start_' prefix
         if flow_name in config.flows:
-            logger.info(f"Activating flow '{flow_name}' based on intent (start_ prefix)")
+            logger.warning(
+                f"Received legacy 'start_{flow_name}' command - this pattern is deprecated. "
+                f"NLU should receive flow names directly. Available flows: {list(config.flows.keys())}"
+            )
             return flow_name
 
     # 3. Handle underscore/hyphen variations

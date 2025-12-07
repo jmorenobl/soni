@@ -178,9 +178,9 @@ class ScopeManager(IScopeManager):
                     actions.append(f"provide_{slot_name}")
 
         else:
-            # No active flow - allow starting any flow
-            for flow_name in self.flows.keys():
-                actions.append(f"start_{flow_name}")
+            # No active flow - flow names are provided via get_available_flows()
+            # Actions here are only action handlers, not flow triggers
+            pass
 
         # Remove duplicates
         result = list(set(actions))
@@ -293,17 +293,9 @@ class ScopeManager(IScopeManager):
         # Determine which flow to check
         flow_to_check = flow_name
 
-        # If no flow specified, try to infer from available actions
+        # If no flow specified, return empty list - caller should provide flow_name
         if not flow_to_check or flow_to_check == "none":
-            if available_actions:
-                for action in available_actions:
-                    if action.startswith("start_"):
-                        potential_flow = action[6:]  # Remove "start_" prefix
-                        flow_to_check = potential_flow
-                        logger.debug(f"Inferred flow '{flow_to_check}' from action '{action}'")
-                        break
-
-        # If still no flow, return empty list
+            return []
         if not flow_to_check or flow_to_check == "none":
             return []
 

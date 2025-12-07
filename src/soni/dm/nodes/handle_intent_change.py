@@ -30,7 +30,25 @@ async def handle_intent_change_node(
 
     command = nlu_result.get("command")
     if not command:
-        return {"conversation_state": "error"}
+        logger.warning("No command in NLU result for intent change")
+        return {
+            "conversation_state": "idle",
+            "last_response": "I didn't understand what you want to do. Could you rephrase?",
+        }
+
+    # Check if flow exists
+    config = runtime.context["config"]
+    if command not in config.flows:
+        logger.warning(
+            f"Flow '{command}' not found in config. Available flows: {list(config.flows.keys())}"
+        )
+        return {
+            "conversation_state": "idle",
+            "last_response": (
+                f"I don't know how to {command}. "
+                f"I can help you with: {', '.join(config.flows.keys())}"
+            ),
+        }
 
     # Start new flow
     # push_flow modifies state["flow_stack"] and state["flow_slots"] in place
