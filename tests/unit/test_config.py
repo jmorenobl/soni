@@ -315,7 +315,6 @@ def test_action_config():
     """Test ActionConfig"""
     # Arrange
     action_data = {
-        "handler": "handlers.flights.search",
         "inputs": ["origin", "destination"],
         "outputs": ["flights"],
     }
@@ -324,7 +323,6 @@ def test_action_config():
     action = ActionConfig(**action_data)
 
     # Assert
-    assert action.handler == "handlers.flights.search"
     assert action.inputs == ["origin", "destination"]
     assert action.outputs == ["flights"]
 
@@ -486,7 +484,6 @@ def test_action_config_minimal():
     """Test ActionConfig with minimal required fields"""
     # Arrange
     action_data = {
-        "handler": "handlers.flights.search",
         # inputs and outputs are optional
     }
 
@@ -494,7 +491,6 @@ def test_action_config_minimal():
     action = ActionConfig(**action_data)
 
     # Assert
-    assert action.handler == "handlers.flights.search"
     assert action.inputs == []
     assert action.outputs == []
 

@@ -75,23 +75,6 @@ def main():
         print(f"   ❌ Configuration access failed: {e}")
         return 1
 
-    print("\n5️⃣ Validating no deprecated handler fields")
-    try:
-        has_handler = False
-        for action_name, action_config in config.actions.items():
-            if action_config.handler is not None:
-                print(f"   ⚠️  Action '{action_name}' uses deprecated 'handler' field")
-                print(f"      Migrate to @ActionRegistry.register('{action_name}')")
-                has_handler = True
-        if not has_handler:
-            print("   ✅ No deprecated handler fields found")
-        elif has_handler:
-            print("   ⚠️  Configuration uses deprecated handler paths")
-            print("      Actions should be registered using @ActionRegistry.register()")
-    except Exception as e:
-        print(f"   ❌ Handler validation failed: {e}")
-        return 1
-
     print("\n" + "=" * 60)
     print("✅ Configuration system validation PASSED")
     return 0

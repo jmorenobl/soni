@@ -1,15 +1,12 @@
-"""Tests for ActionConfig deprecation"""
-
-import warnings
-from warnings import catch_warnings
+"""Tests for ActionConfig"""
 
 import pytest
 
 from soni.core.config import ActionConfig
 
 
-def test_action_config_without_handler_is_valid():
-    """Test ActionConfig without handler field is valid"""
+def test_action_config_basic():
+    """Test ActionConfig with basic fields"""
     # Arrange & Act
     config = ActionConfig(
         inputs=["origin", "destination"],
@@ -17,41 +14,8 @@ def test_action_config_without_handler_is_valid():
     )
 
     # Assert
-    assert config.handler is None
     assert config.inputs == ["origin", "destination"]
     assert config.outputs == ["flights"]
-
-
-def test_action_config_with_handler_emits_deprecation_warning():
-    """Test ActionConfig with handler emits DeprecationWarning"""
-    # Arrange & Act & Assert
-    with catch_warnings(record=True) as warnings_list:
-        warnings.simplefilter("always")
-
-        config = ActionConfig(
-            handler="flights.search_flights",  # Deprecated
-            inputs=["origin"],
-            outputs=["flights"],
-        )
-
-        # Verify warning emitted
-        assert len(warnings_list) == 1
-        assert issubclass(warnings_list[0].category, DeprecationWarning)
-        assert "deprecated" in str(warnings_list[0].message).lower()
-        assert "ActionRegistry" in str(warnings_list[0].message)
-        assert config.handler == "flights.search_flights"
-
-
-def test_action_config_handler_defaults_to_none():
-    """Test ActionConfig handler defaults to None"""
-    # Arrange & Act
-    config = ActionConfig(
-        inputs=["origin"],
-        outputs=["flights"],
-    )
-
-    # Assert
-    assert config.handler is None
 
 
 def test_action_config_with_description():
@@ -65,7 +29,8 @@ def test_action_config_with_description():
 
     # Assert
     assert config.description == "Search for flights"
-    assert config.handler is None
+    assert config.inputs == ["origin", "destination"]
+    assert config.outputs == ["flights"]
 
 
 @pytest.mark.asyncio

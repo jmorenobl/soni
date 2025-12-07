@@ -45,83 +45,16 @@
 
 ### 2. Warnings de Nuestro Código (CONTROLAMOS)
 
-#### 2.1 DeprecationWarning - Action handler paths
-**Ubicación**: `src/soni/core/config.py:509`
-**Tipo**: `DeprecationWarning`
-**Cuándo aparece**: Cuando se carga un YAML o se crea un `ActionConfig` con el campo `handler`
-**Impacto**: ✅ INTENCIONAL - Estamos deprecando este campo intencionalmente
-**Solución**: Ya implementado - el warning es correcto y esperado
+**Estado**: ✅ No hay warnings de nuestro código en la ejecución de tests.
 
-**¿Qué es el campo `handler`?**
-
-El campo `handler` era la forma antigua (pre-v0.4.0) de especificar dónde estaba la función que implementa una acción:
-
-```yaml
-# ❌ FORMA ANTIGUA (deprecada)
-actions:
-  search_flights:
-    handler: "examples.flight_booking.handlers.search_available_flights"  # Python path
-    inputs: ["origin", "destination"]
-    outputs: ["flights"]
-```
-
-**¿Por qué se deprecó?**
-
-Sigue el principio de **Zero-Leakage Architecture**: YAML debe describir QUÉ (semántica), no CÓMO (implementación técnica). Un path de Python es un detalle técnico que no debería estar en YAML.
-
-**Forma nueva (correcta):**
-
-```yaml
-# ✅ FORMA NUEVA (correcta)
-actions:
-  search_flights:
-    # No handler field - se registra en Python
-    inputs: ["origin", "destination"]
-    outputs: ["flights"]
-```
-
-```python
-# ✅ Registro en Python (handlers.py)
-@ActionRegistry.register("search_flights")
-async def search_available_flights(
-    origin: str,
-    destination: str,
-) -> dict[str, Any]:
-    return {"flights": [...]}
-```
-
-**¿Dónde aparece el warning?**
-
-1. **En tests intencionales**: `test_action_handler_requires_registry_no_fallback` crea un `ActionConfig` con `handler` para verificar que:
-   - El warning se emite ✅
-   - El handler path se ignora ✅
-   - Solo funciona si está en ActionRegistry ✅
-
-2. **En configuraciones legacy**: Si alguien carga un YAML antiguo con `handler` field
-
-**Código que emite el warning**:
-```python
-# src/soni/core/config.py:504-515
-def model_post_init(self, __context: Any) -> None:
-    """Warn if handler field is used (deprecated)."""
-    if self.handler is not None:
-        warnings.warn(
-            f"Action handler paths are deprecated and will be removed in v0.3.0. "
-            f"Use @ActionRegistry.register() to register actions in Python code. "
-            f"Handler path '{self.handler}' will be ignored.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-```
-
-**Estado**: ✅ CORRECTO - Este warning es intencional y correcto. Indica que alguien está usando la forma antigua y debe migrar a `@ActionRegistry.register()`.
+El campo `handler` en `ActionConfig` fue completamente eliminado en v0.5.0+ como parte de la limpieza de código legacy antes de v1.0. Las acciones ahora deben registrarse exclusivamente usando `@ActionRegistry.register()` en Python, siguiendo el principio de Zero-Leakage Architecture.
 
 ## Resumen
 
 | Categoría | Cantidad | Controlamos | Acción Requerida |
 |-----------|----------|-------------|------------------|
-| Dependencias externas | 4 tipos | ❌ NO | Suprimir en conftest.py (opcional) |
-| Nuestro código | 1 tipo | ✅ SÍ | ✅ Ya implementado correctamente |
+| Dependencias externas | 4 tipos | ❌ NO | ✅ Suprimidos en conftest.py |
+| Nuestro código | 0 tipos | ✅ SÍ | ✅ Código legacy eliminado (v0.5.0+) |
 
 ## Recomendación
 

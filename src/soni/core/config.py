@@ -478,19 +478,12 @@ class SlotConfig(BaseModel):
 class ActionConfig(BaseModel):
     """Configuration for an action.
 
-    Actions should be registered in Python using ActionRegistry.register()
-    instead of using the deprecated 'handler' field.
+    Actions must be registered in Python using ActionRegistry.register().
     """
 
     description: str | None = Field(
         default=None,
         description="Action description",
-    )
-    # Deprecated: handler field will be removed in v0.3.0
-    # Use ActionRegistry.register() to register actions in Python code
-    handler: str | None = Field(
-        default=None,
-        description="DEPRECATED: Python path to handler function. Use ActionRegistry.register() instead.",
     )
     inputs: list[str] = Field(
         default_factory=list,
@@ -500,19 +493,6 @@ class ActionConfig(BaseModel):
         default_factory=list,
         description="List of output variable names",
     )
-
-    def model_post_init(self, __context: Any) -> None:
-        """Warn if handler field is used (deprecated)."""
-        if self.handler is not None:
-            import warnings
-
-            warnings.warn(
-                f"Action handler paths are deprecated and will be removed in v0.3.0. "
-                f"Use @ActionRegistry.register() to register actions in Python code. "
-                f"Handler path '{self.handler}' will be ignored.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
 
 class SoniConfig(BaseModel):

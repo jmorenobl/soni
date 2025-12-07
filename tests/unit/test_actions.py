@@ -240,8 +240,8 @@ async def test_execute_missing_outputs():
 
 
 @pytest.mark.asyncio
-async def test_action_handler_requires_registry_no_fallback():
-    """Test that ActionHandler requires ActionRegistry and doesn't fallback to handler path"""
+async def test_action_handler_requires_registry():
+    """Test that ActionHandler requires ActionRegistry - no fallback to handler paths"""
     # Arrange
     ActionRegistry.clear()
     from tests.conftest import load_test_config
@@ -249,15 +249,14 @@ async def test_action_handler_requires_registry_no_fallback():
     config = load_test_config("examples/flight_booking/soni.yaml")
     handler = ActionHandler(config)
 
-    # Create a config with handler path (deprecated, should be ignored)
+    # Create a config for an unregistered action
     from soni.core.config import ActionConfig
 
-    action_with_handler = ActionConfig(
-        handler="examples.flight_booking.handlers.search_available_flights",
+    unregistered_action = ActionConfig(
         inputs=["origin", "destination", "departure_date"],
         outputs=["flights", "price"],
     )
-    config.actions["test_action"] = action_with_handler
+    config.actions["test_action"] = unregistered_action
 
     # Act & Assert - should fail because action is not in registry
     with pytest.raises(ActionNotFoundError) as exc_info:
