@@ -290,8 +290,24 @@ def route_after_understand(state: DialogueStateType) -> str:
         case "confirmation":
             return "handle_confirmation"
         case "continuation":
-            # Continue the flow - collect next slot
-            return "collect_next_slot"
+            # Check if there's an active flow
+            flow_stack = state.get("flow_stack", [])
+            has_active_flow = bool(flow_stack)
+            command = nlu_result.get("command")
+
+            if has_active_flow:
+                # Continue the current flow - collect next slot
+                return "collect_next_slot"
+            elif command:
+                # No active flow but has command - treat as intent to start flow
+                logger.info(
+                    f"Continuation with no active flow and command '{command}', "
+                    f"treating as intent_change"
+                )
+                return "handle_intent_change"
+            else:
+                # No flow, no command - just generate response
+                return "generate_response"
         case _:
             logger.warning(
                 f"Unknown message_type '{message_type}' in route_after_understand, "

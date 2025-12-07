@@ -206,3 +206,51 @@ def test_route_after_validate_logs_conversation_state(caplog):
     assert "route_after_validate" in caplog.text
     assert "conversation_state=ready_for_action" in caplog.text
     assert result == "execute_action"
+
+
+def test_route_after_understand_continuation_no_flow_with_command():
+    """Test that continuation with no active flow but command triggers intent_change."""
+    # Arrange
+    state = create_empty_state()
+    state["flow_stack"] = []  # No active flow
+    state["nlu_result"] = {
+        "message_type": "continuation",
+        "command": "book_flight",
+        "slots": [],
+    }
+
+    # Act
+    next_node = route_after_understand(state)
+
+    # Assert - should treat as intent_change since there's a command but no active flow
+    assert next_node == "handle_intent_change"
+
+
+def test_route_after_understand_continuation_with_active_flow():
+    """Test that continuation with active flow goes to collect_next_slot."""
+    # Arrange
+    state = create_empty_state()
+    state["flow_stack"] = [
+        {
+            "flow_id": "flow_1",
+            "flow_name": "book_flight",
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
+    state["nlu_result"] = {
+        "message_type": "continuation",
+        "command": "book_flight",
+        "slots": [],
+    }
+
+    # Act
+    next_node = route_after_understand(state)
+
+    # Assert - should continue with current flow
+    assert next_node == "collect_next_slot"
