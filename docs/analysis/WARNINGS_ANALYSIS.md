@@ -71,6 +71,11 @@ Se realizó una auditoría exhaustiva y se encontraron **2 tests con fugas reale
 
 **Resultado**: Los ResourceWarnings ya no aparecen porque las fugas fueron corregidas.
 
+**Política de Supresión**:
+- ❌ **NO se suprimen** los ResourceWarnings - queremos detectar fugas reales
+- ✅ Todos los tests deben llamar `cleanup()` correctamente
+- ✅ Si aparecen ResourceWarnings, indican un problema real que debe corregirse
+
 **Código corregido**:
 - `tests/unit/test_dm_graph.py` - `test_builder_warns_if_not_cleaned_up`, `test_checkpointer_creation_unsupported_backend`
 - `tests/unit/test_dm_runtime.py` - Fixture `graph_builder`
