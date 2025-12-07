@@ -222,3 +222,82 @@ async def test_understand_node_no_expected_slots_when_no_flow():
     assert dialogue_context.expected_slots == []
     # Verify get_expected_slots was NOT called
     mock_scope_manager.get_expected_slots.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_understand_node_serializes_message_type_enum():
+    """Test that understand_node properly serializes MessageType enum to string."""
+    # Arrange
+    from soni.du.models import SlotAction, SlotValue
+
+    state = create_initial_state("I want to book a flight")
+
+    mock_nlu = AsyncMock()
+    mock_nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command="test_command",
+        slots=[
+            SlotValue(
+                name="test_slot",
+                value="test_value",
+                confidence=0.9,
+                action=SlotAction.PROVIDE,
+            )
+        ],
+        confidence=0.9,
+        reasoning="Test reasoning",
+    )
+
+    mock_flow_manager = MagicMock()
+    mock_flow_manager.get_active_context.return_value = None
+
+    mock_scope_manager = MagicMock()
+    mock_scope_manager.get_available_actions.return_value = ["test_command"]
+    mock_scope_manager.get_available_flows.return_value = []
+
+    mock_runtime = MagicMock()
+    mock_runtime.context = {
+        "du": mock_nlu,
+        "flow_manager": mock_flow_manager,
+        "scope_manager": mock_scope_manager,
+    }
+
+    # Act
+    result = await understand_node(state, mock_runtime)
+
+    # Assert
+    assert "nlu_result" in result
+    assert isinstance(result["nlu_result"]["message_type"], str)
+    assert result["nlu_result"]["message_type"] == "slot_value"
+    assert isinstance(result["nlu_result"]["slots"][0]["action"], str)
+    assert result["nlu_result"]["slots"][0]["action"] == "provide"
+
+
+def test_nlu_output_model_dump_json_mode():
+    """Test that NLUOutput.model_dump(mode='json') serializes enums to strings."""
+    from soni.du.models import NLUOutput, SlotAction, SlotValue
+
+    # Arrange
+    nlu_output = NLUOutput(
+        message_type=MessageType.INTERRUPTION,
+        command="book_flight",
+        slots=[
+            SlotValue(
+                name="origin",
+                value="Madrid",
+                confidence=0.9,
+                action=SlotAction.PROVIDE,
+            )
+        ],
+        confidence=0.95,
+        reasoning="User wants to book a flight",
+    )
+
+    # Act
+    result = nlu_output.model_dump(mode="json")
+
+    # Assert - enums are strings, not enum objects or dicts
+    assert result["message_type"] == "interruption"
+    assert result["slots"][0]["action"] == "provide"
+    assert isinstance(result["message_type"], str)
+    assert isinstance(result["slots"][0]["action"], str)

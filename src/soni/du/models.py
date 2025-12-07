@@ -20,15 +20,34 @@ class MessageType(str, Enum):
     CONTINUATION = "continuation"  # General continuation
 
 
+class SlotAction(str, Enum):
+    """Action type for each individual slot extraction.
+
+    This distinguishes between providing a new value vs correcting/modifying an existing one.
+    Critical for proper dialogue management.
+    """
+
+    PROVIDE = "provide"  # Providing new slot value
+    CORRECT = "correct"  # Correcting previous value (reactive)
+    MODIFY = "modify"  # Explicitly requesting modification (proactive)
+    CONFIRM = "confirm"  # Confirming a value
+
+
 class SlotValue(BaseModel):
     """Extracted slot value with metadata."""
 
-    name: str = Field(
-        description="Slot name - MUST be one of the names in context.expected_slots. "
-        "If current_prompted_slot is set, use that exact name for the extracted value."
-    )
+    name: str = Field(description="Slot name - MUST be one of the names in context.expected_slots")
     value: Any = Field(description="Extracted value from user message")
     confidence: float = Field(ge=0.0, le=1.0, description="Extraction confidence")
+    # NOTE: Action type for this specific slot
+    action: SlotAction = Field(
+        default=SlotAction.PROVIDE,
+        description="What action this slot represents: provide new, correct previous, modify, confirm",
+    )
+    # NOTE: Track previous value for corrections/modifications
+    previous_value: Any | None = Field(
+        default=None, description="Previous value if this is a correction/modification"
+    )
 
 
 class NLUOutput(BaseModel):

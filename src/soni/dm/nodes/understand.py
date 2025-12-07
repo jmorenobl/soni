@@ -90,12 +90,9 @@ async def understand_node(
     )
 
     # Convert NLUOutput to dict for state storage
-    # (DialogueState uses dict, not Pydantic models)
-    if hasattr(nlu_result_raw, "model_dump"):
-        nlu_result = nlu_result_raw.model_dump()
-    else:
-        # Fallback if already a dict (shouldn't happen with SoniDU)
-        nlu_result = nlu_result_raw if isinstance(nlu_result_raw, dict) else {}
+    # mode='json' ensures enums are serialized as strings (not enum objects)
+    # This is required for routing functions to match message_type correctly
+    nlu_result = nlu_result_raw.model_dump(mode="json")
 
     return {
         "nlu_result": nlu_result,

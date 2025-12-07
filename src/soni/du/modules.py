@@ -9,7 +9,7 @@ from typing import Any
 import dspy
 from cachetools import TTLCache
 
-from soni.du.models import DialogueContext, NLUOutput
+from soni.du.models import DialogueContext, MessageType, NLUOutput, SlotAction
 from soni.du.signatures import DialogueUnderstanding
 
 logger = logging.getLogger(__name__)
@@ -207,6 +207,9 @@ class SoniDU(dspy.Module):
         if not isinstance(result, NLUOutput):
             raise TypeError(f"Expected NLUOutput, got {type(result)}")
 
+        # Post-process to ensure correct slot actions
+        result = self._post_process_result(result, context)
+
         # Cache and return
         self.nlu_cache[cache_key] = result
 
@@ -227,3 +230,37 @@ class SoniDU(dspy.Module):
 
         json_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(json_str.encode()).hexdigest()
+
+    def _post_process_result(self, result: NLUOutput, context: DialogueContext) -> NLUOutput:
+        """
+        Post-process NLU result to ensure correctness.
+
+        This complements the LLM's work by:
+        1. Filtering out invalid slot names
+        2. Detecting corrections/modifications based on current_slots
+        3. Adding previous_value where needed
+        """
+        # 1. Filter invalid slot names
+        valid_slots = [slot for slot in result.slots if slot.name in context.expected_slots]
+
+        # 2. Fix slot actions based on current_slots
+        for slot in valid_slots:
+            if slot.name in context.current_slots:
+                current_value = context.current_slots[slot.name]
+
+                # If value is different, it might be a correction/modification
+                if slot.value != current_value:
+                    # If LLM said PROVIDE but it's changing existing value
+                    if slot.action == SlotAction.PROVIDE:
+                        # Infer based on message_type
+                        if result.message_type == MessageType.CORRECTION:
+                            slot.action = SlotAction.CORRECT
+                        elif result.message_type == MessageType.MODIFICATION:
+                            slot.action = SlotAction.MODIFY
+
+                    # Always set previous_value for corrections/modifications
+                    if slot.action in (SlotAction.CORRECT, SlotAction.MODIFY):
+                        slot.previous_value = current_value
+
+        result.slots = valid_slots
+        return result

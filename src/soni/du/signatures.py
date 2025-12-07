@@ -6,35 +6,18 @@ from soni.du.models import DialogueContext, NLUOutput
 
 
 class DialogueUnderstanding(dspy.Signature):
-    """Analyze user message to extract intent and slot values.
+    """Analyze user message in dialogue context to determine intent and extract all slot values.
 
-    COMMAND RULES (CRITICAL):
-    - To start a flow from available_flows, return command='<flow_name>' (e.g., 'book_flight')
-    - The command MUST be one of context.available_flows when triggering a new flow
-    - For slot values within a flow, use message_type='slot_value' and command='provide_slot'
-
-    SLOT EXTRACTION RULES:
-    1. ALWAYS extract ALL slot values mentioned in the user message.
-    2. Slot names MUST be from context.expected_slots - use those EXACT names.
-    3. When user says "from X to Y", extract BOTH origin=X and destination=Y.
-    4. When user provides a value for context.current_prompted_slot, use that exact slot name.
-
-    MESSAGE TYPE RULES:
-    - interruption: User wants to start a NEW flow -> command must be a flow name from available_flows
-    - slot_value: User provides slot information within current flow
-    - digression: User asks a question without changing flow
-    - cancellation: User wants to stop/cancel
+    Extract ALL slot values mentioned in the message. Each slot gets an action
+    (provide/correct/modify) based on whether it's new or changing an existing value.
     """
 
     # Input fields with structured types
-    user_message: str = dspy.InputField(desc="The user's current message to analyze")
-    history: dspy.History = dspy.InputField(
-        desc="Conversation history with user messages and assistant responses"
-    )
+    user_message: str = dspy.InputField(desc="The user's message to analyze")
+    history: dspy.History = dspy.InputField(desc="Conversation history")
     context: DialogueContext = dspy.InputField(
-        desc="Dialogue context containing: current_flow, expected_slots (USE THESE EXACT NAMES), "
-        "current_prompted_slot (slot being asked for), current_slots (already filled), "
-        "available_flows (flows user can trigger)"
+        desc="Dialogue state: current_flow, expected_slots (use these EXACT names), "
+        "current_slots (already filled - check for corrections), current_prompted_slot, available_flows"
     )
     current_datetime: str = dspy.InputField(
         desc="Current datetime in ISO format for relative date resolution",
@@ -43,5 +26,5 @@ class DialogueUnderstanding(dspy.Signature):
 
     # Output field with structured type
     result: NLUOutput = dspy.OutputField(
-        desc="NLU analysis with slots using ONLY names from context.expected_slots"
+        desc="Analysis with message_type, command, and all extracted slots (list) with their actions"
     )
