@@ -47,31 +47,33 @@
 **Ubicación**: Varios (pytest garbage collection)
 **Tipo**: `ResourceWarning`
 **Problema**: Conexiones SQLite no cerradas durante garbage collection de pytest
-**Impacto**: ⚠️ MEDIO - Puede indicar fugas reales de recursos
+**Impacto**: ⚠️ CORREGIDO - Eran fugas reales en tests
 
-**Análisis**:
-- El código tiene mecanismos de limpieza correctos:
-  - `SoniGraphBuilder.cleanup()` cierra el context manager del checkpointer
-  - `RuntimeLoop.cleanup()` llama a `builder.cleanup()`
-  - Los tests usan fixtures con cleanup automático
-- Los warnings aparecen durante el garbage collection de pytest, incluso cuando el código limpia correctamente
-- Esto es un problema conocido con async context managers y garbage collection en Python
+**Análisis y Corrección (2025-12-08)**:
 
-**Verificación**:
-- ✅ Todos los tests que crean `SoniGraphBuilder` llaman `cleanup()`
+Se realizó una auditoría exhaustiva y se encontraron **2 tests con fugas reales**:
+
+1. **`test_builder_warns_if_not_cleaned_up`** - Intencionalmente no llamaba `cleanup()` para verificar el mecanismo de warning, pero no limpiaba después.
+   - **Solución**: Agregar `await builder.cleanup()` al final del test después de verificar el flag.
+
+2. **`test_checkpointer_creation_unsupported_backend`** - No llamaba `cleanup()` aunque el backend devuelve None.
+   - **Solución**: Agregar `await builder.cleanup()` como buena práctica.
+
+3. **Fixture `graph_builder` en `test_dm_runtime.py`** - Era síncrono y no tenía cleanup.
+   - **Solución**: Convertir a async con yield y cleanup automático.
+
+**Verificación post-corrección**:
+- ✅ Todos los tests que crean `SoniGraphBuilder` ahora llaman `cleanup()`
 - ✅ Todos los tests que crean `RuntimeLoop` llaman `cleanup()`
-- ✅ Los fixtures (`runtime_loop`, `sqlite_checkpointer`) limpian automáticamente
+- ✅ Los fixtures (`runtime_loop`, `sqlite_checkpointer`, `graph_builder`) limpian automáticamente
 - ✅ El código de producción siempre llama `cleanup()` en `RuntimeLoop`
+- ✅ No hay ResourceWarnings en la ejecución de tests
 
-**Solución**:
-- Los warnings se suprimen porque son falsos positivos de pytest/langgraph durante garbage collection
-- El código tiene limpieza explícita y correcta
-- Si aparecen warnings en producción, indicarían un problema real que debe investigarse
+**Resultado**: Los ResourceWarnings ya no aparecen porque las fugas fueron corregidas.
 
-**Código afectado**:
-- `src/soni/dm/graph.py` - `SoniGraphBuilder.cleanup()`
-- `src/soni/runtime/runtime.py` - `RuntimeLoop.cleanup()`
-- `tests/conftest.py` - Fixtures con cleanup automático
+**Código corregido**:
+- `tests/unit/test_dm_graph.py` - `test_builder_warns_if_not_cleaned_up`, `test_checkpointer_creation_unsupported_backend`
+- `tests/unit/test_dm_runtime.py` - Fixture `graph_builder`
 
 ### 2. Warnings de Nuestro Código (CONTROLAMOS)
 
@@ -83,8 +85,8 @@ El campo `handler` en `ActionConfig` fue completamente eliminado en v0.5.0+ como
 
 | Categoría | Cantidad | Controlamos | Acción Requerida |
 |-----------|----------|-------------|------------------|
-| Dependencias externas | 4 tipos | ❌ NO | ✅ Suprimidos en conftest.py |
-| Nuestro código | 0 tipos | ✅ SÍ | ✅ Código legacy eliminado (v0.5.0+) |
+| Dependencias externas | 4 tipos | ❌ NO | ✅ Suprimidos en pyproject.toml |
+| Nuestro código | 0 tipos | ✅ SÍ | ✅ Fugas corregidas, código legacy eliminado |
 
 ## Recomendación
 

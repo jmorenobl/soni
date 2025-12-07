@@ -26,9 +26,11 @@ def sample_config():
 
 
 @pytest.fixture
-def graph_builder(sample_config):
-    """Create a graph builder for testing"""
-    return SoniGraphBuilder(sample_config)
+async def graph_builder(sample_config):
+    """Create a graph builder for testing with automatic cleanup"""
+    builder = SoniGraphBuilder(sample_config)
+    yield builder
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio

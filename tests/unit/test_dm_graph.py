@@ -378,6 +378,10 @@ async def test_builder_warns_if_not_cleaned_up():
     # The ResourceWarning will be emitted when Python garbage collects the object
     # This test verifies the flag mechanism is in place
 
+    # Cleanup after test to prevent ResourceWarning from escaping
+    # The test already verified the flag mechanism works
+    await builder.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_builder_no_warning_after_cleanup():
@@ -428,6 +432,9 @@ async def test_checkpointer_creation_unsupported_backend():
 
     # Assert
     assert builder.checkpointer is None
+
+    # Cleanup (even though checkpointer is None, it's good practice)
+    await builder.cleanup()
 
 
 @pytest.mark.asyncio
