@@ -30,10 +30,14 @@ async def test_handle_intent_change_success():
         type="collect", slot="origin"
     )
 
+    mock_config = MagicMock()
+    mock_config.flows = {"book_flight": {}}
+
     mock_runtime = MagicMock()
     mock_runtime.context = {
         "flow_manager": mock_flow_manager,
         "step_manager": mock_step_manager,
+        "config": mock_config,
     }
 
     # Act

@@ -159,7 +159,7 @@ async def test_soni_du_predict_with_mock():
             available_actions=["book_flight", "help"],
             available_flows=["book_flight"],
             current_flow="none",
-            expected_slots=[],
+            expected_slots=["destination"],  # Must include destination for slot to pass filter
         )
         result = await du.predict(
             user_message="I want to book a flight to Paris",

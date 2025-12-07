@@ -138,11 +138,13 @@ def test_route_after_validate_no_active_flow():
 def test_route_after_validate_warns_unexpected_state(caplog):
     """Test that route_after_validate warns on unexpected conversation_state."""
     # Arrange
+    from soni.dm.routing import logger as routing_logger
+
     state = create_empty_state()
     state["conversation_state"] = "unexpected_state"
 
     # Act
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.WARNING, logger=routing_logger.name):
         result = route_after_validate(state)
 
     # Assert
@@ -154,6 +156,8 @@ def test_route_after_validate_warns_unexpected_state(caplog):
 def test_route_after_understand_logs_message_type(caplog):
     """Test that route_after_understand logs message_type correctly."""
     # Arrange
+    from soni.dm.routing import logger as routing_logger
+
     state = create_empty_state()
     state["nlu_result"] = {
         "message_type": "slot_value",
@@ -163,7 +167,7 @@ def test_route_after_understand_logs_message_type(caplog):
     }
 
     # Act
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.INFO, logger=routing_logger.name):
         result = route_after_understand(state)
 
     # Assert
@@ -176,6 +180,8 @@ def test_route_after_understand_logs_message_type(caplog):
 def test_route_after_understand_warns_unknown_message_type(caplog):
     """Test that route_after_understand warns on unknown message_type."""
     # Arrange
+    from soni.dm.routing import logger as routing_logger
+
     state = create_empty_state()
     state["nlu_result"] = {
         "message_type": "unknown_type",
@@ -183,7 +189,7 @@ def test_route_after_understand_warns_unknown_message_type(caplog):
     }
 
     # Act
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.WARNING, logger=routing_logger.name):
         result = route_after_understand(state)
 
     # Assert
@@ -195,11 +201,13 @@ def test_route_after_understand_warns_unknown_message_type(caplog):
 def test_route_after_validate_logs_conversation_state(caplog):
     """Test that route_after_validate logs conversation_state."""
     # Arrange
+    from soni.dm.routing import logger as routing_logger
+
     state = create_empty_state()
     state["conversation_state"] = "ready_for_action"
 
     # Act
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.INFO, logger=routing_logger.name):
         result = route_after_validate(state)
 
     # Assert
