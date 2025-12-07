@@ -1,5 +1,7 @@
 """Tests for routing functions."""
 
+import logging
+
 import pytest
 
 from soni.core.state import create_empty_state
@@ -131,3 +133,60 @@ def test_route_after_validate_no_active_flow():
 
     # Assert
     assert next_node == "generate_response"
+
+
+def test_route_after_understand_logs_message_type(caplog):
+    """Test that route_after_understand logs message_type correctly."""
+    # Arrange
+    state = create_empty_state()
+    state["nlu_result"] = {
+        "message_type": "slot_value",
+        "command": "test_command",
+        "slots": [{"name": "test_slot"}],
+        "confidence": 0.9,
+    }
+
+    # Act
+    with caplog.at_level(logging.INFO):
+        result = route_after_understand(state)
+
+    # Assert
+    assert "route_after_understand" in caplog.text
+    assert "message_type=slot_value" in caplog.text
+    assert "command=test_command" in caplog.text
+    assert result == "validate_slot"
+
+
+def test_route_after_understand_warns_unknown_message_type(caplog):
+    """Test that route_after_understand warns on unknown message_type."""
+    # Arrange
+    state = create_empty_state()
+    state["nlu_result"] = {
+        "message_type": "unknown_type",
+        "command": "test_command",
+    }
+
+    # Act
+    with caplog.at_level(logging.WARNING):
+        result = route_after_understand(state)
+
+    # Assert
+    assert "Unknown message_type" in caplog.text
+    assert "unknown_type" in caplog.text
+    assert result == "generate_response"
+
+
+def test_route_after_validate_logs_conversation_state(caplog):
+    """Test that route_after_validate logs conversation_state."""
+    # Arrange
+    state = create_empty_state()
+    state["conversation_state"] = "ready_for_action"
+
+    # Act
+    with caplog.at_level(logging.INFO):
+        result = route_after_validate(state)
+
+    # Assert
+    assert "route_after_validate" in caplog.text
+    assert "conversation_state=ready_for_action" in caplog.text
+    assert result == "execute_action"

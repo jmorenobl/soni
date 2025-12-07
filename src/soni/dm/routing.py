@@ -262,7 +262,19 @@ def route_after_understand(state: DialogueStateType) -> str:
         # Convert to lowercase for consistent matching
         message_type = str(message_type).lower()
 
-    logger.debug(f"route_after_understand: message_type={message_type}")
+    slots = nlu_result.get("slots", [])
+    logger.info(
+        f"route_after_understand: message_type={message_type}, command={nlu_result.get('command')}, "
+        f"slots_count={len(slots)}",
+        extra={
+            "message_type": message_type,
+            "command": nlu_result.get("command"),
+            "slots": [
+                s["name"] for s in slots
+            ],  # Slots are always dicts after model_dump(mode='json')
+            "confidence": nlu_result.get("confidence"),
+        },
+    )
 
     # Route based on message type
     # Map to nodes that exist in builder.py edge map
@@ -288,6 +300,17 @@ def route_after_understand(state: DialogueStateType) -> str:
             # Continue the flow - collect next slot
             return "collect_next_slot"
         case _:
+            logger.warning(
+                f"Unknown message_type '{message_type}' in route_after_understand, "
+                f"falling back to generate_response. NLU result: {nlu_result}",
+                extra={
+                    "message_type": message_type,
+                    "command": nlu_result.get("command"),
+                    "nlu_result_keys": list(nlu_result.keys())
+                    if isinstance(nlu_result, dict)
+                    else [],
+                },
+            )
             return "generate_response"
 
 
@@ -301,6 +324,15 @@ def route_after_validate(state: DialogueStateType) -> str:
         Next node name
     """
     conv_state = state.get("conversation_state")
+
+    logger.info(
+        f"route_after_validate: conversation_state={conv_state}",
+        extra={
+            "conversation_state": conv_state,
+            "has_nlu_result": "nlu_result" in state,
+            "has_flow_slots": bool(state.get("flow_slots")),
+        },
+    )
 
     # Route based on conversation_state as specified in design
     if conv_state == "ready_for_action":
