@@ -181,6 +181,20 @@ markers = [
     "performance: marks tests as performance tests (deselect with '-m \"not performance\"')",
     "slow: marks tests as slow (>3s) (deselect with '-m \"not slow\"')",
 ]
+# Suppress warnings from external dependencies
+# These warnings are from third-party libraries and don't affect our code
+filterwarnings = [
+    # litellm uses deprecated Pydantic class-based config
+    "ignore::pydantic.PydanticDeprecatedSince20",
+    # Starlette deprecated HTTP_422_UNPROCESSABLE_ENTITY (FastAPI handles this internally)
+    "ignore::DeprecationWarning:starlette._exception_handler",
+    # aiohttp enable_cleanup_closed is ignored in Python 3.13+
+    "ignore::DeprecationWarning:aiohttp.connector",
+    # Pydantic serializer warnings from DSPy/litellm objects
+    "ignore::UserWarning:pydantic.main",
+    # ResourceWarning from SQLite connections in pytest/langgraph
+    "ignore::ResourceWarning",
+]
 
 [tool.coverage.run]
 source = ["src/soni"]

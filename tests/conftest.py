@@ -12,38 +12,7 @@ import os
 import warnings
 from pathlib import Path
 
-# Suppress warnings from external dependencies BEFORE importing them
-# These warnings are from third-party libraries and don't affect our code
-# Must be before imports to catch warnings during module import
-
-# litellm uses deprecated Pydantic class-based config
-warnings.filterwarnings(
-    "ignore",
-    message=".*class-based `config` is deprecated.*",
-)
-
-# Starlette deprecated HTTP_422_UNPROCESSABLE_ENTITY (FastAPI handles this internally)
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    message=".*HTTP_422_UNPROCESSABLE_ENTITY.*",
-)
-
-# aiohttp enable_cleanup_closed is ignored in Python 3.13+
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    message=".*enable_cleanup_closed.*",
-)
-
-# Pydantic serializer warnings from DSPy/litellm objects
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*Pydantic serializer warnings.*",
-)
-
-# Now import dependencies (warnings already filtered)
+# Import dependencies first
 import dspy  # noqa: E402
 import pytest  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
@@ -52,6 +21,9 @@ from dotenv import load_dotenv  # noqa: E402
 # Load .env file from project root
 def pytest_configure(config):
     """Configure pytest environment before tests run"""
+    # Note: Warning filters are configured in pyproject.toml [tool.pytest.ini_options]
+    # This ensures warnings from external dependencies are suppressed from the start
+
     # Load .env from project root (parent of tests/)
     project_root = Path(__file__).parent.parent
     env_path = project_root / ".env"
