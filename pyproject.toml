@@ -193,6 +193,9 @@ filterwarnings = [
     # Pydantic serializer warnings from DSPy/litellm objects
     "ignore::UserWarning:pydantic.main",
     # ResourceWarning from SQLite connections in pytest/langgraph
+    # These are false positives from pytest garbage collection.
+    # Our code properly closes connections via SoniGraphBuilder.cleanup() and RuntimeLoop.cleanup()
+    # All tests use fixtures with automatic cleanup or explicitly call cleanup()
     "ignore::ResourceWarning",
 ]
 

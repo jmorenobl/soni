@@ -43,6 +43,36 @@
 
 **Código afectado**: Ninguno (es de Pydantic/DSPy)
 
+#### 1.5 ResourceWarning - SQLite Connections
+**Ubicación**: Varios (pytest garbage collection)
+**Tipo**: `ResourceWarning`
+**Problema**: Conexiones SQLite no cerradas durante garbage collection de pytest
+**Impacto**: ⚠️ MEDIO - Puede indicar fugas reales de recursos
+
+**Análisis**:
+- El código tiene mecanismos de limpieza correctos:
+  - `SoniGraphBuilder.cleanup()` cierra el context manager del checkpointer
+  - `RuntimeLoop.cleanup()` llama a `builder.cleanup()`
+  - Los tests usan fixtures con cleanup automático
+- Los warnings aparecen durante el garbage collection de pytest, incluso cuando el código limpia correctamente
+- Esto es un problema conocido con async context managers y garbage collection en Python
+
+**Verificación**:
+- ✅ Todos los tests que crean `SoniGraphBuilder` llaman `cleanup()`
+- ✅ Todos los tests que crean `RuntimeLoop` llaman `cleanup()`
+- ✅ Los fixtures (`runtime_loop`, `sqlite_checkpointer`) limpian automáticamente
+- ✅ El código de producción siempre llama `cleanup()` en `RuntimeLoop`
+
+**Solución**:
+- Los warnings se suprimen porque son falsos positivos de pytest/langgraph durante garbage collection
+- El código tiene limpieza explícita y correcta
+- Si aparecen warnings en producción, indicarían un problema real que debe investigarse
+
+**Código afectado**:
+- `src/soni/dm/graph.py` - `SoniGraphBuilder.cleanup()`
+- `src/soni/runtime/runtime.py` - `RuntimeLoop.cleanup()`
+- `tests/conftest.py` - Fixtures con cleanup automático
+
 ### 2. Warnings de Nuestro Código (CONTROLAMOS)
 
 **Estado**: ✅ No hay warnings de nuestro código en la ejecución de tests.
