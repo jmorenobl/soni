@@ -349,7 +349,16 @@ def route_after_validate(state: DialogueStateType) -> str:
     elif conv_state == "completed":
         return "generate_response"
     else:
-        # Default fallback
+        # Default fallback - unexpected conversation_state
+        logger.warning(
+            f"Unexpected conversation_state '{conv_state}' in route_after_validate, "
+            f"falling back to generate_response. State keys: {list(state.keys())}",
+            extra={
+                "conversation_state": conv_state,
+                "state_keys": list(state.keys()),
+                "has_nlu_result": "nlu_result" in state,
+            },
+        )
         return "generate_response"
 
 

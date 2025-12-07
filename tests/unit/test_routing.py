@@ -135,6 +135,22 @@ def test_route_after_validate_no_active_flow():
     assert next_node == "generate_response"
 
 
+def test_route_after_validate_warns_unexpected_state(caplog):
+    """Test that route_after_validate warns on unexpected conversation_state."""
+    # Arrange
+    state = create_empty_state()
+    state["conversation_state"] = "unexpected_state"
+
+    # Act
+    with caplog.at_level(logging.WARNING):
+        result = route_after_validate(state)
+
+    # Assert
+    assert "Unexpected conversation_state" in caplog.text
+    assert "unexpected_state" in caplog.text
+    assert result == "generate_response"
+
+
 def test_route_after_understand_logs_message_type(caplog):
     """Test that route_after_understand logs message_type correctly."""
     # Arrange
