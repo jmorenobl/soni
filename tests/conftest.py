@@ -4,15 +4,49 @@ This module configures the test environment, including:
 - Loading environment variables from .env
 - Configuring DSPy with OpenAI LM
 - Shared fixtures
+- Suppressing warnings from external dependencies
 """
 
 import importlib
 import os
+import warnings
 from pathlib import Path
 
-import dspy
-import pytest
-from dotenv import load_dotenv
+# Suppress warnings from external dependencies BEFORE importing them
+# These warnings are from third-party libraries and don't affect our code
+# Must be before imports to catch warnings during module import
+
+# litellm uses deprecated Pydantic class-based config
+warnings.filterwarnings(
+    "ignore",
+    message=".*class-based `config` is deprecated.*",
+)
+
+# Starlette deprecated HTTP_422_UNPROCESSABLE_ENTITY (FastAPI handles this internally)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*HTTP_422_UNPROCESSABLE_ENTITY.*",
+)
+
+# aiohttp enable_cleanup_closed is ignored in Python 3.13+
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*enable_cleanup_closed.*",
+)
+
+# Pydantic serializer warnings from DSPy/litellm objects
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*Pydantic serializer warnings.*",
+)
+
+# Now import dependencies (warnings already filtered)
+import dspy  # noqa: E402
+import pytest  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 
 # Load .env file from project root
