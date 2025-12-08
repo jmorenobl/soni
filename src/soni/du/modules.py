@@ -224,8 +224,8 @@ class SoniDU(dspy.Module):
         if not isinstance(result, NLUOutput):
             raise TypeError(f"Expected NLUOutput, got {type(result)}")
 
-        # Post-process to ensure correct slot actions and assignments
-        result = self._post_process_result(result, context, user_message)
+        # Post-process to ensure correct slot actions
+        result = self._post_process_result(result, context)
 
         # Cache and return
         self.nlu_cache[cache_key] = result
@@ -248,9 +248,7 @@ class SoniDU(dspy.Module):
         json_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(json_str.encode()).hexdigest()
 
-    def _post_process_result(
-        self, result: NLUOutput, context: DialogueContext, user_message: str = ""
-    ) -> NLUOutput:
+    def _post_process_result(self, result: NLUOutput, context: DialogueContext) -> NLUOutput:
         """
         Post-process NLU result to ensure correctness.
 
@@ -258,56 +256,11 @@ class SoniDU(dspy.Module):
         1. Filtering out invalid slot names
         2. Detecting corrections/modifications based on current_slots
         3. Adding previous_value where needed
-        4. Correcting slot assignment when current_prompted_slot is set
         """
         # 1. Filter invalid slot names
         valid_slots = [slot for slot in result.slots if slot.name in context.expected_slots]
 
-        # 2. Fix slot assignment if current_prompted_slot is set
-        # This handles cases where NLU extracts wrong slot (e.g., "Madrid" -> destination
-        # when we're waiting for origin)
-        if (
-            context.current_prompted_slot
-            and context.current_prompted_slot in context.expected_slots
-        ):
-            # Check if current_prompted_slot was extracted
-            prompted_slot_extracted = any(
-                slot.name == context.current_prompted_slot for slot in valid_slots
-            )
-
-            if not prompted_slot_extracted and valid_slots:
-                # NLU extracted a different slot, but we're waiting for current_prompted_slot
-                # If message is simple (likely a direct answer), correct the slot assignment
-                # Simple = short message (1-3 words) that looks like a direct answer
-                message_words = user_message.strip().split()
-                is_simple_message = len(message_words) <= 3 and all(
-                    len(word) < 20 for word in message_words
-                )
-
-                if is_simple_message and result.message_type == MessageType.SLOT_VALUE:
-                    # Take the first extracted slot's value and reassign to current_prompted_slot
-                    first_slot = valid_slots[0]
-                    logger.debug(
-                        f"Correcting slot assignment: NLU extracted '{first_slot.name}' "
-                        f"but we're waiting for '{context.current_prompted_slot}'. "
-                        f"Reassigning value '{first_slot.value}' to '{context.current_prompted_slot}'."
-                    )
-
-                    # Create new slot with correct name
-                    from soni.du.models import SlotValue
-
-                    corrected_slot = SlotValue(
-                        name=context.current_prompted_slot,
-                        value=first_slot.value,
-                        confidence=first_slot.confidence,
-                        action=first_slot.action,
-                        previous_value=first_slot.previous_value,
-                    )
-
-                    # Replace the incorrectly extracted slot
-                    valid_slots = [corrected_slot]
-
-        # 3. Fix slot actions based on current_slots
+        # 2. Fix slot actions based on current_slots
         for slot in valid_slots:
             if slot.name in context.current_slots:
                 current_value = context.current_slots[slot.name]
