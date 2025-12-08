@@ -41,6 +41,7 @@ class DialogueState(TypedDict):
     current_step: str | None
     waiting_for_slot: str | None
     current_prompted_slot: str | None
+    all_slots_filled: bool | None  # True when all required slots are filled
 
     # NLU results
     nlu_result: dict[str, Any] | None

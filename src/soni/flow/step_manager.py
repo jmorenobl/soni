@@ -209,7 +209,7 @@ class FlowStepManager:
         """Check if current step has all required slots.
 
         For collect steps, checks if the slot is filled.
-        For action steps, always returns True (no slots to collect).
+        For action and confirm steps, always returns False (they need to be executed).
 
         Args:
             state: Current dialogue state
@@ -219,9 +219,13 @@ class FlowStepManager:
         Returns:
             True if step is complete, False otherwise
         """
-        # Action steps don't collect slots, so they're always "complete"
-        # in terms of slot collection
+        # Action and confirm steps are never "pre-completed" - they execute when reached
+        if step_config.type in ("action", "confirm"):
+            return False
+
+        # Only collect steps can be "complete" (slot filled)
         if step_config.type != "collect":
+            # Other step types (branch, say) are considered complete for advancement
             return True
 
         # For collect steps, check if slot is filled
@@ -297,6 +301,7 @@ class FlowStepManager:
             - flow_stack: Updated flow stack
             - waiting_for_slot: Updated if final step is collect type
             - current_prompted_slot: Updated if final step is collect type
+            - all_slots_filled: True when all slots are filled and at action/confirm step
 
         Example:
             >>> # User provides origin and destination in one message
@@ -309,75 +314,125 @@ class FlowStepManager:
         """
         max_iterations = 20  # Safety limit to prevent infinite loops
         iterations = 0
+        flow_manager = context["flow_manager"]
 
         while iterations < max_iterations:
             iterations += 1
 
+            # Get active flow context
+            active_ctx = flow_manager.get_active_context(state)
+            if not active_ctx:
+                logger.warning("No active flow in advance_through_completed_steps")
+                return {"conversation_state": "idle"}
+
+            flow_name = active_ctx["flow_name"]
+
             # Get current step configuration
             current_step_config = self.get_current_step_config(state, context)
 
+            # If no current step, try to start at first step
             if not current_step_config:
-                # No current step - flow might be complete or not started
-                logger.info(f"No current step after {iterations} iteration(s) - flow complete")
-                return {"conversation_state": "completed"}
+                # Try to get first step from flow config
+                try:
+                    flow_config = get_flow_config(context, flow_name)
+                    if flow_config and flow_config.steps_or_process:
+                        first_step = flow_config.steps_or_process[0]
+                        # Update flow context to first step
+                        if state["flow_stack"]:
+                            state["flow_stack"][-1]["current_step"] = first_step.step
+                        current_step_config = first_step
+                    else:
+                        # No steps in flow - mark as completed
+                        logger.info(f"Flow {flow_name} has no steps, marking as completed")
+                        flow_manager.pop_flow(state, result="completed")
+                        return {
+                            "conversation_state": "completed",
+                            "all_slots_filled": True,
+                            "current_step": None,
+                        }
+                except KeyError:
+                    logger.error(f"Flow '{flow_name}' not found in configuration")
+                    return {"conversation_state": "error"}
+
+            if not current_step_config:
+                # Truly no step - flow complete
+                logger.info(f"Flow {flow_name} complete after {iterations} iteration(s)")
+                flow_manager.pop_flow(state, result="completed")
+                return {
+                    "conversation_state": "completed",
+                    "all_slots_filled": True,
+                    "current_step": None,
+                }
 
             # Check if current step is complete
             is_complete = self.is_step_complete(state, current_step_config, context)
 
-            if not is_complete:
-                # Found a step that is not complete - stop here
+            if is_complete:
+                # Step complete - advance to next step
+                logger.debug(
+                    f"Step '{current_step_config.step}' is complete, advancing... "
+                    f"(iteration {iterations})"
+                )
+
+                advance_updates = self.advance_to_next_step(state, context)
+
+                # Check if flow is complete (no next step)
+                if advance_updates.get("conversation_state") == "completed":
+                    logger.info(f"Flow completed after {iterations} iteration(s)")
+                    flow_manager.pop_flow(state, result="completed")
+                    return {
+                        **advance_updates,
+                        "all_slots_filled": True,
+                    }
+
+                # Update state for next iteration
+                from typing import cast
+
+                state_dict = cast(dict[str, Any], state)
+                state_dict.update(advance_updates)
+
+            else:
+                # Found incomplete step - determine conversation state
+                step_type = current_step_config.type
                 logger.info(
                     f"Stopped at incomplete step '{current_step_config.step}' "
-                    f"(type={current_step_config.type}) after {iterations} iteration(s)"
+                    f"(type={step_type}) after {iterations} iteration(s)"
                 )
 
-                # Determine conversation_state based on step type
-                step_type_to_state = {
-                    "action": "ready_for_action",
-                    "collect": "waiting_for_slot",
-                    "confirm": "ready_for_confirmation",
-                    "branch": "understanding",
-                    "say": "generating_response",
-                }
-                conversation_state = step_type_to_state.get(
-                    current_step_config.type, "understanding"
-                )
-
-                updates = {
+                updates: dict[str, Any] = {
                     "flow_stack": state.get("flow_stack", []),
-                    "conversation_state": conversation_state,
                 }
 
-                # If it's a collect step, set waiting_for_slot
-                if current_step_config.type == "collect" and current_step_config.slot:
-                    updates["waiting_for_slot"] = current_step_config.slot
-                    updates["current_prompted_slot"] = current_step_config.slot
+                # Determine conversation_state and set all_slots_filled
+                if step_type == "action":
+                    updates["conversation_state"] = "ready_for_action"
+                    updates["all_slots_filled"] = True
+                    updates["waiting_for_slot"] = None
+                elif step_type == "confirm":
+                    updates["conversation_state"] = "ready_for_confirmation"
+                    updates["all_slots_filled"] = True
+                    updates["waiting_for_slot"] = None
+                elif step_type == "collect":
+                    updates["conversation_state"] = "waiting_for_slot"
+                    updates["all_slots_filled"] = False
+                    if current_step_config.slot:
+                        updates["waiting_for_slot"] = current_step_config.slot
+                        updates["current_prompted_slot"] = current_step_config.slot
+                else:
+                    # Default for other step types
+                    step_type_to_state = {
+                        "branch": "understanding",
+                        "say": "generating_response",
+                    }
+                    updates["conversation_state"] = step_type_to_state.get(
+                        step_type, "understanding"
+                    )
+                    updates["all_slots_filled"] = False
 
                 return updates
 
-            # Current step is complete - advance to next step
-            logger.debug(
-                f"Step '{current_step_config.step}' is complete, advancing... "
-                f"(iteration {iterations})"
-            )
-
-            advance_updates = self.advance_to_next_step(state, context)
-
-            # Check if flow is complete
-            if advance_updates.get("conversation_state") == "completed":
-                logger.info(f"Flow completed after {iterations} iteration(s)")
-                return advance_updates
-
-            # Update state in place for next iteration
-            # Cast to dict for TypedDict update compatibility
-            from typing import cast
-
-            state_dict = cast(dict[str, Any], state)
-            state_dict.update(advance_updates)
-
-        # Safety: reached max iterations
+        # Max iterations reached
         logger.error(
-            f"advance_through_completed_steps reached max iterations ({max_iterations}). "
-            f"This may indicate an infinite loop or a very long flow."
+            f"Max iterations ({max_iterations}) reached in advance_through_completed_steps"
         )
         return {"conversation_state": "error"}

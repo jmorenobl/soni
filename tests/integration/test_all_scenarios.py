@@ -100,15 +100,47 @@ class TestScenario1Sequential:
         # Should advance to departure_date
         assert state.get("waiting_for_slot") in ("departure_date", None)
 
-        # Turn 4: Provide date
-        await runtime.process_message("Tomorrow", user_id)
+        # Turn 4: Provide date (CRITICAL - should complete)
+        response = await runtime.process_message("Tomorrow", user_id)
         snapshot = await runtime.graph.aget_state(config)
         state = state_from_dict(snapshot.values, allow_partial=True)
 
         slots = get_all_slots(state)
         assert "departure_date" in slots
-        assert state.get("current_step") == "search_flights"
-        assert state.get("conversation_state") == "ready_for_action"
+
+        # CRITICAL ASSERTIONS: Action should have been executed
+        # After action execution and response generation, state may be "idle" (correct)
+        # But we should have evidence that the action ran (booking_ref, confirmation, or action_result)
+        assert state.get("all_slots_filled") is True, "Should mark all slots filled!"
+
+        # Check that action was executed (not just returned to idle without executing)
+        # The action should have produced outputs (booking_ref, confirmation, or flights)
+        action_executed = (
+            "booking_ref" in slots
+            or "confirmation" in slots
+            or "flights" in slots
+            or state.get("action_result") is not None
+        )
+        assert action_executed, (
+            "Action should have been executed! Expected booking_ref, confirmation, "
+            "flights, or action_result in state. Got slots: " + str(list(slots.keys()))
+        )
+
+        # Response should not be the generic fallback
+        assert "How can I help you?" not in response, (
+            "Should not show generic fallback! Action should have executed. "
+            f"Response was: {response}"
+        )
+
+        # After response generation, conversation_state may be "idle" (this is correct)
+        # But if we're still in the flow, we should be at the action step or completed
+        if state.get("conversation_state") != "idle":
+            # If not idle, should be ready_for_action or completed
+            assert state.get("conversation_state") in (
+                "ready_for_action",
+                "completed",
+                "executing_action",
+            ), f"Unexpected conversation_state: {state.get('conversation_state')}"
 
 
 class TestScenario2MultipleSlots:
