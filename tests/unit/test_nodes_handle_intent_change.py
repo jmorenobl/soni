@@ -88,11 +88,9 @@ async def test_handle_intent_change_starts_valid_flow():
     state["flow_slots"] = {}
 
     mock_flow_manager = MagicMock()
-    mock_flow_manager.get_active_context.return_value = {
-        "flow_id": "flow_1",
-        "flow_name": "book_flight",
-        "current_step": "collect_origin",
-    }
+    # No active flow - should push new flow
+    mock_flow_manager.get_active_context.return_value = None
+    mock_flow_manager.push_flow.return_value = "flow_1"
 
     mock_step_manager = MagicMock()
     mock_step_config = MagicMock()

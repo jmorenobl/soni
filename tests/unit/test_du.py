@@ -19,7 +19,6 @@ def test_nlu_output():
         command="book_flight",
         slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
         confidence=0.95,
-        reasoning="Clear booking intent",
     )
 
     # Assert
@@ -64,7 +63,6 @@ def test_soni_du_forward_with_mock():
         command="book_flight",
         slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
         confidence=0.95,
-        reasoning="Test reasoning",
     )
 
     # Create context with new signature
@@ -106,7 +104,6 @@ async def test_soni_du_aforward_with_mock():
         command="test_command",
         slots=[],
         confidence=0.90,
-        reasoning="Test reasoning",
     )
 
     # Create context with new signature
@@ -144,7 +141,6 @@ async def test_soni_du_predict_with_mock():
         command="book_flight",
         slots=[SlotValue(name="destination", value="Paris", confidence=0.95)],
         confidence=0.95,
-        reasoning="Test reasoning",
     )
 
     original_acall = du.acall
@@ -196,7 +192,6 @@ async def test_soni_du_predict_error_handling():
         command="book_flight",
         slots=[],  # Empty slots for error case
         confidence=0.0,  # Invalid confidence → 0.0
-        reasoning="test",
     )
 
     original_acall = du.acall
@@ -247,7 +242,6 @@ async def test_soni_du_predict_missing_attributes():
         command="",  # Empty for None case
         slots=[],  # Empty slots
         confidence=0.0,  # Invalid confidence → 0.0
-        reasoning="",  # Empty reasoning
     )
 
     original_acall = du.acall
@@ -278,7 +272,7 @@ async def test_soni_du_predict_missing_attributes():
         assert result.slots == []
         assert result.confidence == 0.0
         assert result.command == ""
-        assert result.reasoning == ""
+        # reasoning field was removed from NLUOutput
     finally:
         # Cleanup
         du.acall = original_acall

@@ -13,13 +13,11 @@ def dummy_lm():
     lm = DummyLM(
         [
             {
-                "reasoning": "User explicitly states intent",
                 "result": {
                     "message_type": "interruption",
                     "command": "book_flight",
                     "slots": [],
                     "confidence": 0.95,
-                    "reasoning": "User explicitly states intent",
                 },
             }
         ]
@@ -51,7 +49,7 @@ async def test_dspy_nlu_provider(dummy_lm):
     assert result["command"] == "book_flight"
     assert result["message_type"] == "interruption"
     assert "confidence" in result
-    assert "reasoning" in result
+    # reasoning field was removed from NLUOutput
     assert "slots" in result
 
 

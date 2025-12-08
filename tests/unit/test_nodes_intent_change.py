@@ -19,11 +19,16 @@ async def test_handle_intent_change_success():
 
     mock_flow_manager = MagicMock()
     mock_flow_manager.push_flow.return_value = "flow_1"
-    mock_flow_manager.get_active_context.return_value = {
-        "flow_id": "flow_1",
-        "flow_name": "book_flight",
-        "current_step": "collect_origin",
-    }
+    # First call: no active flow (should push)
+    # Second call: flow is now active (after push_flow)
+    mock_flow_manager.get_active_context.side_effect = [
+        None,  # First call: no active flow
+        {
+            "flow_id": "flow_1",
+            "flow_name": "book_flight",
+            "current_step": "collect_origin",
+        },  # Second call: flow is now active
+    ]
 
     mock_step_manager = MagicMock()
     mock_step_manager.get_current_step_config.return_value = MagicMock(
