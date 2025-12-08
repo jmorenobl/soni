@@ -142,10 +142,62 @@ async def handle_intent_change_node(
                 f"Saved {len(extracted_slots)} slot(s) from NLU result: {list(extracted_slots.keys())}"
             )
 
-    # Get the first slot to collect from the current step
+    # After saving slots, check if current step is complete and advance if needed
     step_manager = runtime.context["step_manager"]
-    waiting_for_slot = None
     current_step_config = step_manager.get_current_step_config(state, runtime.context)
+
+    if current_step_config:
+        # Check if the current step is complete after saving slots
+        is_complete = step_manager.is_step_complete(state, current_step_config, runtime.context)
+
+        if is_complete:
+            # Step is complete, advance to next step
+            logger.info(
+                f"Step '{current_step}' is complete after saving slots, advancing to next step"
+            )
+            updates: dict[str, Any] = dict(
+                step_manager.advance_to_next_step(state, runtime.context)
+            )
+
+            # Determine conversation_state based on next step type
+            updated_state = {**state, **updates}
+            next_step_config = step_manager.get_current_step_config(updated_state, runtime.context)
+
+            if next_step_config:
+                # Map step type to conversation state
+                step_type_to_state = {
+                    "action": "ready_for_action",
+                    "collect": "waiting_for_slot",
+                    "confirm": "ready_for_confirmation",
+                    "branch": "understanding",
+                    "say": "generating_response",
+                }
+                new_conversation_state = step_type_to_state.get(
+                    next_step_config.type, "understanding"
+                )
+                updates["conversation_state"] = new_conversation_state
+
+                # Get waiting_for_slot if next step is collect
+                if next_step_config.type == "collect":
+                    updates["waiting_for_slot"] = next_step_config.slot
+                    updates["current_prompted_slot"] = next_step_config.slot
+            else:
+                # No next step or flow completed
+                updates["conversation_state"] = "generating_response"
+
+            # IMPORTANT: Include flow_stack and flow_slots to propagate changes
+            updates["flow_stack"] = state["flow_stack"]
+            updates["flow_slots"] = state["flow_slots"]
+
+            # CRITICAL: Clear user_message after processing to avoid re-processing
+            # The message has been fully processed (slots saved, step advanced)
+            # If we're advancing to a collect step, we'll wait for a new user message
+            updates["user_message"] = ""  # Clear to prevent re-processing
+
+            return updates
+
+    # Step not complete or no step config - get the first slot to collect
+    waiting_for_slot = None
     if current_step_config and current_step_config.type == "collect":
         waiting_for_slot = current_step_config.slot
 
