@@ -42,8 +42,18 @@ async def test_validate_slot_success():
     }
 
     mock_step_manager = MagicMock()
-    mock_step_manager.get_current_step_config.return_value = MagicMock(type="collect")
+    mock_step_config = MagicMock()
+    mock_step_config.type = "collect"
+    mock_step_config.slot = "origin"
+    mock_step_manager.get_current_step_config.return_value = mock_step_config
     mock_step_manager.is_step_complete.return_value = False  # Step not complete yet
+    # Mock advance_through_completed_steps to return waiting_for_slot state
+    mock_step_manager.advance_through_completed_steps.return_value = {
+        "conversation_state": "waiting_for_slot",
+        "waiting_for_slot": "origin",
+        "current_prompted_slot": "origin",
+        "flow_stack": state["flow_stack"],
+    }
 
     mock_runtime = MagicMock()
     mock_runtime.context = {

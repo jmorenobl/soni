@@ -97,9 +97,50 @@ async def test_handle_intent_change_starts_valid_flow():
     mock_step_config.type = "collect"
     mock_step_config.slot = "origin"
     mock_step_manager.get_current_step_config.return_value = mock_step_config
+    # Mock advance_through_completed_steps to return waiting_for_slot state
+    mock_step_manager.advance_through_completed_steps.return_value = {
+        "conversation_state": "waiting_for_slot",
+        "waiting_for_slot": "origin",
+        "current_prompted_slot": "origin",
+    }
 
     mock_config = MagicMock()
     mock_config.flows = {"book_flight": {}}
+
+    # Mock activate_flow_by_intent to return "book_flight"
+    from unittest.mock import patch
+
+    # Mock push_flow to modify state in place
+    def mock_push_flow(state, flow_name, inputs, reason):
+        state["flow_stack"] = [
+            {
+                "flow_id": "flow_1",
+                "flow_name": flow_name,
+                "flow_state": "active",
+                "current_step": "collect_origin",
+                "outputs": {},
+                "started_at": 0.0,
+                "paused_at": None,
+                "completed_at": None,
+                "context": None,
+            }
+        ]
+        state["flow_slots"] = {"flow_1": {}}
+        return "flow_1"
+
+    mock_flow_manager.push_flow.side_effect = mock_push_flow
+
+    # After push_flow, get_active_context should return the new flow
+    def get_active_context_side_effect(state):
+        if state.get("flow_stack"):
+            return {
+                "flow_id": "flow_1",
+                "flow_name": "book_flight",
+                "current_step": "collect_origin",
+            }
+        return None
+
+    mock_flow_manager.get_active_context.side_effect = get_active_context_side_effect
 
     mock_runtime = MagicMock()
     mock_runtime.context = {

@@ -8,6 +8,31 @@ from soni.core.types import DialogueState
 logger = logging.getLogger(__name__)
 
 
+def _extract_slots_from_nlu(nlu_result: dict[str, Any]) -> dict[str, Any]:
+    """Extract slots from NLU result.
+
+    Args:
+        nlu_result: NLU result dictionary containing slots
+
+    Returns:
+        Dictionary of extracted slots: {slot_name: slot_value}
+    """
+    slots_from_nlu = nlu_result.get("slots", [])
+    extracted_slots: dict[str, Any] = {}
+
+    for slot in slots_from_nlu:
+        if isinstance(slot, dict):
+            slot_name = slot.get("name")
+            slot_value = slot.get("value")
+            if slot_name and slot_value is not None:
+                extracted_slots[slot_name] = slot_value
+        elif hasattr(slot, "name") and hasattr(slot, "value"):
+            # SlotValue model
+            extracted_slots[slot.name] = slot.value
+
+    return extracted_slots
+
+
 async def handle_intent_change_node(
     state: DialogueState,
     runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
@@ -117,21 +142,11 @@ async def handle_intent_change_node(
     # CRITICAL: Save slots from nlu_result if they were extracted
     # This handles the case where user provides multiple slots in one message
     # (e.g., "I want to fly from New York to Los Angeles")
-    slots_from_nlu = nlu_result.get("slots", [])
-    if slots_from_nlu and active_ctx:
+    if active_ctx:
         from soni.core.state import get_all_slots, set_all_slots
 
-        # Extract slots from NLU result
-        extracted_slots: dict[str, Any] = {}
-        for slot in slots_from_nlu:
-            if isinstance(slot, dict):
-                slot_name = slot.get("name")
-                slot_value = slot.get("value")
-                if slot_name and slot_value is not None:
-                    extracted_slots[slot_name] = slot_value
-            elif hasattr(slot, "name") and hasattr(slot, "value"):
-                # SlotValue model
-                extracted_slots[slot.name] = slot.value
+        # Extract slots from NLU result using helper
+        extracted_slots = _extract_slots_from_nlu(nlu_result)
 
         if extracted_slots:
             # Get current slots and merge with extracted slots
@@ -142,72 +157,37 @@ async def handle_intent_change_node(
                 f"Saved {len(extracted_slots)} slot(s) from NLU result: {list(extracted_slots.keys())}"
             )
 
-    # After saving slots, check if current step is complete and advance if needed
+    # After saving slots, advance through all completed steps
     step_manager = runtime.context["step_manager"]
-    current_step_config = step_manager.get_current_step_config(state, runtime.context)
+    updates: dict[str, Any] = dict(
+        step_manager.advance_through_completed_steps(state, runtime.context)
+    )
 
-    if current_step_config:
-        # Check if the current step is complete after saving slots
-        is_complete = step_manager.is_step_complete(state, current_step_config, runtime.context)
+    # IMPORTANT: Include flow_stack and flow_slots to propagate changes
+    updates["flow_stack"] = state["flow_stack"]
+    updates["flow_slots"] = state["flow_slots"]
 
-        if is_complete:
-            # Step is complete, advance to next step
-            logger.info(
-                f"Step '{current_step}' is complete after saving slots, advancing to next step"
-            )
-            updates: dict[str, Any] = dict(
-                step_manager.advance_to_next_step(state, runtime.context)
-            )
+    # CRITICAL: Clear user_message after processing to avoid re-processing
+    # The message has been fully processed (slots saved, step advanced)
+    # If we're advancing to a collect step, we'll wait for a new user message
+    updates["user_message"] = ""  # Clear to prevent re-processing
 
-            # Determine conversation_state based on next step type
-            updated_state = {**state, **updates}
-            next_step_config = step_manager.get_current_step_config(updated_state, runtime.context)
+    # If no updates from advance_through_completed_steps (shouldn't happen), set defaults
+    if not updates.get("conversation_state"):
+        # Get the first slot to collect
+        current_step_config = step_manager.get_current_step_config(state, runtime.context)
+        waiting_for_slot = None
+        if current_step_config and current_step_config.type == "collect":
+            waiting_for_slot = current_step_config.slot
 
-            if next_step_config:
-                # Map step type to conversation state
-                step_type_to_state = {
-                    "action": "ready_for_action",
-                    "collect": "waiting_for_slot",
-                    "confirm": "ready_for_confirmation",
-                    "branch": "understanding",
-                    "say": "generating_response",
-                }
-                new_conversation_state = step_type_to_state.get(
-                    next_step_config.type, "understanding"
-                )
-                updates["conversation_state"] = new_conversation_state
+        updates.update(
+            {
+                "conversation_state": "waiting_for_slot",
+                "current_step": current_step,
+                "waiting_for_slot": waiting_for_slot,
+                "current_prompted_slot": waiting_for_slot,
+            }
+        )
 
-                # Get waiting_for_slot if next step is collect
-                if next_step_config.type == "collect":
-                    updates["waiting_for_slot"] = next_step_config.slot
-                    updates["current_prompted_slot"] = next_step_config.slot
-            else:
-                # No next step or flow completed
-                updates["conversation_state"] = "generating_response"
-
-            # IMPORTANT: Include flow_stack and flow_slots to propagate changes
-            updates["flow_stack"] = state["flow_stack"]
-            updates["flow_slots"] = state["flow_slots"]
-
-            # CRITICAL: Clear user_message after processing to avoid re-processing
-            # The message has been fully processed (slots saved, step advanced)
-            # If we're advancing to a collect step, we'll wait for a new user message
-            updates["user_message"] = ""  # Clear to prevent re-processing
-
-            return updates
-
-    # Step not complete or no step config - get the first slot to collect
-    waiting_for_slot = None
-    if current_step_config and current_step_config.type == "collect":
-        waiting_for_slot = current_step_config.slot
-
-    # Return the modified state parts
-    # IMPORTANT: Include flow_stack and flow_slots to propagate push_flow changes
-    return {
-        "conversation_state": "waiting_for_slot",
-        "current_step": current_step,
-        "waiting_for_slot": waiting_for_slot,
-        "current_prompted_slot": waiting_for_slot,
-        "flow_stack": state["flow_stack"],
-        "flow_slots": state["flow_slots"],
-    }
+    # Return the updates (already includes all necessary fields from advance_through_completed_steps)
+    return updates
