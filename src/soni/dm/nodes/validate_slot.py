@@ -104,58 +104,77 @@ async def validate_slot_node(
                             context=focused_context,
                         )
 
-                        # Check if the focused call extracted the slot
-                        fallback_slots = fallback_result.slots or []
-                        extracted_slot = None
-                        for slot in fallback_slots:
-                            if (hasattr(slot, "name") and slot.name == waiting_for_slot) or (
-                                isinstance(slot, dict) and slot.get("name") == waiting_for_slot
-                            ):
-                                extracted_slot = slot
-                                break
+                        # CRITICAL: Verify that the fallback call also classified as slot_value
+                        # If it classified as digression/question/etc, don't extract slot
+                        fallback_message_type = fallback_result.message_type
+                        if hasattr(fallback_message_type, "value"):
+                            fallback_message_type = fallback_message_type.value
+                        fallback_message_type = str(fallback_message_type).lower()
 
-                        if extracted_slot:
-                            # Success! Use the extracted slot
-                            if hasattr(extracted_slot, "model_dump"):
-                                slots = [extracted_slot.model_dump(mode="json")]
-                            elif isinstance(extracted_slot, dict):
-                                slots = [extracted_slot]
-                            else:
-                                # Convert to dict format
-                                from soni.du.models import SlotValue
-
-                                slots = [
-                                    SlotValue(
-                                        name=waiting_for_slot,
-                                        value=(
-                                            extracted_slot.value
-                                            if hasattr(extracted_slot, "value")
-                                            else str(extracted_slot)
-                                        ),
-                                        confidence=(
-                                            extracted_slot.confidence
-                                            if hasattr(extracted_slot, "confidence")
-                                            else 0.7
-                                        ),
-                                        action=(
-                                            extracted_slot.action
-                                            if hasattr(extracted_slot, "action")
-                                            else "provide"
-                                        ),
-                                    ).model_dump(mode="json")
-                                ]
+                        if fallback_message_type != "slot_value":
+                            # Fallback NLU call classified as something else (digression, question, etc)
+                            # Don't extract slot - this is likely a digression, not a slot value
                             logger.info(
-                                f"FALLBACK SUCCESS: Second NLU call extracted slot '{waiting_for_slot}' "
-                                f"with value '{slots[0].get('value') if isinstance(slots[0], dict) else slots[0].value}'"
+                                f"FALLBACK: Second NLU call classified as '{fallback_message_type}' "
+                                f"instead of 'slot_value'. This appears to be a digression, not a slot value. "
+                                f"Not extracting slot."
                             )
+                            # Don't create a fallback slot - let normal error handling proceed
+                            # This will generate a response asking the user to clarify
                         else:
-                            # Even the focused call didn't extract it - this is unusual
-                            # Log warning but don't use fallback (let normal error handling proceed)
-                            logger.warning(
-                                f"FALLBACK FAILED: Even focused NLU call didn't extract slot "
-                                f"'{waiting_for_slot}' from message '{user_message}'. "
-                                f"This may indicate the message doesn't contain the expected value."
-                            )
+                            # Fallback call also classified as slot_value - safe to extract
+                            # Check if the focused call extracted the slot
+                            fallback_slots = fallback_result.slots or []
+                            extracted_slot = None
+                            for slot in fallback_slots:
+                                if (hasattr(slot, "name") and slot.name == waiting_for_slot) or (
+                                    isinstance(slot, dict) and slot.get("name") == waiting_for_slot
+                                ):
+                                    extracted_slot = slot
+                                    break
+
+                            if extracted_slot:
+                                # Success! Use the extracted slot
+                                if hasattr(extracted_slot, "model_dump"):
+                                    slots = [extracted_slot.model_dump(mode="json")]
+                                elif isinstance(extracted_slot, dict):
+                                    slots = [extracted_slot]
+                                else:
+                                    # Convert to dict format
+                                    from soni.du.models import SlotValue
+
+                                    slots = [
+                                        SlotValue(
+                                            name=waiting_for_slot,
+                                            value=(
+                                                extracted_slot.value
+                                                if hasattr(extracted_slot, "value")
+                                                else str(extracted_slot)
+                                            ),
+                                            confidence=(
+                                                extracted_slot.confidence
+                                                if hasattr(extracted_slot, "confidence")
+                                                else 0.7
+                                            ),
+                                            action=(
+                                                extracted_slot.action
+                                                if hasattr(extracted_slot, "action")
+                                                else "provide"
+                                            ),
+                                        ).model_dump(mode="json")
+                                    ]
+                                logger.info(
+                                    f"FALLBACK SUCCESS: Second NLU call extracted slot '{waiting_for_slot}' "
+                                    f"with value '{slots[0].get('value') if isinstance(slots[0], dict) else slots[0].value}'"
+                                )
+                            else:
+                                # Even the focused call didn't extract it - this is unusual
+                                # Log warning but don't use fallback (let normal error handling proceed)
+                                logger.warning(
+                                    f"FALLBACK FAILED: Even focused NLU call didn't extract slot "
+                                    f"'{waiting_for_slot}' from message '{user_message}'. "
+                                    f"This may indicate the message doesn't contain the expected value."
+                                )
                             # Don't create a fallback slot - let normal error handling proceed
                             # This will generate a response asking the user to clarify
 
