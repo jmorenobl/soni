@@ -272,3 +272,112 @@ class FlowStepManager:
             return None
 
         return slot_name
+
+    def advance_through_completed_steps(
+        self,
+        state: DialogueState,
+        context: RuntimeContext,
+    ) -> dict[str, Any]:
+        """Advance through all completed steps until finding an incomplete one.
+
+        This function iteratively checks if the current step is complete and advances
+        to the next step until it finds a step that is not complete, or until the flow
+        is finished.
+
+        Critical for handling cases where multiple slots are provided in one message.
+
+        Args:
+            state: Current dialogue state (will be mutated in-place)
+            context: Runtime context with dependencies
+
+        Returns:
+            State updates dict with:
+            - current_step: Final step name or None if flow complete
+            - conversation_state: Updated based on final step type
+            - flow_stack: Updated flow stack
+            - waiting_for_slot: Updated if final step is collect type
+            - current_prompted_slot: Updated if final step is collect type
+
+        Example:
+            >>> # User provides origin and destination in one message
+            >>> # After saving slots, call this method
+            >>> updates = step_manager.advance_through_completed_steps(state, context)
+            >>> # Will advance through collect_origin and collect_destination
+            >>> # Stop at collect_date (incomplete)
+            >>> assert updates["current_step"] == "collect_date"
+            >>> assert updates["waiting_for_slot"] == "departure_date"
+        """
+        max_iterations = 20  # Safety limit to prevent infinite loops
+        iterations = 0
+
+        while iterations < max_iterations:
+            iterations += 1
+
+            # Get current step configuration
+            current_step_config = self.get_current_step_config(state, context)
+
+            if not current_step_config:
+                # No current step - flow might be complete or not started
+                logger.info(f"No current step after {iterations} iteration(s) - flow complete")
+                return {"conversation_state": "completed"}
+
+            # Check if current step is complete
+            is_complete = self.is_step_complete(state, current_step_config, context)
+
+            if not is_complete:
+                # Found a step that is not complete - stop here
+                logger.info(
+                    f"Stopped at incomplete step '{current_step_config.step}' "
+                    f"(type={current_step_config.type}) after {iterations} iteration(s)"
+                )
+
+                # Determine conversation_state based on step type
+                step_type_to_state = {
+                    "action": "ready_for_action",
+                    "collect": "waiting_for_slot",
+                    "confirm": "ready_for_confirmation",
+                    "branch": "understanding",
+                    "say": "generating_response",
+                }
+                conversation_state = step_type_to_state.get(
+                    current_step_config.type, "understanding"
+                )
+
+                updates = {
+                    "flow_stack": state.get("flow_stack", []),
+                    "conversation_state": conversation_state,
+                }
+
+                # If it's a collect step, set waiting_for_slot
+                if current_step_config.type == "collect" and current_step_config.slot:
+                    updates["waiting_for_slot"] = current_step_config.slot
+                    updates["current_prompted_slot"] = current_step_config.slot
+
+                return updates
+
+            # Current step is complete - advance to next step
+            logger.debug(
+                f"Step '{current_step_config.step}' is complete, advancing... "
+                f"(iteration {iterations})"
+            )
+
+            advance_updates = self.advance_to_next_step(state, context)
+
+            # Check if flow is complete
+            if advance_updates.get("conversation_state") == "completed":
+                logger.info(f"Flow completed after {iterations} iteration(s)")
+                return advance_updates
+
+            # Update state in place for next iteration
+            # Cast to dict for TypedDict update compatibility
+            from typing import cast
+
+            state_dict = cast(dict[str, Any], state)
+            state_dict.update(advance_updates)
+
+        # Safety: reached max iterations
+        logger.error(
+            f"advance_through_completed_steps reached max iterations ({max_iterations}). "
+            f"This may indicate an infinite loop or a very long flow."
+        )
+        return {"conversation_state": "error"}
