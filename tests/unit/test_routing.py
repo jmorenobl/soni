@@ -162,8 +162,9 @@ def test_route_after_validate_warns_unexpected_state(caplog):
         result = route_after_validate(state)
 
     # Assert
-    assert "Unexpected conversation_state" in caplog.text
-    assert "unexpected_state" in caplog.text
+    log_messages = " ".join(record.message for record in caplog.records)
+    assert "Unexpected conversation_state" in log_messages
+    assert "unexpected_state" in log_messages
     assert result == "generate_response"
 
 
@@ -199,9 +200,10 @@ def test_route_after_understand_logs_message_type(caplog):
         result = route_after_understand(state)
 
     # Assert
-    assert "route_after_understand" in caplog.text
-    assert "message_type=slot_value" in caplog.text
-    assert "command=test_command" in caplog.text
+    log_messages = " ".join(record.message for record in caplog.records)
+    assert "route_after_understand" in log_messages
+    assert "message_type=slot_value" in log_messages
+    assert "command=test_command" in log_messages
     assert result == "validate_slot"
 
 
@@ -221,8 +223,9 @@ def test_route_after_understand_warns_unknown_message_type(caplog):
         result = route_after_understand(state)
 
     # Assert
-    assert "Unknown message_type" in caplog.text
-    assert "unknown_type" in caplog.text
+    log_messages = " ".join(record.message for record in caplog.records)
+    assert "Unknown message_type" in log_messages
+    assert "unknown_type" in log_messages
     assert result == "generate_response"
 
 
@@ -239,8 +242,9 @@ def test_route_after_validate_logs_conversation_state(caplog):
         result = route_after_validate(state)
 
     # Assert
-    assert "route_after_validate" in caplog.text
-    assert "conversation_state=ready_for_action" in caplog.text
+    log_messages = " ".join(record.message for record in caplog.records)
+    assert "route_after_validate" in log_messages
+    assert "conversation_state=ready_for_action" in log_messages
     assert result == "execute_action"
 
 
