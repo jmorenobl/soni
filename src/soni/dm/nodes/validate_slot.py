@@ -48,8 +48,77 @@ async def validate_slot_node(
         active_ctx = flow_manager.get_active_context(state)
 
         if active_ctx:
-            # Flow is active but no slots extracted - continue to collect next slot
-            return {"conversation_state": "waiting_for_slot"}
+            # Flow is active but no slots extracted
+            waiting_for_slot = state.get("waiting_for_slot")
+
+            # FALLBACK: If message_type is slot_value and we're waiting for a slot,
+            # try to extract the value directly from the user message
+            # ONLY use fallback when we're in a collect step (not in initial flow activation)
+            current_step = active_ctx.get("current_step")
+            if message_type == "slot_value" and waiting_for_slot and current_step:
+                user_message = state.get("user_message", "")
+                if user_message and user_message.strip():
+                    # NLU classified as slot_value but didn't extract the slot
+                    # This can happen when the value is clear but NLU didn't associate it
+                    # FALLBACK: Treat the entire message as the slot value
+                    logger.info(
+                        f"FALLBACK: NLU didn't extract slot '{waiting_for_slot}' from message "
+                        f"'{user_message}'. Using fallback: treating entire message as slot value."
+                    )
+
+                    # Create SlotValue manually with lower confidence
+                    # This will go through validation/normalization as normal
+                    from soni.du.models import SlotAction, SlotValue
+
+                    fallback_slot = SlotValue(
+                        name=waiting_for_slot,
+                        value=user_message.strip(),
+                        confidence=0.5,  # Lower confidence - needs validation
+                        action=SlotAction.PROVIDE,  # Always PROVIDE for fallback (not correction/modification)
+                    )
+
+                    # Convert to dict format for processing
+                    slots = [fallback_slot.model_dump(mode="json")]
+                    logger.info(
+                        f"FALLBACK: Created slot '{waiting_for_slot}' with value '{user_message.strip()}' "
+                        f"(confidence=0.5, action=provide, will be validated)"
+                    )
+                else:
+                    # No user message - can't use fallback
+                    logger.warning(
+                        f"FALLBACK: Cannot use fallback - no user_message available. "
+                        f"message_type={message_type}, waiting_for_slot={waiting_for_slot}"
+                    )
+
+            # If still no slots after fallback attempt, handle as before
+            if not slots:
+                if waiting_for_slot:
+                    # Already waiting for a slot - generate a response asking for it again
+                    # CRITICAL: Use "idle" state to break the loop - this will route to generate_response
+                    # instead of going back to collect_next_slot
+                    logger.warning(
+                        f"Already waiting for slot '{waiting_for_slot}' but no slots extracted "
+                        f"(even after fallback). Generating response to ask again and breaking loop."
+                    )
+                    # Get slot config for better prompt
+                    from soni.core.state import get_slot_config
+
+                    try:
+                        slot_config = get_slot_config(runtime.context, waiting_for_slot)
+                        prompt = (
+                            slot_config.prompt
+                            if hasattr(slot_config, "prompt")
+                            else f"Please provide your {waiting_for_slot}."
+                        )
+                    except KeyError:
+                        prompt = f"Please provide your {waiting_for_slot}."
+
+                    return {
+                        "conversation_state": "idle",  # Use "idle" to route to generate_response
+                        "last_response": (f"I didn't understand your response. {prompt}"),
+                    }
+                # Not waiting for a slot yet - continue to collect next slot
+                return {"conversation_state": "waiting_for_slot"}
         else:
             # No flow active - this is an error state
             return {"conversation_state": "error"}
@@ -93,6 +162,16 @@ async def validate_slot_node(
         # Step 2: Detect if this is a correction or modification
         # Check both message_type and slot actions
         message_type = nlu_result.get("message_type", "")
+
+        # Check if this is a fallback slot (created when NLU didn't extract)
+        # Fallback slots have action=PROVIDE and confidence=0.5
+        is_fallback_slot = (
+            len(slots) == 1
+            and isinstance(slots[0], dict)
+            and slots[0].get("action") == "provide"
+            and slots[0].get("confidence", 1.0) == 0.5
+        )
+
         # Also check slot actions - a slot with CORRECT or MODIFY action indicates correction/modification
         slot_actions = [
             slot.get("action") if isinstance(slot, dict) else getattr(slot, "action", None)
@@ -104,7 +183,8 @@ async def validate_slot_node(
             if action
         )
 
-        is_correction_or_modification = (
+        # Fallback slots should NEVER be treated as corrections/modifications
+        is_correction_or_modification = not is_fallback_slot and (
             message_type in ("correction", "modification") or has_correct_or_modify_action
         )
 
@@ -124,6 +204,7 @@ async def validate_slot_node(
         state["flow_slots"] = flow_slots
 
         # Step 3: If correction/modification, return to previous step instead of advancing
+        # (is_fallback_slot is already checked in is_correction_or_modification calculation)
         if is_correction_or_modification:
             # Determine which step to return to
             target_step = previous_step

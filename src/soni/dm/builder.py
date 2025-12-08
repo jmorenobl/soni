@@ -22,6 +22,7 @@ from soni.dm.nodes.understand import understand_node
 from soni.dm.nodes.validate_slot import validate_slot_node
 from soni.dm.routing import (
     route_after_action,
+    route_after_collect_next_slot,
     route_after_confirmation,
     route_after_correction,
     route_after_modification,
@@ -154,8 +155,19 @@ def build_graph(
         },
     )
 
-    # After collecting slot, back to understand
-    builder.add_edge("collect_next_slot", "understand")
+    # After collecting slot, route based on conversation_state
+    # If all slots are filled and we advanced to next step, go directly to that step
+    # Otherwise, go to understand to process user's response
+    builder.add_conditional_edges(
+        "collect_next_slot",
+        route_after_collect_next_slot,
+        {
+            "execute_action": "execute_action",
+            "confirm_action": "confirm_action",
+            "understand": "understand",
+            "generate_response": "generate_response",
+        },
+    )
 
     # After confirmation request, back to understand (to process user's yes/no)
     builder.add_edge("confirm_action", "understand")

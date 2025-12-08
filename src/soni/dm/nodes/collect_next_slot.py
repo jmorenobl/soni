@@ -33,7 +33,13 @@ async def collect_next_slot_node(
     active_ctx = flow_manager.get_active_context(state)
 
     if not active_ctx:
-        return {"conversation_state": "idle"}
+        # No active flow - this shouldn't happen if routing is correct
+        # But if it does, generate a response instead of going idle
+        logger.warning("collect_next_slot called but no active flow context")
+        return {
+            "conversation_state": "idle",
+            "last_response": "I'm not sure what you're asking for. Could you rephrase?",
+        }
 
     # Get current step configuration
     current_step_config = step_manager.get_current_step_config(state, runtime.context)
@@ -54,6 +60,8 @@ async def collect_next_slot_node(
     if not next_slot:
         # No slot to collect, advance to next step
         step_updates = step_manager.advance_to_next_step(state, runtime.context)
+        # CRITICAL: If we advanced to next step, return updates and let routing handle it
+        # Don't go to interrupt() if there's no slot to collect
         return dict(step_updates) if step_updates else {}
 
     # Get slot configuration for proper prompt

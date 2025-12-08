@@ -466,6 +466,65 @@ def route_after_validate(state: DialogueStateType) -> str:
         return "generate_response"
 
 
+def route_after_collect_next_slot(state: DialogueStateType) -> str:
+    """Route after collect_next_slot based on conversation_state.
+
+    When collect_next_slot advances to the next step (because all slots are filled),
+    it sets conversation_state based on the next step type. This routing function
+    routes to the appropriate node based on that state, avoiding the infinite loop
+    of going to understand when there's no user message.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    conv_state = state.get("conversation_state")
+
+    logger.info(
+        f"route_after_collect_next_slot: conversation_state={conv_state}",
+        extra={"conversation_state": conv_state},
+    )
+
+    # Route based on conversation_state set by advance_to_next_step
+    if conv_state == "ready_for_action":
+        return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        return "confirm_action"
+    elif conv_state == "waiting_for_slot":
+        # Still waiting for a slot - check if we have a user message
+        # If we have a user message, go to understand to process it
+        # If not, we're in an interrupt state - don't go to understand (would create loop)
+        user_message = state.get("user_message", "")
+        if user_message and user_message.strip():
+            return "understand"
+        else:
+            # No user message - we're in an interrupt state, generate response
+            logger.warning(
+                "collect_next_slot: waiting_for_slot but no user_message, "
+                "generating response to avoid loop"
+            )
+            return "generate_response"
+    elif conv_state == "completed":
+        return "generate_response"
+    elif conv_state == "generating_response":
+        return "generate_response"
+    else:
+        # Default: if we have a user message, go to understand
+        # Otherwise, something went wrong
+        user_message = state.get("user_message", "")
+        if user_message and user_message.strip():
+            return "understand"
+        else:
+            # No user message and unexpected state - generate response
+            logger.warning(
+                f"Unexpected conversation_state '{conv_state}' in route_after_collect_next_slot, "
+                f"no user message, falling back to generate_response"
+            )
+            return "generate_response"
+
+
 def route_after_action(state: DialogueStateType) -> str:
     """Route after action execution based on conversation_state.
 
