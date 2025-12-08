@@ -259,7 +259,7 @@ async def run_scenario(
                                 )
                             else:
                                 print(f"    - {slot}")
-                    print(f"  Reasoning: {nlu_result.get('reasoning', 'N/A')[:100]}...")
+                    # Reasoning field has been removed from NLUOutput
 
             if snapshot and snapshot.values:
                 state = state_from_dict(snapshot.values, allow_partial=True)
@@ -403,6 +403,16 @@ async def main():
     runtime = RuntimeLoop(config_path)
     runtime.config.settings.persistence.backend = "memory"
     await runtime._ensure_graph_initialized()
+
+    # Show configuration
+    use_reasoning = getattr(runtime.config.settings.models.nlu, "use_reasoning", False)
+    use_cot = getattr(runtime.du, "use_cot", None)
+    print(f"\n{C.B}Configuration:{C.E}")
+    print(f"  use_reasoning (YAML): {C.BOLD}{use_reasoning}{C.E}")
+    print(f"  use_cot (SoniDU): {C.BOLD}{use_cot}{C.E}")
+    if use_reasoning != use_cot:
+        print(f"  {C.Y}⚠ Warning: use_reasoning != use_cot{C.E}")
+    print()
 
     # Run scenarios
     all_results = []

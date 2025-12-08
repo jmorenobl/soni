@@ -180,11 +180,14 @@ def activate_flow_by_intent(
         logger.info(f"Activating flow '{command}' based on intent (exact match)")
         return command
 
-    # 2. Handle underscore/hyphen variations
-    normalized_command = command.replace("-", "_").lower()
+    # 2. Handle underscore/hyphen/space variations
+    # Normalize: spaces -> underscores, hyphens -> underscores, then lowercase
+    normalized_command = command.replace(" ", "_").replace("-", "_").lower()
     for flow_name in config.flows:
         if normalized_command == flow_name.lower():
-            logger.info(f"Activating flow '{flow_name}' based on intent (normalized)")
+            logger.info(
+                f"Activating flow '{flow_name}' based on intent (normalized from '{command}')"
+            )
             return str(flow_name)
 
     return str(current_flow)

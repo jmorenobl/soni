@@ -36,9 +36,18 @@ async def handle_intent_change_node(
             "last_response": "I didn't understand what you want to do. Could you rephrase?",
         }
 
-    # Check if flow exists
+    # Normalize command to find matching flow
+    # Use activate_flow_by_intent to handle variations (spaces, hyphens, etc.)
+    from soni.core.state import get_current_flow
+    from soni.dm.routing import activate_flow_by_intent
+
     config = runtime.context["config"]
-    if command not in config.flows:
+    current_flow = get_current_flow(state)
+    flow_name = activate_flow_by_intent(command, current_flow, config)
+
+    # Check if we found a valid flow
+    if flow_name == current_flow and command not in config.flows:
+        # No flow was activated (normalization didn't find a match)
         logger.warning(
             f"Flow '{command}' not found in config. Available flows: {list(config.flows.keys())}"
         )
@@ -50,12 +59,12 @@ async def handle_intent_change_node(
             ),
         }
 
-    # Start new flow
+    # Start new flow with normalized flow name
     # push_flow modifies state["flow_stack"] and state["flow_slots"] in place
     # and initializes current_step to the first step of the flow
     flow_manager.push_flow(
         state,
-        flow_name=command,
+        flow_name=flow_name,
         inputs={},
         reason="intent_change",
     )

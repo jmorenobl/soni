@@ -57,7 +57,6 @@ class NLUOutput(BaseModel):
     command: str = Field(description="User's intent/command")
     slots: list[SlotValue] = Field(default_factory=list, description="Extracted slot values")
     confidence: float = Field(ge=0.0, le=1.0, description="Overall confidence")
-    reasoning: str = Field(description="Step-by-step reasoning")
 
 
 class DialogueContext(BaseModel):

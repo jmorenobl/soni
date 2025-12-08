@@ -58,7 +58,7 @@ class INLUProvider(Protocol):
             dialogue_context: Dict with current_slots, available_actions, etc.
 
         Returns:
-            Dict with message_type, command, slots, confidence, and reasoning
+            Dict with message_type, command, slots, and confidence
         """
         ...
 

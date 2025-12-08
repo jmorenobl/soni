@@ -165,7 +165,7 @@ class SoniDU(dspy.Module):
             dialogue_context: Dict with current_slots, available_actions, etc.
 
         Returns:
-            Dict with message_type, command, slots, confidence, and reasoning
+            Dict with message_type, command, slots, and confidence
         """
         # Convert dict to structured types (DRY: uses centralized conversion)
         history, context = self._dict_to_structured_types(dialogue_context)
@@ -196,7 +196,7 @@ class SoniDU(dspy.Module):
             context: Dialogue context (DialogueContext)
 
         Returns:
-            NLUOutput with message_type, command, slots, confidence, and reasoning
+            NLUOutput with message_type, command, slots, and confidence
         """
         # Calculate current datetime (encapsulation principle)
         current_datetime_str = datetime.now().isoformat()

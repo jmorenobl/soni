@@ -170,7 +170,6 @@ def create_understand_node(
                     command=nlu_result_raw.get("structured_command", ""),
                     slots=slots_list,
                     confidence=nlu_result_raw.get("confidence", 0.0),
-                    reasoning=nlu_result_raw.get("reasoning", ""),
                 )
             elif isinstance(nlu_result_raw, NLUOutput):
                 nlu_result = nlu_result_raw
@@ -180,7 +179,6 @@ def create_understand_node(
                     command="",
                     slots=[],
                     confidence=0.0,
-                    reasoning="",
                 )
 
             # Determine target flow BEFORE slot validation
@@ -344,7 +342,6 @@ def create_understand_node(
                             "command": nlu_result.command,
                             "slots": nlu_result.slots,
                             "confidence": nlu_result.confidence,
-                            "reasoning": nlu_result.reasoning,
                         },
                     }
                 ],
