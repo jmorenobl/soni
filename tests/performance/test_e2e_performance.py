@@ -2,10 +2,12 @@
 
 import asyncio
 import statistics
+import tempfile
 import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 try:
     import psutil
@@ -13,6 +15,7 @@ except ImportError:
     psutil = None
 
 from soni.runtime import RuntimeLoop
+from tests.conftest import load_test_config
 
 # Conversation flow for E2E testing
 # Use messages that match test_e2e_flight_booking_complete_flow which works correctly
@@ -63,12 +66,15 @@ async def test_e2e_latency_p95(skip_without_api_key):
     The system should respond quickly even for multi-turn conversations.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    target_p95 = 1.5  # 1.5 seconds target
-    num_conversations = 20  # Reduced for faster tests
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        target_p95 = 1.5  # 1.5 seconds target
+        num_conversations = 20  # Reduced for faster tests
         # Act
         latencies = []
         for i in range(num_conversations):
@@ -100,6 +106,7 @@ async def test_e2e_latency_p95(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -112,20 +119,25 @@ async def test_concurrent_throughput(skip_without_api_key):
     concurrent conversations and verifying they complete within target time.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    num_concurrent = 10
-    target_throughput = 10.0  # 10 conversations per second
-
-    async def process_conversation(user_id: str) -> float:
-        """Process a single conversation and return elapsed time.
-
-        Raises:
-            Exception: If conversation fails to complete
-        """
-        return await run_e2e_conversation(runtime, user_id, E2E_CONVERSATION)
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        num_concurrent = 10
+        target_throughput = 10.0  # 10 conversations per second
+
+        async def process_conversation(user_id: str) -> float:
+            """Process a single conversation and return elapsed time.
+
+            Raises:
+                Exception: If conversation fails to complete
+            """
+            return await run_e2e_conversation(runtime, user_id, E2E_CONVERSATION)
+
+        # Act
         # Act
         start_time = time.time()
         tasks = [process_conversation(f"test-throughput-{i}") for i in range(num_concurrent)]
@@ -150,6 +162,7 @@ async def test_concurrent_throughput(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -165,12 +178,15 @@ async def test_memory_usage(skip_without_api_key):
         pytest.skip("psutil not available")
 
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    num_conversations = 20  # Reduced for faster tests
-    max_memory_increase_mb = 500.0  # Maximum acceptable memory increase
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        num_conversations = 20  # Reduced for faster tests
+        max_memory_increase_mb = 500.0  # Maximum acceptable memory increase
         # Act
         process = psutil.Process()
         initial_memory = process.memory_info().rss / (1024 * 1024)  # MB
@@ -189,6 +205,7 @@ async def test_memory_usage(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -204,12 +221,15 @@ async def test_cpu_usage(skip_without_api_key):
         pytest.skip("psutil not available")
 
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    num_conversations = 10  # Reduced for faster tests
-    max_cpu_percent = 200.0  # Maximum acceptable CPU usage (can be >100% on multi-core)
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        num_conversations = 10  # Reduced for faster tests
+        max_cpu_percent = 200.0  # Maximum acceptable CPU usage (can be >100% on multi-core)
         # Act
         process = psutil.Process()
         cpu_samples = []
@@ -236,3 +256,4 @@ async def test_cpu_usage(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)

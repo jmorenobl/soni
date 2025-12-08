@@ -1,11 +1,14 @@
 """Performance tests for streaming functionality"""
 
+import tempfile
 import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 from soni.runtime import RuntimeLoop
+from tests.conftest import load_test_config
 
 
 @pytest.mark.performance
@@ -18,12 +21,15 @@ async def test_streaming_correctness(skip_without_api_key):
     in the correct format, even if the flow requires additional information.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-perf-stream-1"
-    user_msg = "I want to book a flight"  # Message that triggers flow
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-perf-stream-1"
+        user_msg = "I want to book a flight"  # Message that triggers flow
         # Act
         tokens = []
         try:
@@ -46,6 +52,7 @@ async def test_streaming_correctness(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -58,12 +65,15 @@ async def test_streaming_order(skip_without_api_key):
     even if the stream fails partway through.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-perf-stream-2"
-    user_msg = "I want to book a flight"  # Message that triggers flow
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-perf-stream-2"
+        user_msg = "I want to book a flight"  # Message that triggers flow
         # Act
         tokens = []
         timestamps = []
@@ -86,6 +96,7 @@ async def test_streaming_order(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -98,13 +109,16 @@ async def test_streaming_first_token_latency(skip_without_api_key):
     for perceived responsiveness in streaming interfaces.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-perf-stream-3"
-    user_msg = "I want to book a flight"  # Message that triggers flow
-    target_latency = 5.0  # 5 seconds (lenient for CI)
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-perf-stream-3"
+        user_msg = "I want to book a flight"  # Message that triggers flow
+        target_latency = 5.0  # 5 seconds (lenient for CI)
         # Act
         start_time = time.time()
         first_token = None
@@ -131,3 +145,4 @@ async def test_streaming_first_token_latency(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)

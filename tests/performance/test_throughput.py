@@ -1,12 +1,15 @@
 """Performance tests for throughput"""
 
 import asyncio
+import tempfile
 import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 from soni.runtime import RuntimeLoop
+from tests.conftest import load_test_config
 
 
 @pytest.mark.performance
@@ -19,41 +22,46 @@ async def test_throughput_concurrent(skip_without_api_key):
     concurrent requests and verifying they complete within target time.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_msg = "I want to book a flight"  # Message that triggers flow
-    num_concurrent = 3  # Reduced for faster tests
-    target_throughput = 1.0  # 1 msg/s (lenient for CI)
-
-    async def process_message(user_id: str) -> tuple[str, float]:
-        """
-        Process a single message and return user_id and elapsed time.
-
-        Args:
-            user_id: Unique identifier for this request
-
-        Returns:
-            Tuple of (user_id, elapsed_time)
-        """
-        from soni.core.errors import SoniError
-
-        start_time = time.time()
-        try:
-            response = await runtime.process_message(
-                user_msg=user_msg,
-                user_id=user_id,
-            )
-            elapsed = time.time() - start_time
-            # Response should not be empty (may be asking for info or error)
-            assert len(response) > 0
-            return user_id, elapsed
-        except SoniError:
-            # If processing fails (e.g., slots not filled), still measure latency
-            # This is expected behavior for performance tests
-            elapsed = time.time() - start_time
-            return user_id, elapsed
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_msg = "I want to book a flight"  # Message that triggers flow
+        num_concurrent = 3  # Reduced for faster tests
+        target_throughput = 1.0  # 1 msg/s (lenient for CI)
+
+        async def process_message(user_id: str) -> tuple[str, float]:
+            """
+            Process a single message and return user_id and elapsed time.
+
+            Args:
+                user_id: Unique identifier for this request
+
+            Returns:
+                Tuple of (user_id, elapsed_time)
+            """
+            from soni.core.errors import SoniError
+
+            start_time = time.time()
+            try:
+                response = await runtime.process_message(
+                    user_msg=user_msg,
+                    user_id=user_id,
+                )
+                elapsed = time.time() - start_time
+                # Response should not be empty (may be asking for info or error)
+                assert len(response) > 0
+                return user_id, elapsed
+            except SoniError:
+                # If processing fails (e.g., slots not filled), still measure latency
+                # This is expected behavior for performance tests
+                elapsed = time.time() - start_time
+                return user_id, elapsed
+
+        # Act
         # Act
         start_time = time.time()
         tasks = [process_message(f"test-throughput-{i}") for i in range(num_concurrent)]
@@ -80,3 +88,4 @@ async def test_throughput_concurrent(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)

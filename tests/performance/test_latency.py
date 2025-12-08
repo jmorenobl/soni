@@ -1,12 +1,15 @@
 """Performance tests for latency"""
 
 import statistics
+import tempfile
 import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 from soni.runtime import RuntimeLoop
+from tests.conftest import load_test_config
 
 
 @pytest.mark.performance
@@ -20,14 +23,17 @@ async def test_latency_p95(skip_without_api_key):
     for additional information.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-perf-latency-1"
-    user_msg = "I want to book a flight"  # Message that triggers flow
-    target_p95 = 10.0  # 10 seconds (lenient for CI)
-    num_requests = 5  # Reduced for faster tests
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-perf-latency-1"
+        user_msg = "I want to book a flight"  # Message that triggers flow
+        target_p95 = 10.0  # 10 seconds (lenient for CI)
+        num_requests = 5  # Reduced for faster tests
         # Act
         from soni.core.errors import SoniError
 
@@ -66,6 +72,7 @@ async def test_latency_p95(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
 
 
 @pytest.mark.performance
@@ -78,13 +85,16 @@ async def test_latency_metrics(skip_without_api_key):
     for the dialogue system.
     """
     # Arrange
-    config_path = Path("examples/flight_booking/soni.yaml")
-    runtime = RuntimeLoop(config_path)
-    user_id = "test-perf-latency-2"
-    user_msg = "I want to book a flight"  # Message that triggers flow
-    num_requests = 3  # Reduced for faster tests
+    config = load_test_config("examples/flight_booking/soni.yaml")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
 
     try:
+        runtime = RuntimeLoop(temp_config_path)
+        user_id = "test-perf-latency-2"
+        user_msg = "I want to book a flight"  # Message that triggers flow
+        num_requests = 3  # Reduced for faster tests
         # Act
         from soni.core.errors import SoniError
 
@@ -122,3 +132,4 @@ async def test_latency_metrics(skip_without_api_key):
     finally:
         # Cleanup
         await runtime.cleanup()
+        Path(temp_config_path).unlink(missing_ok=True)
