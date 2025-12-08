@@ -285,7 +285,13 @@ class ModelConfig(BaseModel):
 class NLUModelConfig(ModelConfig):
     """Configuration for NLU model."""
 
-    pass  # Can extend with NLU-specific fields later
+    use_reasoning: bool = Field(
+        default=False,
+        description=(
+            "If True, use ChainOfThought with explicit reasoning (slower, more precise). "
+            "If False, use Predict without reasoning (faster, fewer tokens). Default: False"
+        ),
+    )
 
 
 class GenerationModelConfig(ModelConfig):

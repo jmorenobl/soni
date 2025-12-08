@@ -24,25 +24,42 @@ class SoniDU(dspy.Module):
     - Sync interface for DSPy optimizers
     - Automatic prompt optimization via DSPy
     - Structured Pydantic models throughout
+    - Configurable predictor: Predict (fast) or ChainOfThought (precise)
+
+    Performance Notes:
+    - Predict (use_cot=False): Faster, fewer tokens, sufficient for most cases
+    - ChainOfThought (use_cot=True): Slower, more tokens, shows reasoning,
+      useful when precision is critical or debugging NLU behavior
     """
 
-    def __init__(self, cache_size: int = 1000, cache_ttl: int = 300) -> None:
+    def __init__(self, cache_size: int = 1000, cache_ttl: int = 300, use_cot: bool = False) -> None:
         """Initialize SoniDU module.
 
         Args:
             cache_size: Maximum number of cached NLU results
             cache_ttl: Time-to-live for cache entries in seconds
+            use_cot: If True, use ChainOfThought (slower, more precise).
+                     If False, use Predict (faster, less tokens). Default: False
         """
         super().__init__()  # CRITICAL: Must call super().__init__()
 
-        # Create predictor with structured signature
-        self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
+        # Create predictor based on use_cot parameter
+        if use_cot:
+            # ChainOfThought: More precise, shows reasoning, but slower and uses more tokens
+            self.predictor = dspy.ChainOfThought(DialogueUnderstanding)
+            logger.debug("SoniDU initialized with ChainOfThought (use_cot=True)")
+        else:
+            # Predict: Faster, fewer tokens, sufficient for most cases
+            self.predictor = dspy.Predict(DialogueUnderstanding)
+            logger.debug("SoniDU initialized with Predict (use_cot=False, default)")
 
         # Optional caching layer
         self.nlu_cache: TTLCache[str, NLUOutput] = TTLCache(
             maxsize=cache_size,
             ttl=cache_ttl,
         )
+
+        self.use_cot = use_cot  # Store for reference
 
     def forward(
         self,

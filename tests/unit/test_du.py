@@ -1,8 +1,11 @@
 """Unit tests for Dialogue Understanding module"""
 
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 from soni.du.models import DialogueContext, MessageType, NLUOutput, SlotValue
 from soni.du.modules import SoniDU
@@ -363,3 +366,76 @@ def test_soni_du_integration_real_dspy():
     assert hasattr(result, "structured_command")
     assert hasattr(result, "extracted_slots")
     assert result.structured_command is not None
+
+
+def test_sonidu_default_uses_predict():
+    """Test that SoniDU defaults to Predict (not ChainOfThought)."""
+    import dspy
+
+    # Act
+    nlu = SoniDU()
+
+    # Assert - Verify predictor is dspy.Predict, not ChainOfThought
+    assert isinstance(nlu.predictor, dspy.Predict)
+    assert not isinstance(nlu.predictor, dspy.ChainOfThought)
+    assert nlu.use_cot is False
+
+
+def test_sonidu_with_use_cot_true_uses_chain_of_thought():
+    """Test that SoniDU uses ChainOfThought when use_cot=True."""
+    import dspy
+
+    # Act
+    nlu = SoniDU(use_cot=True)
+
+    # Assert - Verify predictor is ChainOfThought
+    assert isinstance(nlu.predictor, dspy.ChainOfThought)
+    assert nlu.use_cot is True
+
+
+@pytest.mark.asyncio
+async def test_sonidu_uses_config_from_yaml():
+    """Test that SoniDU uses use_reasoning from YAML configuration."""
+    from soni.runtime import RuntimeLoop
+
+    # Create temporary YAML with use_reasoning: true
+    config = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.1,
+                    "use_reasoning": True,  # Configure from YAML (maps to use_cot internally)
+                }
+            },
+            "persistence": {"backend": "memory"},
+        },
+        "flows": {
+            "test_flow": {
+                "description": "Test flow",
+                "steps": [],
+            }
+        },
+        "slots": {},
+        "actions": {},
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config, f)
+        temp_path = f.name
+
+    try:
+        # Act
+        runtime = RuntimeLoop(temp_path)
+
+        # Assert - Verify that DU uses ChainOfThought (use_reasoning=True maps to use_cot=True)
+        assert runtime.du.use_cot is True
+        import dspy
+
+        assert isinstance(runtime.du.predictor, dspy.ChainOfThought)
+    finally:
+        # Cleanup - close checkpointer before deleting temp file
+        await runtime.cleanup()
+        Path(temp_path).unlink()

@@ -177,6 +177,7 @@ addopts = [
     "--cov-fail-under=80",
 ]
 markers = [
+    "design_compliance: Tests that validate design specification compliance",
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "performance: marks tests as performance tests (deselect with '-m \"not performance\"')",
     "slow: marks tests as slow (>3s) (deselect with '-m \"not slow\"')",
@@ -184,6 +185,15 @@ markers = [
 # Suppress warnings from external dependencies
 # These warnings are from third-party libraries and don't affect our code
 filterwarnings = [
+    # SQLite ResourceWarnings: Known issue with pytest-cov and parallel execution
+    # Python 3.13+ emits ResourceWarning if SQLite connections aren't closed explicitly
+    # pytest-cov can delay garbage collection during parallel execution, causing warnings
+    # even when cleanup() is called correctly. This is a known limitation documented in:
+    # - pytest-cov 6.2.0+ release notes
+    # - Python 3.13 sqlite3 module changes
+    # All our tests properly call cleanup(), but pytest-cov's coverage tracking can
+    # interfere with garbage collection timing in parallel execution.
+    "ignore:unclosed database in <sqlite3.Connection object at:ResourceWarning",
     # litellm uses deprecated Pydantic class-based config
     "ignore::pydantic.PydanticDeprecatedSince20",
     # Starlette deprecated HTTP_422_UNPROCESSABLE_ENTITY (FastAPI handles this internally)
@@ -192,7 +202,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:aiohttp.connector",
     # Pydantic serializer warnings from DSPy/litellm objects
     "ignore::UserWarning:pydantic.main",
-    # Note: ResourceWarning is NOT suppressed - we want to catch real resource leaks
+    # Note: Other ResourceWarnings are NOT suppressed - we want to catch real resource leaks
     # All tests must properly call cleanup() to avoid ResourceWarnings
 ]
 

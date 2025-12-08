@@ -35,6 +35,10 @@ settings:
       # Temperature: controls randomness (0.0 = deterministic, 1.0 = creative)
       # Range: 0.0 to 2.0, recommended: 0.1-0.3 for dialogue understanding
       temperature: 0.1
+      # Use reasoning: If true, use ChainOfThought (slower, more precise, shows reasoning).
+      # If false, use Predict (faster, fewer tokens). Default: false
+      # Set to true for more precise NLU with explicit reasoning traces (slower, more tokens)
+      use_reasoning: false
 
   # Persistence configuration
   # Defines how dialogue state is persisted across turns

@@ -12,6 +12,20 @@ def test_route_after_understand_slot_value():
     """Test routing with slot_value message type."""
     # Arrange
     state = create_empty_state()
+    # Add active flow so routing goes directly to validate_slot
+    state["flow_stack"] = [
+        {
+            "flow_id": "flow_1",
+            "flow_name": "book_flight",
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
     state["nlu_result"] = {
         "message_type": "slot_value",
         "command": "book_flight",
@@ -159,6 +173,20 @@ def test_route_after_understand_logs_message_type(caplog):
     from soni.dm.routing import logger as routing_logger
 
     state = create_empty_state()
+    # Add active flow so routing goes directly to validate_slot
+    state["flow_stack"] = [
+        {
+            "flow_id": "flow_1",
+            "flow_name": "test_flow",
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
     state["nlu_result"] = {
         "message_type": "slot_value",
         "command": "test_command",

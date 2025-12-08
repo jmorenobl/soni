@@ -106,8 +106,13 @@ class RuntimeLoop:
             self.du = load_optimized_module(optimized_du_path)
             logger.info(f"Loaded optimized DU from {optimized_du_path}")
         else:
-            self.du = SoniDU()
-            logger.info("Using default (non-optimized) DU module")
+            # Get use_reasoning from YAML configuration (defaults to False if not set)
+            # Map to use_cot for SoniDU (maintains DSPy terminology in code)
+            use_reasoning = getattr(self.config.settings.models.nlu, "use_reasoning", False)
+            self.du = SoniDU(use_cot=use_reasoning)
+            logger.info(
+                f"Using default (non-optimized) DU module with use_reasoning={use_reasoning}"
+            )
 
         # Store action_handler for future use (will be used in Task 040)
         self.action_handler = action_handler

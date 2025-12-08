@@ -273,10 +273,47 @@ def route_after_understand(state: DialogueStateType) -> str:
     # Map to nodes that exist in builder.py edge map
     match message_type:
         case "slot_value":
+            # Check if flow needs to be started first
+            flow_stack = state.get("flow_stack", [])
+            has_active_flow = bool(flow_stack)
+            command = nlu_result.get("command")
+
+            if not has_active_flow and command:
+                # No flow active but user provided command - start flow first
+                logger.info(
+                    f"slot_value message with command '{command}' but no active flow, "
+                    f"starting flow first"
+                )
+                return "handle_intent_change"
             return "validate_slot"
-        case "correction" | "modification":
-            # Corrections and modifications are handled like slot values
-            return "validate_slot"
+        case "correction":
+            # Route to dedicated correction handler
+            flow_stack = state.get("flow_stack", [])
+            has_active_flow = bool(flow_stack)
+            command = nlu_result.get("command")
+
+            if not has_active_flow and command:
+                # No flow active but user provided command - start flow first
+                logger.info(
+                    f"correction message with command '{command}' but no active flow, "
+                    f"starting flow first"
+                )
+                return "handle_intent_change"
+            return "handle_correction"
+        case "modification":
+            # Route to dedicated modification handler
+            flow_stack = state.get("flow_stack", [])
+            has_active_flow = bool(flow_stack)
+            command = nlu_result.get("command")
+
+            if not has_active_flow and command:
+                # No flow active but user provided command - start flow first
+                logger.info(
+                    f"modification message with command '{command}' but no active flow, "
+                    f"starting flow first"
+                )
+                return "handle_intent_change"
+            return "handle_modification"
         case "interruption" | "intent_change":
             return "handle_intent_change"
         case "digression" | "question":
@@ -321,6 +358,66 @@ def route_after_understand(state: DialogueStateType) -> str:
                 },
             )
             return "generate_response"
+
+
+def route_after_correction(state: DialogueStateType) -> str:
+    """Route after correction handling based on conversation_state.
+
+    Similar to route_after_validate - corrections return to a step,
+    so routing is based on the conversation_state set by the correction handler.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    conv_state = state.get("conversation_state")
+
+    logger.info(
+        f"route_after_correction: conversation_state={conv_state}",
+        extra={"conversation_state": conv_state},
+    )
+
+    # Route based on conversation_state (same as route_after_validate)
+    if conv_state == "ready_for_action":
+        return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        return "confirm_action"
+    elif conv_state == "waiting_for_slot":
+        return "collect_next_slot"
+    else:
+        return "generate_response"
+
+
+def route_after_modification(state: DialogueStateType) -> str:
+    """Route after modification handling based on conversation_state.
+
+    Similar to route_after_validate - modifications return to a step,
+    so routing is based on the conversation_state set by the modification handler.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Next node name
+    """
+    conv_state = state.get("conversation_state")
+
+    logger.info(
+        f"route_after_modification: conversation_state={conv_state}",
+        extra={"conversation_state": conv_state},
+    )
+
+    # Route based on conversation_state (same as route_after_validate)
+    if conv_state == "ready_for_action":
+        return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        return "confirm_action"
+    elif conv_state == "waiting_for_slot":
+        return "collect_next_slot"
+    else:
+        return "generate_response"
 
 
 def route_after_validate(state: DialogueStateType) -> str:

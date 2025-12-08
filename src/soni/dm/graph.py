@@ -124,6 +124,7 @@ class SoniGraphBuilder:
             if self._checkpointer_cm is not None:
                 # Has context manager (e.g., AsyncSqliteSaver) - need to close it
                 try:
+                    # Close the async context manager to release SQLite connection
                     await self._checkpointer_cm.__aexit__(None, None, None)
                     logger.info("Checkpointer context manager closed successfully")
                 except (OSError, ConnectionError, RuntimeError) as e:
@@ -139,8 +140,16 @@ class SoniGraphBuilder:
                         exc_info=True,
                     )
                 finally:
+                    # Clear references immediately to help garbage collection
+                    # This is especially important when running with pytest-cov
+                    # which can delay garbage collection and cause ResourceWarnings
                     self._checkpointer_cm = None
                     self.checkpointer = None
+                    # Force garbage collection hint (doesn't guarantee immediate GC)
+                    # but helps ensure cleanup happens before pytest-cov tracks coverage
+                    import gc
+
+                    gc.collect()
             elif self.checkpointer is not None:
                 # No context manager (e.g., InMemorySaver) - just clear reference
                 # InMemorySaver doesn't need cleanup, but we clear it for consistency
@@ -159,8 +168,11 @@ class SoniGraphBuilder:
         Note:
             This is a safety net. Explicit cleanup() calls are preferred.
             The warning helps identify code paths where cleanup is forgotten.
+            Only warns if there's a context manager (SQLite) that needs cleanup.
         """
-        if not self._cleaned_up:
+        if not self._cleaned_up and self._checkpointer_cm is not None:
+            # Only warn if there's a context manager that needs cleanup (e.g., SQLite)
+            # InMemorySaver doesn't need cleanup, so no warning needed
             import warnings
 
             warnings.warn(

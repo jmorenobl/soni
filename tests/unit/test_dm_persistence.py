@@ -26,6 +26,7 @@ async def sqlite_checkpointer():
         if cm is not None:
             try:
                 # Properly close the async context manager
+                # This closes the SQLite connection to prevent ResourceWarnings
                 await cm.__aexit__(None, None, None)
             except Exception as e:
                 # Log but don't fail on cleanup errors
@@ -33,9 +34,16 @@ async def sqlite_checkpointer():
 
                 logging.getLogger(__name__).debug(f"Error during SQLite cleanup: {e}")
             finally:
-                # Ensure references are cleared
+                # Ensure references are cleared to help garbage collection
+                # This is especially important when running with pytest-cov
+                # which can delay garbage collection
                 cm = None
                 checkpointer = None
+                # Force garbage collection hint (doesn't guarantee immediate GC)
+                # but helps ensure cleanup happens before pytest-cov tracks coverage
+                import gc
+
+                gc.collect()
 
 
 @pytest.mark.asyncio

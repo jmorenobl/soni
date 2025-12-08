@@ -14,13 +14,17 @@ from soni.dm.nodes.confirm_action import confirm_action_node
 from soni.dm.nodes.execute_action import execute_action_node
 from soni.dm.nodes.generate_response import generate_response_node
 from soni.dm.nodes.handle_confirmation import handle_confirmation_node
+from soni.dm.nodes.handle_correction import handle_correction_node
 from soni.dm.nodes.handle_digression import handle_digression_node
 from soni.dm.nodes.handle_intent_change import handle_intent_change_node
+from soni.dm.nodes.handle_modification import handle_modification_node
 from soni.dm.nodes.understand import understand_node
 from soni.dm.nodes.validate_slot import validate_slot_node
 from soni.dm.routing import (
     route_after_action,
     route_after_confirmation,
+    route_after_correction,
+    route_after_modification,
     route_after_understand,
     route_after_validate,
 )
@@ -82,6 +86,8 @@ def build_graph(
     # where runtime.context contains dependencies
     builder.add_node("understand", _wrap_node(understand_node, context))
     builder.add_node("validate_slot", _wrap_node(validate_slot_node, context))
+    builder.add_node("handle_correction", _wrap_node(handle_correction_node, context))
+    builder.add_node("handle_modification", _wrap_node(handle_modification_node, context))
     builder.add_node("collect_next_slot", _wrap_node(collect_next_slot_node, context))
     builder.add_node("confirm_action", _wrap_node(confirm_action_node, context))
     builder.add_node("handle_confirmation", _wrap_node(handle_confirmation_node, context))
@@ -99,6 +105,8 @@ def build_graph(
         route_after_understand,
         {
             "validate_slot": "validate_slot",
+            "handle_correction": "handle_correction",
+            "handle_modification": "handle_modification",
             "handle_digression": "handle_digression",
             "handle_intent_change": "handle_intent_change",
             "handle_confirmation": "handle_confirmation",
@@ -119,6 +127,30 @@ def build_graph(
             "confirm_action": "confirm_action",
             "collect_next_slot": "collect_next_slot",
             "generate_response": "generate_response",  # For completed flows or fallback
+        },
+    )
+
+    # After handling correction
+    builder.add_conditional_edges(
+        "handle_correction",
+        route_after_correction,
+        {
+            "execute_action": "execute_action",
+            "confirm_action": "confirm_action",
+            "collect_next_slot": "collect_next_slot",
+            "generate_response": "generate_response",
+        },
+    )
+
+    # After handling modification
+    builder.add_conditional_edges(
+        "handle_modification",
+        route_after_modification,
+        {
+            "execute_action": "execute_action",
+            "confirm_action": "confirm_action",
+            "collect_next_slot": "collect_next_slot",
+            "generate_response": "generate_response",
         },
     )
 

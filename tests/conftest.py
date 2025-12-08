@@ -191,3 +191,70 @@ async def runtime_loop():
     # Cleanup temporary config files
     for temp_file in temp_files:
         Path(temp_file).unlink(missing_ok=True)
+
+
+@pytest.fixture
+async def runtime():
+    """Create RuntimeLoop with in-memory checkpointer for test isolation.
+
+    This fixture is similar to the one in test_e2e.py but available globally.
+    It creates a RuntimeLoop instance with memory backend for fast, isolated tests.
+    """
+    import tempfile
+
+    import yaml
+
+    from soni.core.config import ConfigLoader, SoniConfig
+    from soni.runtime import RuntimeLoop
+
+    # Use flight booking example as default config
+    config_path = Path("examples/flight_booking/soni.yaml")
+
+    # Import actions from original config directory before creating RuntimeLoop
+    config_dir = config_path.parent
+
+    # Try importing actions.py (primary convention)
+    actions_file = config_dir / "actions.py"
+    if actions_file.exists():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("user_actions", actions_file)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+    # Try importing __init__.py (package convention - imports handlers.py)
+    init_file = config_dir / "__init__.py"
+    if init_file.exists():
+        import importlib
+        import sys
+
+        package_name = config_dir.name
+        parent_dir = config_dir.parent
+        original_path = sys.path[:]
+        try:
+            if str(parent_dir) not in sys.path:
+                sys.path.insert(0, str(parent_dir))
+            importlib.import_module(package_name)
+        finally:
+            sys.path[:] = original_path
+
+    # Load config and modify persistence backend to memory
+    config_dict = ConfigLoader.load(config_path)
+    config = SoniConfig(**config_dict)
+    config.settings.persistence.backend = "memory"
+
+    # Create temporary config file with memory backend
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config.model_dump(), f)
+        temp_config_path = f.name
+
+    try:
+        runtime_instance = RuntimeLoop(temp_config_path)
+        # Initialize graph eagerly for tests (lazy initialization causes issues)
+        await runtime_instance._ensure_graph_initialized()
+        yield runtime_instance
+        await runtime_instance.cleanup()
+    finally:
+        # Cleanup temporary config file
+        Path(temp_config_path).unlink(missing_ok=True)
