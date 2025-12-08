@@ -52,7 +52,7 @@ async def validate_slot_node(
             waiting_for_slot = state.get("waiting_for_slot")
 
             # FALLBACK: If message_type is slot_value and we're waiting for a slot,
-            # try to extract the value directly from the user message
+            # try to extract the value using a more specific NLU call
             # ONLY use fallback when we're in a collect step (not in initial flow activation)
             current_step = active_ctx.get("current_step")
             if message_type == "slot_value" and waiting_for_slot and current_step:
@@ -60,29 +60,111 @@ async def validate_slot_node(
                 if user_message and user_message.strip():
                     # NLU classified as slot_value but didn't extract the slot
                     # This can happen when the value is clear but NLU didn't associate it
-                    # FALLBACK: Treat the entire message as the slot value
+                    # FALLBACK: Make a second NLU call with more specific context
                     logger.info(
                         f"FALLBACK: NLU didn't extract slot '{waiting_for_slot}' from message "
-                        f"'{user_message}'. Using fallback: treating entire message as slot value."
+                        f"'{user_message}'. Making second NLU call with specific context."
                     )
 
-                    # Create SlotValue manually with lower confidence
-                    # This will go through validation/normalization as normal
-                    from soni.du.models import SlotAction, SlotValue
+                    try:
+                        # Get NLU provider and make a second call with focused context
+                        nlu_provider = runtime.context["nlu_provider"]
 
-                    fallback_slot = SlotValue(
-                        name=waiting_for_slot,
-                        value=user_message.strip(),
-                        confidence=0.5,  # Lower confidence - needs validation
-                        action=SlotAction.PROVIDE,  # Always PROVIDE for fallback (not correction/modification)
-                    )
+                        import dspy
 
-                    # Convert to dict format for processing
-                    slots = [fallback_slot.model_dump(mode="json")]
-                    logger.info(
-                        f"FALLBACK: Created slot '{waiting_for_slot}' with value '{user_message.strip()}' "
-                        f"(confidence=0.5, action=provide, will be validated)"
-                    )
+                        from soni.du.models import DialogueContext
+
+                        # Create a focused context with only the expected slot
+                        # This helps the NLU focus on extracting just this one slot
+                        focused_context = DialogueContext(
+                            current_slots=state.get("flow_slots", {}).get(
+                                active_ctx["flow_id"], {}
+                            ),
+                            available_actions=state.get("available_actions", []),
+                            available_flows=state.get("available_flows", []),
+                            current_flow=active_ctx["flow_name"],
+                            expected_slots=[waiting_for_slot],  # Only the slot we're waiting for
+                            current_prompted_slot=waiting_for_slot,
+                        )
+
+                        # Get conversation history
+                        messages = state.get("messages", [])
+                        history = dspy.History()
+                        for msg in messages[-5:]:  # Last 5 messages for context
+                            if hasattr(msg, "content"):
+                                if hasattr(msg, "role") and msg.role == "user":
+                                    history.add_user_message(msg.content)
+                                elif hasattr(msg, "role") and msg.role == "assistant":
+                                    history.add_assistant_message(msg.content)
+
+                        # Make focused NLU call
+                        fallback_result = await nlu_provider.predict(
+                            user_message=user_message,
+                            history=history,
+                            context=focused_context,
+                        )
+
+                        # Check if the focused call extracted the slot
+                        fallback_slots = fallback_result.slots or []
+                        extracted_slot = None
+                        for slot in fallback_slots:
+                            if (hasattr(slot, "name") and slot.name == waiting_for_slot) or (
+                                isinstance(slot, dict) and slot.get("name") == waiting_for_slot
+                            ):
+                                extracted_slot = slot
+                                break
+
+                        if extracted_slot:
+                            # Success! Use the extracted slot
+                            if hasattr(extracted_slot, "model_dump"):
+                                slots = [extracted_slot.model_dump(mode="json")]
+                            elif isinstance(extracted_slot, dict):
+                                slots = [extracted_slot]
+                            else:
+                                # Convert to dict format
+                                from soni.du.models import SlotValue
+
+                                slots = [
+                                    SlotValue(
+                                        name=waiting_for_slot,
+                                        value=(
+                                            extracted_slot.value
+                                            if hasattr(extracted_slot, "value")
+                                            else str(extracted_slot)
+                                        ),
+                                        confidence=(
+                                            extracted_slot.confidence
+                                            if hasattr(extracted_slot, "confidence")
+                                            else 0.7
+                                        ),
+                                        action=(
+                                            extracted_slot.action
+                                            if hasattr(extracted_slot, "action")
+                                            else "provide"
+                                        ),
+                                    ).model_dump(mode="json")
+                                ]
+                            logger.info(
+                                f"FALLBACK SUCCESS: Second NLU call extracted slot '{waiting_for_slot}' "
+                                f"with value '{slots[0].get('value') if isinstance(slots[0], dict) else slots[0].value}'"
+                            )
+                        else:
+                            # Even the focused call didn't extract it - this is unusual
+                            # Log warning but don't use fallback (let normal error handling proceed)
+                            logger.warning(
+                                f"FALLBACK FAILED: Even focused NLU call didn't extract slot "
+                                f"'{waiting_for_slot}' from message '{user_message}'. "
+                                f"This may indicate the message doesn't contain the expected value."
+                            )
+                            # Don't create a fallback slot - let normal error handling proceed
+                            # This will generate a response asking the user to clarify
+
+                    except Exception as e:
+                        # If fallback NLU call fails, log and let normal error handling proceed
+                        logger.error(
+                            f"FALLBACK ERROR: Failed to make second NLU call: {e}. "
+                            f"Falling back to normal error handling."
+                        )
                 else:
                     # No user message - can't use fallback
                     logger.warning(
