@@ -145,6 +145,152 @@ class FlowManager:
         ...
 ```
 
+## FlowStepManager
+
+### Responsibility
+
+Manages flow step progression and tracking. Encapsulates all step-related logic including step completion checking, step advancement, and iterative advancement through completed steps.
+
+### Design Philosophy
+
+FlowStepManager follows **Single Responsibility Principle (SRP)** by focusing exclusively on step progression logic, separate from flow stack management (FlowManager) and orchestration (RuntimeLoop).
+
+### Key Methods
+
+#### advance_through_completed_steps
+
+**Purpose**: Iteratively advance through all completed steps until finding an incomplete one.
+
+**When to use**:
+- After saving multiple slots in a single message
+- When automatic advancement through completed steps is needed
+- In `validate_slot_node` after processing slots
+- In `handle_intent_change_node` after activating flow with slots
+
+**Example**:
+```python
+# After saving multiple slots
+updates = step_manager.advance_through_completed_steps(state, context)
+state.update(updates)
+```
+
+**Behavior**:
+1. Checks if current step is complete
+2. If complete, advances to next step
+3. Repeats until finding an incomplete step or flow completes
+4. Returns state updates with `current_step`, `conversation_state`, `waiting_for_slot`, etc.
+
+**Safety Limit**: Maximum 20 iterations to prevent infinite loops
+
+**Implementation**:
+```python
+class FlowStepManager:
+    """Manages flow step progression and tracking."""
+
+    def advance_through_completed_steps(
+        self,
+        state: DialogueState,
+        context: RuntimeContext,
+    ) -> dict[str, Any]:
+        """
+        Advance through all completed steps until finding an incomplete one.
+
+        Critical for handling cases where multiple slots are provided in one message.
+        """
+        max_iterations = 20  # Safety limit
+        iterations = 0
+
+        while iterations < max_iterations:
+            iterations += 1
+            current_step_config = self.get_current_step_config(state, context)
+
+            if not current_step_config:
+                return {"conversation_state": "completed"}
+
+            is_complete = self.is_step_complete(state, current_step_config, context)
+
+            if not is_complete:
+                # Found incomplete step - stop here
+                return {
+                    "conversation_state": "waiting_for_slot",
+                    "waiting_for_slot": current_step_config.slot,
+                    # ...
+                }
+
+            # Advance to next step
+            advance_updates = self.advance_to_next_step(state, context)
+            if advance_updates.get("conversation_state") == "completed":
+                return advance_updates
+
+            state.update(advance_updates)
+
+        # Safety: reached max iterations
+        return {"conversation_state": "error"}
+```
+
+### Helper Functions in validate_slot_node
+
+The `validate_slot_node` uses several helper functions to process multiple slots:
+
+#### _process_all_slots
+
+Processes and normalizes all slots from NLU result. Handles different slot formats (dict, SlotValue model, string).
+
+**Signature**:
+```python
+async def _process_all_slots(
+    slots: list,
+    state: DialogueState,
+    active_ctx: FlowContext,
+    normalizer: INormalizer,
+) -> dict[str, dict[str, Any]]:
+    """Process and normalize all slots from NLU result."""
+```
+
+#### _detect_correction_or_modification
+
+Detects if a message is a correction or modification based on `message_type` and slot actions.
+
+**Signature**:
+```python
+def _detect_correction_or_modification(
+    slots: list,
+    message_type: str,
+) -> bool:
+    """Detect if message is a correction or modification."""
+```
+
+#### _handle_correction_flow
+
+Handles correction/modification flow, restoring the correct step and updating state accordingly.
+
+**Signature**:
+```python
+def _handle_correction_flow(
+    state: DialogueState,
+    runtime: Any,
+    flow_slots: dict[str, dict[str, Any]],
+    previous_step: str | None,
+) -> dict[str, Any]:
+    """Handle correction/modification flow."""
+```
+
+### Helper Functions in handle_intent_change_node
+
+The `handle_intent_change_node` uses a helper function to extract slots from NLU results:
+
+#### _extract_slots_from_nlu
+
+Extracts slots from NLU result, handling different slot formats (dict, SlotValue model).
+
+**Signature**:
+```python
+def _extract_slots_from_nlu(nlu_result: dict[str, Any]) -> dict[str, Any]:
+    """Extract slots from NLU result."""
+```
+
+**Usage**: Called when a new flow is activated with slots in the initial message (e.g., "Book a flight from New York to Los Angeles").
+
 ### Usage Example
 
 ```python

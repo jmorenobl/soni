@@ -11,11 +11,28 @@ logger = logging.getLogger(__name__)
 def _extract_slots_from_nlu(nlu_result: dict[str, Any]) -> dict[str, Any]:
     """Extract slots from NLU result.
 
+    This function handles multiple slot formats (dict, SlotValue model) and
+    extracts slot name-value pairs for saving to dialogue state.
+
     Args:
-        nlu_result: NLU result dictionary containing slots
+        nlu_result: NLU result dictionary containing slots. Can contain:
+            - dict: {"name": "origin", "value": "New York"}
+            - SlotValue: SlotValue(name="origin", value="New York")
+            - list: List of slot dictionaries or SlotValue objects
 
     Returns:
         Dictionary of extracted slots: {slot_name: slot_value}
+
+    Example:
+        >>> nlu_result = {
+        ...     "slots": [
+        ...         {"name": "origin", "value": "New York"},
+        ...         {"name": "destination", "value": "Los Angeles"},
+        ...     ]
+        ... }
+        >>> extracted = _extract_slots_from_nlu(nlu_result)
+        >>> assert extracted["origin"] == "New York"
+        >>> assert extracted["destination"] == "Los Angeles"
     """
     slots_from_nlu = nlu_result.get("slots", [])
     extracted_slots: dict[str, Any] = {}

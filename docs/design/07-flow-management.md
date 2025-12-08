@@ -353,15 +353,65 @@ settings:
     max_completed_flows: 10
 ```
 
+## Processing Multiple Slots
+
+### Overview
+
+Soni supports processing multiple slots provided in a single user message (e.g., "I want to fly from New York to Los Angeles"). This is handled through an iterative step advancement pattern implemented in `FlowStepManager.advance_through_completed_steps`.
+
+### Iterative Step Advancement Pattern
+
+When multiple slots are provided in one message:
+
+1. **NLU extracts all slots** from the message
+2. **All slots are processed and normalized** using `_process_all_slots` helper
+3. **Slots are saved to state** via `flow_slots[flow_id]`
+4. **Iterative advancement** through completed steps:
+   - Check if current step is complete (all required slots filled)
+   - If complete, advance to next step
+   - Repeat until finding an incomplete step or flow completes
+
+### Example Flow
+
+```python
+# User message: "I want to fly from New York to Los Angeles"
+# NLU extracts: origin="New York", destination="Los Angeles"
+
+# 1. Process all slots
+flow_slots = await _process_all_slots(slots, state, active_ctx, normalizer)
+state["flow_slots"] = flow_slots
+
+# 2. Advance through completed steps
+updates = step_manager.advance_through_completed_steps(state, context)
+# Will advance:
+#   - collect_origin (complete) → collect_destination
+#   - collect_destination (complete) → collect_date
+#   - collect_date (incomplete) → STOP
+
+# Result: waiting_for_slot = "departure_date"
+```
+
+### Safety Mechanisms
+
+- **Max Iterations**: Limited to 20 iterations to prevent infinite loops
+- **Step Completion Check**: Each step is verified before advancement
+- **Flow Completion Detection**: Stops when flow completes
+
+### Integration Points
+
+- **validate_slot_node**: Uses `advance_through_completed_steps` after processing slots
+- **handle_intent_change_node**: Uses `advance_through_completed_steps` after activating flow with slots
+
 ## Summary
 
 Soni's flow management architecture is built on strict software engineering principles:
 
-1.  **SRP**: `FlowManager` handles stack logic; `RuntimeLoop` handles orchestration.
+1.  **SRP**: `FlowManager` handles stack logic; `FlowStepManager` handles step progression; `RuntimeLoop` handles orchestration.
 2.  **OCP**: Stack limiting strategies are extensible.
 3.  **Pure Data**: State is fully serializable (TypedDict).
 4.  **Explicit Dependencies**: Data transfer is explicit via inputs/outputs.
 5.  **Robustness**: Unique IDs prevent collisions; strategies handle limits gracefully.
+6.  **Iterative Advancement**: Multiple slots processed through centralized step advancement logic.
 
 ## Next Steps
 
