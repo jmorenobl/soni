@@ -36,7 +36,7 @@ async def test_dspy_nlu_provider(dummy_lm):
     dialogue_context = {
         "current_slots": {},
         "available_actions": ["book_flight"],
-        "available_flows": ["book_flight"],
+        "available_flows": {"book_flight": "Book a flight"},
         "current_flow": "none",
         "expected_slots": [],
         "history": [],
@@ -63,7 +63,7 @@ async def test_dspy_nlu_provider_with_history(dummy_lm):
     dialogue_context = {
         "current_slots": {"origin": "Madrid"},
         "available_actions": ["book_flight"],
-        "available_flows": ["book_flight"],
+        "available_flows": {"book_flight": "Book a flight"},
         "current_flow": "book_flight",
         "expected_slots": ["destination"],
         "history": [
