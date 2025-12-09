@@ -211,9 +211,19 @@ async def understand_node(
     metadata.pop("_modification_slot", None)
     metadata.pop("_modification_value", None)
 
+    # Preserve conversation_state if we're in a special state (e.g., confirming)
+    # This prevents understand_node from overwriting states that should persist
+    current_conv_state = state.get("conversation_state", "")
+    if current_conv_state in ("confirming", "ready_for_confirmation"):
+        # Preserve the confirmation state - don't overwrite with "understanding"
+        new_conv_state = current_conv_state
+    else:
+        # Normal case - set to understanding
+        new_conv_state = "understanding"
+
     return {
         "nlu_result": nlu_result,
-        "conversation_state": "understanding",
+        "conversation_state": new_conv_state,
         "last_nlu_call": time.time(),
         "metadata": metadata,
     }

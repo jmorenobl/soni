@@ -179,26 +179,17 @@ def build_graph(
         was already processed (has last_response from handle_confirmation), it should
         go directly to generate_response instead of understand to avoid loops.
         """
-        # Check if confirm_action already processed the confirmation (after resume)
-        # This happens when confirm_action detects existing_user_message and existing_conv_state == "confirming"
-        # and returns with last_response preserved from handle_confirmation
-        last_response = state.get("last_response", "")
-        user_message = state.get("user_message", "")
-        conv_state = state.get("conversation_state", "")
+        # Check if handle_confirmation already processed this confirmation
+        # Use metadata flag instead of checking response text (more robust and configurable)
+        metadata = state.get("metadata", {})
+        confirmation_processed = metadata.get("_confirmation_processed", False)
 
-        # If we have a last_response that looks like an error message from handle_confirmation
-        # (contains "didn't understand" - unique to error message), and conversation_state is "confirming",
-        # it means handle_confirmation already processed the response
-        # Go directly to generate_response to avoid loop
-        if (
-            last_response
-            and conv_state == "confirming"
-            and user_message
-            and "didn't understand" in last_response.lower()
-        ):
+        if confirmation_processed:
+            # handle_confirmation already processed the response
+            # Go directly to generate_response to avoid loop
             logger.info(
                 "route_after_confirm_action: Confirmation already processed by handle_confirmation, "
-                f"routing to generate_response. response={last_response[:50]}..."
+                "routing to generate_response"
             )
             return "generate_response"
         else:

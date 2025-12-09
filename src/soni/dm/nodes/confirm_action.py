@@ -106,16 +106,17 @@ async def confirm_action_node(
         # Check if handle_confirmation already processed and set error message
         existing_last_response = state.get("last_response", "")
 
-        # Check if this is the error message from handle_confirmation
-        # (contains "didn't understand" - unique to error message)
-        is_error_message = "didn't understand" in existing_last_response.lower()
+        # Check if handle_confirmation already processed this confirmation
+        # Use metadata flag instead of checking response text (more robust)
+        metadata = state.get("metadata", {})
+        confirmation_processed = metadata.get("_confirmation_processed", False)
 
-        if is_error_message:
-            # handle_confirmation already processed and set error message
+        if confirmation_processed:
+            # handle_confirmation already processed and set response
             # Preserve it and signal to routing that we should go to generate_response
             logger.debug(
                 f"confirm_action: handle_confirmation already processed, "
-                f"preserving error message: {existing_last_response[:50]}..."
+                f"preserving response: {existing_last_response[:50]}..."
             )
             return {
                 "conversation_state": "confirming",

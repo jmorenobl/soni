@@ -16,13 +16,24 @@ class DialogueUnderstanding(dspy.Signature):
     {"book_flight": "Book a flight from origin to destination"}, and the user says
     "I want to book a flight", set command="book_flight".
 
-    When message_type is CONFIRMATION:
-    - Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right)
-    - Extract confirmation_value: False if user denies (no/wrong/incorrect/not right)
-    - Extract confirmation_value: None if unclear or ambiguous
-    - Set command to None (simple yes/no response, not a new intent)
-    - Exception: If user is changing intent while responding (e.g., "No, I want to cancel"),
-      then set command to the new intent (e.g., "cancel") and message_type to INTERRUPTION
+    CRITICAL: Use context.conversation_state to determine message_type:
+    - If context.conversation_state is "confirming" or "ready_for_confirmation":
+      * The user is responding to a confirmation request
+      * Set message_type to CONFIRMATION (not SLOT_VALUE, even if the message contains slot-like words)
+      * Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right)
+      * Extract confirmation_value: False if user denies (no/wrong/incorrect/not right)
+      * Extract confirmation_value: None if unclear or ambiguous
+      * Set command to None (simple yes/no response, not a new intent)
+      * Exception: If user is changing intent while responding (e.g., "No, I want to cancel"),
+        then set command to the new intent (e.g., "cancel") and message_type to INTERRUPTION
+
+    - If context.conversation_state is "waiting_for_slot" or context.current_prompted_slot is set:
+      * The user is responding to a slot collection prompt
+      * Set message_type to SLOT_VALUE and extract the slot value
+      * Use context.expected_slots to identify which slot is being filled
+
+    - Otherwise:
+      * Determine message_type based on message content and context
     """
 
     # Input fields with structured types
@@ -31,7 +42,10 @@ class DialogueUnderstanding(dspy.Signature):
     context: DialogueContext = dspy.InputField(
         desc="Dialogue state: current_flow, expected_slots (use these EXACT names), "
         "current_slots (already filled - check for corrections), current_prompted_slot, "
-        "available_flows (dict mapping flow names to descriptions - use descriptions to map user intent)"
+        "conversation_state (CRITICAL: use this to determine if user is responding to confirmation), "
+        "available_flows (dict mapping flow names to descriptions - use descriptions to map user intent). "
+        "IMPORTANT: If conversation_state is 'confirming' or 'ready_for_confirmation', "
+        "the user is responding to a confirmation request - set message_type to CONFIRMATION."
     )
     current_datetime: str = dspy.InputField(
         desc="Current datetime in ISO format for relative date resolution",

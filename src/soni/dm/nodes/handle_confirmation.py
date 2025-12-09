@@ -84,9 +84,11 @@ async def handle_confirmation_node(
     # User confirmed
     if confirmation_value is True:
         logger.info("User confirmed, proceeding to action")
-        # Clear confirmation attempts on success
+        # Clear confirmation attempts and flags on success
         metadata_cleared = metadata.copy()
         metadata_cleared.pop("_confirmation_attempts", None)
+        metadata_cleared.pop("_confirmation_processed", None)
+        metadata_cleared.pop("_confirmation_unclear", None)
 
         # Advance to next step (should be the action step after confirm)
         step_manager = runtime.context["step_manager"]
@@ -101,9 +103,11 @@ async def handle_confirmation_node(
     # User denied - wants to change something
     elif confirmation_value is False:
         logger.info("User denied confirmation, allowing modification")
-        # Clear confirmation attempts on explicit denial
+        # Clear confirmation attempts and flags on explicit denial
         metadata_cleared = metadata.copy()
         metadata_cleared.pop("_confirmation_attempts", None)
+        metadata_cleared.pop("_confirmation_processed", None)
+        metadata_cleared.pop("_confirmation_unclear", None)
         # For now, go back to understanding to allow user to modify
         # In the future, we could route to a specific modification handler
         return {
@@ -121,6 +125,11 @@ async def handle_confirmation_node(
         # Increment retry counter
         metadata_updated = metadata.copy()
         metadata_updated["_confirmation_attempts"] = confirmation_attempts + 1
+
+        # Set a flag in metadata to indicate that handle_confirmation already processed this
+        # This allows routing to detect it without depending on response text
+        metadata_updated["_confirmation_processed"] = True
+        metadata_updated["_confirmation_unclear"] = True
 
         return {
             "conversation_state": "confirming",

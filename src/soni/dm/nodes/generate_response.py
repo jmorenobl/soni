@@ -30,17 +30,12 @@ async def generate_response_node(
 
     slots = get_all_slots(state)
 
-    logger.info(
-        "generate_response_node called",
-        extra={
-            "slots_keys": list(slots.keys()),
-            "has_confirmation": "confirmation" in slots,
-            "has_booking_ref": "booking_ref" in slots,
-            "action_result": state.get("action_result") is not None,
-        },
-    )
+    # Priority order for response generation:
+    # 1. Action results (booking_ref, confirmation from actions) - highest priority
+    # 2. Existing last_response (from handle_confirmation error messages) - only if no action results
+    # 3. Default fallback
 
-    # Check for confirmation message in slots (from action outputs)
+    # Check for confirmation message in slots (from action outputs) - highest priority
     if "confirmation" in slots and slots["confirmation"]:
         response = slots["confirmation"]
         logger.info(f"Using confirmation message from slots: {response[:50]}...")
@@ -62,10 +57,22 @@ async def generate_response_node(
                 response = f"Action completed successfully. Result: {action_result}"
             logger.info("Using action_result to generate response")
         else:
-            response = "How can I help you?"
-            logger.warning(
-                "No confirmation, booking_ref, or action_result found, using default response"
-            )
+            # Check if there's an existing last_response from previous nodes
+            # (e.g., handle_confirmation error message) - use it as fallback
+            existing_response = state.get("last_response", "")
+            if existing_response and existing_response.strip():
+                # Use existing response from previous nodes (e.g., handle_confirmation)
+                response = existing_response
+                logger.info(
+                    f"Using existing last_response from previous node: {response[:50]}...",
+                    extra={"response_source": "existing_state"},
+                )
+            else:
+                response = "How can I help you?"
+                logger.warning(
+                    "No confirmation, booking_ref, action_result, or existing response found, "
+                    "using default response"
+                )
 
     logger.info(f"generate_response_node returning: {response[:50]}...")
 
@@ -73,18 +80,8 @@ async def generate_response_node(
     # Don't override "completed" or "confirming" with "idle"
     current_conv_state = state.get("conversation_state")
 
-    # Special case: if conversation_state is "confirming", check if we should use
-    # existing last_response (from handle_confirmation) instead of generating new one
-    if current_conv_state == "confirming":
-        existing_response = state.get("last_response", "")
-        # If existing response exists and is NOT the original confirmation prompt,
-        # it's the error message from handle_confirmation - use it
-        if existing_response and "correct?" not in existing_response.lower():
-            logger.info(
-                f"Using existing last_response from handle_confirmation: {existing_response[:50]}..."
-            )
-            # Use existing response instead of generated one
-            response = existing_response
+    # Note: Response priority is handled above - action results take priority
+    # over existing last_response. This section only handles conversation_state preservation.
 
     if current_conv_state == "completed":
         conversation_state = "completed"
