@@ -287,6 +287,34 @@ def route_after_understand(state: DialogueStateType) -> str:
                 )
                 return "handle_confirmation"
 
+            # Special case: If we're in understanding state after denying confirmation,
+            # and the user provides a slot value that already exists, treat as modification
+            # This handles the case: user denies confirmation -> "What would you like to change?"
+            # -> user says "San Francisco" (should modify destination, not collect new slot)
+            if conv_state == "understanding":
+                flow_stack = state.get("flow_stack", [])
+                if flow_stack:
+                    # Check if the slot value provided already exists in flow_slots
+                    from soni.core.state import get_all_slots
+
+                    existing_slots = get_all_slots(state)
+                    slots = nlu_result.get("slots", [])
+                    if slots:
+                        slot = slots[0]
+                        slot_name = (
+                            slot.get("name")
+                            if isinstance(slot, dict)
+                            else getattr(slot, "name", None)
+                        )
+                        if slot_name and slot_name in existing_slots:
+                            # This is a modification of an existing slot after denying confirmation
+                            logger.info(
+                                f"slot_value detected but slot '{slot_name}' already exists "
+                                f"and conversation_state=understanding (after denial), "
+                                f"treating as modification"
+                            )
+                            return "handle_modification"
+
             # Check if flow needs to be started first
             flow_stack = state.get("flow_stack", [])
             has_active_flow = bool(flow_stack)
