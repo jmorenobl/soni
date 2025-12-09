@@ -210,9 +210,8 @@ def build_graph(
         "handle_confirmation",
         route_after_confirmation,
         {
-            "execute_action": "execute_action",
-            "generate_response": "generate_response",  # For unclear confirmations or errors
-            "understand": "understand",  # For modifications/denials
+            "execute_action": "execute_action",  # User confirmed
+            "generate_response": "generate_response",  # Unclear, errors, or denials
         },
     )
 

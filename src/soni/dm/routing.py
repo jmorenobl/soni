@@ -620,6 +620,14 @@ def route_after_confirmation(state: DialogueStateType) -> str:
     elif conv_state == "error":
         # Max retries exceeded or other error - show error message
         return "generate_response"
+    elif conv_state == "understanding":
+        # User denied or wants to modify
+        # Go to generate_response to show "What would you like to change?" and END
+        # This prevents re-processing the same message through understand
+        return "generate_response"
     else:
-        # User denied or wants to modify, go back to understand
-        return "understand"
+        # Unexpected state - go to generate_response as fallback
+        logger.warning(
+            f"Unexpected conversation_state={conv_state} after confirmation, routing to generate_response"
+        )
+        return "generate_response"

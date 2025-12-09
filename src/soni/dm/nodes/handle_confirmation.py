@@ -25,12 +25,17 @@ async def handle_confirmation_node(
     Returns:
         Partial state updates based on confirmation result
     """
+    nlu_result = state.get("nlu_result") or {}
+    confirmation_value = nlu_result.get("confirmation_value") if nlu_result else None
+
     logger.info(
         "handle_confirmation_node ENTRY",
         extra={
             "user_message": state.get("user_message", "")[:50],
             "conversation_state": state.get("conversation_state"),
-            "nlu_result": state.get("nlu_result"),
+            "nlu_message_type": nlu_result.get("message_type"),
+            "confirmation_value": confirmation_value,
+            "nlu_command": nlu_result.get("command"),
         },
     )
 
@@ -61,7 +66,6 @@ async def handle_confirmation_node(
             "metadata": metadata_cleared,
         }
 
-    nlu_result = state.get("nlu_result") or {}
     message_type = nlu_result.get("message_type") if nlu_result else None
 
     # Check if user is correcting/modifying during confirmation
@@ -105,6 +109,29 @@ async def handle_confirmation_node(
 
     # User denied - wants to change something
     elif confirmation_value is False:
+        # Check if we've exceeded max attempts BEFORE allowing modification
+        # If we've had too many unclear attempts, treat this as an error instead
+        if confirmation_attempts >= MAX_CONFIRMATION_ATTEMPTS - 1:
+            # This is likely a misinterpretation after many unclear attempts
+            # Treat as error instead of allowing modification
+            logger.error(
+                f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded. "
+                f"Treating denial as error after {confirmation_attempts} unclear attempts."
+            )
+            metadata_cleared = metadata.copy()
+            metadata_cleared.pop("_confirmation_attempts", None)
+            metadata_cleared.pop("_confirmation_processed", None)
+            metadata_cleared.pop("_confirmation_unclear", None)
+
+            return {
+                "conversation_state": "error",
+                "last_response": (
+                    "I'm having trouble understanding your confirmation. "
+                    "Let's start over. What would you like to do?"
+                ),
+                "metadata": metadata_cleared,
+            }
+
         logger.info("User denied confirmation, allowing modification")
         # Clear confirmation attempts and flags on explicit denial
         metadata_cleared = metadata.copy()
