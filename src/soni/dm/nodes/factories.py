@@ -131,7 +131,7 @@ def create_understand_node(
                 expected_slots = []
                 logger.debug(
                     f"No active flow, passing empty expected_slots. "
-                    f"NLU will infer from available_flows: {available_flows}"
+                    f"NLU will infer from available_flows: {list(available_flows.keys())}"
                 )
 
             # Get all current slots
@@ -167,7 +167,7 @@ def create_understand_node(
                     slots_list = []
                 nlu_result = NLUOutput(
                     message_type=MessageType.SLOT_VALUE,
-                    command=nlu_result_raw.get("structured_command", ""),
+                    command=nlu_result_raw.get("structured_command") or None,
                     slots=slots_list,
                     confidence=nlu_result_raw.get("confidence", 0.0),
                 )
@@ -176,7 +176,7 @@ def create_understand_node(
             else:
                 nlu_result = NLUOutput(
                     message_type=MessageType.SLOT_VALUE,
-                    command="",
+                    command=None,
                     slots=[],
                     confidence=0.0,
                 )

@@ -54,7 +54,10 @@ class NLUOutput(BaseModel):
     """Structured NLU output."""
 
     message_type: MessageType = Field(description="Type of user message")
-    command: str = Field(description="User's intent/command")
+    command: str | None = Field(
+        default=None,
+        description="User's intent or command when changing intent, canceling, or confirming. None for slot value messages.",
+    )
     slots: list[SlotValue] = Field(default_factory=list, description="Extracted slot values")
     confidence: float = Field(ge=0.0, le=1.0, description="Overall confidence")
 
@@ -64,7 +67,9 @@ class DialogueContext(BaseModel):
 
     current_slots: dict[str, Any] = Field(default_factory=dict, description="Filled slots")
     available_actions: list[str] = Field(default_factory=list, description="Available actions")
-    available_flows: list[str] = Field(default_factory=list, description="Available flows")
+    available_flows: dict[str, str] = Field(
+        default_factory=dict, description="Available flows as {flow_name: description} mapping"
+    )
     current_flow: str = Field(default="none", description="Active flow")
     expected_slots: list[str] = Field(default_factory=list, description="Expected slot names")
     current_prompted_slot: str | None = Field(

@@ -29,7 +29,7 @@ async def test_nlu_cache_hit():
     context = DialogueContext(
         current_slots={},
         available_actions=["book_flight", "cancel_booking"],
-        available_flows=["book_flight"],
+        available_flows={"book_flight": "Book a flight"},
         current_flow="none",
         expected_slots=[],
     )
@@ -110,7 +110,7 @@ async def test_nlu_cache_miss():
         context1 = DialogueContext(
             current_slots={},
             available_actions=["book_flight"],
-            available_flows=["book_flight"],
+            available_flows={"book_flight": "Book a flight"},
             current_flow="none",
             expected_slots=[],
         )
@@ -125,7 +125,7 @@ async def test_nlu_cache_miss():
         context2 = DialogueContext(
             current_slots={},
             available_actions=["cancel_booking"],
-            available_flows=["cancel_booking"],
+            available_flows={"cancel_booking": "Cancel booking"},
             current_flow="none",
             expected_slots=[],
         )
@@ -154,7 +154,7 @@ async def test_nlu_cache_ttl_expiry():
     context = DialogueContext(
         current_slots={},
         available_actions=["book_flight"],
-        available_flows=["book_flight"],
+        available_flows={"book_flight": "Book a flight"},
         current_flow="none",
         expected_slots=[],
     )

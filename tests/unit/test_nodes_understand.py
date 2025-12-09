@@ -31,7 +31,7 @@ async def test_understand_node_calls_nlu():
 
     mock_scope_manager = MagicMock()
     mock_scope_manager.get_available_actions.return_value = ["greet"]
-    mock_scope_manager.get_available_flows.return_value = []
+    mock_scope_manager.get_available_flows.return_value = {}
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
@@ -89,7 +89,7 @@ async def test_understand_node_with_active_flow():
 
     mock_scope_manager = MagicMock()
     mock_scope_manager.get_available_actions.return_value = ["book_flight"]
-    mock_scope_manager.get_available_flows.return_value = ["book_flight"]
+    mock_scope_manager.get_available_flows.return_value = {"book_flight": "Book a flight"}
 
     mock_runtime = MagicMock()
     mock_runtime.context = {
@@ -151,7 +151,7 @@ async def test_understand_node_passes_expected_slots():
 
     mock_scope_manager = MagicMock()
     mock_scope_manager.get_available_actions.return_value = ["book_flight"]
-    mock_scope_manager.get_available_flows.return_value = []
+    mock_scope_manager.get_available_flows.return_value = {}
     # Mock expected_slots from flow definition
     mock_scope_manager.get_expected_slots.return_value = ["origin", "destination", "departure_date"]
 
@@ -200,7 +200,10 @@ async def test_understand_node_no_expected_slots_when_no_flow():
 
     mock_scope_manager = MagicMock()
     mock_scope_manager.get_available_actions.return_value = ["greet"]
-    mock_scope_manager.get_available_flows.return_value = ["book_flight", "cancel_booking"]
+    mock_scope_manager.get_available_flows.return_value = {
+        "book_flight": "Book a flight",
+        "cancel_booking": "Cancel booking",
+    }
     # get_expected_slots should NOT be called when no flow is active
     mock_scope_manager.get_expected_slots.return_value = []
 
@@ -261,7 +264,7 @@ async def test_understand_node_serializes_message_type_enum():
 
     mock_scope_manager = MagicMock()
     mock_scope_manager.get_available_actions.return_value = ["test_command"]
-    mock_scope_manager.get_available_flows.return_value = []
+    mock_scope_manager.get_available_flows.return_value = {}
 
     mock_runtime = MagicMock()
     mock_runtime.context = {

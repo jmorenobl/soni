@@ -159,7 +159,7 @@ async def understand_node(
             # Fallback: combine all expected_slots from available flows
             # This works for simple cases but doesn't scale with many flows
             all_expected_slots = set()
-            for flow_name in available_flows:
+            for flow_name in available_flows.keys():
                 flow_slots = scope_manager.get_expected_slots(
                     flow_name=flow_name,
                     available_actions=available_actions,
@@ -167,7 +167,7 @@ async def understand_node(
                 all_expected_slots.update(flow_slots)
             expected_slots = list(all_expected_slots)
             logger.debug(
-                f"No active flow, providing expected_slots from available_flows {available_flows}: {expected_slots}"
+                f"No active flow, providing expected_slots from available_flows {list(available_flows.keys())}: {expected_slots}"
             )
 
         # Build structured dialogue context

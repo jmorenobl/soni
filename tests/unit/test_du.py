@@ -69,7 +69,7 @@ def test_soni_du_forward_with_mock():
     context = DialogueContext(
         current_slots={},
         available_actions=["book_flight"],
-        available_flows=["book_flight"],
+        available_flows={"book_flight": "Book a flight"},
         current_flow="none",
     )
 
@@ -110,7 +110,7 @@ async def test_soni_du_aforward_with_mock():
     context = DialogueContext(
         current_slots={},
         available_actions=[],
-        available_flows=[],
+        available_flows={},
         current_flow="none",
     )
 
@@ -156,7 +156,7 @@ async def test_soni_du_predict_with_mock():
         context = DialogueContext(
             current_slots={},
             available_actions=["book_flight", "help"],
-            available_flows=["book_flight"],
+            available_flows={"book_flight": "Book a flight"},
             current_flow="none",
             expected_slots=["destination"],  # Must include destination for slot to pass filter
         )
@@ -207,7 +207,7 @@ async def test_soni_du_predict_error_handling():
         context = DialogueContext(
             current_slots={},
             available_actions=[],
-            available_flows=[],
+            available_flows={},
             current_flow="none",
             expected_slots=[],
         )
@@ -257,7 +257,7 @@ async def test_soni_du_predict_missing_attributes():
         context = DialogueContext(
             current_slots={},
             available_actions=[],
-            available_flows=[],
+            available_flows={},
             current_flow="none",
             expected_slots=[],
         )
@@ -351,7 +351,7 @@ def test_soni_du_integration_real_dspy():
         dialogue_history="",
         current_slots="{}",
         available_actions='["book_flight", "search_flights", "help"]',
-        available_flows='["book_flight"]',
+        available_flows='{"book_flight": "Book a flight"}',
         current_flow="none",
     )
 

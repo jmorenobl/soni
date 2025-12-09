@@ -267,10 +267,23 @@ async def run_scenario(
                 slots = get_all_slots(state)
                 stack_depth = len(state.get("flow_stack", []))
 
+                # Get current_step from flow_stack (correct location)
+                flow_stack = state.get("flow_stack", [])
+                flow_id = None
+                flow_state = None
+                current_step = None
+                if flow_stack:
+                    active_ctx = flow_stack[-1]
+                    flow_id = active_ctx.get("flow_id")
+                    flow_state = active_ctx.get("flow_state")
+                    current_step = active_ctx.get("current_step")
+
                 # Show actual state
                 print(f"\n{C.Y}State:{C.E}")
                 print(f"  Flow: {C.BOLD}{current_flow}{C.E} (stack depth: {stack_depth})")
-                print(f"  Current Step: {state.get('current_step', 'None')}")
+                print(f"  Flow ID: {flow_id}")
+                print(f"  Flow State: {flow_state}")
+                print(f"  Current Step: {current_step or 'None'}")
                 print(f"  Conversation State: {state.get('conversation_state', 'N/A')}")
                 print(f"  Waiting for Slot: {state.get('waiting_for_slot', 'None')}")
                 print(f"  Current Prompted Slot: {state.get('current_prompted_slot', 'None')}")

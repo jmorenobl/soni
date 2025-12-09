@@ -779,14 +779,18 @@ def test_get_available_flows_when_no_flow():
     available_flows = scope_manager.get_available_flows(state)
 
     # Assert
+    assert isinstance(available_flows, dict)
     assert "book_flight" in available_flows
     assert "cancel_booking" in available_flows
     assert "modify_booking" in available_flows
+    assert available_flows["book_flight"] == "Book a flight"
+    assert available_flows["cancel_booking"] == "Cancel booking"
+    assert available_flows["modify_booking"] == "Modify booking"
     assert len(available_flows) == 3
 
 
 def test_get_available_flows_when_in_flow():
-    """Test getting available flows when already in a flow returns empty list"""
+    """Test getting available flows when already in a flow returns empty dict"""
     # Arrange
     config_dict = {
         "version": "0.1",
@@ -821,7 +825,8 @@ def test_get_available_flows_when_in_flow():
     available_flows = scope_manager.get_available_flows(state)
 
     # Assert
-    assert available_flows == []
+    assert isinstance(available_flows, dict)
+    assert available_flows == {}
 
 
 def test_get_available_flows_with_dict_state():
@@ -855,7 +860,7 @@ def test_get_available_flows_with_dict_state():
     available_flows = scope_manager.get_available_flows(state_dict)
 
     # Assert
-    assert isinstance(available_flows, list)
+    assert isinstance(available_flows, dict)
     assert "book_flight" in available_flows
 
 
@@ -876,4 +881,5 @@ def test_get_available_flows_empty_config():
     available_flows = scope_manager.get_available_flows(state)
 
     # Assert
-    assert available_flows == []
+    assert isinstance(available_flows, dict)
+    assert available_flows == {}

@@ -39,7 +39,7 @@ async def test_soni_du_predict(dummy_lm):
     context = DialogueContext(
         current_slots={},
         available_actions=["book_flight"],
-        available_flows=["book_flight"],
+        available_flows={"book_flight": "Book a flight"},
         current_flow="none",
         expected_slots=[],
     )

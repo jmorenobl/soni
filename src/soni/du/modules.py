@@ -141,7 +141,7 @@ class SoniDU(dspy.Module):
         context = DialogueContext(
             current_slots=dialogue_context.get("current_slots", {}),
             available_actions=dialogue_context.get("available_actions", []),
-            available_flows=dialogue_context.get("available_flows", []),
+            available_flows=dialogue_context.get("available_flows", {}),
             current_flow=dialogue_context.get("current_flow", "none"),
             expected_slots=dialogue_context.get("expected_slots", []),
             current_prompted_slot=dialogue_context.get("waiting_for_slot"),

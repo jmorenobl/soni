@@ -390,18 +390,18 @@ class ScopeManager(IScopeManager):
     def get_available_flows(
         self,
         state: DialogueState | dict[str, Any],
-    ) -> list[str]:
-        """Get list of available flow names when no flow is active.
+    ) -> dict[str, str]:
+        """Get available flows with descriptions when no flow is active.
 
-        When current_flow is "none", returns all configured flow names.
-        When in an active flow, returns empty list (flows cannot be started while in a flow).
+        When current_flow is "none", returns dict mapping flow names to descriptions.
+        When in an active flow, returns empty dict (flows cannot be started while in a flow).
 
         Args:
             state: Current dialogue state (DialogueState or dict)
 
         Returns:
-            List of available flow names (not start_* actions) when current_flow="none",
-            empty list when in an active flow
+            Dict mapping flow names to descriptions when current_flow="none",
+            empty dict when in an active flow
         """
         # Import here to avoid circular import
         # state can be DialogueState (TypedDict) or dict - both work with our helper functions
@@ -411,8 +411,11 @@ class ScopeManager(IScopeManager):
 
         # Only return flows when no flow is active
         if not current_flow or current_flow == "none":
-            # Return flow names directly (not start_* actions)
-            return list(self.flows.keys())
+            # Return dict mapping flow names to descriptions
+            flows_with_descriptions = {}
+            for flow_name, flow_config in self.config.flows.items():
+                flows_with_descriptions[flow_name] = flow_config.description
+            return flows_with_descriptions
 
         # When in an active flow, no flows are available to start
-        return []
+        return {}

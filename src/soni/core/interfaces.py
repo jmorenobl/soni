@@ -98,8 +98,8 @@ class IScopeManager(Protocol):
     def get_available_flows(
         self,
         state: DialogueState | dict[str, Any],
-    ) -> list[str]:
-        """Get available flows based on current state."""
+    ) -> dict[str, str]:
+        """Get available flows with descriptions based on current state."""
         ...
 
     def get_expected_slots(
