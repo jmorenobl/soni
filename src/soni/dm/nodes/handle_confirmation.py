@@ -39,15 +39,18 @@ async def handle_confirmation_node(
     confirmation_attempts = metadata.get("_confirmation_attempts", 0)
 
     # Safety check: prevent infinite loop
+    # Check BEFORE processing - if we've already exceeded max attempts, return error immediately
     MAX_CONFIRMATION_ATTEMPTS = 3
     if confirmation_attempts >= MAX_CONFIRMATION_ATTEMPTS:
         logger.error(
-            f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded. "
-            f"Aborting confirmation flow."
+            f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded "
+            f"(current attempts: {confirmation_attempts}). Aborting confirmation flow."
         )
         # Clear confirmation attempts and return error state
         metadata_cleared = metadata.copy()
         metadata_cleared.pop("_confirmation_attempts", None)
+        metadata_cleared.pop("_confirmation_processed", None)
+        metadata_cleared.pop("_confirmation_unclear", None)
 
         return {
             "conversation_state": "error",
@@ -118,13 +121,37 @@ async def handle_confirmation_node(
 
     # Confirmation value not extracted or unclear
     else:
+        # Increment retry counter first
+        metadata_updated = metadata.copy()
+        new_attempts = confirmation_attempts + 1
+        metadata_updated["_confirmation_attempts"] = new_attempts
+
+        # Check if we've exceeded max attempts AFTER incrementing
+        # This ensures we check correctly: after 3 attempts (1, 2, 3), show error
+        if new_attempts >= MAX_CONFIRMATION_ATTEMPTS:
+            logger.error(
+                f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded. "
+                f"Aborting confirmation flow."
+            )
+            # Clear confirmation attempts and return error state
+            metadata_cleared = metadata_updated.copy()
+            metadata_cleared.pop("_confirmation_attempts", None)
+            metadata_cleared.pop("_confirmation_processed", None)
+            metadata_cleared.pop("_confirmation_unclear", None)
+
+            return {
+                "conversation_state": "error",
+                "last_response": (
+                    "I'm having trouble understanding your confirmation. "
+                    "Let's start over. What would you like to do?"
+                ),
+                "metadata": metadata_cleared,
+            }
+
         logger.warning(
             f"Confirmation value unclear: {confirmation_value}, asking again "
-            f"(attempt {confirmation_attempts + 1}/{MAX_CONFIRMATION_ATTEMPTS})"
+            f"(attempt {new_attempts}/{MAX_CONFIRMATION_ATTEMPTS})"
         )
-        # Increment retry counter
-        metadata_updated = metadata.copy()
-        metadata_updated["_confirmation_attempts"] = confirmation_attempts + 1
 
         # Set a flag in metadata to indicate that handle_confirmation already processed this
         # This allows routing to detect it without depending on response text

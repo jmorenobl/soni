@@ -20,8 +20,11 @@ class DialogueUnderstanding(dspy.Signature):
     - If context.conversation_state is "confirming" or "ready_for_confirmation":
       * The user is responding to a confirmation request
       * Set message_type to CONFIRMATION (not SLOT_VALUE, even if the message contains slot-like words)
-      * Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right)
-      * Extract confirmation_value: False if user denies (no/wrong/incorrect/not right)
+      * Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right/okay)
+      * Extract confirmation_value: False if user denies (no/wrong/incorrect/not right/change/modify)
+        ** CRITICAL: If user says "No" or "change" or "modify" during confirmation,
+           set confirmation_value=False. Even if the message contains words like "change destination",
+           the confirmation_value should be False. The modification request will be handled separately.
       * Extract confirmation_value: None if unclear or ambiguous
       * Set command to None (simple yes/no response, not a new intent)
       * Exception: If user is changing intent while responding (e.g., "No, I want to cancel"),
