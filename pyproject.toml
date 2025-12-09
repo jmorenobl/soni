@@ -181,6 +181,7 @@ markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "performance: marks tests as performance tests (deselect with '-m \"not performance\"')",
     "slow: marks tests as slow (>3s) (deselect with '-m \"not slow\"')",
+    "no_parallel: marks tests that should not run in parallel (e.g., tests using caplog)",
 ]
 # Suppress warnings from external dependencies
 # These warnings are from third-party libraries and don't affect our code

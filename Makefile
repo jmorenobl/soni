@@ -84,7 +84,7 @@ check: test lint type-check
 # Run tests (fast unit tests only by default)
 test:
 	@echo "Running fast unit tests in parallel..."
-	uv run pytest -m "not integration and not performance and not slow" -n auto
+	uv run pytest -m "not integration and not performance and not slow and not no_parallel" -n auto
 
 # Run all unit tests including slow
 test-unit:

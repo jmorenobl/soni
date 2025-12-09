@@ -149,6 +149,7 @@ def test_route_after_validate_no_active_flow():
     assert next_node == "generate_response"
 
 
+@pytest.mark.no_parallel
 def test_route_after_validate_warns_unexpected_state(caplog):
     """Test that route_after_validate warns on unexpected conversation_state."""
     # Arrange
@@ -168,6 +169,7 @@ def test_route_after_validate_warns_unexpected_state(caplog):
     assert result == "generate_response"
 
 
+@pytest.mark.no_parallel
 def test_route_after_understand_logs_message_type(caplog):
     """Test that route_after_understand logs message_type correctly."""
     # Arrange
@@ -207,6 +209,7 @@ def test_route_after_understand_logs_message_type(caplog):
     assert result == "validate_slot"
 
 
+@pytest.mark.no_parallel
 def test_route_after_understand_warns_unknown_message_type(caplog):
     """Test that route_after_understand warns on unknown message_type."""
     # Arrange
