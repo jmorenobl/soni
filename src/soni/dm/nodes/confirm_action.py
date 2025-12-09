@@ -82,6 +82,24 @@ async def confirm_action_node(
 
     confirmation_msg += "\nIs this correct?"
 
+    # Check if we already have a user message (node re-executed after resume)
+    # If user_message is already set and conversation_state is "confirming",
+    # we've already processed the confirmation request, so just pass through
+    existing_user_message = state.get("user_message", "")
+    existing_conv_state = state.get("conversation_state")
+
+    if existing_user_message and existing_conv_state == "confirming":
+        # Node re-executed after resume - user already responded
+        # Don't interrupt again, just pass through the state
+        logger.debug(
+            f"confirm_action: Already processed confirmation, passing through. "
+            f"user_message={existing_user_message[:50]}..."
+        )
+        return {
+            "conversation_state": "confirming",
+            "last_response": confirmation_msg,
+        }
+
     # Pause and wait for user confirmation
     # The prompt is passed as the interrupt value
     # It will be available in result['__interrupt__'] after ainvoke()

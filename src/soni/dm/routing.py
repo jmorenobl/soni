@@ -328,7 +328,24 @@ def route_after_understand(state: DialogueStateType) -> str:
             # Cancellation handled by generate_response for now
             return "generate_response"
         case "confirmation":
-            return "handle_confirmation"
+            # Check if we're actually in a confirmation state
+            # If conversation_state is "confirming", we're waiting for confirmation
+            # Otherwise, this might be a false positive from NLU
+            conv_state = state.get("conversation_state")
+            if conv_state == "confirming" or conv_state == "ready_for_confirmation":
+                return "handle_confirmation"
+            else:
+                # Not in confirmation state - treat as continuation or digression
+                logger.warning(
+                    f"NLU detected confirmation but conversation_state={conv_state}, "
+                    f"treating as continuation"
+                )
+                flow_stack = state.get("flow_stack", [])
+                has_active_flow = bool(flow_stack)
+                if has_active_flow:
+                    return "collect_next_slot"
+                else:
+                    return "generate_response"
         case "continuation":
             # Check if there's an active flow
             flow_stack = state.get("flow_stack", [])
