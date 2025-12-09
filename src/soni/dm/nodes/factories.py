@@ -715,3 +715,36 @@ def create_action_factory(node: DAGNode, context: RuntimeContext) -> Any:
     action_name = node.config["action_name"]
     map_outputs = node.config.get("map_outputs")
     return create_action_node_factory(action_name, context, map_outputs=map_outputs)
+
+
+def create_confirm_node_factory(context: RuntimeContext) -> Any:
+    """Create confirm node factory function.
+
+    Args:
+        context: Runtime context with configuration and dependencies
+
+    Returns:
+        Async node function that requests user confirmation
+    """
+    from soni.dm.builder import RuntimeWrapper
+    from soni.dm.nodes.confirm_action import confirm_action_node
+
+    runtime = RuntimeWrapper(context)
+
+    async def confirm_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
+        """Request user confirmation before executing an action."""
+        state_typed = _ensure_dialogue_state(state)
+        # Type assertion: _ensure_dialogue_state returns DialogueState-compatible type
+        result = await confirm_action_node(
+            state_typed,  # type: ignore[arg-type]
+            runtime,
+        )
+        return dict(result) if result else {}
+
+    return confirm_node
+
+
+@NodeFactoryRegistry.register(NodeType.CONFIRM)
+def create_confirm_factory(node: DAGNode, context: RuntimeContext) -> Any:
+    """Factory for CONFIRM nodes."""
+    return create_confirm_node_factory(context)
