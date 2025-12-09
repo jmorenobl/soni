@@ -276,6 +276,17 @@ def route_after_understand(state: DialogueStateType) -> str:
     # Map to nodes that exist in builder.py edge map
     match message_type:
         case "slot_value":
+            # Special case: If we're in confirming state, treat as confirmation
+            # This handles cases where NLU incorrectly detects slot_value
+            # when user is responding to a confirmation prompt
+            conv_state = state.get("conversation_state")
+            if conv_state == "confirming":
+                logger.warning(
+                    "NLU detected slot_value but conversation_state=confirming, "
+                    "treating as confirmation to avoid errors"
+                )
+                return "handle_confirmation"
+
             # Check if flow needs to be started first
             flow_stack = state.get("flow_stack", [])
             has_active_flow = bool(flow_stack)

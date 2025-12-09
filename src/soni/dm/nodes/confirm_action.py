@@ -29,6 +29,8 @@ async def confirm_action_node(
         Partial state updates with confirmation prompt and user message
     """
     # Import interrupt at runtime (not at module level)
+    import traceback
+
     from langgraph.types import interrupt
 
     logger.info(
@@ -37,6 +39,7 @@ async def confirm_action_node(
             "user_message": state.get("user_message", "")[:50],
             "conversation_state": state.get("conversation_state"),
             "last_response": state.get("last_response", "")[:50],
+            "stack_trace": "".join(traceback.format_stack()[-5:]),
         },
     )
 
@@ -93,39 +96,41 @@ async def confirm_action_node(
 
     # Check if we already have a user message (node re-executed after resume)
     # If user_message is already set and conversation_state is "confirming",
-    # we've already processed the confirmation request, so just pass through
+    # we need to check if this is the FIRST re-execution (go to understand)
+    # or SECOND re-execution (after handle_confirmation set error message)
     existing_user_message = state.get("user_message", "")
     existing_conv_state = state.get("conversation_state")
 
     if existing_user_message and existing_conv_state == "confirming":
         # Node re-executed after resume - user already responded
-        # The message was already processed by understand -> handle_confirmation
-        # Check if handle_confirmation already set a last_response
+        # Check if handle_confirmation already processed and set error message
         existing_last_response = state.get("last_response", "")
 
-        if existing_last_response:
-            # handle_confirmation already processed and set a response (e.g., "I didn't understand...")
-            # We should go directly to generate_response, not back to understand
-            # IMPORTANT: Preserve the last_response from handle_confirmation
+        # Check if this is the error message from handle_confirmation
+        # (contains "didn't understand" - unique to error message)
+        is_error_message = "didn't understand" in existing_last_response.lower()
+
+        if is_error_message:
+            # handle_confirmation already processed and set error message
+            # Preserve it and signal to routing that we should go to generate_response
             logger.debug(
-                f"confirm_action: Already processed confirmation, response exists. "
-                f"Passing through to generate_response. response={existing_last_response[:50]}..."
+                f"confirm_action: handle_confirmation already processed, "
+                f"preserving error message: {existing_last_response[:50]}..."
             )
-            # Return state that will route to generate_response
-            # CRITICAL: Preserve last_response so generate_response can use it
             return {
                 "conversation_state": "confirming",
                 "last_response": existing_last_response,  # Preserve from handle_confirmation
             }
         else:
-            # No response yet - this shouldn't happen but handle gracefully
-            logger.warning(
-                "confirm_action: Already processed but no last_response found. "
-                "Setting default response."
+            # First re-execution after resume - this is the original confirmation message
+            # Don't interrupt again, just pass through to let routing send to understand
+            logger.debug(
+                f"confirm_action: First re-execution, passing through to understand. "
+                f"user_message={existing_user_message[:50]}..."
             )
             return {
                 "conversation_state": "confirming",
-                "last_response": confirmation_msg,  # Fallback to original confirmation message
+                # Don't set last_response - let it pass through
             }
 
     # Pause and wait for user confirmation

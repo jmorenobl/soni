@@ -187,14 +187,14 @@ def build_graph(
         conv_state = state.get("conversation_state", "")
 
         # If we have a last_response that looks like an error message from handle_confirmation
-        # (contains "understand" or "correct"), and conversation_state is "confirming",
+        # (contains "didn't understand" - unique to error message), and conversation_state is "confirming",
         # it means handle_confirmation already processed the response
         # Go directly to generate_response to avoid loop
         if (
             last_response
             and conv_state == "confirming"
             and user_message
-            and ("understand" in last_response.lower() or "correct" in last_response.lower())
+            and "didn't understand" in last_response.lower()
         ):
             logger.info(
                 "route_after_confirm_action: Confirmation already processed by handle_confirmation, "
