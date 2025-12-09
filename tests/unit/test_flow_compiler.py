@@ -25,9 +25,9 @@ def test_compiler_creates_dag_with_nodes():
     assert len(dag.nodes) > 1  # At least understand + steps
     assert dag.nodes[0].type == NodeType.UNDERSTAND
     assert dag.nodes[0].id == "understand"
-    # Check that subsequent nodes are collect or action
+    # Check that subsequent nodes are collect, action, or confirm
     for node in dag.nodes[1:]:
-        assert node.type in (NodeType.COLLECT, NodeType.ACTION)
+        assert node.type in (NodeType.COLLECT, NodeType.ACTION, NodeType.CONFIRM)
 
 
 def test_compiler_creates_sequential_edges():

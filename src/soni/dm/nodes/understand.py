@@ -82,6 +82,7 @@ async def understand_node(
             current_flow="none",
             expected_slots=[],  # Empty - just detect intent
             current_prompted_slot=waiting_for_slot,
+            conversation_state=state.get("conversation_state"),
         )
 
         # First NLU call: detect command only
@@ -129,6 +130,7 @@ async def understand_node(
                     expected_slots=detected_expected_slots,  # Now we have the right slots!
                     current_flow=detected_flow,
                     current_prompted_slot=waiting_for_slot,
+                    conversation_state=state.get("conversation_state"),
                 )
 
                 # Second NLU call: extract slots with correct expected_slots
@@ -180,6 +182,7 @@ async def understand_node(
             current_flow=current_flow_name,
             expected_slots=expected_slots,
             current_prompted_slot=waiting_for_slot,  # Prioritize this slot
+            conversation_state=state.get("conversation_state"),
         )
 
         logger.debug(

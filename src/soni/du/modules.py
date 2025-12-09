@@ -145,6 +145,7 @@ class SoniDU(dspy.Module):
             current_flow=dialogue_context.get("current_flow", "none"),
             expected_slots=dialogue_context.get("expected_slots", []),
             current_prompted_slot=dialogue_context.get("waiting_for_slot"),
+            conversation_state=dialogue_context.get("conversation_state"),
         )
 
         return history, context
@@ -256,6 +257,7 @@ class SoniDU(dspy.Module):
         1. Filtering out invalid slot names
         2. Detecting corrections/modifications based on current_slots
         3. Adding previous_value where needed
+        4. Validating and normalizing confirmation_value
         """
         # 1. Filter invalid slot names
         valid_slots = [slot for slot in result.slots if slot.name in context.expected_slots]
@@ -280,4 +282,39 @@ class SoniDU(dspy.Module):
                         slot.previous_value = current_value
 
         result.slots = valid_slots
+
+        # 3. Validate and normalize confirmation_value
+        # Handle type conversion (DSPy may return string "True"/"False" or bool)
+        if hasattr(result, "confirmation_value") and result.confirmation_value is not None:
+            cv = result.confirmation_value
+            if isinstance(cv, bool):
+                confirmation_value = cv
+            elif isinstance(cv, str):
+                if cv.lower() in ("true", "yes", "confirmed"):
+                    confirmation_value = True
+                elif cv.lower() in ("false", "no", "denied"):
+                    confirmation_value = False
+                else:
+                    confirmation_value = None
+            else:
+                confirmation_value = None
+        else:
+            confirmation_value = None
+
+        # Validation: confirmation_value should only be set for CONFIRMATION messages
+        if result.message_type != MessageType.CONFIRMATION:
+            confirmation_value = None
+
+        # Set the normalized value
+        result.confirmation_value = confirmation_value
+
+        # 4. Adjust confidence for unclear confirmations
+        if result.message_type == MessageType.CONFIRMATION and confirmation_value is None:
+            # Unclear confirmation - lower confidence
+            result.confidence = min(result.confidence, 0.6)
+            logger.warning(
+                f"Confirmation detected but value unclear (message_type=CONFIRMATION, "
+                f"confirmation_value=None). Setting confidence to {result.confidence}"
+            )
+
         return result

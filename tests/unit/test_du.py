@@ -37,6 +37,88 @@ def test_nlu_output():
     assert result_dict["slots"][0]["value"] == "Paris"
 
 
+def test_nlu_output_with_confirmation_value():
+    """Test that NLUOutput accepts confirmation_value field"""
+    # Arrange
+    nlu_output = NLUOutput(
+        message_type=MessageType.CONFIRMATION,
+        command=None,
+        slots=[],
+        confidence=0.9,
+        confirmation_value=True,
+    )
+
+    # Assert
+    assert nlu_output.confirmation_value is True
+    assert nlu_output.message_type == MessageType.CONFIRMATION
+
+
+def test_nlu_output_without_confirmation_value():
+    """Test that NLUOutput works without confirmation_value (defaults to None)"""
+    # Arrange
+    nlu_output = NLUOutput(
+        message_type=MessageType.SLOT_VALUE,
+        command=None,
+        slots=[],
+        confidence=0.9,
+    )
+
+    # Assert
+    assert nlu_output.confirmation_value is None
+
+
+def test_nlu_output_confirmation_states():
+    """Test all three states of confirmation_value"""
+    # Test confirmed (True)
+    confirmed = NLUOutput(
+        message_type=MessageType.CONFIRMATION,
+        command=None,
+        slots=[],
+        confidence=0.95,
+        confirmation_value=True,
+    )
+    assert confirmed.confirmation_value is True
+
+    # Test denied (False)
+    denied = NLUOutput(
+        message_type=MessageType.CONFIRMATION,
+        command=None,
+        slots=[],
+        confidence=0.90,
+        confirmation_value=False,
+    )
+    assert denied.confirmation_value is False
+
+    # Test unclear (None)
+    unclear = NLUOutput(
+        message_type=MessageType.CONFIRMATION,
+        command=None,
+        slots=[],
+        confidence=0.60,
+        confirmation_value=None,
+    )
+    assert unclear.confirmation_value is None
+
+
+def test_nlu_output_serialization():
+    """Test that confirmation_value is included in model_dump()"""
+    # Arrange
+    nlu_output = NLUOutput(
+        message_type=MessageType.CONFIRMATION,
+        command=None,
+        slots=[],
+        confidence=0.9,
+        confirmation_value=True,
+    )
+
+    # Act
+    serialized = nlu_output.model_dump()
+
+    # Assert
+    assert "confirmation_value" in serialized
+    assert serialized["confirmation_value"] is True
+
+
 def test_soni_du_initialization():
     """Test SoniDU module initializes with default values"""
     # Arrange & Act

@@ -31,7 +31,7 @@ class StepParser:
 
     def __init__(self) -> None:
         """Initialize StepParser."""
-        self.supported_types = {"collect", "action", "branch"}
+        self.supported_types = {"collect", "action", "branch", "confirm"}
 
     def parse(self, steps: list[StepConfig]) -> list[ParsedStep]:
         """
@@ -121,7 +121,12 @@ class StepParser:
             config["input"] = step.input
             config["cases"] = step.cases
 
-        # Parse jump_to for collect and action steps (not branch)
+        elif step.type == "confirm":
+            # Message is optional - if not provided, a default will be generated
+            if step.message:
+                config["message"] = step.message
+
+        # Parse jump_to for collect, action, and confirm steps (not branch)
         if step.jump_to:
             if not step.jump_to.strip():
                 raise ValueError(f"Step '{step.step}' has empty 'jump_to' field")

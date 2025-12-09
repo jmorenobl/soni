@@ -171,7 +171,11 @@ class FlowStepManager:
 
         # Determine conversation_state based on next step type
         if not next_step:
-            # Flow complete
+            # Flow complete - mark as completed but DON'T pop yet
+            # The generate_response_node will pop after generating final response
+            if flow_stack:
+                flow_stack[-1]["flow_state"] = "completed"
+
             return {
                 "flow_stack": flow_stack,
                 "conversation_state": "completed",

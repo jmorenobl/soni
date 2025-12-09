@@ -51,7 +51,19 @@ class SlotValue(BaseModel):
 
 
 class NLUOutput(BaseModel):
-    """Structured NLU output."""
+    """Structured NLU output.
+
+    Attributes:
+        message_type: Type of user message (slot_value, confirmation, correction, etc.)
+        command: User's intent or command for intent changes, cancellations, confirmations
+        slots: List of extracted slot values with metadata
+        confidence: Overall extraction confidence (0.0 to 1.0)
+        confirmation_value: For CONFIRMATION messages - True=yes, False=no, None=unclear
+
+    Note:
+        The confirmation_value field is only relevant when message_type is CONFIRMATION.
+        It should be None for all other message types.
+    """
 
     message_type: MessageType = Field(description="Type of user message")
     command: str | None = Field(
@@ -60,6 +72,13 @@ class NLUOutput(BaseModel):
     )
     slots: list[SlotValue] = Field(default_factory=list, description="Extracted slot values")
     confidence: float = Field(ge=0.0, le=1.0, description="Overall confidence")
+    confirmation_value: bool | None = Field(
+        default=None,
+        description=(
+            "For CONFIRMATION message_type: True if user confirmed (yes/correct/confirm), "
+            "False if user denied (no/wrong/incorrect), None if unclear or not a confirmation message."
+        ),
+    )
 
 
 class DialogueContext(BaseModel):
@@ -75,4 +94,11 @@ class DialogueContext(BaseModel):
     current_prompted_slot: str | None = Field(
         default=None,
         description="Slot currently being prompted for - user's response should fill this slot",
+    )
+    conversation_state: str | None = Field(
+        default=None,
+        description=(
+            "Current conversation state: idle, waiting_for_slot, confirming, "
+            "ready_for_action, ready_for_confirmation, completed, etc."
+        ),
     )

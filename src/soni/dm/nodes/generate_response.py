@@ -68,7 +68,41 @@ async def generate_response_node(
             )
 
     logger.info(f"generate_response_node returning: {response[:50]}...")
+
+    # Preserve conversation_state if already completed
+    # Don't override "completed" with "idle"
+    current_conv_state = state.get("conversation_state")
+    if current_conv_state == "completed":
+        conversation_state = "completed"
+
+        # Clean up completed flow from stack AFTER generating response
+        # This ensures slots are still available for response generation
+        flow_stack = state.get("flow_stack", [])
+        if flow_stack and flow_stack[-1].get("flow_state") == "completed":
+            # Pop the completed flow manually
+            completed_flow = flow_stack.pop()
+
+            # Archive it in metadata
+            if "metadata" not in state:
+                state["metadata"] = {}
+            if "completed_flows" not in state["metadata"]:
+                state["metadata"]["completed_flows"] = []
+            state["metadata"]["completed_flows"].append(completed_flow)
+
+            # Note: We intentionally DON'T delete flow_slots here
+            # Slots remain available for logging, debugging, and potential follow-up interactions
+            # They will be naturally cleaned up when a new flow starts or session resets
+            logger.info(f"Completed flow removed from stack: {completed_flow['flow_id']}")
+
+            return {
+                "last_response": response,
+                "conversation_state": conversation_state,
+                "flow_stack": flow_stack,
+            }
+    else:
+        conversation_state = "idle"
+
     return {
         "last_response": response,
-        "conversation_state": "idle",
+        "conversation_state": conversation_state,
     }

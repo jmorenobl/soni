@@ -13,6 +13,7 @@ class NodeType(Enum):
     ACTION = "action"
     MESSAGE = "message"
     BRANCH = "branch"
+    CONFIRM = "confirm"
 
 
 @dataclass

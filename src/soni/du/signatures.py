@@ -15,6 +15,14 @@ class DialogueUnderstanding(dspy.Signature):
     flow name based on semantic matching. For example, if available_flows contains
     {"book_flight": "Book a flight from origin to destination"}, and the user says
     "I want to book a flight", set command="book_flight".
+
+    When message_type is CONFIRMATION:
+    - Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right)
+    - Extract confirmation_value: False if user denies (no/wrong/incorrect/not right)
+    - Extract confirmation_value: None if unclear or ambiguous
+    - Set command to None (simple yes/no response, not a new intent)
+    - Exception: If user is changing intent while responding (e.g., "No, I want to cancel"),
+      then set command to the new intent (e.g., "cancel") and message_type to INTERRUPTION
     """
 
     # Input fields with structured types

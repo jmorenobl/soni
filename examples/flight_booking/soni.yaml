@@ -116,7 +116,21 @@ flows:
           flights: flights
           price: price
 
-      # Step 5: Confirm booking
+      # Step 5: Ask for confirmation
+      - step: ask_confirmation
+        # Type: "confirm" - requests user confirmation before proceeding
+        type: confirm
+        # Message: confirmation prompt with slot interpolation
+        message: |
+          I found flights for your trip:
+          - From: {origin}
+          - To: {destination}
+          - Date: {departure_date}
+          - Price: ${price}
+
+          Would you like to confirm this booking?
+
+      # Step 6: Confirm booking
       - step: confirm_booking
         type: action
         call: confirm_flight_booking

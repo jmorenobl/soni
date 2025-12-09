@@ -102,6 +102,11 @@ SCENARIOS: list[TestScenario] = [
                 "Provide date",
                 expected_slots={"origin": "Madrid", "destination": "Barcelona"},
             ),
+            TestTurn(
+                "Yes, please confirm",
+                "Confirm booking after seeing flight options",
+                expected_slots={"origin": "Madrid", "destination": "Barcelona"},
+            ),
         ],
     ),
     # Scenario 2: Provide multiple slots at once
@@ -249,6 +254,10 @@ async def run_scenario(
                     print(f"\n{C.Y}NLU Output:{C.E}")
                     print(f"  Type: {nlu_result.get('message_type', 'N/A')}")
                     print(f"  Command: {nlu_result.get('command', 'N/A')}")
+                    # Show confirmation_value for CONFIRMATION messages
+                    if nlu_result.get("message_type") == "confirmation":
+                        conf_val = nlu_result.get("confirmation_value")
+                        print(f"  Confirmation Value: {conf_val}")
                     slots_from_nlu = nlu_result.get("slots", [])
                     if slots_from_nlu:
                         print("  Extracted slots:")
@@ -264,11 +273,26 @@ async def run_scenario(
             if snapshot and snapshot.values:
                 state = state_from_dict(snapshot.values, allow_partial=True)
                 current_flow = get_current_flow(state)
-                slots = get_all_slots(state)
-                stack_depth = len(state.get("flow_stack", []))
+
+                # Get slots - if no active flow, show all slots from all flows
+                flow_stack = state.get("flow_stack", [])
+                if flow_stack:
+                    # Active flow - show only its slots
+                    slots = get_all_slots(state)
+                else:
+                    # No active flow - show all slots (from completed flows)
+                    all_flow_slots = state.get("flow_slots", {})
+                    if all_flow_slots:
+                        # Merge all slots from all flows
+                        slots = {}
+                        for _flow_id, flow_slot_dict in all_flow_slots.items():
+                            slots.update(flow_slot_dict)
+                    else:
+                        slots = {}
+
+                stack_depth = len(flow_stack)
 
                 # Get current_step from flow_stack (correct location)
-                flow_stack = state.get("flow_stack", [])
                 flow_id = None
                 flow_state = None
                 current_step = None

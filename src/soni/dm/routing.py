@@ -546,6 +546,10 @@ def route_after_action(state: DialogueStateType) -> str:
         # Another action to execute
         logger.info("Routing to execute_action (another action)")
         return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        # Next step is a confirmation - display confirmation message
+        logger.info("Routing to confirm_action (ready for confirmation)")
+        return "confirm_action"
     elif conv_state == "completed":
         # Flow complete, generate final response
         logger.info("Routing to generate_response (flow completed)")

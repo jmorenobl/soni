@@ -192,6 +192,7 @@ def build_graph(
         route_after_action,
         {
             "execute_action": "execute_action",  # Another action to execute
+            "confirm_action": "confirm_action",  # Ready for confirmation
             "generate_response": "generate_response",  # Flow complete
         },
     )

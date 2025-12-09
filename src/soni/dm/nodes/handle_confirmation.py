@@ -25,6 +25,30 @@ async def handle_confirmation_node(
     Returns:
         Partial state updates based on confirmation result
     """
+    # Add retry counter check
+    metadata = state.get("metadata", {})
+    confirmation_attempts = metadata.get("_confirmation_attempts", 0)
+
+    # Safety check: prevent infinite loop
+    MAX_CONFIRMATION_ATTEMPTS = 3
+    if confirmation_attempts >= MAX_CONFIRMATION_ATTEMPTS:
+        logger.error(
+            f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded. "
+            f"Aborting confirmation flow."
+        )
+        # Clear confirmation attempts and return error state
+        metadata_cleared = metadata.copy()
+        metadata_cleared.pop("_confirmation_attempts", None)
+
+        return {
+            "conversation_state": "error",
+            "last_response": (
+                "I'm having trouble understanding your confirmation. "
+                "Let's start over. What would you like to do?"
+            ),
+            "metadata": metadata_cleared,
+        }
+
     nlu_result = state.get("nlu_result") or {}
     message_type = nlu_result.get("message_type") if nlu_result else None
 
@@ -51,27 +75,48 @@ async def handle_confirmation_node(
     # User confirmed
     if confirmation_value is True:
         logger.info("User confirmed, proceeding to action")
+        # Clear confirmation attempts on success
+        metadata_cleared = metadata.copy()
+        metadata_cleared.pop("_confirmation_attempts", None)
+
+        # Advance to next step (should be the action step after confirm)
+        step_manager = runtime.context["step_manager"]
+        advance_updates = step_manager.advance_to_next_step(state, runtime.context)
+
         return {
-            "conversation_state": "ready_for_action",
+            **advance_updates,  # Includes updated flow_stack and conversation_state
             "last_response": "Great! Processing your request...",
+            "metadata": metadata_cleared,
         }
 
     # User denied - wants to change something
     elif confirmation_value is False:
         logger.info("User denied confirmation, allowing modification")
+        # Clear confirmation attempts on explicit denial
+        metadata_cleared = metadata.copy()
+        metadata_cleared.pop("_confirmation_attempts", None)
         # For now, go back to understanding to allow user to modify
         # In the future, we could route to a specific modification handler
         return {
             "conversation_state": "understanding",
             "last_response": "What would you like to change?",
+            "metadata": metadata_cleared,
         }
 
     # Confirmation value not extracted or unclear
     else:
-        logger.warning(f"Confirmation value unclear: {confirmation_value}, asking again")
+        logger.warning(
+            f"Confirmation value unclear: {confirmation_value}, asking again "
+            f"(attempt {confirmation_attempts + 1}/{MAX_CONFIRMATION_ATTEMPTS})"
+        )
+        # Increment retry counter
+        metadata_updated = metadata.copy()
+        metadata_updated["_confirmation_attempts"] = confirmation_attempts + 1
+
         return {
             "conversation_state": "confirming",
             "last_response": "I didn't understand. Is this information correct? (yes/no)",
+            "metadata": metadata_updated,
         }
 
 

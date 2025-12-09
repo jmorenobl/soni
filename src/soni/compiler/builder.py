@@ -124,6 +124,17 @@ class StepCompiler:
                     "cases": parsed.config["cases"],
                 },
             )
+        elif parsed.step_type == "confirm":
+            config = {}
+            if "message" in parsed.config:
+                config["message"] = parsed.config["message"]
+            if "jump_to" in parsed.config:
+                config["jump_to"] = parsed.config["jump_to"]
+            return DAGNode(
+                id=parsed.step_id,
+                type=NodeType.CONFIRM,
+                config=config,
+            )
         else:
             raise CompilationError(
                 f"Unsupported step type in compilation: {parsed.step_type}",
