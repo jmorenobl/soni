@@ -9,7 +9,11 @@ from soni.runtime import RuntimeLoop
 
 @pytest.fixture
 async def runtime():
-    """Create runtime for testing."""
+    """Create runtime for testing.
+
+    RuntimeLoop automatically imports actions from config directory
+    via _auto_import_actions and _try_import_config_package.
+    """
     config_path = Path("examples/flight_booking/soni.yaml")
     runtime = RuntimeLoop(config_path)
     runtime.config.settings.persistence.backend = "memory"
