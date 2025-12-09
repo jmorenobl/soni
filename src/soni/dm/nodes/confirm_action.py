@@ -31,6 +31,15 @@ async def confirm_action_node(
     # Import interrupt at runtime (not at module level)
     from langgraph.types import interrupt
 
+    logger.info(
+        "confirm_action_node ENTRY",
+        extra={
+            "user_message": state.get("user_message", "")[:50],
+            "conversation_state": state.get("conversation_state"),
+            "last_response": state.get("last_response", "")[:50],
+        },
+    )
+
     flow_manager = runtime.context["flow_manager"]
     step_manager = runtime.context["step_manager"]
     active_ctx = flow_manager.get_active_context(state)
@@ -90,15 +99,34 @@ async def confirm_action_node(
 
     if existing_user_message and existing_conv_state == "confirming":
         # Node re-executed after resume - user already responded
-        # Don't interrupt again, just pass through the state
-        logger.debug(
-            f"confirm_action: Already processed confirmation, passing through. "
-            f"user_message={existing_user_message[:50]}..."
-        )
-        return {
-            "conversation_state": "confirming",
-            "last_response": confirmation_msg,
-        }
+        # The message was already processed by understand -> handle_confirmation
+        # Check if handle_confirmation already set a last_response
+        existing_last_response = state.get("last_response", "")
+
+        if existing_last_response:
+            # handle_confirmation already processed and set a response (e.g., "I didn't understand...")
+            # We should go directly to generate_response, not back to understand
+            # IMPORTANT: Preserve the last_response from handle_confirmation
+            logger.debug(
+                f"confirm_action: Already processed confirmation, response exists. "
+                f"Passing through to generate_response. response={existing_last_response[:50]}..."
+            )
+            # Return state that will route to generate_response
+            # CRITICAL: Preserve last_response so generate_response can use it
+            return {
+                "conversation_state": "confirming",
+                "last_response": existing_last_response,  # Preserve from handle_confirmation
+            }
+        else:
+            # No response yet - this shouldn't happen but handle gracefully
+            logger.warning(
+                "confirm_action: Already processed but no last_response found. "
+                "Setting default response."
+            )
+            return {
+                "conversation_state": "confirming",
+                "last_response": confirmation_msg,  # Fallback to original confirmation message
+            }
 
     # Pause and wait for user confirmation
     # The prompt is passed as the interrupt value

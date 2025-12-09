@@ -1,12 +1,10 @@
 """Graph builder for LangGraph dialogue management."""
 
-from typing import TYPE_CHECKING, Any
+import logging
+from typing import Any
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
-
-if TYPE_CHECKING:
-    pass
 
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes.collect_next_slot import collect_next_slot_node
@@ -29,6 +27,8 @@ from soni.dm.routing import (
     route_after_understand,
     route_after_validate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RuntimeWrapper:
@@ -169,8 +169,50 @@ def build_graph(
         },
     )
 
-    # After confirmation request, back to understand (to process user's yes/no)
-    builder.add_edge("confirm_action", "understand")
+    # After confirmation request, route based on whether confirmation was already processed
+    # If confirm_action already processed the response (after resume), go to generate_response
+    # Otherwise, go to understand to process the user's yes/no
+    def route_after_confirm_action(state: DialogueState) -> str:
+        """Route after confirm_action based on whether confirmation was already processed.
+
+        When confirm_action is re-executed after resume and detects that the confirmation
+        was already processed (has last_response from handle_confirmation), it should
+        go directly to generate_response instead of understand to avoid loops.
+        """
+        # Check if confirm_action already processed the confirmation (after resume)
+        # This happens when confirm_action detects existing_user_message and existing_conv_state == "confirming"
+        # and returns with last_response preserved from handle_confirmation
+        last_response = state.get("last_response", "")
+        user_message = state.get("user_message", "")
+        conv_state = state.get("conversation_state", "")
+
+        # If we have a last_response that looks like an error message from handle_confirmation
+        # (contains "understand" or "correct"), and conversation_state is "confirming",
+        # it means handle_confirmation already processed the response
+        # Go directly to generate_response to avoid loop
+        if (
+            last_response
+            and conv_state == "confirming"
+            and user_message
+            and ("understand" in last_response.lower() or "correct" in last_response.lower())
+        ):
+            logger.info(
+                "route_after_confirm_action: Confirmation already processed by handle_confirmation, "
+                f"routing to generate_response. response={last_response[:50]}..."
+            )
+            return "generate_response"
+        else:
+            # First time or no response yet - go to understand to process user's yes/no
+            return "understand"
+
+    builder.add_conditional_edges(
+        "confirm_action",
+        route_after_confirm_action,
+        {
+            "understand": "understand",  # First time - process user's response
+            "generate_response": "generate_response",  # Already processed - show response
+        },
+    )
 
     # After handling confirmation response, route based on result
     builder.add_conditional_edges(

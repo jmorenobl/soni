@@ -25,6 +25,15 @@ async def handle_confirmation_node(
     Returns:
         Partial state updates based on confirmation result
     """
+    logger.info(
+        "handle_confirmation_node ENTRY",
+        extra={
+            "user_message": state.get("user_message", "")[:50],
+            "conversation_state": state.get("conversation_state"),
+            "nlu_result": state.get("nlu_result"),
+        },
+    )
+
     # Add retry counter check
     metadata = state.get("metadata", {})
     confirmation_attempts = metadata.get("_confirmation_attempts", 0)

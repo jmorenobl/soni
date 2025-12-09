@@ -72,6 +72,20 @@ async def generate_response_node(
     # Preserve conversation_state for states that should persist across turns
     # Don't override "completed" or "confirming" with "idle"
     current_conv_state = state.get("conversation_state")
+
+    # Special case: if conversation_state is "confirming", check if we should use
+    # existing last_response (from handle_confirmation) instead of generating new one
+    if current_conv_state == "confirming":
+        existing_response = state.get("last_response", "")
+        # If existing response exists and is NOT the original confirmation prompt,
+        # it's the error message from handle_confirmation - use it
+        if existing_response and "correct?" not in existing_response.lower():
+            logger.info(
+                f"Using existing last_response from handle_confirmation: {existing_response[:50]}..."
+            )
+            # Use existing response instead of generated one
+            response = existing_response
+
     if current_conv_state == "completed":
         conversation_state = "completed"
 
