@@ -78,6 +78,15 @@ def clear_registries():
 
     This ensures tests don't interfere with each other through shared registry state.
     Built-in validators are re-imported after clearing to ensure they're available.
+
+    Note: Action modules are NOT reloaded here because:
+    1. RuntimeLoop._try_import_config_package handles reloading cached modules
+    2. Tests should import actions explicitly in their fixtures if needed
+    3. This keeps the fixture simple and avoids hardcoding module names
+
+    If a test needs actions to be re-registered after clearing, it should:
+    - Import the action module in the test fixture (like test_e2e.py does), OR
+    - Let RuntimeLoop handle it via _try_import_config_package (which reloads if cached)
     """
     from soni.actions.registry import ActionRegistry
     from soni.validation.registry import ValidatorRegistry

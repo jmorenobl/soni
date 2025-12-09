@@ -69,8 +69,8 @@ async def generate_response_node(
 
     logger.info(f"generate_response_node returning: {response[:50]}...")
 
-    # Preserve conversation_state if already completed
-    # Don't override "completed" with "idle"
+    # Preserve conversation_state for states that should persist across turns
+    # Don't override "completed" or "confirming" with "idle"
     current_conv_state = state.get("conversation_state")
     if current_conv_state == "completed":
         conversation_state = "completed"
@@ -99,6 +99,11 @@ async def generate_response_node(
                 "conversation_state": conversation_state,
                 "flow_stack": flow_stack,
             }
+    elif current_conv_state == "confirming":
+        # Preserve "confirming" state - user needs to respond to confirmation prompt
+        # This prevents the state from being reset to "idle" which would break the flow
+        conversation_state = "confirming"
+        logger.debug("Preserving conversation_state='confirming' for next user response")
     else:
         conversation_state = "idle"
 

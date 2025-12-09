@@ -585,8 +585,13 @@ def route_after_confirmation(state: DialogueStateType) -> str:
         # User confirmed, proceed to action
         return "execute_action"
     elif conv_state == "confirming":
-        # Confirmation unclear, ask again (shouldn't happen but handle gracefully)
-        return "understand"
+        # Confirmation unclear - show message and wait for next user input
+        # Go to generate_response to display the "I didn't understand" message
+        # This ends the turn and waits for the next user message (avoids infinite loop)
+        return "generate_response"
+    elif conv_state == "error":
+        # Max retries exceeded or other error - show error message
+        return "generate_response"
     else:
         # User denied or wants to modify, go back to understand
         return "understand"

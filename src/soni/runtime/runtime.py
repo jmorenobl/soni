@@ -189,6 +189,23 @@ class RuntimeLoop:
 
         Args:
             config_path: Path to YAML configuration file
+
+        Note on Module Reloading:
+            If the package is already imported (cached in sys.modules), this method
+            reloads it to re-execute decorators like @ActionRegistry.register().
+
+            This is necessary when:
+            - ActionRegistry is cleared between tests (test isolation)
+            - Modules are imported before RuntimeLoop initialization
+
+            In production, modules are typically imported once per process, so reload
+            is rare and safe. The reload only occurs if the module is already cached,
+            which is primarily a test scenario.
+
+            This design choice balances:
+            - Test isolation (registry clearing between tests)
+            - Production simplicity (no special test-only code paths)
+            - Safety (reload only when module already exists)
         """
         config_dir = Path(config_path).parent
         init_file = config_dir / "__init__.py"
@@ -205,10 +222,34 @@ class RuntimeLoop:
             try:
                 if str(parent_dir) not in sys.path:
                     sys.path.insert(0, str(parent_dir))
-                importlib.import_module(package_name)
-                logger.debug(
-                    f"Imported __init__.py from {config_dir} (may register custom actions)"
-                )
+
+                # If module already imported, reload it to re-execute decorators
+                # This is important when ActionRegistry is cleared (e.g., in tests)
+                # In production, modules are typically imported once, so this is rare
+                if package_name in sys.modules:
+                    # Reload the package and its submodules to re-execute all decorators
+                    # This ensures @ActionRegistry.register() decorators are re-executed
+                    package_module = sys.modules[package_name]
+                    importlib.reload(package_module)
+
+                    # Also reload submodules that may contain action registrations
+                    # (e.g., handlers.py imported by __init__.py)
+                    for submodule_name in list(sys.modules.keys()):
+                        if submodule_name.startswith(f"{package_name}."):
+                            try:
+                                importlib.reload(sys.modules[submodule_name])
+                            except (ImportError, AttributeError, KeyError):
+                                # Submodule may not be importable - skip silently
+                                pass
+
+                    logger.debug(
+                        f"Reloaded __init__.py and submodules from {config_dir} (re-registering actions)"
+                    )
+                else:
+                    importlib.import_module(package_name)
+                    logger.debug(
+                        f"Imported __init__.py from {config_dir} (may register custom actions)"
+                    )
             except ImportError as e:
                 logger.debug(f"Could not import __init__.py from {config_dir}: {e}")
             finally:
