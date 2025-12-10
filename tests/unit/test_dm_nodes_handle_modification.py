@@ -1,6 +1,9 @@
 """Unit tests for handle_modification node.
 
 All tests use mocked NLU for determinism.
+
+Design Reference: docs/design/10-dsl-specification/06-patterns.md:81-118
+Pattern: "Modification: User requests change → Update slot, return to step"
 """
 
 from unittest.mock import AsyncMock, MagicMock

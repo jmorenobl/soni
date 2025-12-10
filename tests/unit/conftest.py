@@ -149,6 +149,20 @@ def mock_nlu_digression():
     return nlu
 
 
+@pytest.fixture
+def mock_nlu_cancellation():
+    """Mock NLU returning CANCELLATION message type."""
+    nlu = AsyncMock()
+    nlu.predict.return_value = NLUOutput(
+        message_type=MessageType.CANCELLATION,
+        command="cancel",
+        slots=[],
+        confidence=0.95,
+        reasoning="User wants to cancel",
+    )
+    return nlu
+
+
 # === STATE CREATION FIXTURES ===
 
 
@@ -498,3 +512,60 @@ def mock_flow_config():
         )
 
     return _create
+
+
+# === STATE TRANSITION VALIDATION HELPER ===
+
+
+def assert_valid_state_transition(
+    from_state: str | None,
+    to_state: str | None,
+    context: str = "",
+) -> None:
+    """
+    Assert that a conversation state transition is valid according to design.
+
+    Design Reference: docs/design/04-state-machine.md:269-315
+
+    Uses the same validation logic as src/soni/core/validators.py:validate_transition
+    but as a test helper that raises AssertionError instead of ValidationError.
+
+    Args:
+        from_state: Previous conversation state (or None for initial state)
+        to_state: New conversation state (or None)
+        context: Optional context string for error messages
+
+    Raises:
+        AssertionError: If transition is invalid according to design
+    """
+    from soni.core.validators import VALID_TRANSITIONS
+
+    # Normalize states (lowercase for comparison)
+    from_state_norm = from_state.lower() if from_state else None
+    to_state_norm = to_state.lower() if to_state else None
+
+    # Handle None states (initial state)
+    if from_state_norm is None:
+        # Initial state can transition to idle or understanding
+        if to_state_norm not in ["idle", "understanding"]:
+            error_msg = (
+                f"Invalid initial state transition: None → {to_state}"
+                f"\nValid initial transitions: ['idle', 'understanding']"
+            )
+            if context:
+                error_msg = f"{context}\n{error_msg}"
+            raise AssertionError(error_msg)
+        return
+
+    # Get valid target states from validators
+    valid_targets = VALID_TRANSITIONS.get(from_state_norm, [])
+
+    # Check if transition is valid
+    if to_state_norm not in valid_targets:
+        error_msg = (
+            f"Invalid state transition: {from_state} → {to_state}"
+            f"\nValid transitions from '{from_state}': {valid_targets}"
+        )
+        if context:
+            error_msg = f"{context}\n{error_msg}"
+        raise AssertionError(error_msg)

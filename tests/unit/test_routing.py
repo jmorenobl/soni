@@ -297,7 +297,7 @@ def test_route_after_understand_continuation_with_active_flow():
         ("confirmation", "handle_confirmation", "confirming"),
         ("intent_change", "handle_intent_change", None),
         ("question", "handle_digression", None),
-        ("clarification", "handle_digression", None),  # Clarification now handled like digression
+        ("clarification", "handle_clarification", None),  # Clarification has dedicated handler
         ("cancellation", "handle_cancellation", None),
     ],
 )

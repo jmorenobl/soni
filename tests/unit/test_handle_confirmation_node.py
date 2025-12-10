@@ -1,4 +1,8 @@
-"""Unit tests for handle_confirmation_node."""
+"""Unit tests for handle_confirmation_node.
+
+Design Reference: docs/design/10-dsl-specification/06-patterns.md:119-167
+Pattern: "Confirmation: User confirms/denies → Proceed to action or allow modification"
+"""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -390,6 +394,73 @@ async def test_handle_confirmation_modification_during_confirmation(mock_runtime
 
     assert result["conversation_state"] == "confirming"
     assert result["flow_slots"]["flow_1"]["destination"] == "VLC"
+
+
+@pytest.mark.asyncio
+async def test_handle_confirmation_correction_regenerates_message(mock_runtime):
+    """
+    Correction during confirmation regenerates confirmation with new value.
+
+    Design Reference: docs/design/10-dsl-specification/06-patterns.md:168-171
+    Pattern: "Re-display confirmation with updated value"
+    """
+    from soni.core.state import create_empty_state
+
+    # Arrange - State ready for confirmation with slots
+    state = create_empty_state()
+    state["flow_stack"] = [
+        {
+            "flow_id": "flow_1",
+            "flow_name": "book_flight",
+            "flow_state": "active",
+            "current_step": "confirm_booking",
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
+    state["flow_slots"] = {
+        "flow_1": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "date": "2024-12-15",
+        }
+    }
+    state["conversation_state"] = "confirming"
+
+    # User corrects date during confirmation
+    state["nlu_result"] = {
+        "message_type": "correction",
+        "slots": [{"name": "date", "value": "2024-12-20"}],
+    }
+
+    # Mock normalizer
+    mock_runtime.context["normalizer"].normalize_slot.return_value = "2024-12-20"
+
+    # Mock step_manager to return step config
+    mock_step_config = MagicMock()
+    mock_step_config.type = "confirm"
+    mock_step_config.message = None  # Will use default confirmation message
+    mock_runtime.context["step_manager"].get_current_step_config.return_value = mock_step_config
+
+    # Act
+    result = await handle_confirmation_node(state, mock_runtime)
+
+    # Assert
+    # Slot updated
+    assert result["flow_slots"]["flow_1"]["date"] == "2024-12-20"
+    # New confirmation message generated with updated value
+    assert "2024-12-20" in result["last_response"]
+    # OLD value NOT in message
+    assert "2024-12-15" not in result["last_response"]
+    # Still in confirming state
+    assert result["conversation_state"] == "confirming"
+    # Should include acknowledgment
+    assert (
+        "updated" in result["last_response"].lower() or "got it" in result["last_response"].lower()
+    )
 
 
 # === MAX RETRIES EDGE CASES ===

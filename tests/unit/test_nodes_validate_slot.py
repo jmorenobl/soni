@@ -726,6 +726,132 @@ async def test_validate_slot_preserves_other_slots(create_state_with_slots, mock
     assert result["flow_slots"]["flow_1"]["destination"] == "Barcelona"  # Preserved
 
 
+@pytest.mark.asyncio
+async def test_validate_slot_skips_completed_collect_steps(create_state_with_flow, mock_runtime):
+    """
+    When multiple slots provided, collect steps for those slots are skipped.
+
+    Design Reference: docs/design/10-dsl-specification/06-patterns.md:87
+    Pattern: "Subsequent collect steps for those slots are SKIPPED (already filled)"
+    """
+    from soni.core.config import FlowConfig, StepConfig, TriggerConfig
+
+    # Arrange - User provides multiple slots at once
+    state = create_state_with_flow("book_flight")
+    state["nlu_result"] = {
+        "message_type": "slot_value",
+        "slots": [
+            {"name": "origin", "value": "Madrid"},
+            {"name": "destination", "value": "Barcelona"},
+            {"name": "date", "value": "2024-12-25"},
+        ],
+    }
+
+    # Mock flow config with multiple collect steps
+    flow_config = FlowConfig(
+        description="Book flight",
+        trigger=TriggerConfig(intents=[]),
+        steps=[
+            StepConfig(step="collect_origin", type="collect", slot="origin"),
+            StepConfig(step="collect_destination", type="collect", slot="destination"),
+            StepConfig(step="collect_date", type="collect", slot="date"),
+            StepConfig(step="confirm_booking", type="confirm", message="Confirm?"),
+        ],
+    )
+
+    # Mock normalizer to return normalized values
+    mock_runtime.context["normalizer"].normalize_slot.side_effect = [
+        "MAD",  # origin
+        "BCN",  # destination
+        "2024-12-25",  # date
+    ]
+
+    # Mock step_manager to simulate skip logic
+    # After all slots are filled, advance_through_completed_steps should skip to confirmation
+    mock_runtime.context["step_manager"].config = MagicMock()
+    mock_runtime.context["step_manager"].config.flows = {"book_flight": flow_config}
+    mock_runtime.context["step_manager"].is_step_complete.return_value = True
+    mock_runtime.context["step_manager"].advance_through_completed_steps.return_value = {
+        "conversation_state": "ready_for_confirmation",
+        "current_step": "confirm_booking",
+        "flow_stack": state["flow_stack"],
+        "all_slots_filled": True,
+    }
+
+    # Act
+    result = await validate_slot_node(state, mock_runtime)
+
+    # Assert
+    # All slots filled
+    assert result["flow_slots"]["flow_1"]["origin"] == "MAD"
+    assert result["flow_slots"]["flow_1"]["destination"] == "BCN"
+    assert result["flow_slots"]["flow_1"]["date"] == "2024-12-25"
+    # Should advance to confirmation, not next collect
+    # (because all slots are filled and advance_through_completed_steps skipped to confirm)
+    assert result["conversation_state"] == "ready_for_confirmation"
+    assert result.get("current_step") == "confirm_booking"
+
+
+@pytest.mark.asyncio
+async def test_validate_slot_skips_to_next_unfilled_slot(create_state_with_flow, mock_runtime):
+    """
+    When some slots provided, skip to next unfilled slot.
+
+    User provides origin and destination, but not date.
+    System should skip collect steps for origin and destination,
+    and go directly to collect date.
+    """
+    from soni.core.config import FlowConfig, StepConfig, TriggerConfig
+
+    # Arrange
+    state = create_state_with_flow("book_flight")
+    state["nlu_result"] = {
+        "message_type": "slot_value",
+        "slots": [
+            {"name": "origin", "value": "Madrid"},
+            {"name": "destination", "value": "Barcelona"},
+        ],
+    }
+
+    # Mock flow config
+    flow_config = FlowConfig(
+        description="Book flight",
+        trigger=TriggerConfig(intents=[]),
+        steps=[
+            StepConfig(step="collect_origin", type="collect", slot="origin"),
+            StepConfig(step="collect_destination", type="collect", slot="destination"),
+            StepConfig(step="collect_date", type="collect", slot="date"),
+            StepConfig(step="confirm_booking", type="confirm", message="Confirm?"),
+        ],
+    )
+
+    # Mock normalizer
+    mock_runtime.context["normalizer"].normalize_slot.side_effect = ["MAD", "BCN"]
+
+    # Mock step_manager: after filling origin and destination, skip to collect_date
+    mock_runtime.context["step_manager"].config = MagicMock()
+    mock_runtime.context["step_manager"].config.flows = {"book_flight": flow_config}
+    mock_runtime.context["step_manager"].is_step_complete.return_value = True
+    mock_runtime.context["step_manager"].advance_through_completed_steps.return_value = {
+        "conversation_state": "waiting_for_slot",
+        "waiting_for_slot": "date",
+        "current_step": "collect_date",
+        "flow_stack": state["flow_stack"],
+    }
+
+    # Act
+    result = await validate_slot_node(state, mock_runtime)
+
+    # Assert
+    # Provided slots filled
+    assert result["flow_slots"]["flow_1"]["origin"] == "MAD"
+    assert result["flow_slots"]["flow_1"]["destination"] == "BCN"
+    # Should advance to next unfilled slot (date)
+    assert result["waiting_for_slot"] == "date"
+    assert result["conversation_state"] == "waiting_for_slot"
+    assert result.get("current_step") == "collect_date"
+
+
 # === TESTS FOR _handle_correction_flow ===
 
 

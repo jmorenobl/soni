@@ -358,9 +358,13 @@ def route_after_understand(state: DialogueStateType) -> str:
             return "handle_modification"
         case "interruption" | "intent_change":
             return "handle_intent_change"
-        case "digression" | "question" | "clarification":
-            # All question types (digression, question, clarification) should be handled
-            # by handle_digression, which preserves waiting_for_slot and re-prompts
+        case "clarification":
+            # Clarification: user asks why information is needed
+            # Route to dedicated clarification handler
+            return "handle_clarification"
+        case "digression" | "question":
+            # Digression: question without flow change
+            # Route to handle_digression, which preserves waiting_for_slot and re-prompts
             return "handle_digression"
         case "cancellation":
             # Cancellation should pop flow and return to previous or idle
