@@ -11,6 +11,7 @@ from soni.dm.nodes.collect_next_slot import collect_next_slot_node
 from soni.dm.nodes.confirm_action import confirm_action_node
 from soni.dm.nodes.execute_action import execute_action_node
 from soni.dm.nodes.generate_response import generate_response_node
+from soni.dm.nodes.handle_cancellation import handle_cancellation_node
 from soni.dm.nodes.handle_confirmation import handle_confirmation_node
 from soni.dm.nodes.handle_correction import handle_correction_node
 from soni.dm.nodes.handle_digression import handle_digression_node
@@ -87,6 +88,7 @@ def build_graph(
     # where runtime.context contains dependencies
     builder.add_node("understand", _wrap_node(understand_node, context))
     builder.add_node("validate_slot", _wrap_node(validate_slot_node, context))
+    builder.add_node("handle_cancellation", _wrap_node(handle_cancellation_node, context))
     builder.add_node("handle_correction", _wrap_node(handle_correction_node, context))
     builder.add_node("handle_modification", _wrap_node(handle_modification_node, context))
     builder.add_node("collect_next_slot", _wrap_node(collect_next_slot_node, context))
@@ -111,13 +113,18 @@ def build_graph(
             "handle_digression": "handle_digression",
             "handle_intent_change": "handle_intent_change",
             "handle_confirmation": "handle_confirmation",
+            "handle_cancellation": "handle_cancellation",
             "collect_next_slot": "collect_next_slot",  # For continuation
             "generate_response": "generate_response",
         },
     )
 
-    # After digression, back to understand
-    builder.add_edge("handle_digression", "understand")
+    # After digression, go to generate_response to show the answer
+    # (don't go back to understand, which would reprocess the same message and create a loop)
+    builder.add_edge("handle_digression", "generate_response")
+
+    # After cancellation, go to generate_response to show the cancellation message
+    builder.add_edge("handle_cancellation", "generate_response")
 
     # After validating slot
     builder.add_conditional_edges(

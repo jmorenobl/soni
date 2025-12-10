@@ -78,6 +78,16 @@ async def collect_next_slot_node(
         # Slot config not found, use generic prompt
         prompt = f"Please provide your {next_slot}."
 
+    # CRITICAL: Set last_response BEFORE interrupt() so that if the flow goes to
+    # generate_response (e.g., after a digression), it has the correct prompt
+    # The prompt will be shown to the user immediately
+    result = {
+        "last_response": prompt,
+        "waiting_for_slot": next_slot,
+        "current_prompted_slot": next_slot,
+        "conversation_state": "waiting_for_slot",
+    }
+
     # Pause here - wait for user response
     # The prompt is passed as the interrupt value
     # It will be available in result['__interrupt__'] after ainvoke()
@@ -85,9 +95,6 @@ async def collect_next_slot_node(
 
     # Code after interrupt() executes when user responds
     # The node re-executes from the beginning, and interrupt() returns the resume value
-    return {
-        "user_message": user_response,
-        "waiting_for_slot": next_slot,
-        "current_prompted_slot": next_slot,
-        "conversation_state": "waiting_for_slot",
-    }
+    # Update result with user_message from resume
+    result["user_message"] = user_response
+    return result

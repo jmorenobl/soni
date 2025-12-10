@@ -63,3 +63,12 @@ def test_should_cleanup_returns_false():
     result = FlowCleanupManager.should_cleanup(state)
 
     assert result is False
+
+
+def test_should_cleanup_empty_stack():
+    """Test should_cleanup returns False when stack is empty."""
+    state = {"flow_stack": []}
+
+    result = FlowCleanupManager.should_cleanup(state)
+
+    assert result is False

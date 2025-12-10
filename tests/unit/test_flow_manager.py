@@ -19,6 +19,8 @@ def empty_state() -> DialogueState:
         "conversation_state": "idle",
         "current_step": None,
         "waiting_for_slot": None,
+        "current_prompted_slot": None,
+        "all_slots_filled": None,
         "nlu_result": None,
         "last_nlu_call": None,
         "digression_depth": 0,
@@ -222,3 +224,116 @@ def test_prune_state_keeps_active_slots(empty_state):
     assert flow_id in empty_state["flow_slots"]
     assert empty_state["flow_slots"][flow_id]["test_slot"] == "value"
     assert "orphan_123" not in empty_state["flow_slots"]
+
+
+# === Edge cases for coverage ===
+
+
+def test_push_flow_config_no_flow_config(empty_state):
+    """Test push_flow when config exists but flow_config is None."""
+    from unittest.mock import MagicMock
+
+    # Arrange
+    mock_config = MagicMock()
+    mock_config.flows = {"other_flow": MagicMock()}  # flow_name not in flows
+    manager = FlowManager(config=mock_config)
+
+    # Act
+    flow_id = manager.push_flow(empty_state, "book_flight")
+
+    # Assert
+    assert flow_id is not None
+    assert empty_state["flow_stack"][0]["current_step"] is None
+
+
+def test_push_flow_config_no_steps(empty_state):
+    """Test push_flow when flow_config exists but has no steps."""
+    from unittest.mock import MagicMock
+
+    # Arrange
+    mock_config = MagicMock()
+    mock_flow_config = MagicMock()
+    mock_flow_config.steps_or_process = []  # No steps
+    mock_config.flows = {"book_flight": mock_flow_config}
+    manager = FlowManager(config=mock_config)
+
+    # Act
+    flow_id = manager.push_flow(empty_state, "book_flight")
+
+    # Assert
+    assert flow_id is not None
+    assert empty_state["flow_stack"][0]["current_step"] is None
+
+
+def test_get_slot_no_active_context(empty_state):
+    """Test get_slot returns None when no active context."""
+    # Arrange
+    manager = FlowManager()
+
+    # Act
+    result = manager.get_slot(empty_state, "origin")
+
+    # Assert
+    assert result is None
+
+
+def test_get_slot_flow_id_not_in_slots(empty_state):
+    """Test get_slot returns None when flow_id not in flow_slots."""
+    # Arrange
+    manager = FlowManager()
+    # Manually add flow to stack but not to flow_slots
+    empty_state["flow_stack"] = [
+        {
+            "flow_id": "missing_flow_123",
+            "flow_name": "book_flight",
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
+
+    # Act
+    result = manager.get_slot(empty_state, "origin")
+
+    # Assert
+    assert result is None
+
+
+def test_set_slot_no_active_context(empty_state):
+    """Test set_slot raises ValueError when no active context."""
+    # Arrange
+    manager = FlowManager()
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="No active flow to set slot in"):
+        manager.set_slot(empty_state, "origin", "NYC")
+
+
+def test_set_slot_flow_id_not_in_slots(empty_state):
+    """Test set_slot creates flow_slots entry when flow_id not in flow_slots."""
+    # Arrange
+    manager = FlowManager()
+    # Manually add flow to stack but not to flow_slots
+    empty_state["flow_stack"] = [
+        {
+            "flow_id": "missing_flow_123",
+            "flow_name": "book_flight",
+            "flow_state": "active",
+            "current_step": None,
+            "outputs": {},
+            "started_at": 0.0,
+            "paused_at": None,
+            "completed_at": None,
+            "context": None,
+        }
+    ]
+
+    # Act
+    manager.set_slot(empty_state, "origin", "NYC")
+
+    # Assert
+    assert empty_state["flow_slots"]["missing_flow_123"]["origin"] == "NYC"

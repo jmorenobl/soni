@@ -31,6 +31,7 @@ async def generate_response_node(
 
     # Determine conversation_state based on current state
     current_conv_state = state.get("conversation_state")
+    waiting_for_slot = state.get("waiting_for_slot")
 
     if current_conv_state == "completed":
         # Flow cleanup is now handled by routing or separate node
@@ -47,10 +48,19 @@ async def generate_response_node(
     elif current_conv_state == "confirming":
         # Preserve confirming state
         conversation_state = "confirming"
+    elif current_conv_state == "waiting_for_slot" and waiting_for_slot:
+        # Preserve waiting_for_slot state (e.g., after digression)
+        conversation_state = "waiting_for_slot"
     else:
         conversation_state = "idle"
 
-    return {
+    result = {
         "last_response": response,
         "conversation_state": conversation_state,
     }
+
+    # Preserve waiting_for_slot if it exists (e.g., after digression)
+    if waiting_for_slot:
+        result["waiting_for_slot"] = waiting_for_slot
+
+    return result

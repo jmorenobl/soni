@@ -1,5 +1,7 @@
 """Unit tests for persistence and checkpointing"""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from soni.core.config import PersistenceConfig
@@ -166,3 +168,83 @@ async def test_create_none_checkpointer():
     # Assert
     assert checkpointer is None
     assert cm is None
+
+
+# === Error handling tests ===
+
+
+@pytest.mark.asyncio
+async def test_create_sqlite_checkpointer_os_error():
+    """Test _create_sqlite_checkpointer handles OSError."""
+    config = PersistenceConfig(backend="sqlite", path="/invalid/path/db.sqlite")
+
+    with patch("soni.dm.persistence.AsyncSqliteSaver.from_conn_string") as mock_from_conn:
+        mock_from_conn.side_effect = OSError("Permission denied")
+
+        checkpointer, cm = await CheckpointerFactory._create_sqlite_checkpointer(config)
+
+        assert checkpointer is None
+        assert cm is None
+
+
+@pytest.mark.asyncio
+async def test_create_sqlite_checkpointer_connection_error():
+    """Test _create_sqlite_checkpointer handles ConnectionError."""
+    from unittest.mock import patch
+
+    config = PersistenceConfig(backend="sqlite", path=":memory:")
+
+    with patch("soni.dm.persistence.AsyncSqliteSaver.from_conn_string") as mock_from_conn:
+        mock_from_conn.side_effect = ConnectionError("Connection failed")
+
+        checkpointer, cm = await CheckpointerFactory._create_sqlite_checkpointer(config)
+
+        assert checkpointer is None
+        assert cm is None
+
+
+@pytest.mark.asyncio
+async def test_create_sqlite_checkpointer_import_error():
+    """Test _create_sqlite_checkpointer handles ImportError."""
+    from unittest.mock import patch
+
+    config = PersistenceConfig(backend="sqlite", path=":memory:")
+
+    with patch("soni.dm.persistence.AsyncSqliteSaver.from_conn_string") as mock_from_conn:
+        mock_from_conn.side_effect = ImportError("aiosqlite not available")
+
+        checkpointer, cm = await CheckpointerFactory._create_sqlite_checkpointer(config)
+
+        assert checkpointer is None
+        assert cm is None
+
+
+@pytest.mark.asyncio
+async def test_create_sqlite_checkpointer_unexpected_error():
+    """Test _create_sqlite_checkpointer handles unexpected errors."""
+    from unittest.mock import patch
+
+    config = PersistenceConfig(backend="sqlite", path=":memory:")
+
+    with patch("soni.dm.persistence.AsyncSqliteSaver.from_conn_string") as mock_from_conn:
+        mock_from_conn.side_effect = ValueError("Unexpected error")
+
+        checkpointer, cm = await CheckpointerFactory._create_sqlite_checkpointer(config)
+
+        assert checkpointer is None
+        assert cm is None
+
+
+@pytest.mark.asyncio
+async def test_create_sqlite_checkpointer_context_enter_error():
+    """Test _create_sqlite_checkpointer handles error during __aenter__."""
+    config = PersistenceConfig(backend="sqlite", path=":memory:")
+
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(side_effect=OSError("Failed to enter context"))
+
+    with patch("soni.dm.persistence.AsyncSqliteSaver.from_conn_string", return_value=mock_cm):
+        checkpointer, cm = await CheckpointerFactory._create_sqlite_checkpointer(config)
+
+        assert checkpointer is None
+        assert cm is None

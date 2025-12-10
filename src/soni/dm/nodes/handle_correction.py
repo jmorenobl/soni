@@ -186,6 +186,34 @@ async def handle_correction_node(
                 # For confirmation, combine acknowledgment with confirmation message
                 # (confirmation will be re-displayed by confirm_action node)
                 last_response = acknowledgment
+            elif target_step_config.type == "collect":
+                # For collect steps, check if there's a next slot to prompt for
+                # This handles the case where we corrected a slot but need to continue collecting
+                next_slot = step_manager.get_next_required_slot(
+                    {**state, "flow_slots": flow_slots, "current_step": target_step},
+                    target_step_config,
+                    runtime.context,
+                )
+
+                if next_slot:
+                    # Get prompt for the next slot
+                    try:
+                        from soni.core.state import get_slot_config
+
+                        slot_config = get_slot_config(runtime.context, next_slot)
+                        next_prompt = (
+                            slot_config.prompt
+                            if hasattr(slot_config, "prompt") and slot_config.prompt
+                            else f"Please provide your {next_slot}."
+                        )
+                        # Combine acknowledgment with next slot prompt
+                        last_response = f"{acknowledgment}\n\n{next_prompt}"
+                    except (KeyError, AttributeError):
+                        # If slot config not found, use generic prompt
+                        last_response = f"{acknowledgment}\n\nPlease provide your {next_slot}."
+                else:
+                    # No next slot to collect, just show acknowledgment
+                    last_response = acknowledgment
             else:
                 last_response = acknowledgment
 
@@ -194,12 +222,23 @@ async def handle_correction_node(
             if flow_stack:
                 flow_stack[-1] = {**flow_stack[-1], "current_step": target_step}
 
+            # Set waiting_for_slot if we're in a collect step with a next slot
+            waiting_for_slot = None
+            if target_step_config.type == "collect":
+                next_slot = step_manager.get_next_required_slot(
+                    {**state, "flow_slots": flow_slots, "current_step": target_step},
+                    target_step_config,
+                    runtime.context,
+                )
+                if next_slot:
+                    waiting_for_slot = next_slot
+
             logger.info(
                 f"Correction detected: returning to step '{target_step}' "
                 f"(previous was '{previous_step}') with state '{new_conversation_state}'"
             )
 
-            return {
+            result = {
                 "flow_slots": flow_slots,
                 "conversation_state": new_conversation_state,
                 "current_step": target_step,
@@ -207,6 +246,11 @@ async def handle_correction_node(
                 "metadata": metadata,
                 "last_response": last_response,
             }
+
+            if waiting_for_slot:
+                result["waiting_for_slot"] = waiting_for_slot
+
+            return result
 
     # Fallback: just update slot and stay in current state
     logger.warning("Could not determine target step for correction, staying in current state")

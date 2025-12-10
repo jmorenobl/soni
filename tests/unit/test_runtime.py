@@ -1,5 +1,6 @@
 """Tests for RuntimeLoop"""
 
+import asyncio
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -415,3 +416,364 @@ async def test_runtime_loop_default_dependencies(runtime_loop):
     assert isinstance(runtime.scope_manager, ScopeManager)
     assert isinstance(runtime.normalizer, SlotNormalizer)
     assert isinstance(runtime.du, SoniDU)
+
+
+# === _validate_inputs ===
+
+
+@pytest.mark.asyncio
+async def test_validate_inputs_success(runtime_loop):
+    """Test _validate_inputs with valid inputs."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    sanitized_msg, sanitized_user_id = runtime._validate_inputs("Hello", "user123")
+
+    assert sanitized_msg == "Hello"
+    assert sanitized_user_id == "user123"
+
+
+@pytest.mark.asyncio
+async def test_validate_inputs_sanitizes(runtime_loop):
+    """Test _validate_inputs sanitizes inputs."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    sanitized_msg, sanitized_user_id = runtime._validate_inputs("  Hello  ", "  user123  ")
+
+    assert sanitized_msg == "Hello"
+    assert sanitized_user_id == "user123"
+
+
+@pytest.mark.asyncio
+async def test_validate_inputs_empty_message(runtime_loop):
+    """Test _validate_inputs raises ValidationError for empty message."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    with pytest.raises(ValidationError, match="Message cannot be empty"):
+        runtime._validate_inputs("", "user123")
+
+
+@pytest.mark.asyncio
+async def test_validate_inputs_empty_user_id(runtime_loop):
+    """Test _validate_inputs raises ValidationError for empty user_id."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    with pytest.raises(ValidationError, match="User ID cannot be empty"):
+        runtime._validate_inputs("Hello", "")
+
+
+# === _load_or_create_state ===
+
+
+@pytest.mark.asyncio
+async def test_load_or_create_state_new_state(runtime_loop):
+    """Test _load_or_create_state creates new state when none exists."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    with patch.object(runtime.graph, "aget_state") as mock_aget_state:
+        # Return empty snapshot (no existing state)
+        mock_aget_state.return_value = type("StateSnapshot", (), {"values": {}, "next": ()})()
+
+        state = await runtime._load_or_create_state("new_user", "Hello")
+
+        assert state["user_message"] == "Hello"
+        # create_initial_state should add user message
+        assert "messages" in state
+
+
+@pytest.mark.asyncio
+async def test_load_or_create_state_loads_existing(runtime_loop):
+    """Test _load_or_create_state loads existing state."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    existing_state = {
+        "messages": [{"role": "user", "content": "Previous"}],
+        "flow_stack": [],
+        "turn_count": 1,
+    }
+
+    with patch.object(runtime.graph, "aget_state") as mock_aget_state:
+        mock_aget_state.return_value = type(
+            "StateSnapshot", (), {"values": existing_state, "next": ()}
+        )()
+
+        state = await runtime._load_or_create_state("existing_user", "New message")
+
+        assert state["user_message"] == "New message"
+        assert len(state["messages"]) > 1  # Should have previous + new
+
+
+@pytest.mark.asyncio
+async def test_load_or_create_state_handles_persistence_error(runtime_loop):
+    """Test _load_or_create_state handles persistence errors gracefully."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    with patch.object(runtime.graph, "aget_state") as mock_aget_state:
+        from soni.core.errors import PersistenceError
+
+        mock_aget_state.side_effect = PersistenceError("Checkpoint error")
+
+        # Should create new state instead of failing
+        state = await runtime._load_or_create_state("error_user", "Hello")
+
+        assert state["user_message"] == "Hello"
+
+
+# === _execute_graph ===
+
+
+@pytest.mark.asyncio
+async def test_execute_graph_new_conversation(runtime_loop):
+    """Test _execute_graph with new conversation."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    from soni.core.state import create_initial_state
+
+    state = create_initial_state("Hello")
+
+    with (
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
+        patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
+    ):
+        # No pending tasks (new conversation)
+        mock_aget_state.return_value = type("StateSnapshot", (), {"values": {}, "next": ()})()
+        mock_ainvoke.return_value = {"last_response": "Hi there!"}
+
+        result = await runtime._execute_graph(state, "user123")
+
+        assert result["last_response"] == "Hi there!"
+        # Should call ainvoke with state dict (not Command)
+        assert mock_ainvoke.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_execute_graph_resumes_interrupted(runtime_loop):
+    """Test _execute_graph resumes interrupted conversation."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    from soni.core.state import create_initial_state
+
+    state = create_initial_state("Hello")
+
+    with (
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
+        patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
+    ):
+        # Graph is interrupted (has pending tasks)
+        mock_aget_state.side_effect = [
+            type("StateSnapshot", (), {"values": {}, "next": ("collect_next_slot",)})(),
+            type("StateSnapshot", (), {"values": {}, "next": ()})(),  # After execution
+        ]
+        mock_ainvoke.return_value = {"last_response": "What is your destination?"}
+
+        result = await runtime._execute_graph(state, "user123")
+
+        assert result["last_response"] == "What is your destination?"
+        # Should call ainvoke with Command(resume=...) for interrupted graph
+        assert mock_ainvoke.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_execute_graph_processes_interrupts(runtime_loop):
+    """Test _execute_graph processes interrupts when graph is still interrupted."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    from soni.core.state import create_initial_state
+
+    state = create_initial_state("Hello")
+
+    with (
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
+        patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
+    ):
+        # Graph is still interrupted after execution
+        mock_aget_state.side_effect = [
+            type("StateSnapshot", (), {"values": {}, "next": ()})(),  # Before
+            type("StateSnapshot", (), {"values": {}, "next": ("collect_next_slot",)})(),  # After
+        ]
+        # Result has interrupt but no last_response
+        # Interrupt format: list of interrupt objects with .value attribute
+        interrupt_obj = type("Interrupt", (), {"value": "What is your origin?"})()
+        mock_ainvoke.return_value = {"__interrupt__": [interrupt_obj]}
+
+        result = await runtime._execute_graph(state, "user123")
+
+        # Should process interrupts and extract prompt
+        assert result["last_response"] == "What is your origin?"
+
+
+@pytest.mark.asyncio
+async def test_execute_graph_uses_node_response_over_interrupts(runtime_loop):
+    """Test _execute_graph prioritizes node response over interrupts."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    from soni.core.state import create_initial_state
+
+    state = create_initial_state("Hello")
+
+    with (
+        patch.object(runtime.graph, "aget_state") as mock_aget_state,
+        patch.object(runtime.graph, "ainvoke") as mock_ainvoke,
+    ):
+        mock_aget_state.side_effect = [
+            type("StateSnapshot", (), {"values": {}, "next": ()})(),
+            type("StateSnapshot", (), {"values": {}, "next": ("collect_next_slot",)})(),
+        ]
+        # Result has both interrupt and last_response from nodes
+        mock_ainvoke.return_value = {
+            "__interrupt__": {"prompt": "What is your origin?"},
+            "last_response": "Processing your request...",
+        }
+
+        result = await runtime._execute_graph(state, "user123")
+
+        # Should use last_response from nodes, not interrupt
+        assert result["last_response"] == "Processing your request..."
+
+
+# === _extract_response ===
+
+
+@pytest.mark.asyncio
+async def test_extract_response_from_last_response(runtime_loop):
+    """Test _extract_response extracts from last_response."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    result = {"last_response": "Hello, how can I help?"}
+
+    response = runtime._extract_response(result, "user123")
+
+    assert response == "Hello, how can I help?"
+
+
+@pytest.mark.asyncio
+async def test_extract_response_fallback_when_missing(runtime_loop):
+    """Test _extract_response uses fallback when last_response missing."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    result = {}  # No last_response
+
+    response = runtime._extract_response(result, "user123")
+
+    # Should return fallback message
+    assert isinstance(response, str)
+    assert len(response) > 0
+
+
+# === _process_interrupts ===
+
+
+@pytest.mark.asyncio
+async def test_process_interrupts_extracts_prompt(runtime_loop):
+    """Test _process_interrupts extracts prompt from interrupt."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    # Interrupt format: list of interrupt objects with .value attribute
+    interrupt_obj = type("Interrupt", (), {"value": "What is your destination?"})()
+    result = {"__interrupt__": [interrupt_obj]}
+
+    runtime._process_interrupts(result)
+
+    assert result["last_response"] == "What is your destination?"
+
+
+@pytest.mark.asyncio
+async def test_process_interrupts_no_interrupt(runtime_loop):
+    """Test _process_interrupts handles missing interrupt gracefully."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    result = {}  # No interrupt
+
+    runtime._process_interrupts(result)
+
+    # Should not raise error
+    assert "last_response" not in result or result.get("last_response") is None
+
+
+# === process_message_stream ===
+
+
+@pytest.mark.asyncio
+async def test_process_message_stream_basic(runtime_loop):
+    """Test process_message_stream yields tokens."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    await runtime._ensure_graph_initialized()
+
+    with (
+        patch.object(runtime.conversation_manager, "get_or_create_state") as mock_get_state,
+        patch.object(runtime.streaming_manager, "stream_response") as mock_stream,
+    ):
+        from soni.core.state import create_initial_state
+
+        # Mock state loading
+        mock_get_state.return_value = create_initial_state("Hello")
+
+        # Mock streaming events - format matches what process_message_stream expects
+        async def mock_stream_response(*args, **kwargs):
+            # Event format: dict with node names as keys
+            yield {"generate_response": {"last_response": "Hello there!"}}
+
+        mock_stream.return_value = mock_stream_response()
+
+        tokens = []
+        async for token in runtime.process_message_stream("Hello", "user123"):
+            tokens.append(token)
+
+        assert len(tokens) > 0
+
+
+# === Edge Cases ===
+
+
+@pytest.mark.asyncio
+async def test_process_message_none_message(runtime_loop):
+    """Test process_message handles None message."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+    user_id = "test-user-1"
+    user_msg = None
+
+    # Act & Assert
+    with pytest.raises((ValidationError, TypeError)):
+        await runtime.process_message(user_msg, user_id)
+
+
+@pytest.mark.asyncio
+async def test_ensure_graph_initialized_concurrent(runtime_loop):
+    """Test _ensure_graph_initialized handles concurrent calls safely."""
+    config_path = "examples/flight_booking/soni.yaml"
+    runtime = await runtime_loop(config_path)
+
+    # Call multiple times concurrently
+    await asyncio.gather(
+        runtime._ensure_graph_initialized(),
+        runtime._ensure_graph_initialized(),
+        runtime._ensure_graph_initialized(),
+    )
+
+    # Graph should be initialized (only once due to lock)
+    assert runtime.graph is not None
+    # Verify lock was used (graph should exist after concurrent calls)
+    assert hasattr(runtime, "_graph_init_lock")

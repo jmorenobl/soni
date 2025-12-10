@@ -1,5 +1,6 @@
 """Unit tests for FlowStepManager."""
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -365,3 +366,556 @@ class TestAdvanceThroughCompletedSteps:
         assert updates["conversation_state"] == "error"
         # Should have iterated max_iterations times
         assert iteration_count == 20
+
+
+# === get_current_step_config ===
+
+
+def test_get_current_step_config_exists(mock_config, state_with_flow, mock_context):
+    """Test get_current_step_config returns config when step exists."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+
+    result = step_manager.get_current_step_config(state, mock_context)
+
+    assert result is not None
+    assert result.step == "collect_origin"
+    assert result.type == "collect"
+
+
+def test_get_current_step_config_not_exists(mock_config, state_with_flow, mock_context):
+    """Test get_current_step_config returns None when step doesn't exist."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "nonexistent_step"
+
+    result = step_manager.get_current_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_current_step_config_no_active_flow(mock_config, mock_context):
+    """Test get_current_step_config returns None when no active flow."""
+    step_manager = FlowStepManager(mock_config)
+    state = create_empty_state()
+    state["flow_stack"] = []
+
+    result = step_manager.get_current_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_current_step_config_no_current_step(mock_config, state_with_flow, mock_context):
+    """Test get_current_step_config returns None when no current_step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = None
+
+    result = step_manager.get_current_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_current_step_config_flow_not_found(mock_config, state_with_flow, mock_context):
+    """Test get_current_step_config returns None when flow not in config."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["flow_name"] = "nonexistent_flow"
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+
+    result = step_manager.get_current_step_config(state, mock_context)
+
+    assert result is None
+
+
+# === get_next_step_config ===
+
+
+def test_get_next_step_config_exists(mock_config, state_with_flow, mock_context):
+    """Test get_next_step_config returns next step when it exists."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is not None
+    assert result.step == "collect_destination"
+
+
+def test_get_next_step_config_not_exists(mock_config, state_with_flow, mock_context):
+    """Test get_next_step_config returns None when at end of flow."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "search_flights"  # Last step
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_next_step_config_no_active_flow(mock_config, mock_context):
+    """Test get_next_step_config returns None when no active flow."""
+    step_manager = FlowStepManager(mock_config)
+    state = create_empty_state()
+    state["flow_stack"] = []
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_next_step_config_no_current_step_returns_first(
+    mock_config, state_with_flow, mock_context
+):
+    """Test get_next_step_config returns first step when no current_step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = None
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is not None
+    assert result.step == "collect_origin"  # First step
+
+
+def test_get_next_step_config_current_not_found_returns_first(
+    mock_config, state_with_flow, mock_context
+):
+    """Test get_next_step_config returns first step when current not found."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "nonexistent_step"
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is not None
+    assert result.step == "collect_origin"  # First step
+
+
+def test_get_next_step_config_flow_not_found(mock_config, state_with_flow, mock_context):
+    """Test get_next_step_config returns None when flow not in config."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["flow_name"] = "nonexistent_flow"
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+
+    result = step_manager.get_next_step_config(state, mock_context)
+
+    assert result is None
+
+
+def test_get_next_step_config_empty_steps(mock_config, state_with_flow, mock_context):
+    """Test get_next_step_config returns None when flow has no steps."""
+    config_empty = MagicMock(spec=SoniConfig)
+    config_empty.flows = {"book_flight": MagicMock(steps_or_process=[])}
+
+    step_manager = FlowStepManager(config_empty)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+    context = cast(
+        RuntimeContext,
+        {
+            **mock_context,
+            "config": config_empty,
+        },
+    )
+
+    result = step_manager.get_next_step_config(state, context)
+
+    assert result is None
+
+
+# === advance_to_next_step ===
+
+
+def test_advance_to_next_step_success(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step advances to next step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+
+    result = step_manager.advance_to_next_step(state, mock_context)
+
+    assert result["conversation_state"] == "waiting_for_slot"
+    assert state["flow_stack"][0]["current_step"] == "collect_destination"
+
+
+def test_advance_to_next_step_at_end(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step marks flow as completed when at end."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "search_flights"  # Last step
+
+    result = step_manager.advance_to_next_step(state, mock_context)
+
+    assert result["conversation_state"] == "completed"
+    assert state["flow_stack"][0]["current_step"] is None
+    assert state["flow_stack"][0]["flow_state"] == "completed"
+
+
+def test_advance_to_next_step_action_type(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step sets correct state for action step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_date"  # Before action
+
+    result = step_manager.advance_to_next_step(state, mock_context)
+
+    assert result["conversation_state"] == "ready_for_action"
+    assert state["flow_stack"][0]["current_step"] == "search_flights"
+
+
+def test_advance_to_next_step_confirm_type(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step sets correct state for confirm step."""
+    config_with_confirm = MagicMock(spec=SoniConfig)
+    config_with_confirm.flows = {
+        "book_flight": MagicMock(
+            steps_or_process=[
+                StepConfig(step="collect_origin", type="collect", slot="origin"),
+                StepConfig(step="confirm_booking", type="confirm"),
+            ]
+        )
+    }
+
+    step_manager = FlowStepManager(config_with_confirm)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+    context = cast(
+        RuntimeContext,
+        {
+            **mock_context,
+            "config": config_with_confirm,
+        },
+    )
+
+    result = step_manager.advance_to_next_step(state, context)
+
+    assert result["conversation_state"] == "ready_for_confirmation"
+    assert state["flow_stack"][0]["current_step"] == "confirm_booking"
+
+
+def test_advance_to_next_step_branch_type(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step sets correct state for branch step."""
+    config_with_branch = MagicMock(spec=SoniConfig)
+    config_with_branch.flows = {
+        "book_flight": MagicMock(
+            steps_or_process=[
+                StepConfig(step="collect_origin", type="collect", slot="origin"),
+                StepConfig(step="branch_route", type="branch"),
+            ]
+        )
+    }
+
+    step_manager = FlowStepManager(config_with_branch)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+    context = cast(
+        RuntimeContext,
+        {
+            **mock_context,
+            "config": config_with_branch,
+        },
+    )
+
+    result = step_manager.advance_to_next_step(state, context)
+
+    assert result["conversation_state"] == "understanding"
+    assert state["flow_stack"][0]["current_step"] == "branch_route"
+
+
+def test_advance_to_next_step_say_type(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step sets correct state for say step."""
+    config_with_say = MagicMock(spec=SoniConfig)
+    config_with_say.flows = {
+        "book_flight": MagicMock(
+            steps_or_process=[
+                StepConfig(step="collect_origin", type="collect", slot="origin"),
+                StepConfig(step="say_greeting", type="say"),
+            ]
+        )
+    }
+
+    step_manager = FlowStepManager(config_with_say)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+    context = cast(
+        RuntimeContext,
+        {
+            **mock_context,
+            "config": config_with_say,
+        },
+    )
+
+    result = step_manager.advance_to_next_step(state, context)
+
+    assert result["conversation_state"] == "generating_response"
+    assert state["flow_stack"][0]["current_step"] == "say_greeting"
+
+
+def test_advance_to_next_step_unknown_type(mock_config, state_with_flow, mock_context):
+    """Test advance_to_next_step defaults to waiting_for_slot for unknown type."""
+    config_unknown = MagicMock(spec=SoniConfig)
+    config_unknown.flows = {
+        "book_flight": MagicMock(
+            steps_or_process=[
+                StepConfig(step="collect_origin", type="collect", slot="origin"),
+                StepConfig(step="unknown_step", type="unknown"),
+            ]
+        )
+    }
+
+    step_manager = FlowStepManager(config_unknown)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = "collect_origin"
+    context = cast(
+        RuntimeContext,
+        {
+            **mock_context,
+            "config": config_unknown,
+        },
+    )
+
+    result = step_manager.advance_to_next_step(state, context)
+
+    assert result["conversation_state"] == "waiting_for_slot"
+    assert state["flow_stack"][0]["current_step"] == "unknown_step"
+
+
+def test_advance_to_next_step_no_flow_stack(mock_config, mock_context):
+    """Test advance_to_next_step handles empty flow_stack."""
+    step_manager = FlowStepManager(mock_config)
+    state = create_empty_state()
+    state["flow_stack"] = []
+
+    result = step_manager.advance_to_next_step(state, mock_context)
+
+    assert result["conversation_state"] == "completed"
+
+
+# === is_step_complete ===
+
+
+def test_is_step_complete_collect_filled(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns True for filled collect step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {"origin": "New York"}
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is True
+
+
+def test_is_step_complete_collect_not_filled(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for unfilled collect step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {}  # No origin
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_action_always_false(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for action steps."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="search_flights", type="action", call="search")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_confirm_always_false(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for confirm steps."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="confirm_booking", type="confirm")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_collect_no_slot(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for collect step with no slot."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot=None)
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_collect_empty_string(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for collect step with empty string value."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {"origin": ""}
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_collect_whitespace_only(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns False for collect step with whitespace-only value."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {"origin": "   "}
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is False
+
+
+def test_is_step_complete_branch_returns_true(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns True for branch steps."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="branch_route", type="branch")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is True
+
+
+def test_is_step_complete_say_returns_true(mock_config, state_with_flow, mock_context):
+    """Test is_step_complete returns True for say steps."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="say_greeting", type="say")
+    result = step_manager.is_step_complete(state, step_config, mock_context)
+
+    assert result is True
+
+
+# === get_next_required_slot ===
+
+
+def test_get_next_required_slot_collect_not_filled(mock_config, state_with_flow, mock_context):
+    """Test get_next_required_slot returns slot name for unfilled collect step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {}  # No origin
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.get_next_required_slot(state, step_config, mock_context)
+
+    assert result == "origin"
+
+
+def test_get_next_required_slot_collect_filled(mock_config, state_with_flow, mock_context):
+    """Test get_next_required_slot returns None for filled collect step."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_slots"]["book_flight_123"] = {"origin": "New York"}
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot="origin")
+    result = step_manager.get_next_required_slot(state, step_config, mock_context)
+
+    assert result is None
+
+
+def test_get_next_required_slot_action_returns_none(mock_config, state_with_flow, mock_context):
+    """Test get_next_required_slot returns None for action steps."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="search_flights", type="action", call="search")
+    result = step_manager.get_next_required_slot(state, step_config, mock_context)
+
+    assert result is None
+
+
+def test_get_next_required_slot_collect_no_slot(mock_config, state_with_flow, mock_context):
+    """Test get_next_required_slot returns None for collect step with no slot."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+
+    step_config = StepConfig(step="collect_origin", type="collect", slot=None)
+    result = step_manager.get_next_required_slot(state, step_config, mock_context)
+
+    assert result is None
+
+
+# === advance_through_completed_steps edge cases ===
+
+
+def test_advance_through_completed_steps_no_active_flow(mock_config, mock_flow_manager):
+    """Test advance_through_completed_steps handles no active flow."""
+    step_manager = FlowStepManager(mock_config)
+    state = create_empty_state()
+    state["flow_stack"] = []
+    context: RuntimeContext = {
+        "config": mock_config,
+        "scope_manager": MagicMock(),
+        "normalizer": MagicMock(),
+        "action_handler": MagicMock(),
+        "du": MagicMock(),
+        "flow_manager": mock_flow_manager,
+        "step_manager": step_manager,
+    }
+
+    result = step_manager.advance_through_completed_steps(state, context)
+
+    assert result["conversation_state"] == "idle"
+
+
+def test_advance_through_completed_steps_no_steps_in_flow(
+    mock_config, state_with_flow, mock_flow_manager
+):
+    """Test advance_through_completed_steps handles flow with no steps."""
+    config_no_steps = MagicMock(spec=SoniConfig)
+    config_no_steps.flows = {"book_flight": MagicMock(steps_or_process=[])}
+
+    step_manager = FlowStepManager(config_no_steps)
+    state = state_with_flow
+    state["flow_stack"][0]["current_step"] = None
+    context: RuntimeContext = {
+        "config": config_no_steps,
+        "scope_manager": MagicMock(),
+        "normalizer": MagicMock(),
+        "action_handler": MagicMock(),
+        "du": MagicMock(),
+        "flow_manager": mock_flow_manager,
+        "step_manager": step_manager,
+    }
+
+    result = step_manager.advance_through_completed_steps(state, context)
+
+    assert result["conversation_state"] == "completed"
+    assert result["all_slots_filled"] is True
+
+
+def test_advance_through_completed_steps_flow_not_found(
+    mock_config, state_with_flow, mock_flow_manager
+):
+    """Test advance_through_completed_steps handles flow not found in config."""
+    step_manager = FlowStepManager(mock_config)
+    state = state_with_flow
+    state["flow_stack"][0]["flow_name"] = "nonexistent_flow"
+    state["flow_stack"][0]["current_step"] = None
+    context: RuntimeContext = {
+        "config": mock_config,
+        "scope_manager": MagicMock(),
+        "normalizer": MagicMock(),
+        "action_handler": MagicMock(),
+        "du": MagicMock(),
+        "flow_manager": mock_flow_manager,
+        "step_manager": step_manager,
+    }
+
+    result = step_manager.advance_through_completed_steps(state, context)
+
+    assert result["conversation_state"] == "error"

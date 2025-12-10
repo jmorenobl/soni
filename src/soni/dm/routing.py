@@ -358,14 +358,14 @@ def route_after_understand(state: DialogueStateType) -> str:
             return "handle_modification"
         case "interruption" | "intent_change":
             return "handle_intent_change"
-        case "digression" | "question":
+        case "digression" | "question" | "clarification":
+            # All question types (digression, question, clarification) should be handled
+            # by handle_digression, which preserves waiting_for_slot and re-prompts
             return "handle_digression"
-        case "clarification":
-            # Clarifications need more info, back to generate_response
-            return "generate_response"
         case "cancellation":
-            # Cancellation handled by generate_response for now
-            return "generate_response"
+            # Cancellation should pop flow and return to previous or idle
+            # Design: docs/design/10-dsl-specification/06-patterns.md
+            return "handle_cancellation"
         case "confirmation":
             # Check if we're actually in a confirmation state
             # If conversation_state is "confirming", we're waiting for confirmation

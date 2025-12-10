@@ -336,3 +336,223 @@ async def test_normalizer_normalize_slot_unknown_slot():
 
     # Assert
     assert result == "hello"
+
+
+# === natural_date strategy ===
+
+
+@pytest.mark.asyncio
+async def test_normalizer_natural_date_iso_format():
+    """Test natural_date strategy with ISO format date."""
+    normalizer = SlotNormalizer()
+    entity_config = {"normalization": {"strategy": "natural_date"}}
+
+    # Act
+    result = await normalizer.normalize("2025-12-25", entity_config)
+
+    # Assert
+    assert result == "2025-12-25"
+
+
+@pytest.mark.asyncio
+async def test_normalizer_natural_date_relative():
+    """Test natural_date strategy with relative date."""
+    normalizer = SlotNormalizer()
+    entity_config = {"normalization": {"strategy": "natural_date"}}
+
+    # Act - dateparser should handle "tomorrow"
+    result = await normalizer.normalize("tomorrow", entity_config)
+
+    # Assert - should be valid ISO date
+    assert isinstance(result, str)
+    assert len(result) == 10  # YYYY-MM-DD format
+    assert "-" in result
+
+
+@pytest.mark.asyncio
+@patch("soni.du.normalizer.dspy.LM")
+async def test_normalizer_natural_date_llm_fallback(mock_lm_class):
+    """Test natural_date strategy falls back to LLM when dateparser fails."""
+    mock_lm = MagicMock()
+    mock_lm.acall = AsyncMock(return_value="2025-12-25")
+    mock_lm_class.return_value = mock_lm
+
+    normalizer = SlotNormalizer(
+        config={"settings": {"models": {"nlu": {"model": "gpt-4o-mini", "provider": "openai"}}}}
+    )
+    entity_config = {"normalization": {"strategy": "natural_date"}}
+
+    # Act - use a date that dateparser might not parse
+    with patch("soni.du.normalizer.dateparser.parse", return_value=None):
+        result = await normalizer.normalize("some complex date", entity_config)
+
+    # Assert
+    assert result == "2025-12-25"
+    mock_lm.acall.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("soni.du.normalizer.dspy.LM")
+async def test_normalizer_llm_date_parsing_list_response(mock_lm_class):
+    """Test _llm_date_parsing handles list response from LLM."""
+    mock_lm = MagicMock()
+    mock_lm.acall = AsyncMock(return_value='["2025-12-25"]')
+    mock_lm_class.return_value = mock_lm
+
+    normalizer = SlotNormalizer(
+        config={"settings": {"models": {"nlu": {"model": "gpt-4o-mini", "provider": "openai"}}}}
+    )
+
+    # Act
+    result = await normalizer._llm_date_parsing("complex date")
+
+    # Assert
+    assert result == "2025-12-25"
+
+
+@pytest.mark.asyncio
+@patch("soni.du.normalizer.dspy.LM")
+async def test_normalizer_llm_date_parsing_failure(mock_lm_class):
+    """Test _llm_date_parsing returns original value on failure."""
+    mock_lm = MagicMock()
+    mock_lm.acall = AsyncMock(return_value="invalid date")
+    mock_lm_class.return_value = mock_lm
+
+    normalizer = SlotNormalizer(
+        config={"settings": {"models": {"nlu": {"model": "gpt-4o-mini", "provider": "openai"}}}}
+    )
+
+    # Act
+    original_value = "complex date"
+    result = await normalizer._llm_date_parsing(original_value)
+
+    # Assert - should return original value on validation failure
+    assert result == original_value
+
+
+@pytest.mark.asyncio
+@patch("soni.du.normalizer.dspy.LM")
+async def test_normalizer_llm_date_parsing_exception(mock_lm_class):
+    """Test _llm_date_parsing handles exceptions."""
+    mock_lm = MagicMock()
+    mock_lm.acall = AsyncMock(side_effect=RuntimeError("LLM error"))
+    mock_lm_class.return_value = mock_lm
+
+    normalizer = SlotNormalizer(
+        config={"settings": {"models": {"nlu": {"model": "gpt-4o-mini", "provider": "openai"}}}}
+    )
+
+    # Act
+    original_value = "complex date"
+    result = await normalizer._llm_date_parsing(original_value)
+
+    # Assert - should return original value on exception
+    assert result == original_value
+
+
+@pytest.mark.asyncio
+async def test_normalizer_natural_date_none_value():
+    """Test natural_date strategy with None value."""
+    normalizer = SlotNormalizer()
+    entity_config = {"normalization": {"strategy": "natural_date"}}
+
+    # Act
+    result = await normalizer.normalize(None, entity_config)
+
+    # Assert
+    assert result == ""
+
+
+# === normalize_slot with SlotConfig object ===
+
+
+@pytest.mark.asyncio
+async def test_normalizer_normalize_slot_with_slotconfig_object():
+    """Test normalize_slot with SlotConfig object (has model_dump)."""
+    from soni.core.config import SlotConfig
+
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                }
+            }
+        },
+        "slots": {},
+    }
+    config = SoniConfig(**config_dict)
+    normalizer = SlotNormalizer(config=config)
+
+    # Create SlotConfig object
+    slot_config = SlotConfig(
+        type="string",
+        prompt="Test",
+        normalization={"strategy": "trim"},
+    )
+    normalizer.slots_config["test_slot"] = slot_config
+
+    # Act
+    result = await normalizer.normalize_slot("test_slot", "  hello  ")
+
+    # Assert
+    assert result == "hello"
+
+
+@pytest.mark.asyncio
+async def test_normalizer_normalize_slot_with_non_dict_config():
+    """Test normalize_slot with non-dict, non-SlotConfig config."""
+    config_dict = {
+        "version": "0.1",
+        "settings": {
+            "models": {
+                "nlu": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                }
+            }
+        },
+        "slots": {},
+    }
+    config = SoniConfig(**config_dict)
+    normalizer = SlotNormalizer(config=config)
+
+    # Set non-dict, non-SlotConfig config
+    normalizer.slots_config["test_slot"] = "invalid"
+
+    # Act - should use default strategy (trim)
+    result = await normalizer.normalize_slot("test_slot", "  hello  ")
+
+    # Assert
+    assert result == "hello"
+
+
+# === Additional edge cases ===
+
+
+@pytest.mark.asyncio
+async def test_normalizer_whitespace_only():
+    """Test normalization with whitespace-only value."""
+    normalizer = SlotNormalizer()
+    entity_config = {"normalization": {"strategy": "trim"}}
+
+    # Act
+    result = await normalizer.normalize("   ", entity_config)
+
+    # Assert
+    assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_normalizer_special_characters():
+    """Test normalization preserves special characters."""
+    normalizer = SlotNormalizer()
+    entity_config = {"normalization": {"strategy": "trim"}}
+
+    # Act
+    result = await normalizer.normalize("  @#$%^&*()  ", entity_config)
+
+    # Assert
+    assert result == "@#$%^&*()"
