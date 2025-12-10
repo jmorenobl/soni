@@ -3,14 +3,15 @@
 import logging
 from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
+from soni.utils.metadata_manager import MetadataManager
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_modification_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Handle slot modification.
@@ -84,12 +85,8 @@ async def handle_modification_node(
     flow_slots[flow_id][slot_name] = normalized_value
 
     # Set state variables (for Task 004)
-    metadata = state.get("metadata", {}).copy()
-    metadata["_modification_slot"] = slot_name
-    metadata["_modification_value"] = normalized_value
-    # Clear correction variables if any
-    metadata.pop("_correction_slot", None)
-    metadata.pop("_correction_value", None)
+    metadata = state.get("metadata", {})
+    metadata = MetadataManager.set_modification_flags(metadata, slot_name, normalized_value)
 
     # Determine which step to return to (reuse logic from handle_correction)
     target_step = previous_step

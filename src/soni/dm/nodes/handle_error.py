@@ -1,16 +1,15 @@
 """Error handling node for dialogue recovery."""
 
 import logging
-from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_error_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Handle errors and attempt recovery.

@@ -3,14 +3,16 @@
 import logging
 from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
+from soni.utils.metadata_manager import MetadataManager
+from soni.utils.response_generator import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_confirmation_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Handle user's confirmation response, including automatic correction detection.
@@ -52,10 +54,7 @@ async def handle_confirmation_node(
             f"(current attempts: {confirmation_attempts}). Aborting confirmation flow."
         )
         # Clear confirmation attempts and return error state
-        metadata_cleared = metadata.copy()
-        metadata_cleared.pop("_confirmation_attempts", None)
-        metadata_cleared.pop("_confirmation_processed", None)
-        metadata_cleared.pop("_confirmation_unclear", None)
+        metadata_cleared = MetadataManager.clear_confirmation_flags(metadata)
 
         return {
             "conversation_state": "error",
@@ -92,10 +91,7 @@ async def handle_confirmation_node(
     if confirmation_value is True:
         logger.info("User confirmed, proceeding to action")
         # Clear confirmation attempts and flags on success
-        metadata_cleared = metadata.copy()
-        metadata_cleared.pop("_confirmation_attempts", None)
-        metadata_cleared.pop("_confirmation_processed", None)
-        metadata_cleared.pop("_confirmation_unclear", None)
+        metadata_cleared = MetadataManager.clear_confirmation_flags(metadata)
 
         # Advance to next step (should be the action step after confirm)
         step_manager = runtime.context["step_manager"]
@@ -118,10 +114,7 @@ async def handle_confirmation_node(
                 f"Maximum confirmation attempts ({MAX_CONFIRMATION_ATTEMPTS}) exceeded. "
                 f"Treating denial as error after {confirmation_attempts} unclear attempts."
             )
-            metadata_cleared = metadata.copy()
-            metadata_cleared.pop("_confirmation_attempts", None)
-            metadata_cleared.pop("_confirmation_processed", None)
-            metadata_cleared.pop("_confirmation_unclear", None)
+            metadata_cleared = MetadataManager.clear_confirmation_flags(metadata)
 
             return {
                 "conversation_state": "error",
@@ -134,10 +127,7 @@ async def handle_confirmation_node(
 
         logger.info("User denied confirmation, allowing modification")
         # Clear confirmation attempts and flags on explicit denial
-        metadata_cleared = metadata.copy()
-        metadata_cleared.pop("_confirmation_attempts", None)
-        metadata_cleared.pop("_confirmation_processed", None)
-        metadata_cleared.pop("_confirmation_unclear", None)
+        metadata_cleared = MetadataManager.clear_confirmation_flags(metadata)
         # For now, go back to understanding to allow user to modify
         # In the future, we could route to a specific modification handler
         return {
@@ -149,9 +139,8 @@ async def handle_confirmation_node(
     # Confirmation value not extracted or unclear
     else:
         # Increment retry counter first
-        metadata_updated = metadata.copy()
-        new_attempts = confirmation_attempts + 1
-        metadata_updated["_confirmation_attempts"] = new_attempts
+        metadata_updated = MetadataManager.increment_confirmation_attempts(metadata)
+        new_attempts = MetadataManager.get_confirmation_attempts(metadata_updated)
 
         # Check if we've exceeded max attempts AFTER incrementing
         # This ensures we check correctly: after 3 attempts (1, 2, 3), show error
@@ -161,10 +150,7 @@ async def handle_confirmation_node(
                 f"Aborting confirmation flow."
             )
             # Clear confirmation attempts and return error state
-            metadata_cleared = metadata_updated.copy()
-            metadata_cleared.pop("_confirmation_attempts", None)
-            metadata_cleared.pop("_confirmation_processed", None)
-            metadata_cleared.pop("_confirmation_unclear", None)
+            metadata_cleared = MetadataManager.clear_confirmation_flags(metadata_updated)
 
             return {
                 "conversation_state": "error",
@@ -194,7 +180,7 @@ async def handle_confirmation_node(
 
 async def _handle_correction_during_confirmation(
     state: DialogueState,
-    runtime: Any,
+    runtime: NodeRuntime,
     nlu_result: dict,
     message_type: str,
 ) -> dict:
@@ -253,26 +239,20 @@ async def _handle_correction_during_confirmation(
     flow_slots[flow_id][slot_name] = normalized_value
 
     # Set state variables (for Task 004, but implementing here)
-    metadata = state.get("metadata", {}).copy()
+    metadata = state.get("metadata", {})
     if message_type == "correction":
-        metadata["_correction_slot"] = slot_name
-        metadata["_correction_value"] = normalized_value
-        # Clear modification variables if any
-        metadata.pop("_modification_slot", None)
-        metadata.pop("_modification_value", None)
+        metadata = MetadataManager.set_correction_flags(metadata, slot_name, normalized_value)
     elif message_type == "modification":
-        metadata["_modification_slot"] = slot_name
-        metadata["_modification_value"] = normalized_value
-        # Clear correction variables if any
-        metadata.pop("_correction_slot", None)
-        metadata.pop("_correction_value", None)
+        metadata = MetadataManager.set_modification_flags(metadata, slot_name, normalized_value)
 
     # Re-generate confirmation message with updated values
     step_manager = runtime.context["step_manager"]
     current_step_config = step_manager.get_current_step_config(state, runtime.context)
 
-    confirmation_message = _generate_confirmation_message(
-        flow_slots[flow_id], current_step_config, runtime.context
+    confirmation_message = ResponseGenerator.generate_confirmation(
+        flow_slots[flow_id],
+        current_step_config,
+        runtime.context["config"],
     )
 
     # Get acknowledgment message using template (Task 005)
@@ -308,48 +288,6 @@ async def _handle_correction_during_confirmation(
         "last_response": combined_response,
         "metadata": metadata,
     }
-
-
-def _generate_confirmation_message(
-    slots: dict[str, Any],
-    step_config: Any | None,  # StepConfig - using Any to avoid import issues
-    context: Any,  # RuntimeContext - using Any to avoid import issues
-) -> str:
-    """
-    Generate confirmation message with current slot values.
-
-    Uses step_config.message template if available, otherwise generates default.
-
-    Args:
-        slots: Dictionary of slot name to value
-        step_config: Current step configuration (may be None)
-        context: Runtime context with config
-
-    Returns:
-        Confirmation message string
-    """
-    # Try to use template from step config if available
-    if step_config and hasattr(step_config, "message") and step_config.message:
-        message_str = str(step_config.message)
-        # Interpolate slot values in template
-        for slot_name, value in slots.items():
-            message_str = message_str.replace(f"{{{slot_name}}}", str(value))
-        return message_str
-
-    # Default confirmation message
-    config = context["config"]
-    message = "Let me confirm:\n"
-    for slot_name, value in slots.items():
-        # Get display name from slot config if available
-        display_name = slot_name
-        if hasattr(config, "slots") and config.slots:
-            slot_config = config.slots.get(slot_name, {})
-            if isinstance(slot_config, dict):
-                display_name = slot_config.get("display_name", slot_name)
-        message += f"- {display_name}: {value}\n"
-    message += "\nIs this correct?"
-
-    return message
 
 
 def _get_response_template(

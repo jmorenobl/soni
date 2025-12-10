@@ -3,14 +3,14 @@
 import logging
 from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
 
 logger = logging.getLogger(__name__)
 
 
 async def collect_next_slot_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict[str, Any]:
     """
     Ask for next required slot and pause execution.

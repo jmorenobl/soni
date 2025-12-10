@@ -60,7 +60,7 @@ def test_builtin_validators_registered():
         "city_name",
         "future_date_only",
         "iata_code",
-        "booking_reference",
+        # booking_reference moved to examples/flight_booking/validators.py (domain-specific)
     ]
 
     # Assert

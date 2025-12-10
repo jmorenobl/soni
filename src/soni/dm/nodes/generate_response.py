@@ -1,120 +1,52 @@
-"""Generate response node for final response generation."""
+"""Generate response node with single responsibility."""
 
 import logging
-from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
+from soni.utils.flow_cleanup import FlowCleanupManager
+from soni.utils.response_generator import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
 
 async def generate_response_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
-    """
-    Generate final response to user.
+    """Generate final response to user (single responsibility).
+
+    This node is responsible ONLY for generating the response text.
+    Flow cleanup is handled separately.
 
     Args:
         state: Current dialogue state
         runtime: Runtime context
 
     Returns:
-        Partial state updates
+        Partial state updates with last_response and conversation_state
     """
-    # For now, simple response generation
-    # TODO: Integrate with LLM for natural response generation
-
-    # Try to get confirmation message from slots first
-    from soni.core.state import get_all_slots
-
-    slots = get_all_slots(state)
-
-    # Priority order for response generation:
-    # 1. Action results (booking_ref, confirmation from actions) - highest priority
-    # 2. Existing last_response (from handle_confirmation error messages) - only if no action results
-    # 3. Default fallback
-
-    # Check for confirmation message in slots (from action outputs) - highest priority
-    if "confirmation" in slots and slots["confirmation"]:
-        response = slots["confirmation"]
-        logger.info(f"Using confirmation message from slots: {response[:50]}...")
-    elif "booking_ref" in slots and slots["booking_ref"]:
-        response = f"Booking confirmed! Your reference is: {slots['booking_ref']}"
-        logger.info("Using booking_ref to generate response")
-    else:
-        # Fallback to action_result
-        action_result = state.get("action_result")
-        if action_result:
-            # Try to extract a meaningful message from action_result
-            if isinstance(action_result, dict):
-                response = (
-                    action_result.get("message")
-                    or action_result.get("confirmation")
-                    or f"Action completed successfully. Result: {action_result}"
-                )
-            else:
-                response = f"Action completed successfully. Result: {action_result}"
-            logger.info("Using action_result to generate response")
-        else:
-            # Check if there's an existing last_response from previous nodes
-            # (e.g., handle_confirmation error message) - use it as fallback
-            existing_response = state.get("last_response", "")
-            if existing_response and existing_response.strip():
-                # Use existing response from previous nodes (e.g., handle_confirmation)
-                response = existing_response
-                logger.info(
-                    f"Using existing last_response from previous node: {response[:50]}...",
-                    extra={"response_source": "existing_state"},
-                )
-            else:
-                response = "How can I help you?"
-                logger.warning(
-                    "No confirmation, booking_ref, action_result, or existing response found, "
-                    "using default response"
-                )
-
+    # Generate response using priority-based logic
+    response = ResponseGenerator.generate_from_priority(state)
     logger.info(f"generate_response_node returning: {response[:50]}...")
 
-    # Preserve conversation_state for states that should persist across turns
-    # Don't override "completed" or "confirming" with "idle"
+    # Determine conversation_state based on current state
     current_conv_state = state.get("conversation_state")
 
-    # Note: Response priority is handled above - action results take priority
-    # over existing last_response. This section only handles conversation_state preservation.
-
     if current_conv_state == "completed":
+        # Flow cleanup is now handled by routing or separate node
+        # This node only sets conversation_state
         conversation_state = "completed"
-
-        # Clean up completed flow from stack AFTER generating response
-        # This ensures slots are still available for response generation
-        flow_stack = state.get("flow_stack", [])
-        if flow_stack and flow_stack[-1].get("flow_state") == "completed":
-            # Pop the completed flow manually
-            completed_flow = flow_stack.pop()
-
-            # Archive it in metadata
-            if "metadata" not in state:
-                state["metadata"] = {}
-            if "completed_flows" not in state["metadata"]:
-                state["metadata"]["completed_flows"] = []
-            state["metadata"]["completed_flows"].append(completed_flow)
-
-            # Note: We intentionally DON'T delete flow_slots here
-            # Slots remain available for logging, debugging, and potential follow-up interactions
-            # They will be naturally cleaned up when a new flow starts or session resets
-            logger.info(f"Completed flow removed from stack: {completed_flow['flow_id']}")
-
+        # Optionally clean up completed flow here (or in routing)
+        cleanup_updates = FlowCleanupManager.cleanup_completed_flow(state)
+        if cleanup_updates:
             return {
                 "last_response": response,
                 "conversation_state": conversation_state,
-                "flow_stack": flow_stack,
+                **cleanup_updates,
             }
     elif current_conv_state == "confirming":
-        # Preserve "confirming" state - user needs to respond to confirmation prompt
-        # This prevents the state from being reset to "idle" which would break the flow
+        # Preserve confirming state
         conversation_state = "confirming"
-        logger.debug("Preserving conversation_state='confirming' for next user response")
     else:
         conversation_state = "idle"
 

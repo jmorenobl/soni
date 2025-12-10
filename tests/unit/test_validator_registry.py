@@ -68,16 +68,6 @@ def test_iata_code_validator():
     assert not ValidatorRegistry.validate("iata_code", "JFK1")  # has number
 
 
-def test_booking_reference_validator():
-    """Test booking_reference validator"""
-    # Act & Assert
-    assert ValidatorRegistry.validate("booking_reference", "ABC123")
-    assert ValidatorRegistry.validate("booking_reference", "XYZ999")
-    assert not ValidatorRegistry.validate("booking_reference", "abc123")  # lowercase
-    assert not ValidatorRegistry.validate("booking_reference", "ABC12")  # too short
-    assert not ValidatorRegistry.validate("booking_reference", "ABC1234")  # too long
-
-
 def test_get_nonexistent_validator():
     """Test getting non-existent validator raises error"""
     # Act & Assert
@@ -95,4 +85,47 @@ def test_list_validators():
     assert "city_name" in validators
     assert "future_date_only" in validators
     assert "iata_code" in validators
-    assert "booking_reference" in validators
+    # booking_reference should NOT be in framework (moved to examples/)
+
+
+def test_no_domain_specific_validators_in_registry():
+    """Test that framework validator registry contains NO domain-specific validators."""
+    # Arrange
+    registry_validators = ValidatorRegistry.list_validators()
+
+    # Assert - Framework should only have GENERIC validators
+    domain_specific_keywords = [
+        "booking",
+        "flight",
+        "hotel",
+        "restaurant",
+        "reservation",
+        "passenger",
+        "table",
+    ]
+
+    for validator_name in registry_validators:
+        for keyword in domain_specific_keywords:
+            assert keyword not in validator_name.lower(), (
+                f"Domain-specific validator '{validator_name}' found in framework registry! "
+                f"Move to application code (examples/)."
+            )
+
+
+def test_framework_validators_are_generic():
+    """Test that all framework validators are truly generic."""
+    # Arrange
+    expected_generic_validators = [
+        "city_name",  # Generic: any city name
+        "future_date_only",  # Generic: any future date
+        "iata_code",  # Generic: any 3-letter code (not just airports!)
+    ]
+
+    # Act
+    registry_validators = ValidatorRegistry.list_validators()
+
+    # Assert
+    for validator_name in expected_generic_validators:
+        assert validator_name in registry_validators, (
+            f"Expected generic validator '{validator_name}' not found in registry"
+        )

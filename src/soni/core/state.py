@@ -550,6 +550,100 @@ def get_all_slots(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+# ============================================================================
+# State Access Helpers (consistent defaults, reduces coupling)
+# ============================================================================
+
+
+def get_nlu_result(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
+    """Get NLU result from state with consistent defaults.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        NLU result dictionary, or empty dict if not set
+    """
+    nlu_result = state.get("nlu_result")
+    return nlu_result if nlu_result is not None else {}
+
+
+def get_metadata(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
+    """Get metadata from state with consistent defaults.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Metadata dictionary, or empty dict if not set
+    """
+    return state.get("metadata", {})
+
+
+def get_conversation_state(
+    state: DialogueState | dict[str, Any],
+    default: str = "idle",
+) -> str:
+    """Get conversation state with consistent defaults.
+
+    Args:
+        state: Current dialogue state
+        default: Default conversation state if not set (default: "idle")
+
+    Returns:
+        Conversation state string
+    """
+    return state.get("conversation_state", default)
+
+
+def get_flow_stack(state: DialogueState | dict[str, Any]) -> list[Any]:
+    """Get flow stack from state with consistent defaults.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Flow stack list, or empty list if not set
+    """
+    return state.get("flow_stack", [])
+
+
+def get_user_message(state: DialogueState | dict[str, Any]) -> str:
+    """Get user message from state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        User message string, or empty string if not set
+    """
+    return state.get("user_message", "")
+
+
+def get_last_response(state: DialogueState | dict[str, Any]) -> str:
+    """Get last response from state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Last response string, or empty string if not set
+    """
+    return state.get("last_response", "")
+
+
+def get_action_result(state: DialogueState | dict[str, Any]) -> Any:
+    """Get action result from state.
+
+    Args:
+        state: Current dialogue state
+
+    Returns:
+        Action result (can be any type), or None if not set
+    """
+    return state.get("action_result")
+
+
 def set_all_slots(state: DialogueState | dict[str, Any], slots: dict[str, Any]) -> None:
     """Set all slots for active flow (mutates state in place).
 

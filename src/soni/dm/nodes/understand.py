@@ -2,16 +2,16 @@
 
 import logging
 import time
-from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
+from soni.utils.metadata_manager import MetadataManager
 
 logger = logging.getLogger(__name__)
 
 
 async def understand_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Understand user message via NLU.
@@ -205,11 +205,11 @@ async def understand_node(
 
     # Clear correction/modification state variables at start of new turn
     # These should only reflect the most recent correction/modification
-    metadata = state.get("metadata", {}).copy()
-    metadata.pop("_correction_slot", None)
-    metadata.pop("_correction_value", None)
-    metadata.pop("_modification_slot", None)
-    metadata.pop("_modification_value", None)
+    metadata = state.get("metadata", {})
+    # Clear correction and modification flags at start of new turn
+    # (confirmation flags are NOT cleared here - they persist across understand)
+    metadata = MetadataManager.clear_correction_flags(metadata)
+    metadata = MetadataManager.clear_modification_flags(metadata)
 
     # Preserve conversation_state if we're in a special state (e.g., confirming)
     # This prevents understand_node from overwriting states that should persist

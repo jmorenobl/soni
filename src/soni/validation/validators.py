@@ -62,20 +62,3 @@ def validate_iata_code(value: str) -> bool:
         return False
     # 3 uppercase letters
     return bool(re.match(r"^[A-Z]{3}$", value))
-
-
-@ValidatorRegistry.register("booking_reference")
-def validate_booking_ref(value: str) -> bool:
-    """
-    Validate booking reference format.
-
-    Args:
-        value: Booking reference to validate
-
-    Returns:
-        True if valid booking reference, False otherwise
-    """
-    if not isinstance(value, str):
-        return False
-    # 6 uppercase alphanumeric
-    return bool(re.match(r"^[A-Z0-9]{6}$", value))

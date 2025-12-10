@@ -4,7 +4,19 @@ This module defines TypedDict structures for state management that are
 required by LangGraph and provide runtime type safety.
 """
 
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypedDict
+
+if TYPE_CHECKING:
+    from langgraph.graph.graph import CompiledStateGraph
+
+    # Type alias for node runtime parameter
+    # Runtime is actually the compiled graph with context injected
+    # Using string annotation to avoid forward reference issue
+    NodeRuntime: TypeAlias = CompiledStateGraph["RuntimeContext", Any]
+else:
+    # At runtime, NodeRuntime is Any to avoid import overhead
+    # This allows the type alias to be importable without importing langgraph
+    NodeRuntime: TypeAlias = Any
 
 # Flow states
 FlowState = Literal["active", "paused", "completed", "cancelled", "abandoned", "error"]

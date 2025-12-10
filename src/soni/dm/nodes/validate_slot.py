@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from soni.core.types import DialogueState, FlowContext
+from soni.core.types import DialogueState, FlowContext, NodeRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def _detect_correction_or_modification(
 
 def _handle_correction_flow(
     state: DialogueState,
-    runtime: Any,
+    runtime: NodeRuntime,
     flow_slots: dict[str, dict[str, Any]],
     previous_step: str | None,
 ) -> dict[str, Any]:
@@ -268,7 +268,7 @@ def _handle_correction_flow(
 
 async def validate_slot_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Validate and normalize slot value.

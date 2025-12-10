@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, NodeRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def _extract_slots_from_nlu(nlu_result: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_intent_change_node(
     state: DialogueState,
-    runtime: Any,  # Runtime[RuntimeContext] - using Any to avoid import issues
+    runtime: NodeRuntime,
 ) -> dict:
     """
     Start new flow based on intent change.
