@@ -14,7 +14,9 @@ from tests.conftest import load_test_config
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_process_message_stream_yields_tokens():
+async def test_process_message_stream_yields_tokens(
+    configure_dspy_for_integration, skip_without_api_key
+):
     """Test that process_message_stream yields tokens"""
     # Arrange
     config = load_test_config("examples/flight_booking/soni.yaml")
@@ -45,7 +47,9 @@ async def test_process_message_stream_yields_tokens():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_process_message_stream_first_token_latency():
+async def test_process_message_stream_first_token_latency(
+    configure_dspy_for_integration, skip_without_api_key
+):
     """Test that first token is sent quickly"""
     # Arrange
     config = load_test_config("examples/flight_booking/soni.yaml")
@@ -79,7 +83,9 @@ async def test_process_message_stream_first_token_latency():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_process_message_stream_handles_errors():
+async def test_process_message_stream_handles_errors(
+    configure_dspy_for_integration, skip_without_api_key
+):
     """Test that streaming handles errors gracefully"""
     # Arrange
     config = load_test_config("examples/flight_booking/soni.yaml")
@@ -103,7 +109,9 @@ async def test_process_message_stream_handles_errors():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_process_message_stream_preserves_state():
+async def test_process_message_stream_preserves_state(
+    configure_dspy_for_integration, skip_without_api_key
+):
     """Test that streaming preserves state between tokens"""
     # Arrange
     config = load_test_config("examples/flight_booking/soni.yaml")
@@ -143,7 +151,9 @@ async def test_process_message_stream_preserves_state():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_process_message_stream_returns_strings():
+async def test_process_message_stream_returns_strings(
+    configure_dspy_for_integration, skip_without_api_key
+):
     """Test that streaming yields strings compatible with SSE"""
     # Arrange
     config = load_test_config("examples/flight_booking/soni.yaml")

@@ -23,8 +23,11 @@ async def runtime():
 
 
 # === HAPPY PATH ===
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_action_to_confirmation_flow(runtime):
+async def test_action_to_confirmation_flow(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that after action execution, system displays confirmation message."""
     user_id = "test_confirmation_flow"
 
@@ -56,8 +59,11 @@ async def test_action_to_confirmation_flow(runtime):
     assert response != "How can I help you?"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_confirmation_message_includes_slots(runtime):
+async def test_confirmation_message_includes_slots(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that confirmation message includes interpolated slot values."""
     user_id = "test_confirmation_message"
 
@@ -72,8 +78,11 @@ async def test_confirmation_message_includes_slots(runtime):
     assert "confirm" in response.lower() or "correct" in response.lower()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_complete_confirmation_flow_yes(runtime):
+async def test_complete_confirmation_flow_yes(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test complete flow: book flight, confirm with yes, complete booking."""
     user_id = "test_complete_yes"
 
@@ -101,8 +110,11 @@ async def test_complete_confirmation_flow_yes(runtime):
     )
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_complete_confirmation_flow_no_then_modify(runtime):
+async def test_complete_confirmation_flow_no_then_modify(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test flow: book flight, deny confirmation, modify slot, confirm again."""
     user_id = "test_deny_modify"
 
@@ -129,8 +141,11 @@ async def test_complete_confirmation_flow_no_then_modify(runtime):
     assert "San Francisco" in response or "confirm" in response.lower()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_confirmation_unclear_then_yes(runtime):
+async def test_confirmation_unclear_then_yes(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test flow: unclear response, retry, then yes."""
     user_id = "test_unclear"
 
@@ -153,8 +168,11 @@ async def test_confirmation_unclear_then_yes(runtime):
     assert "booking" in response.lower() or "confirmed" in response.lower()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_confirmation_max_retries(runtime):
+async def test_confirmation_max_retries(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that max retries trigger error state."""
     user_id = "test_max_retries"
 

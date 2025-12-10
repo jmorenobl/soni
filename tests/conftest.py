@@ -28,9 +28,6 @@ def pytest_configure(config):
     project_root = Path(__file__).parent.parent
     env_path = project_root / ".env"
 
-    # Check if API key is already in environment (from shell or CI)
-    api_key_from_env = os.getenv("OPENAI_API_KEY")
-
     if env_path.exists():
         # Load .env file (override=False means env vars take precedence)
         # This allows CI/CD to override .env values
@@ -39,23 +36,9 @@ def pytest_configure(config):
     else:
         print(f"\n⚠️  No .env file found at {env_path}")
 
-    # Check API key after loading .env
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        # Verify it's not empty
-        if api_key.strip():
-            try:
-                lm = dspy.LM("openai/gpt-4o-mini", api_key=api_key)
-                dspy.configure(lm=lm)
-                source = "environment variable" if api_key_from_env else ".env file"
-                print(f"✅ DSPy configured with OpenAI LM (gpt-4o-mini) - API key from {source}")
-            except Exception as e:
-                print(f"⚠️  Failed to configure DSPy: {e}")
-        else:
-            print("⚠️  OPENAI_API_KEY is empty - LLM tests will be skipped")
-    else:
-        print("⚠️  OPENAI_API_KEY not found - LLM tests will be skipped")
-        print(f"   Checked: {env_path} and environment variables")
+    # Note: DSPy is NOT configured globally here to avoid affecting unit tests.
+    # Unit tests should use DummyLM or mocks.
+    # Integration tests should use the configure_dspy_for_integration fixture.
 
 
 @pytest.fixture(scope="session")
@@ -68,6 +51,82 @@ def has_api_key():
 def skip_without_api_key(has_api_key):
     """Skip test if API key is not available"""
     if not has_api_key:
+        pytest.skip("OPENAI_API_KEY not configured")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def configure_dspy_dummy(request):
+    """
+    Automatically configure DummyLM for unit tests.
+
+    This fixture applies only to tests in tests/unit/ directory to ensure
+    unit tests use deterministic mocks instead of real LLM calls.
+    Tests that explicitly configure their own LM (via fixture or in test code)
+    will override this configuration.
+    """
+    # Only apply to tests in tests/unit/ directory
+    # Check if test file path contains 'tests/unit' or is in unit directory
+    test_path = Path(str(request.node.fspath))
+    is_unit_test = "tests/unit" in str(test_path) or (
+        len(test_path.parts) >= 2 and test_path.parts[-2] == "unit"
+    )
+
+    if is_unit_test:
+        from dspy.utils.dummies import DummyLM
+
+        # Configure DummyLM with a default response
+        # Tests can override this by configuring their own LM
+        dummy_lm = DummyLM(
+            [
+                {
+                    "result": {
+                        "message_type": "interruption",
+                        "command": "test_command",
+                        "slots": [],
+                        "confidence": 0.95,
+                    }
+                }
+            ]
+        )
+        # Store previous configuration to restore if needed
+        previous_lm = dspy.settings.lm if hasattr(dspy.settings, "lm") else None
+        dspy.configure(lm=dummy_lm)
+        yield
+        # Restore previous configuration or clear
+        if previous_lm:
+            dspy.configure(lm=previous_lm)
+        else:
+            dspy.configure(lm=None)
+    else:
+        # For non-unit tests, don't configure anything
+        yield
+
+
+@pytest.fixture
+def configure_dspy_for_integration():
+    """
+    Configure DSPy with real LLM for integration tests.
+
+    This fixture should be used explicitly by integration tests that need
+    to use a real LLM. It checks for OPENAI_API_KEY and configures DSPy
+    accordingly.
+
+    Usage:
+        def test_something(configure_dspy_for_integration, skip_without_api_key):
+            # Test code that uses real LLM
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if api_key and api_key.strip():
+        try:
+            lm = dspy.LM("openai/gpt-4o-mini", api_key=api_key)
+            dspy.configure(lm=lm)
+            yield
+        except Exception as e:
+            pytest.skip(f"Failed to configure DSPy with real LM: {e}")
+        finally:
+            # Reset DSPy configuration after test
+            dspy.configure(lm=None)
+    else:
         pytest.skip("OPENAI_API_KEY not configured")
 
 

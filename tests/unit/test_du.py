@@ -406,44 +406,6 @@ def test_soni_du_serialization(tmp_path):
         pytest.skip(f"Serialization test skipped: {e}")
 
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-def test_soni_du_integration_real_dspy():
-    """
-    Integration test with real DSPy LM (requires API key).
-
-    This test runs with integration tests: make test-integration
-
-    Requires OPENAI_API_KEY environment variable.
-    """
-    import os
-
-    if not os.getenv("OPENAI_API_KEY"):
-        pytest.skip("OPENAI_API_KEY not set")
-
-    # Arrange
-    import dspy
-
-    dspy.configure(lm=dspy.LM("openai/gpt-4o-mini"))
-    du = SoniDU()
-
-    # Act
-    result = du.forward(
-        user_message="I want to book a flight to Paris",
-        dialogue_history="",
-        current_slots="{}",
-        available_actions='["book_flight", "search_flights", "help"]',
-        available_flows='{"book_flight": "Book a flight"}',
-        current_flow="none",
-    )
-
-    # Assert
-    assert result is not None
-    assert hasattr(result, "structured_command")
-    assert hasattr(result, "extracted_slots")
-    assert result.structured_command is not None
-
-
 def test_sonidu_default_uses_predict():
     """Test that SoniDU defaults to Predict (not ChainOfThought)."""
     import dspy

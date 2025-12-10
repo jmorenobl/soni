@@ -19,7 +19,7 @@ from soni.runtime import RuntimeLoop
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
 async def test_correction_during_confirmation_returns_to_confirmation(
-    runtime, skip_without_api_key
+    runtime, configure_dspy_for_integration, skip_without_api_key
 ):
     """
     Test that corrections during confirmation return to confirmation step.
@@ -87,7 +87,7 @@ async def test_correction_during_confirmation_returns_to_confirmation(
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
 async def test_modification_during_confirmation_returns_to_confirmation(
-    runtime, skip_without_api_key
+    runtime, configure_dspy_for_integration, skip_without_api_key
 ):
     """
     Test that modifications during confirmation return to confirmation step.
@@ -142,7 +142,9 @@ async def test_modification_during_confirmation_returns_to_confirmation(
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_correction_returns_to_current_step_not_next(runtime, skip_without_api_key):
+async def test_correction_returns_to_current_step_not_next(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that corrections return to current step, not advance to next.
 
@@ -219,7 +221,9 @@ async def test_correction_returns_to_current_step_not_next(runtime, skip_without
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_correction_sets_state_variables(runtime, skip_without_api_key):
+async def test_correction_sets_state_variables(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that correction sets state variables _correction_slot and _correction_value.
 
@@ -268,7 +272,9 @@ async def test_correction_sets_state_variables(runtime, skip_without_api_key):
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_modification_sets_state_variables(runtime, skip_without_api_key):
+async def test_modification_sets_state_variables(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that modification sets state variables _modification_slot and _modification_value.
 
@@ -306,7 +312,9 @@ async def test_modification_sets_state_variables(runtime, skip_without_api_key):
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_correction_uses_acknowledgment_template(runtime, skip_without_api_key):
+async def test_correction_uses_acknowledgment_template(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that corrections use correction_acknowledged response template.
 
@@ -352,7 +360,9 @@ async def test_correction_uses_acknowledgment_template(runtime, skip_without_api
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_modification_uses_acknowledgment_template(runtime, skip_without_api_key):
+async def test_modification_uses_acknowledgment_template(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that modifications use modification_acknowledged response template.
 
@@ -395,7 +405,9 @@ async def test_modification_uses_acknowledgment_template(runtime, skip_without_a
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.design_compliance
-async def test_correction_automatic_during_confirmation(runtime, skip_without_api_key):
+async def test_correction_automatic_during_confirmation(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that corrections during confirmation are handled automatically.
 

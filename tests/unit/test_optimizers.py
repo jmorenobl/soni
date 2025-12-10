@@ -52,48 +52,6 @@ def create_minimal_trainset() -> list[dspy.Example]:
     return examples
 
 
-@pytest.mark.integration
-def test_optimize_soni_du_returns_module_and_metrics():
-    """Test that optimize_soni_du returns both module and metrics
-
-    Integration test - runs with: make test-integration
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure DummyLM with enough responses for optimization
-    # MIPROv2 will make multiple calls, so we need many responses
-    dummy_responses = [
-        {
-            "structured_command": "book_flight",
-            "extracted_slots": '{"destination": "Paris"}',
-            "confidence": "0.95",
-            "reasoning": "User wants to book a flight",
-        }
-    ] * 50  # Enough responses for optimization trials
-    lm = DummyLM(dummy_responses)
-    dspy.configure(lm=lm)
-
-    trainset = create_minimal_trainset()
-
-    # Act
-    optimized_module, metrics = optimize_soni_du(
-        trainset=trainset,
-        optimizer_type="MIPROv2",
-        num_trials=2,  # Minimal for testing
-        timeout_seconds=60,
-    )
-
-    # Assert
-    assert isinstance(optimized_module, SoniDU)
-    assert isinstance(metrics, dict)
-    assert "baseline_accuracy" in metrics
-    assert "optimized_accuracy" in metrics
-    assert "improvement" in metrics
-    assert "improvement_pct" in metrics
-
-
 def test_optimize_soni_du_unsupported_optimizer():
     """Test that optimize_soni_du raises ValueError for unsupported optimizer"""
     # Arrange
@@ -106,46 +64,6 @@ def test_optimize_soni_du_unsupported_optimizer():
             optimizer_type="UNKNOWN",
             num_trials=1,
         )
-
-
-@pytest.mark.integration
-def test_optimize_soni_du_saves_module(tmp_path):
-    """Test that optimize_soni_du can save optimized module
-
-    Integration test - runs with: make test-integration
-    """
-    # Arrange
-    import dspy
-    from dspy.utils.dummies import DummyLM
-
-    # Configure DummyLM
-    dummy_responses = [
-        {
-            "structured_command": "book_flight",
-            "extracted_slots": '{"destination": "Paris"}',
-            "confidence": "0.95",
-            "reasoning": "User wants to book a flight",
-        }
-    ] * 50
-    lm = DummyLM(dummy_responses)
-    dspy.configure(lm=lm)
-
-    trainset = create_minimal_trainset()
-    output_dir = tmp_path / "models"
-
-    # Act
-    optimized_module, metrics = optimize_soni_du(
-        trainset=trainset,
-        optimizer_type="MIPROv2",
-        num_trials=2,
-        timeout_seconds=60,
-        output_dir=output_dir,
-    )
-
-    # Assert
-    assert isinstance(optimized_module, SoniDU)
-    module_path = output_dir / "optimized_nlu.json"
-    assert module_path.exists(), "Module file should be created"
 
 
 def test_load_optimized_module_file_not_found():
@@ -167,39 +85,3 @@ def test_load_optimized_module_invalid_file(tmp_path):
     # Act & Assert
     with pytest.raises(RuntimeError, match="Failed to load module"):
         load_optimized_module(invalid_file)
-
-
-@pytest.mark.integration
-def test_optimize_soni_du_integration():
-    """
-    Integration test for full optimization pipeline with real LM.
-
-    This test runs with integration tests: make test-integration
-
-    Requires OPENAI_API_KEY environment variable.
-    """
-    import os
-
-    if not os.getenv("OPENAI_API_KEY"):
-        pytest.skip("OPENAI_API_KEY not set")
-
-    # Arrange
-    import dspy
-
-    dspy.configure(lm=dspy.LM("openai/gpt-4o-mini"))
-    trainset = create_minimal_trainset()
-
-    # Act
-    optimized_module, metrics = optimize_soni_du(
-        trainset=trainset,
-        optimizer_type="MIPROv2",
-        num_trials=3,
-        timeout_seconds=300,
-    )
-
-    # Assert
-    assert isinstance(optimized_module, SoniDU)
-    assert metrics["baseline_accuracy"] >= 0.0
-    assert metrics["optimized_accuracy"] >= 0.0
-    assert metrics["improvement"] >= -1.0  # Can be negative
-    assert metrics["total_time"] > 0

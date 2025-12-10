@@ -759,13 +759,152 @@ class ResponseGenerator:
 - [ ] Code review approved
 
 **Assigned To**: TBD
-**Target Date**: Together with DEBT-006 repayment
+**Target Date**: Together with DEBT-004 repayment
 
 #### References
 
 - **DRY Principle**: "The Pragmatic Programmer" by Hunt & Thomas
-- **Related Debt**: DEBT-006 (generate_response_node SRP)
+- **Related Debt**: DEBT-004 (generate_response_node SRP)
 - **Files**: `generate_response.py`, `handle_confirmation.py`, `handle_digression.py`
+
+---
+
+### DEBT-007: Domain-Specific Code in Framework (Architecture Violation)
+
+**Status**: 🔴 Active
+**Priority**: CRITICAL
+**Impact**: Architecture, Framework Integrity, Reusability
+**Incurred**: 2025-12-10 (discovered)
+**Related Tasks**: General codebase cleanup
+**Estimated Effort to Resolve**: 1-2 hours
+
+#### Description
+
+The framework contains hardcoded references to domain-specific concepts (booking references, flight bookings), violating the fundamental principle that **the framework must be completely domain-agnostic**.
+
+**Violations Found**:
+
+1. **`src/soni/dm/nodes/generate_response.py`** (lines 42-44, 73):
+```python
+# WRONG: Hardcoded domain-specific slot name
+elif "booking_ref" in slots and slots["booking_ref"]:
+    response = f"Booking confirmed! Your reference is: {slots['booking_ref']}"
+    logger.info("Using booking_ref to generate response")
+```
+
+2. **`src/soni/validation/validators.py`** (lines 67-79):
+```python
+# WRONG: Domain-specific validator in framework
+@ValidatorRegistry.register("booking_reference")
+def validate_booking_ref(value: str) -> bool:
+    """Validate booking reference format."""
+    # ... booking-specific validation logic
+```
+
+**Architectural Violations**:
+- ❌ **Framework Agnosticism**: Framework knows about "booking_ref" domain concept
+- ❌ **Separation of Concerns**: Business logic mixed with framework code
+- ❌ **Reusability**: Framework cannot be used for non-booking domains
+- ❌ **Open/Closed Principle**: Framework hardcodes domain-specific behavior
+
+#### Why Debt Was Accepted
+
+**Rationale**: Accidental leak from example code during rapid prototyping
+
+**Reasons**:
+1. **Prototype Speed**: Code written quickly using flight booking as example
+2. **Lack of Review**: Domain-specific code not caught in code review
+3. **Incremental Development**: Framework extracted from example without proper cleanup
+4. **No Clear Boundary**: Unclear separation between framework and example code initially
+
+**Decision**: This was NOT an intentional decision - it's a bug that needs immediate fixing.
+
+#### Impact Assessment
+
+**Severity**: CRITICAL
+- Violates core architectural principle
+- Makes framework unusable for other domains
+- Creates maintenance nightmare
+- Confuses framework vs. application code boundaries
+
+**Technical Impact**:
+- Framework cannot be reused for domains other than flight booking
+- Domain-specific validators pollute generic validator registry
+- Response generation logic tied to specific slot names
+- Future developers will copy this anti-pattern
+
+**Business Impact**:
+- Framework cannot be sold/distributed as domain-agnostic tool
+- Cannot use framework for restaurant booking, hotel booking, etc.
+- Reduces framework value proposition significantly
+
+#### Repayment Plan
+
+**When to Repay**: IMMEDIATELY (Critical priority)
+
+**Proposed Solution**:
+
+**Part 1: Fix `generate_response.py`** - Make response generation completely generic
+
+```python
+# BEFORE (WRONG):
+elif "booking_ref" in slots and slots["booking_ref"]:
+    response = f"Booking confirmed! Your reference is: {slots['booking_ref']}"
+
+# AFTER (CORRECT):
+# Response generation should use:
+# 1. action_result.message (from action execution)
+# 2. confirmation slot (generic, set by action)
+# 3. last_response (from previous nodes)
+# 4. Default generic message
+
+# Actions should set generic "confirmation" slot with their domain-specific message
+```
+
+**Part 2: Move `validate_booking_ref` to example** - Domain validators belong in applications
+
+```python
+# Remove from src/soni/validation/validators.py
+# Move to examples/flight_booking/validators.py
+
+# In example's soni.yaml:
+slots:
+  booking_ref:
+    type: str
+    validator:
+      type: custom
+      module: validators
+      function: validate_booking_ref
+```
+
+**Refactoring Steps**:
+1. **Remove hardcoded "booking_ref" check** from `generate_response.py` (15 min)
+2. **Update response priority logic** to be purely generic (30 min)
+3. **Move `validate_booking_ref`** to `examples/flight_booking/validators.py` (15 min)
+4. **Update example YAML** to use custom validator (15 min)
+5. **Verify framework has ZERO domain references** (grep audit) (15 min)
+6. **Update all tests** to use generic concepts (30 min)
+
+**Total Effort**: 1-2 hours
+
+**Success Criteria**:
+- [ ] ZERO occurrences of "booking" in `src/soni/` (except comments/docstrings as examples)
+- [ ] ZERO hardcoded slot names in framework code
+- [ ] All domain-specific validators in example code only
+- [ ] `generate_response.py` uses only generic response sources
+- [ ] Framework can generate responses for ANY domain
+- [ ] All tests pass
+- [ ] Code review approved
+
+**Assigned To**: TBD (URGENT)
+**Target Date**: Before next commit (CRITICAL)
+
+#### References
+
+- **Architecture Principles**: `.cursor/rules/001-architecture.mdc` (Zero-Leakage)
+- **YAML DSL**: `.cursor/rules/007-yaml-dsl.mdc` (YAML describes WHAT, Python HOW)
+- **Hexagonal Architecture**: Framework should have zero knowledge of domain
+- **Issue Reporter**: User (2025-12-10)
 
 ---
 
@@ -781,31 +920,32 @@ _No resolved debt items yet. This section will track paid-off technical debt for
 
 | ID | Title | Priority | Impact | Effort | Status |
 |----|-------|----------|--------|--------|--------|
-| DEBT-001 | Retry Logic Duplication | HIGH | Maintainability | 2-3h | 🔴 Active |
-| DEBT-002 | Test-After Instead of TDD | MEDIUM | Process | N/A | 🟡 Active |
-| DEBT-003 | Direct Metadata Dependency | LOW | Architecture | 4-6h | 🟡 Active |
-| DEBT-004 | Extensive Use of `Any` Type | MEDIUM | Type Safety | 4-6h | 🟡 Active |
-| DEBT-005 | Metadata Manipulation Duplication | HIGH | Maintainability | 2-3h | 🔴 Active |
-| DEBT-006 | `generate_response_node` SRP Violation | MEDIUM | Maintainability | 3-4h | 🟡 Active |
-| DEBT-007 | Direct `state.get()` Access | LOW | Architecture | 4-6h | 🟡 Active |
-| DEBT-008 | Response Generation Duplication | LOW | Maintainability | 2-3h | 🟡 Active |
+| DEBT-001 | Test-After Instead of TDD | MEDIUM | Process | N/A | 🟡 Active |
+| DEBT-002 | Extensive Use of `Any` Type | MEDIUM | Type Safety | 4-6h | 🟡 Active |
+| DEBT-003 | Metadata Manipulation Duplication | HIGH | Maintainability | 2-3h | 🔴 Active |
+| DEBT-004 | `generate_response_node` SRP Violation | MEDIUM | Maintainability | 3-4h | 🟡 Active |
+| DEBT-005 | Direct `state.get()` Access | LOW | Architecture | 4-6h | 🟡 Active |
+| DEBT-006 | Response Generation Duplication | LOW | Maintainability | 2-3h | 🟡 Active |
+| **DEBT-007** | **Domain-Specific Code in Framework** | **CRITICAL** | **Architecture** | **1-2h** | **🔴 Active** |
 
-**Total Active Debt**: 8 items
-**Estimated Repayment Effort**: 23-33 hours (code refactoring)
-**Process Changes Needed**: 1 (DEBT-002)
+**Total Active Debt**: 7 items
+**Estimated Repayment Effort**: 16-24 hours (code refactoring)
+**Process Changes Needed**: 1 (DEBT-001)
+**CRITICAL Items**: 1 (DEBT-007 - must fix immediately)
 
 ### Debt by Category
 
-- **Code Quality**: 5 items (DEBT-001, DEBT-005, DEBT-006, DEBT-008)
-- **Architecture**: 2 items (DEBT-003, DEBT-007)
-- **Type Safety**: 1 item (DEBT-004)
-- **Process**: 1 item (DEBT-002)
+- **Code Quality**: 3 items (DEBT-003, DEBT-004, DEBT-006)
+- **Architecture**: 2 items (DEBT-005, DEBT-007)
+- **Type Safety**: 1 item (DEBT-002)
+- **Process**: 1 item (DEBT-001)
 
 ### Debt by Priority
 
-- **HIGH**: 2 items (DEBT-001, DEBT-005)
-- **MEDIUM**: 3 items (DEBT-002, DEBT-004, DEBT-006)
-- **LOW**: 3 items (DEBT-003, DEBT-007, DEBT-008)
+- **CRITICAL**: 1 item (DEBT-007)
+- **HIGH**: 1 item (DEBT-003)
+- **MEDIUM**: 3 items (DEBT-001, DEBT-002, DEBT-004)
+- **LOW**: 2 items (DEBT-005, DEBT-006)
 
 ---
 
@@ -856,74 +996,74 @@ _No resolved debt items yet. This section will track paid-off technical debt for
 
 ## Debt Repayment Schedule
 
-### Immediate (Week 1)
+### CRITICAL (Before Next Commit)
 
-**Target**: After Tasks 201-205 merge
+**Target**: Fix architectural violations immediately
 
-- [ ] **DEBT-001**: Refactor to `RetryHandler` class
+- [ ] **DEBT-007**: Remove domain-specific code from framework
+  - Owner: TBD (URGENT)
+  - Effort: 1-2 hours
+  - Priority: CRITICAL - Framework unusable for other domains until fixed
+  - Blocks: Framework release, reusability, architectural integrity
+
+### Immediate (Current Sprint)
+
+**Target**: High-priority maintenance items
+
+- [ ] **DEBT-003**: Create `MetadataManager` class
   - Owner: TBD
   - Effort: 2-3 hours
-  - Blocks: DEBT-003, DEBT-005 (will be resolved together)
+  - Priority: HIGH - Reduces maintenance burden significantly
 
-- [ ] **DEBT-005**: Create `MetadataManager` class
-  - Owner: TBD
-  - Effort: 2-3 hours
-  - Related: DEBT-001 (metadata manipulation)
+### Short-term (Next Sprint)
 
-### Short-term (Sprint)
-
-- [ ] **DEBT-002**: Update process for TDD
+- [ ] **DEBT-001**: Update process for TDD
   - Owner: Team Lead
   - Effort: Process change + training
   - Impact: Future features only
 
-- [ ] **DEBT-006**: Split `generate_response_node` responsibilities
+- [ ] **DEBT-004**: Split `generate_response_node` responsibilities
   - Owner: TBD
   - Effort: 3-4 hours
-  - Related: DEBT-008 (response generation)
-
-- [ ] **DEBT-008**: Centralize response generation logic
-  - Owner: TBD
-  - Effort: 2-3 hours
   - Related: DEBT-006 (response generation)
 
-### Medium-term (Next Sprint)
+- [ ] **DEBT-006**: Centralize response generation logic
+  - Owner: TBD
+  - Effort: 2-3 hours
+  - Related: DEBT-004 (response generation)
 
-- [ ] **DEBT-004**: Improve type hints with `TYPE_CHECKING`
+### Medium-term (Next 2 Sprints)
+
+- [ ] **DEBT-002**: Improve type hints with `TYPE_CHECKING`
   - Owner: TBD
   - Effort: 4-6 hours
   - Can be done gradually
 
-- [ ] **DEBT-007**: Create consistent state access helpers
+- [ ] **DEBT-005**: Create consistent state access helpers
   - Owner: TBD
   - Effort: 4-6 hours
   - Can be done gradually
-
-### Long-term (Backlog)
-
-- [ ] **DEBT-003**: Auto-resolved when DEBT-001 paid
-  - No separate action needed
 
 ---
 
 ## Lessons Learned
 
-### DEBT-001, DEBT-003: DRY Violation
+### DEBT-003: Metadata Manipulation Duplication
 
-**What Happened**: Rush to implement defensive checks led to duplicated retry logic
+**What Happened**: Incremental feature development led to duplicated metadata clearing logic
 
-**Root Cause**: Time pressure + Focus on getting code working quickly
+**Root Cause**: Features added one at a time without refactoring after pattern became clear
 
 **Prevention**:
-- Always ask: "Will this be needed in multiple places?"
-- If yes, create abstraction first (doesn't take much longer)
-- Use pair programming for rapid feedback
+- After seeing pattern repeated 2-3 times, stop and refactor immediately
+- Create abstraction before fourth repetition
+- Use pair programming to catch duplication early
 
 **Applied Learning**:
-- For future urgent fixes, still take 10-15 min to design abstraction
-- Better to spend 1 hour on good design than 3 hours refactoring later
+- "Rule of Three": First time, write it; second time, note it; third time, refactor it
+- Better to spend 1 hour on abstraction than maintain 6+ duplicated blocks
 
-### DEBT-002: Test-After
+### DEBT-001: Test-After
 
 **What Happened**: Implemented fixes before writing tests (test-after, not TDD)
 
@@ -964,18 +1104,27 @@ _No resolved debt items yet. This section will track paid-off technical debt for
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-12-09 | Created technical debt register | Claude |
-| 2025-12-09 | Added DEBT-001: Retry Logic Duplication | Claude |
-| 2025-12-09 | Added DEBT-002: Test-After Instead of TDD | Claude |
-| 2025-12-09 | Added DEBT-003: Direct Metadata Dependency | Claude |
-| 2025-12-10 | Added DEBT-004: Extensive Use of `Any` Type | Claude |
-| 2025-12-10 | Added DEBT-005: Metadata Manipulation Duplication | Claude |
-| 2025-12-10 | Added DEBT-006: `generate_response_node` SRP Violation | Claude |
-| 2025-12-10 | Added DEBT-007: Direct `state.get()` Access | Claude |
-| 2025-12-10 | Added DEBT-008: Response Generation Duplication | Claude |
+| 2025-12-09 | Added DEBT-001 (original): Retry Logic Duplication | Claude |
+| 2025-12-09 | Added DEBT-002 (original): Test-After Instead of TDD | Claude |
+| 2025-12-09 | Added DEBT-003 (original): Direct Metadata Dependency | Claude |
+| 2025-12-10 | Added DEBT-004 (original): Extensive Use of `Any` Type | Claude |
+| 2025-12-10 | Added DEBT-005 (original): Metadata Manipulation Duplication | Claude |
+| 2025-12-10 | Added DEBT-006 (original): `generate_response_node` SRP Violation | Claude |
+| 2025-12-10 | Added DEBT-007 (original): Direct `state.get()` Access | Claude |
+| 2025-12-10 | Added DEBT-008 (original): Response Generation Duplication | Claude |
+| 2025-12-10 | **Major revision**: Removed DEBT-001 (Retry Logic Duplication) - no actual duplication exists | Claude |
+| 2025-12-10 | **Major revision**: Removed DEBT-003 (Direct Metadata Dependency) - was incorrectly linked to removed DEBT-001 | Claude |
+| 2025-12-10 | Renumbered all remaining debts (DEBT-002→001, DEBT-004→002, DEBT-005→003, DEBT-006→004, DEBT-007→005, DEBT-008→006) | Claude |
+| 2025-12-10 | Fixed DEBT-002 (now DEBT-002): Corrected file count from "14+" to "12" | Claude |
+| 2025-12-10 | Fixed DEBT-003 (now DEBT-003): Corrected line references for handle_confirmation.py | Claude |
+| 2025-12-10 | Updated all cross-references, summary tables, and repayment schedule | Claude |
+| 2025-12-10 | **CRITICAL**: Added DEBT-007 (Domain-Specific Code in Framework) - architectural violation discovered by user | Claude |
+| 2025-12-10 | Found hardcoded "booking_ref" in generate_response.py and validate_booking_ref in validators.py | Claude |
 
 ---
 
-**Status**: 🔴 8 Active Debt Items (2 HIGH, 3 MEDIUM, 3 LOW)
-**Total Estimated Effort**: 23-33 hours
-**Next Review**: After Tasks 201-205 complete
+**Status**: 🔴🔴 7 Active Debt Items (1 CRITICAL, 1 HIGH, 3 MEDIUM, 2 LOW)
+**Total Estimated Effort**: 16-24 hours
+**CRITICAL**: DEBT-007 must be fixed before next commit
+**Next Review**: Immediately for DEBT-007, then current sprint planning
 **Owner**: Development Team
