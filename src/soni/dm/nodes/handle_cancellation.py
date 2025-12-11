@@ -36,7 +36,11 @@ async def handle_cancellation_node(
 
     if not nlu_result:
         logger.warning("No NLU result in state for cancellation")
-        return {"conversation_state": "error", "user_message": ""}
+        return {
+            "conversation_state": "error",
+            "user_message": "",
+            "nlu_result": {},  # Clear to prevent loops
+        }
 
     # Get active flow before popping
     active_ctx = flow_manager.get_active_context(state)
@@ -47,14 +51,24 @@ async def handle_cancellation_node(
             "conversation_state": "idle",
             "last_response": "There's nothing to cancel. How can I help you?",
             "user_message": "",  # Clear to prevent loops
+            "nlu_result": {},  # Clear to prevent loops
+            "current_step": None,
+            "current_prompted_slot": None,
+            "waiting_for_slot": None,
         }
 
     flow_name = active_ctx.get("flow_name", "this task")
-    logger.info(f"Cancelling flow: {flow_name}")
+    flow_id = active_ctx.get("flow_id", "unknown")
+    logger.info(f"Cancelling flow: {flow_name} (flow_id: {flow_id})")
+    logger.debug(f"Flow stack before pop: {len(state.get('flow_stack', []))} flows")
+    logger.debug(f"Flow slots before pop: {list(state.get('flow_slots', {}).keys())}")
 
     # Pop the current flow with result="cancelled"
     # This modifies state["flow_stack"] in place
     flow_manager.pop_flow(state, result="cancelled")
+
+    logger.debug(f"Flow stack after pop: {len(state.get('flow_stack', []))} flows")
+    logger.debug(f"Flow slots after pop: {list(state.get('flow_slots', {}).keys())}")
 
     # Check if there's a previous flow to resume
     # Note: pop_flow() already resumes the previous flow (sets flow_state="active")
@@ -73,22 +87,50 @@ async def handle_cancellation_node(
             waiting_for_slot = current_step_config.slot
 
         # CRITICAL: Clear user_message after processing to prevent routing loops
-        return {
+        # Also clear nlu_result to prevent re-routing
+        result = {
             "conversation_state": "waiting_for_slot" if waiting_for_slot else "idle",
             "waiting_for_slot": waiting_for_slot,
             "last_response": f"I've cancelled {flow_name}. Returning to {previous_flow_name}.",
             "flow_stack": state["flow_stack"],  # Include updated stack
             "flow_slots": state["flow_slots"],  # Include updated slots
             "user_message": "",  # Clear to prevent loops
+            "nlu_result": {},  # Clear nlu_result to prevent re-routing
         }
+        # Only clear current_step and current_prompted_slot if not waiting for slot
+        if not waiting_for_slot:
+            result["current_step"] = None
+            result["current_prompted_slot"] = None
+        return result
     else:
         # No previous flow - return to idle
         logger.info("No previous flow, returning to idle")
+        # Validate that flow_stack is empty
+        if state.get("flow_stack"):
+            logger.warning(
+                f"Expected empty flow_stack after cancellation, but found {len(state['flow_stack'])} flows"
+            )
+        # Validate that flow_slots doesn't have orphaned entries
+        active_flow_ids = {ctx["flow_id"] for ctx in state.get("flow_stack", [])}
+        slot_flow_ids = set(state.get("flow_slots", {}).keys())
+        orphaned_ids = slot_flow_ids - active_flow_ids
+        if orphaned_ids:
+            logger.warning(
+                f"Found orphaned flow_slots after cancellation: {orphaned_ids}. "
+                "These should have been cleaned by pop_flow."
+            )
         # CRITICAL: Clear user_message after processing to prevent routing loops
-        return {
+        # Also clear all flow-related state to prevent loops
+        result = {
             "conversation_state": "idle",
             "last_response": f"I've cancelled {flow_name}. How else can I help you?",
             "flow_stack": state["flow_stack"],  # Include updated stack (empty)
             "flow_slots": state["flow_slots"],  # Include updated slots
             "user_message": "",  # Clear to prevent loops
+            "nlu_result": {},  # Clear nlu_result to prevent re-routing
+            "current_step": None,  # Clear current_step
+            "current_prompted_slot": None,  # Clear current_prompted_slot
+            "waiting_for_slot": None,  # Clear waiting_for_slot when idle
         }
+        logger.debug(f"Returning state updates: {list(result.keys())}")
+        return result

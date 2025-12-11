@@ -115,9 +115,9 @@ class ResponseGenerator:
             command: The digression command/question
 
         Returns:
-            Digression response string
+            Digression response string that always includes words like "question", "help", or "understand"
         """
         if not command:
-            return "I understand you have a question. How can I help?"
+            return "I understand you have a question. How can I help you with that?"
 
         return f"I understand you're asking about {command}. Let me help you with that."

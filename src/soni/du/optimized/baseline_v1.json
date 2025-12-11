@@ -1,0 +1,541 @@
+{
+  "predictor": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "user_message": "I want to fly from Madrid to Barcelona",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight",
+            "search_flights": "search_flights",
+            "check_booking": "check_booking",
+            "modify_booking": "modify_booking",
+            "cancel_booking": "cancel_booking"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "origin",
+            "destination",
+            "departure_date",
+            "return_date",
+            "passengers",
+            "cabin_class"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "book_flight",
+          "slots": [
+            {
+              "name": "origin",
+              "value": "Madrid",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            },
+            {
+              "name": "destination",
+              "value": "Barcelona",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "tomorrow",
+        "history": {
+          "messages": [
+            {
+              "user_message": "I want to book a hotel",
+              "result": {
+                "command": "book_hotel",
+                "message_type": "interruption"
+              }
+            },
+            {
+              "user_message": "In Madrid",
+              "result": {
+                "command": "book_hotel",
+                "message_type": "slot_value",
+                "slots": [
+                  {
+                    "name": "location",
+                    "value": "Madrid"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "location": "Madrid"
+          },
+          "available_actions": [
+            "search_hotels",
+            "book_hotel",
+            "modify_reservation",
+            "cancel_reservation",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_hotel": "book_hotel",
+            "search_hotels": "search_hotels",
+            "check_reservation": "check_reservation",
+            "modify_reservation": "modify_reservation",
+            "cancel_reservation": "cancel_reservation"
+          },
+          "current_flow": "book_hotel",
+          "expected_slots": [
+            "checkin_date",
+            "checkout_date"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "book_hotel",
+          "slots": [
+            {
+              "name": "checkin_date",
+              "value": "tomorrow",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Book a hotel in Madrid",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "search_hotels",
+            "book_hotel",
+            "modify_reservation",
+            "cancel_reservation",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_hotel": "book_hotel",
+            "search_hotels": "search_hotels",
+            "check_reservation": "check_reservation",
+            "modify_reservation": "modify_reservation",
+            "cancel_reservation": "cancel_reservation"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "location",
+            "checkin_date",
+            "checkout_date",
+            "guests",
+            "room_type"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "book_hotel",
+          "slots": [
+            {
+              "name": "location",
+              "value": "Madrid",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Tomorrow",
+        "history": {
+          "messages": [
+            {
+              "user_message": "I want to book a flight",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption"
+              }
+            },
+            {
+              "user_message": "From Madrid to Barcelona",
+              "result": {
+                "command": "book_flight",
+                "message_type": "slot_value",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "Madrid"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Barcelona"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight",
+            "search_flights": "search_flights",
+            "check_booking": "check_booking",
+            "modify_booking": "modify_booking",
+            "cancel_booking": "cancel_booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [
+            "departure_date"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "book_flight",
+          "slots": [
+            {
+              "name": "departure_date",
+              "value": "Tomorrow",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "7:00 PM",
+        "history": {
+          "messages": [
+            {
+              "user_message": "I want to book a table",
+              "result": {
+                "command": "book_table",
+                "message_type": "interruption"
+              }
+            },
+            {
+              "user_message": "In Madrid",
+              "result": {
+                "command": "book_table",
+                "message_type": "slot_value",
+                "slots": [
+                  {
+                    "name": "location",
+                    "value": "Madrid"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "location": "Madrid"
+          },
+          "available_actions": [
+            "search_restaurants",
+            "book_table",
+            "modify_reservation",
+            "cancel_reservation",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_table": "book_table",
+            "search_restaurants": "search_restaurants",
+            "check_reservation": "check_reservation",
+            "modify_reservation": "modify_reservation",
+            "cancel_reservation": "cancel_reservation"
+          },
+          "current_flow": "book_table",
+          "expected_slots": [
+            "date",
+            "time",
+            "party_size"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "book_table",
+          "slots": [
+            {
+              "name": "time",
+              "value": "7:00 PM",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "No, I said Los Angeles not Barcelona",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "Madrid"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Barcelona"
+                  },
+                  {
+                    "name": "departure_date",
+                    "value": "tomorrow"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight",
+            "search_flights": "search_flights",
+            "check_booking": "check_booking",
+            "modify_booking": "modify_booking",
+            "cancel_booking": "cancel_booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "correction",
+          "command": "book_flight",
+          "slots": [
+            {
+              "name": "destination",
+              "value": "Los Angeles",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "I want to buy a laptop",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
+          ],
+          "available_flows": {
+            "search_product": "search_product",
+            "add_to_cart": "add_to_cart",
+            "checkout": "checkout",
+            "track_order": "track_order",
+            "return_product": "return_product"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "product",
+            "quantity",
+            "color",
+            "size",
+            "shipping_address"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "search_product",
+          "slots": [
+            {
+              "name": "product",
+              "value": "laptop",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "black",
+        "history": {
+          "messages": [
+            {
+              "user_message": "I want to buy a laptop",
+              "result": {
+                "command": "search_product",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "product",
+                    "value": "laptop"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "product": "laptop"
+          },
+          "available_actions": [
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
+          ],
+          "available_flows": {
+            "search_product": "search_product",
+            "add_to_cart": "add_to_cart",
+            "checkout": "checkout",
+            "track_order": "track_order",
+            "return_product": "return_product"
+          },
+          "current_flow": "search_product",
+          "expected_slots": [
+            "quantity",
+            "color",
+            "size"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "search_product",
+          "slots": [
+            {
+              "name": "color",
+              "value": "black",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      }
+    ],
+    "signature": {
+      "instructions": "In a critical travel booking context, analyze the user's latest message to determine its type (such as interruption, slot value, or confirmation) and extract key slot values like time, date, or location. Ensure that the user's intent aligns with the available booking flows, especially if the conversation is currently either in a “none” state or awaiting new slot information. Distinguish between any modifications to existing slots and new entries, and adapt to any user corrections or clarifications promptly. This will enable a quick and effective response to the user's travel requests.",
+      "fields": [
+        {
+          "prefix": "User Message:",
+          "description": "User's input message to analyze"
+        },
+        {
+          "prefix": "History:",
+          "description": "Conversation history (list of {role, content} messages)"
+        },
+        {
+          "prefix": "Context:",
+          "description": "Current dialogue state including flow, slots, and conversation phase"
+        },
+        {
+          "prefix": "Current Datetime:",
+          "description": "Current datetime (ISO format) for temporal expressions"
+        },
+        {
+          "prefix": "Result:",
+          "description": "Classified message with type, intent, slots, and confidence"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.13",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

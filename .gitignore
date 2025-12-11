@@ -219,6 +219,18 @@ __marimo__/
 ref/
 workflow/
 
+# NLU Optimization - Keep baseline, ignore custom/temp optimizations
+# Keep baseline optimization (ships with framework)
+!src/soni/du/optimized/baseline_v1.json
+!src/soni/du/optimized/baseline_v1_metrics.json
+!src/soni/du/datasets/baseline_v1.json
+# Ignore other custom optimizations (not shipped with framework)
+src/soni/du/optimized/*.json
+src/soni/du/datasets/*.json
+# But allow baseline again (override)
+!src/soni/du/optimized/baseline_v1*.json
+!src/soni/du/datasets/baseline_v1.json
+
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

@@ -70,6 +70,11 @@ async def handle_digression_node(
         if current_step:
             result["current_step"] = current_step
 
+        logger.debug(
+            f"handle_digression returning: conversation_state='{result['conversation_state']}', "
+            f"waiting_for_slot='{result['waiting_for_slot']}', current_step={result.get('current_step')}"
+        )
+
         return result
 
     # No slot waiting - just answer the question

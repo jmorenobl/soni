@@ -1,23 +1,30 @@
 """Unit tests for DSPy metrics"""
 
-import json
-
 import dspy
 import pytest
 
 from soni.du.metrics import intent_accuracy_metric
+from soni.du.models import MessageType, NLUOutput, SlotValue
 
 
 def test_intent_accuracy_perfect_match():
-    """Test metric with perfect intent and slot match"""
+    """Test metric with perfect message_type, command and slot match"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
 
     # Act
@@ -28,53 +35,77 @@ def test_intent_accuracy_perfect_match():
 
 
 def test_intent_accuracy_intent_match_only():
-    """Test metric with intent match but slot mismatch"""
+    """Test metric with message_type and command match but slot mismatch"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "London"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="London", confidence=0.9)],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should get 70% (intent match) + 0% (slot mismatch) = 0.7
+    # Assert - Should get 40% (message_type) + 30% (command) + 0% (slot mismatch) = 0.7
     assert score == pytest.approx(0.7, abs=0.01)
 
 
 def test_intent_accuracy_slot_match_only():
-    """Test metric with slot match but intent mismatch"""
+    """Test metric with slot match but command mismatch"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="search_flights",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="search_flights",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should get 0% (intent mismatch) + 30% (slot match) = 0.3
-    assert score == pytest.approx(0.3, abs=0.01)
+    # Assert - Should get 40% (message_type) + 0% (command mismatch) + 30% (slot match) = 0.7
+    assert score == pytest.approx(0.7, abs=0.01)
 
 
 def test_intent_accuracy_no_match():
     """Test metric with no matches"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="cancel",
-        extracted_slots='{"action": "cancel"}',
+        result=NLUOutput(
+            message_type=MessageType.CANCELLATION,
+            command="cancel_booking",
+            slots=[],
+            confidence=0.9,
+        )
     )
 
     # Act
@@ -85,21 +116,29 @@ def test_intent_accuracy_no_match():
 
 
 def test_intent_accuracy_case_insensitive():
-    """Test metric handles case-insensitive intent matching"""
+    """Test metric handles case-insensitive command matching"""
     # Arrange
     example = dspy.Example(
-        structured_command="Book_Flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="Book_Flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Intent should match (case-insensitive)
+    # Assert - Command should match (case-insensitive)
     assert score == pytest.approx(1.0, abs=0.01)
 
 
@@ -107,18 +146,26 @@ def test_intent_accuracy_fuzzy_slot_matching():
     """Test metric handles fuzzy slot value matching"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "paris, france"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="paris, france", confidence=0.9)],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should match because "paris" is in "paris, france"
+    # Assert - Should match because "paris" is in "paris, france" (fuzzy matching)
     assert score == pytest.approx(1.0, abs=0.01)
 
 
@@ -126,71 +173,93 @@ def test_intent_accuracy_empty_slots():
     """Test metric with empty slots"""
     # Arrange
     example = dspy.Example(
-        structured_command="help",
-        extracted_slots="{}",
+        result=NLUOutput(
+            message_type=MessageType.DIGRESSION,
+            command=None,
+            slots=[],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="help",
-        extracted_slots="{}",
+        result=NLUOutput(
+            message_type=MessageType.DIGRESSION,
+            command=None,
+            slots=[],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should get full score for intent match
+    # Assert - Should get full score for message_type and command match
     assert score == pytest.approx(1.0, abs=0.01)
 
 
 def test_intent_accuracy_invalid_json():
-    """Test metric handles invalid JSON gracefully"""
+    """Test metric handles invalid result gracefully"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
-    prediction = dspy.Prediction(
-        structured_command="book_flight",
-        extracted_slots="invalid json",
-    )
+    # Prediction with invalid result (dict that can't be converted to NLUOutput)
+    prediction = dspy.Prediction(result={"invalid": "data"})
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should get 70% for intent match, 0% for slots (invalid JSON)
-    assert score == pytest.approx(0.7, abs=0.01)
+    # Assert - Should return 0.0 when result can't be extracted
+    assert score == 0.0
 
 
 def test_intent_accuracy_missing_attributes():
-    """Test metric handles missing attributes gracefully"""
+    """Test metric handles missing result field gracefully"""
     # Arrange
     example = dspy.Example(
-        structured_command="book_flight",
-        extracted_slots='{"destination": "Paris"}',
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command="book_flight",
+            slots=[SlotValue(name="destination", value="Paris", confidence=0.9)],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction()
-    # Missing structured_command and extracted_slots
+    # Missing result field
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Should return 0.0 for any error
+    # Assert - Should return 0.0 when result is missing
     assert score == 0.0
 
 
 def test_intent_accuracy_empty_strings():
-    """Test metric handles empty strings"""
+    """Test metric handles None commands"""
     # Arrange
     example = dspy.Example(
-        structured_command="",
-        extracted_slots="{}",
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command=None,
+            slots=[],
+            confidence=0.9,
+        )
     )
     prediction = dspy.Prediction(
-        structured_command="",
-        extracted_slots="{}",
+        result=NLUOutput(
+            message_type=MessageType.SLOT_VALUE,
+            command=None,
+            slots=[],
+            confidence=0.9,
+        )
     )
 
     # Act
     score = intent_accuracy_metric(example, prediction)
 
-    # Assert - Empty strings should match
+    # Assert - None commands should match (both converted to empty string)
     assert score == pytest.approx(1.0, abs=0.01)

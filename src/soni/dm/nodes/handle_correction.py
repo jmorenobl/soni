@@ -154,6 +154,10 @@ async def handle_correction_node(
 
     # Get acknowledgment message using template (Task 005)
     config = runtime.context["config"]
+    logger.info(
+        f"handle_correction: Generating acknowledgment for slot '{slot_name}' "
+        f"with new value '{normalized_value}'"
+    )
     acknowledgment = _get_response_template(
         config,
         "correction_acknowledged",
@@ -161,6 +165,7 @@ async def handle_correction_node(
         slot_name=slot_name,
         new_value=normalized_value,
     )
+    logger.info(f"handle_correction: Generated acknowledgment: '{acknowledgment}'")
 
     if target_step:
         # Get the target step configuration to determine conversation_state
@@ -185,7 +190,12 @@ async def handle_correction_node(
                 new_conversation_state = "ready_for_confirmation"
                 # For confirmation, combine acknowledgment with confirmation message
                 # (confirmation will be re-displayed by confirm_action node)
+                # CRITICAL: Use acknowledgment as last_response so it's shown before confirmation
                 last_response = acknowledgment
+                logger.info(
+                    f"handle_correction: Returning to confirmation step, "
+                    f"using acknowledgment as last_response: '{last_response}'"
+                )
             elif target_step_config.type == "collect":
                 # For collect steps, check if there's a next slot to prompt for
                 # This handles the case where we corrected a slot but need to continue collecting
@@ -260,6 +270,10 @@ async def handle_correction_node(
     logger.warning("Could not determine target step for correction, staying in current state")
     # Get acknowledgment message using template (Task 005)
     config = runtime.context["config"]
+    logger.info(
+        f"handle_correction (fallback): Generating acknowledgment for slot '{slot_name}' "
+        f"with new value '{normalized_value}'"
+    )
     acknowledgment = _get_response_template(
         config,
         "correction_acknowledged",
@@ -267,6 +281,7 @@ async def handle_correction_node(
         slot_name=slot_name,
         new_value=normalized_value,
     )
+    logger.info(f"handle_correction (fallback): Generated acknowledgment: '{acknowledgment}'")
     # CRITICAL: Clear user_message after processing to prevent routing loops
     return {
         "flow_slots": flow_slots,
@@ -305,13 +320,24 @@ def _get_response_template(
                 template = template_config.get("default")
             elif isinstance(template_config, str):
                 template = template_config
+            logger.debug(
+                f"_get_response_template: Found template '{template_name}' in config: '{template}'"
+            )
 
     if not template:
         template = default_template
+        logger.debug(
+            f"_get_response_template: Using default template for '{template_name}': '{template}'"
+        )
 
     # Interpolate variables
     result = template
     for key, value in kwargs.items():
         result = result.replace(f"{{{key}}}", str(value))
+
+    logger.debug(
+        f"_get_response_template: Interpolated template '{template_name}': '{result}' "
+        f"with kwargs: {kwargs}"
+    )
 
     return result

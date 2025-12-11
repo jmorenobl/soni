@@ -1,10 +1,12 @@
 """Metrics for evaluating DSPy NLU modules."""
 
-import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import dspy
+
+if TYPE_CHECKING:
+    from soni.du.models import NLUOutput
 
 logger = logging.getLogger(__name__)
 
@@ -14,87 +16,181 @@ def intent_accuracy_metric(
     prediction: dspy.Prediction,
     trace: Any = None,  # noqa: ARG001
 ) -> float:
-    """Calculate accuracy metric for intent extraction and slot filling.
+    """Calculate accuracy metric for NLU prediction.
 
-    This metric combines:
-    - Intent accuracy (70% weight): Exact match of structured_command
-    - Slot accuracy (30% weight): Key-value matching of extracted slots
+    This metric evaluates the NLUOutput structure returned by the DialogueUnderstanding signature.
+    It combines:
+    - Message type accuracy (40% weight): Exact match of message_type (critical for routing)
+    - Command accuracy (30% weight): Exact match of command (intent/flow name)
+    - Slot accuracy (30% weight): Matching of extracted slots (name, value, action)
 
     Args:
-        example: Ground truth example with expected outputs
-        prediction: Model prediction to evaluate
+        example: Ground truth example with expected NLUOutput in result field
+        prediction: Model prediction with NLUOutput in result field
         trace: Optional trace information (unused for now)
 
     Returns:
         Score between 0.0 and 1.0, where 1.0 is perfect match
     """
     try:
-        # Compare structured_command (intent)
-        expected_intent = (
-            example.structured_command.lower()
-            if hasattr(example, "structured_command") and example.structured_command
-            else ""
+        # Extract NLUOutput from example and prediction
+        # Handle both NLUOutput objects and dicts (DSPy may return dicts)
+        expected_result = _extract_nlu_output(
+            example.result if hasattr(example, "result") else None
         )
-        predicted_intent = (
-            prediction.structured_command.lower()
-            if hasattr(prediction, "structured_command") and prediction.structured_command
-            else ""
+        predicted_result = _extract_nlu_output(
+            prediction.result if hasattr(prediction, "result") else None
         )
 
-        intent_match = expected_intent == predicted_intent
-
-        # Compare extracted slots (basic JSON comparison)
-        try:
-            example_slots = (
-                json.loads(example.extracted_slots)
-                if hasattr(example, "extracted_slots") and example.extracted_slots
-                else {}
+        if expected_result is None or predicted_result is None:
+            logger.warning(
+                "Missing result field in example or prediction",
+                extra={
+                    "has_example_result": expected_result is not None,
+                    "has_prediction_result": predicted_result is not None,
+                },
             )
-            pred_slots = (
-                json.loads(prediction.extracted_slots)
-                if hasattr(prediction, "extracted_slots") and prediction.extracted_slots
-                else {}
-            )
+            return 0.0
 
-            # Check if key entities match (simplified)
-            slot_match = True
-            if example_slots:
-                for key in example_slots:
-                    if key not in pred_slots:
-                        slot_match = False
-                        break
-                    # Allow fuzzy matching for values (case-insensitive substring)
-                    expected_value = str(example_slots[key]).lower()
-                    predicted_value = str(pred_slots[key]).lower()
-                    if expected_value not in predicted_value:
-                        slot_match = False
-                        break
-            elif pred_slots:
-                # If example has no slots but prediction does, it's a mismatch
-                slot_match = False
-        except (json.JSONDecodeError, AttributeError, TypeError, KeyError):
-            slot_match = False
+        # 1. Compare message_type (40% weight) - CRITICAL for routing
+        # Handle both enum and string comparisons
+        expected_mt = _normalize_message_type(expected_result.message_type)
+        predicted_mt = _normalize_message_type(predicted_result.message_type)
+        message_type_match = expected_mt == predicted_mt
 
-        # Weighted score: 70% intent, 30% slots
-        score = 0.7 * (1.0 if intent_match else 0.0) + 0.3 * (1.0 if slot_match else 0.0)
+        # 2. Compare command (30% weight) - Intent/flow name
+        # Both None is a match, both same string is a match
+        expected_command = expected_result.command or ""
+        predicted_command = predicted_result.command or ""
+        command_match = expected_command.lower() == predicted_command.lower()
+
+        # 3. Compare slots (30% weight) - Extracted slot values
+        slot_match = _compare_slots(expected_result.slots, predicted_result.slots)
+
+        # Weighted score: 40% message_type, 30% command, 30% slots
+        score = (
+            0.4 * (1.0 if message_type_match else 0.0)
+            + 0.3 * (1.0 if command_match else 0.0)
+            + 0.3 * (1.0 if slot_match else 0.0)
+        )
+
         return score
     except (AttributeError, KeyError, TypeError, ValueError) as e:
-        # Errores esperados en cálculo de métrica
-        logger.warning(
-            f"Error calculating metric: {e}",
-            extra={"error_type": type(e).__name__},
-        )
-        # Return 0.0 for any error in metric calculation
-        predicted_intent = (
-            prediction.structured_command if hasattr(prediction, "structured_command") else None
-        )
-        gold_intent = example.structured_command if hasattr(example, "structured_command") else None
         logger.warning(
             f"Error calculating metric: {e}",
             exc_info=True,
-            extra={
-                "predicted_intent": predicted_intent,
-                "gold_intent": gold_intent,
-            },
+            extra={"error_type": type(e).__name__},
         )
         return 0.0
+
+
+def _extract_nlu_output(result: Any) -> "NLUOutput | None":
+    """Extract NLUOutput from result, handling both objects and dicts.
+
+    Args:
+        result: Can be NLUOutput, dict, or None
+
+    Returns:
+        NLUOutput object or None if extraction fails
+    """
+    from soni.du.models import NLUOutput
+
+    if result is None:
+        return None
+
+    # Already an NLUOutput object
+    if isinstance(result, NLUOutput):
+        return result
+
+    # Try to convert from dict
+    if isinstance(result, dict):
+        try:
+            return cast("NLUOutput", NLUOutput.model_validate(result))
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Failed to convert dict to NLUOutput: {e}")
+            return None
+
+    return None
+
+
+def _normalize_message_type(message_type: Any) -> str:
+    """Normalize message_type to string for comparison.
+
+    Args:
+        message_type: Can be MessageType enum, string, or other
+
+    Returns:
+        Normalized string value
+    """
+    from soni.du.models import MessageType
+
+    if isinstance(message_type, MessageType):
+        return message_type.value
+    if isinstance(message_type, str):
+        return message_type.lower()
+    return str(message_type).lower()
+
+
+def _compare_slots(expected_slots: list, predicted_slots: list) -> bool:
+    """Compare two lists of SlotValue objects or dicts for matching.
+
+    Args:
+        expected_slots: Expected slot values (list of SlotValue or dict)
+        predicted_slots: Predicted slot values (list of SlotValue or dict)
+
+    Returns:
+        True if slots match, False otherwise
+    """
+    try:
+        # If both empty, it's a match
+        if not expected_slots and not predicted_slots:
+            return True
+
+        # If one is empty and the other isn't, it's a mismatch
+        if not expected_slots or not predicted_slots:
+            return False
+
+        # If different lengths, it's a mismatch
+        if len(expected_slots) != len(predicted_slots):
+            return False
+
+        # Normalize slots to dicts for easier comparison
+        # Handle both SlotValue objects and dicts
+        expected_dict = {}
+        for slot in expected_slots:
+            if isinstance(slot, dict):
+                name = slot.get("name", "")
+                value = str(slot.get("value", "")).lower()
+            else:
+                name = getattr(slot, "name", "")
+                value = str(getattr(slot, "value", "")).lower()
+            if name:
+                expected_dict[name] = value
+
+        predicted_dict = {}
+        for slot in predicted_slots:
+            if isinstance(slot, dict):
+                name = slot.get("name", "")
+                value = str(slot.get("value", "")).lower()
+            else:
+                name = getattr(slot, "name", "")
+                value = str(getattr(slot, "value", "")).lower()
+            if name:
+                predicted_dict[name] = value
+
+        # Check all expected slots are present with matching values
+        for name, expected_value in expected_dict.items():
+            if name not in predicted_dict:
+                return False
+            predicted_value = predicted_dict[name]
+            # Allow fuzzy matching (substring or exact match)
+            if expected_value and predicted_value:
+                if expected_value not in predicted_value and predicted_value not in expected_value:
+                    return False
+            elif expected_value != predicted_value:
+                # Both empty strings should match
+                return False
+
+        return True
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return False

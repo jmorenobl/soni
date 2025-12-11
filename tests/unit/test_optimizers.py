@@ -252,7 +252,9 @@ def test_evaluate_module_with_mock():
     """Test _evaluate_module with mocked module."""
     # Arrange
     trainset = create_trainset_with_history()
-    mock_module = MagicMock(spec=SoniDU)
+    # Create mock with forward() method
+    mock_module = MagicMock()
+    mock_forward = MagicMock()
 
     from soni.du.models import MessageType, NLUOutput
 
@@ -262,7 +264,16 @@ def test_evaluate_module_with_mock():
         slots=[],
         confidence=0.9,
     )
-    mock_module.forward.return_value = mock_prediction
+    # Configure forward() to return the prediction
+    mock_forward.return_value = mock_prediction
+    mock_module.forward = mock_forward
+
+    # Configure __call__() to call forward() (DSPy pattern: module() -> __call__() -> forward())
+    # Use side_effect on the mock itself so calling it as function calls forward()
+    def call_forward(**kwargs):
+        return mock_forward(**kwargs)
+
+    mock_module.side_effect = call_forward
 
     with patch("soni.du.optimizers.intent_accuracy_metric", return_value=1.0):
         # Act
@@ -270,7 +281,8 @@ def test_evaluate_module_with_mock():
 
         # Assert
         assert score == 1.0
-        assert mock_module.forward.call_count == 2
+        # Verify that forward() was called (via __call__)
+        assert mock_forward.call_count == 2
 
 
 def test_evaluate_module_handles_errors():

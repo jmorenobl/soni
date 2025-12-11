@@ -1,0 +1,1976 @@
+{
+  "version": "1.0",
+  "created_at": "2025-12-11T22:50:03.196570",
+  "total_examples": 52,
+  "examples": [
+    {
+      "user_message": "I want to fly from Madrid to Barcelona",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "origin",
+          "destination",
+          "departure_date",
+          "return_date",
+          "passengers",
+          "cabin_class"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "Madrid",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "destination",
+            "value": "Barcelona",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Book a flight from Paris to London tomorrow",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "origin",
+          "destination",
+          "departure_date",
+          "return_date",
+          "passengers",
+          "cabin_class"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "Paris",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "destination",
+            "value": "London",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "departure_date",
+            "value": "tomorrow",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.93,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Los Angeles",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination",
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "Los Angeles",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Tomorrow",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "departure_date",
+            "value": "Tomorrow",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Book a hotel in Madrid",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "location",
+          "checkin_date",
+          "checkout_date",
+          "guests",
+          "room_type"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "location",
+            "value": "Madrid",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "tomorrow",
+      "context": {
+        "current_slots": {
+          "location": "Madrid"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date",
+          "checkout_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "checkin_date",
+            "value": "tomorrow",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I need a table for 2 in Madrid",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "location",
+          "date",
+          "time",
+          "party_size",
+          "cuisine"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "2",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "location",
+            "value": "Madrid",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.92,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "7:00 PM",
+      "context": {
+        "current_slots": {
+          "location": "Madrid"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "date",
+          "time",
+          "party_size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "time",
+            "value": "7:00 PM",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to buy a laptop",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "product",
+          "quantity",
+          "color",
+          "size",
+          "shipping_address"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "product",
+            "value": "laptop",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "black",
+      "context": {
+        "current_slots": {
+          "product": "laptop"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "quantity",
+          "color",
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "color",
+            "value": "black",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, I said Los Angeles not Barcelona",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "Los Angeles",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, I want to leave next Monday",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "departure_date",
+            "value": "next Monday",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No wait, Paris, not Madrid",
+      "context": {
+        "current_slots": {
+          "location": "Madrid"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "location",
+            "value": "Paris",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, 8:00 PM instead",
+      "context": {
+        "current_slots": {
+          "time": "7:00 PM"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "time",
+            "value": "8:00 PM",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, I want black not blue",
+      "context": {
+        "current_slots": {
+          "color": "blue"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "color",
+            "value": "black",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Change the destination to Tokyo",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "Tokyo",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Can I modify the date to next Monday?",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "departure_date",
+            "value": "next Monday",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to change the location to London",
+      "context": {
+        "current_slots": {
+          "location": "Madrid"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "location",
+            "value": "London",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Can I change the party size to 6?",
+      "context": {
+        "current_slots": {
+          "party_size": "2"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "6",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to modify the size to large",
+      "context": {
+        "current_slots": {
+          "size": "small"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "size",
+            "value": "large",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to book a flight",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "none",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, check hotel prices first",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_hotels",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to book a hotel",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Wait, let me search for flights instead",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_flights",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to make a reservation",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, I need to book a flight first",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I'm looking for a laptop",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "none",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, let me check flights first",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "product"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_flights",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Cancel",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Never mind",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Cancel",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Never mind",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Forget it",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "product"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Continue",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Go ahead",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Next",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes, continue",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Proceed",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "product"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What airlines fly that route?",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Do you have WiFi?",
+      "context": {
+        "current_slots": {
+          "location": "Barcelona"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Do you have vegetarian options?",
+      "context": {
+        "current_slots": {
+          "location": "Madrid"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What's the warranty?",
+      "context": {
+        "current_slots": {
+          "product": "laptop"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "quantity"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why do you need that?",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What's this for?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why is that necessary?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why do you need my address?",
+      "context": {
+        "current_slots": {
+          "product": "laptop"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "shipping_address"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": true
+      }
+    },
+    {
+      "user_message": "No",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": false
+      }
+    },
+    {
+      "user_message": "Yes",
+      "context": {
+        "current_slots": {
+          "location": "Barcelona"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": true
+      }
+    },
+    {
+      "user_message": "No",
+      "context": {
+        "current_slots": {
+          "location": "Barcelona"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": false
+      }
+    },
+    {
+      "user_message": "That's right",
+      "context": {
+        "current_slots": {
+          "party_size": "4"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": true
+      }
+    },
+    {
+      "user_message": "Correct",
+      "context": {
+        "current_slots": {
+          "product": "laptop"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": true
+      }
+    }
+  ]
+}

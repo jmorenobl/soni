@@ -1,6 +1,7 @@
 """Generate response node with single responsibility."""
 
 import logging
+from typing import Any
 
 from soni.core.types import DialogueState, NodeRuntime
 from soni.utils.flow_cleanup import FlowCleanupManager
@@ -48,9 +49,19 @@ async def generate_response_node(
 
     # Determine conversation_state based on current state
     current_conv_state = state.get("conversation_state")
-    waiting_for_slot = state.get("waiting_for_slot")
+    waiting_for_slot: str | None = state.get("waiting_for_slot")
 
-    if current_conv_state == "completed":
+    # CRITICAL: If waiting_for_slot exists, preserve waiting_for_slot state
+    # This handles the case where handle_digression (or other nodes) set waiting_for_slot
+    # but the state hasn't been fully merged yet, or conversation_state isn't set correctly
+    if waiting_for_slot:
+        # Preserve waiting_for_slot state (e.g., after digression)
+        conversation_state = "waiting_for_slot"
+        logger.info(
+            f"generate_response: Detected waiting_for_slot='{waiting_for_slot}', "
+            f"preserving conversation_state='waiting_for_slot'"
+        )
+    elif current_conv_state == "completed":
         # Flow cleanup is now handled by routing or separate node
         # This node only sets conversation_state
         conversation_state = "completed"
@@ -65,19 +76,22 @@ async def generate_response_node(
     elif current_conv_state == "confirming":
         # Preserve confirming state
         conversation_state = "confirming"
-    elif current_conv_state == "waiting_for_slot" and waiting_for_slot:
-        # Preserve waiting_for_slot state (e.g., after digression)
-        conversation_state = "waiting_for_slot"
     else:
         conversation_state = "idle"
+        # When idle, clear waiting_for_slot to prevent routing loops
+        waiting_for_slot = None
 
-    result = {
+    result: dict[str, Any] = {
         "last_response": response,
         "conversation_state": conversation_state,
     }
 
-    # Preserve waiting_for_slot if it exists (e.g., after digression)
-    if waiting_for_slot:
+    # Preserve waiting_for_slot if it exists and conversation_state is waiting_for_slot
+    # Clear it when idle to prevent routing loops
+    if conversation_state == "waiting_for_slot" and waiting_for_slot:
         result["waiting_for_slot"] = waiting_for_slot
+        logger.info(f"generate_response: Preserving waiting_for_slot='{waiting_for_slot}'")
+    elif conversation_state == "idle":
+        result["waiting_for_slot"] = None
 
     return result

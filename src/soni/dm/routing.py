@@ -334,6 +334,11 @@ def route_after_understand(state: DialogueStateType) -> str:
             has_active_flow = bool(flow_stack)
             command = nlu_result.get("command")
 
+            logger.info(
+                f"route_after_understand: CORRECTION detected, has_active_flow={has_active_flow}, "
+                f"command={command}, routing to handle_correction"
+            )
+
             if not has_active_flow and command:
                 # No flow active but user provided command - start flow first
                 logger.info(

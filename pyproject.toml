@@ -50,6 +50,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/soni"]
+include = [
+    "src/soni/du/optimized/*.json",
+    "src/soni/du/optimized/README.md",
+    "src/soni/du/datasets/*.json",
+]
 
 [tool.ruff]
 line-length = 100

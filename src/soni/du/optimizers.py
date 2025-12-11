@@ -20,6 +20,11 @@ def optimize_soni_du(
     num_trials: int = 10,
     timeout_seconds: int = 600,
     output_dir: Path | str | None = None,
+    minibatch_size: int | None = None,
+    num_candidates: int | None = None,
+    max_bootstrapped_demos: int = 6,
+    max_labeled_demos: int = 8,
+    init_temperature: float = 1.0,
 ) -> tuple[SoniDU, dict[str, Any]]:
     """Optimize a SoniDU module using DSPy optimizers.
 
@@ -29,6 +34,11 @@ def optimize_soni_du(
         num_trials: Number of optimization trials
         timeout_seconds: Maximum time for optimization in seconds
         output_dir: Optional directory to save optimized module
+        minibatch_size: Optional minibatch size for MIPROv2. Auto-calculated if None.
+        num_candidates: Number of candidate prompts to evaluate. Defaults to 1.5x num_trials.
+        max_bootstrapped_demos: Maximum bootstrapped demonstrations. Default: 6.
+        max_labeled_demos: Maximum labeled demonstrations. Default: 8.
+        init_temperature: Initial temperature for Bayesian optimization. Default: 1.0.
 
     Returns:
         Tuple of (optimized SoniDU module, metrics dictionary)
@@ -51,12 +61,24 @@ def optimize_soni_du(
 
     print(f"Baseline accuracy: {baseline_score:.2%} (time: {baseline_time:.2f}s)")
 
+    # Calculate optimal parameters if not provided
+    if num_candidates is None:
+        num_candidates = max(int(num_trials * 1.5), 20)
+
+    if minibatch_size is None:
+        if len(trainset) < 50:
+            minibatch_size = 10
+        elif len(trainset) < 200:
+            minibatch_size = 20
+        else:
+            minibatch_size = 35
+
     # Configure optimizer
     # Note: auto=None is required when passing num_candidates and num_trials
     optimizer = MIPROv2(
         metric=intent_accuracy_metric,
-        num_candidates=num_trials,
-        init_temperature=1.0,
+        num_candidates=num_candidates,
+        init_temperature=init_temperature,
         auto=None,  # Explicitly disable auto to allow manual num_candidates/num_trials
     )
 
@@ -65,13 +87,16 @@ def optimize_soni_du(
     optimization_start = time.time()
 
     try:
-        optimized_nlu = optimizer.compile(
-            student=baseline_nlu,
-            trainset=trainset,
-            num_trials=num_trials,  # Pass num_trials to compile() as well
-            max_bootstrapped_demos=4,
-            max_labeled_demos=16,
-        )
+        compile_kwargs = {
+            "student": baseline_nlu,
+            "trainset": trainset,
+            "num_trials": num_trials,
+            "max_bootstrapped_demos": max_bootstrapped_demos,
+            "max_labeled_demos": max_labeled_demos,
+            "minibatch_size": minibatch_size,
+        }
+
+        optimized_nlu = optimizer.compile(**compile_kwargs)
         optimization_time = time.time() - optimization_start
     except (ValueError, TypeError, AttributeError, RuntimeError) as e:
         # Errores esperados de optimización
@@ -152,7 +177,8 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
 
             current_datetime = getattr(example, "current_datetime", "")
 
-            prediction = module.forward(
+            # Call module as function (DSPy best practice - calls __call__() -> forward())
+            prediction = module(
                 user_message=example.user_message,
                 history=history,
                 context=context,
@@ -162,17 +188,13 @@ def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:
             scores.append(score)
         except (AttributeError, KeyError, TypeError, ValueError) as e:
             # Errores esperados en evaluación
-            logger.warning(f"Error evaluating example: {e}")
+            logger.warning(f"Error evaluating example {example_idx}: {e}")
             scores.append(0.0)
         except Exception as e:
             # Errores inesperados
-            logger.error(f"Unexpected error evaluating example: {e}", exc_info=True)
-            scores.append(0.0)
-            # If prediction fails, score is 0
-            logger.warning(
-                f"Prediction failed for example in optimization: {e}",
-                exc_info=False,
-                extra={"example_index": example_idx},
+            logger.error(
+                f"Unexpected error evaluating example {example_idx}: {e}",
+                exc_info=True,
             )
             scores.append(0.0)
 
@@ -207,4 +229,3 @@ def load_optimized_module(module_path: Path | str) -> SoniDU:
         # Errores inesperados
         logger.error(f"Unexpected error loading module: {e}", exc_info=True)
         raise RuntimeError(f"Failed to load module from {module_path}: {e}") from e
-        raise RuntimeError(f"Failed to load module: {e}") from e

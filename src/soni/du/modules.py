@@ -123,7 +123,13 @@ class SoniDU(dspy.Module):
     >>> print(result_dict["message_type"])  # "slot_value"
     """
 
-    def __init__(self, cache_size: int = 1000, cache_ttl: int = 300, use_cot: bool = False) -> None:
+    def __init__(
+        self,
+        cache_size: int = 1000,
+        cache_ttl: int = 300,
+        use_cot: bool = False,
+        load_baseline: bool = True,
+    ) -> None:
         """Initialize Natural Language Understanding module.
 
         Args:
@@ -132,10 +138,17 @@ class SoniDU(dspy.Module):
             use_cot: Predictor mode selection (default: False)
                 - False: Use Predict (faster, recommended for production)
                 - True: Use ChainOfThought (slower, better for debugging)
+            load_baseline: Auto-load baseline optimization if available (default: True)
+                - True: Loads pre-trained baseline_v1.json from framework
+                - False: Use unoptimized module (only for testing/development)
 
         Note:
             The module requires dspy.configure(lm=...) to be called before use.
             See DSPy documentation for LM configuration.
+
+            The baseline optimization is automatically loaded to provide
+            reasonable out-of-the-box performance. You can override it by
+            calling load() with a custom optimized module path.
         """
         super().__init__()  # CRITICAL: Must call super().__init__()
 
@@ -156,6 +169,10 @@ class SoniDU(dspy.Module):
         )
 
         self.use_cot = use_cot  # Store for reference
+
+        # Auto-load baseline optimization if available
+        if load_baseline:
+            self._load_baseline_optimization()
 
     def forward(
         self,
@@ -458,3 +475,38 @@ class SoniDU(dspy.Module):
             )
 
         return result
+
+    def _load_baseline_optimization(self) -> None:
+        """Load baseline pre-trained optimization if available.
+
+        This method attempts to load the framework's baseline optimization
+        (baseline_v1.json) to provide reasonable out-of-the-box performance.
+
+        If the baseline file doesn't exist (e.g., in development), the module
+        continues with the unoptimized predictor. This is silent to avoid
+        warnings during development/testing.
+
+        The baseline can be regenerated with:
+            uv run python scripts/generate_baseline_optimization.py
+        """
+        from pathlib import Path
+
+        # Find baseline optimization relative to this module
+        module_dir = Path(__file__).parent
+        baseline_path = module_dir / "optimized" / "baseline_v1.json"
+
+        if baseline_path.exists():
+            try:
+                self.load(str(baseline_path))
+                logger.info(f"Loaded baseline NLU optimization from {baseline_path.name}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load baseline optimization from {baseline_path}: {e}. "
+                    f"Using unoptimized module."
+                )
+        else:
+            logger.debug(
+                f"Baseline optimization not found at {baseline_path}. "
+                f"Using unoptimized module. Generate with: "
+                f"uv run python scripts/generate_baseline_optimization.py"
+            )
