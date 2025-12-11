@@ -3,6 +3,7 @@
 import typer
 
 from soni.cli import optimize as optimize_module
+from soni.cli import run as run_module
 from soni.cli import server as server_module
 
 app = typer.Typer(
@@ -13,6 +14,7 @@ app = typer.Typer(
 
 # Register subcommands
 app.add_typer(optimize_module.app, name="optimize", help="Optimize NLU modules with DSPy")
+app.add_typer(run_module.app, name="run", help="Start interactive conversation with Soni")
 app.add_typer(server_module.app, name="server", help="Start the Soni API server")
 
 
