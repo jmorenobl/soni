@@ -187,6 +187,11 @@ markers = [
 # Suppress warnings from external dependencies
 # These warnings are from third-party libraries and don't affect our code
 filterwarnings = [
+    # litellm RuntimeWarning: Known issue where async cleanup coroutines may not be awaited
+    # when the event loop closes. This is a known issue in litellm (used by DSPy) and doesn't
+    # affect test functionality. The coroutine is registered for cleanup but may not complete
+    # before pytest closes the event loop.
+    "ignore:coroutine 'close_litellm_async_clients' was never awaited:RuntimeWarning",
     # SQLite ResourceWarnings: Known issue with pytest-cov and parallel execution
     # Python 3.13+ emits ResourceWarning if SQLite connections aren't closed explicitly
     # pytest-cov can delay garbage collection during parallel execution, causing warnings

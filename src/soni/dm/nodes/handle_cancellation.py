@@ -36,7 +36,7 @@ async def handle_cancellation_node(
 
     if not nlu_result:
         logger.warning("No NLU result in state for cancellation")
-        return {"conversation_state": "error"}
+        return {"conversation_state": "error", "user_message": ""}
 
     # Get active flow before popping
     active_ctx = flow_manager.get_active_context(state)
@@ -46,6 +46,7 @@ async def handle_cancellation_node(
         return {
             "conversation_state": "idle",
             "last_response": "There's nothing to cancel. How can I help you?",
+            "user_message": "",  # Clear to prevent loops
         }
 
     flow_name = active_ctx.get("flow_name", "this task")
@@ -71,19 +72,23 @@ async def handle_cancellation_node(
         if current_step_config and current_step_config.type == "collect":
             waiting_for_slot = current_step_config.slot
 
+        # CRITICAL: Clear user_message after processing to prevent routing loops
         return {
             "conversation_state": "waiting_for_slot" if waiting_for_slot else "idle",
             "waiting_for_slot": waiting_for_slot,
             "last_response": f"I've cancelled {flow_name}. Returning to {previous_flow_name}.",
             "flow_stack": state["flow_stack"],  # Include updated stack
             "flow_slots": state["flow_slots"],  # Include updated slots
+            "user_message": "",  # Clear to prevent loops
         }
     else:
         # No previous flow - return to idle
         logger.info("No previous flow, returning to idle")
+        # CRITICAL: Clear user_message after processing to prevent routing loops
         return {
             "conversation_state": "idle",
             "last_response": f"I've cancelled {flow_name}. How else can I help you?",
             "flow_stack": state["flow_stack"],  # Include updated stack (empty)
             "flow_slots": state["flow_slots"],  # Include updated slots
+            "user_message": "",  # Clear to prevent loops
         }

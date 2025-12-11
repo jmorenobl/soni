@@ -73,7 +73,9 @@ async def runtime(config_path):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_flight_booking_complete_flow(runtime, skip_without_api_key):
+async def test_e2e_flight_booking_complete_flow(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test complete flight booking flow end-to-end.
 
@@ -164,7 +166,7 @@ async def test_e2e_flight_booking_complete_flow(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_state_persistence(runtime, skip_without_api_key):
+async def test_e2e_state_persistence(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test that state persists between turns.
 
@@ -202,7 +204,9 @@ async def test_e2e_state_persistence(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_multiple_conversations(runtime, skip_without_api_key):
+async def test_e2e_multiple_conversations(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that multiple conversations are handled independently.
 
@@ -241,7 +245,7 @@ async def test_e2e_multiple_conversations(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_error_handling(runtime, skip_without_api_key):
+async def test_e2e_error_handling(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test error handling in E2E flow.
 
@@ -319,7 +323,7 @@ async def test_e2e_configuration_loading(skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_slot_correction(runtime, skip_without_api_key):
+async def test_e2e_slot_correction(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test user correcting a previously provided slot value.
 
@@ -367,7 +371,7 @@ async def test_e2e_slot_correction(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_context_switching(runtime, skip_without_api_key):
+async def test_e2e_context_switching(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test switching context between different flows.
 
@@ -410,7 +414,7 @@ async def test_e2e_context_switching(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_error_recovery(runtime, skip_without_api_key):
+async def test_e2e_error_recovery(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test dialogue recovery when processing fails.
 
@@ -445,7 +449,7 @@ async def test_e2e_error_recovery(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_slot_validation(runtime, skip_without_api_key):
+async def test_e2e_slot_validation(runtime, configure_dspy_for_integration, skip_without_api_key):
     """
     Test that slot validation works end-to-end.
 
@@ -488,7 +492,9 @@ async def test_e2e_slot_validation(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_multi_turn_persistence(runtime, skip_without_api_key):
+async def test_e2e_multi_turn_persistence(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that state persists correctly across multiple turns.
 
@@ -550,7 +556,9 @@ async def test_e2e_multi_turn_persistence(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_multiple_users_isolation(runtime, skip_without_api_key):
+async def test_e2e_multiple_users_isolation(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that conversations for different users are isolated.
 
@@ -607,7 +615,9 @@ async def test_e2e_multiple_users_isolation(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_e2e_normalization_integration(runtime, skip_without_api_key):
+async def test_e2e_normalization_integration(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """
     Test that normalization works end-to-end in a real flow.
 

@@ -17,6 +17,15 @@ import dspy  # noqa: E402
 import pytest  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
+# Note: litellm (used by DSPy) emits RuntimeWarnings about unawaited coroutines
+# when the event loop closes. This is a known issue in litellm where async cleanup
+# coroutines may not complete before pytest closes the event loop. The warning appears
+# AFTER pytest finishes processing tests, so it cannot be suppressed via pytest's
+# filterwarnings. It's harmless and doesn't affect test functionality.
+#
+# To suppress this warning, use: PYTHONWARNINGS=ignore::RuntimeWarning pytest ...
+# See docs/testing/TESTING.md for more details.
+
 
 # Load .env file from project root
 def pytest_configure(config):
@@ -115,6 +124,8 @@ def configure_dspy_for_integration():
         def test_something(configure_dspy_for_integration, skip_without_api_key):
             # Test code that uses real LLM
     """
+    import asyncio
+
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and api_key.strip():
         try:

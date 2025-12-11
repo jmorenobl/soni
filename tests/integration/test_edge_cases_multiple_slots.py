@@ -66,7 +66,9 @@ class TestEdgeCasesMultipleSlots:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_mix_new_slots_and_corrections(self, runtime, skip_without_api_key):
+    async def test_mix_new_slots_and_corrections(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test providing multiple slots while correcting one."""
         user_id = "test_mix_slots_corrections"
 
@@ -100,7 +102,9 @@ class TestEdgeCasesMultipleSlots:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_invalid_slot_values_with_multiple_slots(self, runtime, skip_without_api_key):
+    async def test_invalid_slot_values_with_multiple_slots(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test validation error handling when multiple slots provided but one is invalid."""
         user_id = "test_invalid_multiple"
 
@@ -123,7 +127,9 @@ class TestEdgeCasesMultipleSlots:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_max_iterations_safety(self, runtime, skip_without_api_key):
+    async def test_max_iterations_safety(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test that max_iterations limit prevents infinite loops."""
         user_id = "test_max_iterations"
 

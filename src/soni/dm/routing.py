@@ -494,14 +494,14 @@ def route_after_validate(state: DialogueStateType) -> str:
     """
     conv_state = state.get("conversation_state")
 
-    logger.info(
-        f"route_after_validate: conversation_state={conv_state}",
-        extra={
-            "conversation_state": conv_state,
-            "has_nlu_result": "nlu_result" in state,
-            "has_flow_slots": bool(state.get("flow_slots")),
-        },
-    )
+    logger.info("=" * 80)
+    logger.info("ROUTING after validate_slot:")
+    logger.info(f"  conversation_state: {conv_state}")
+    logger.info(f"  last_response: '{state.get('last_response')}'")
+    logger.info(f"  user_message: '{state.get('user_message')}'")
+    logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
+    logger.info(f"  current_prompted_slot: '{state.get('current_prompted_slot')}'")
+    logger.info("=" * 80)
 
     # Route based on conversation_state as specified in design
     if conv_state == "ready_for_action":
@@ -542,10 +542,14 @@ def route_after_collect_next_slot(state: DialogueStateType) -> str:
     """
     conv_state = state.get("conversation_state")
 
-    logger.info(
-        f"route_after_collect_next_slot: conversation_state={conv_state}",
-        extra={"conversation_state": conv_state},
-    )
+    logger.info("=" * 80)
+    logger.info("ROUTING after collect_next_slot:")
+    logger.info(f"  conversation_state: {conv_state}")
+    logger.info(f"  last_response: '{state.get('last_response')}'")
+    logger.info(f"  user_message: '{state.get('user_message')}'")
+    logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
+    logger.info(f"  current_prompted_slot: '{state.get('current_prompted_slot')}'")
+    logger.info("=" * 80)
 
     # Route based on conversation_state set by advance_to_next_step
     if conv_state == "ready_for_action":

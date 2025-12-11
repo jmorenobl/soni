@@ -421,7 +421,11 @@ class FlowStepManager:
                     updates["all_slots_filled"] = False
                     if current_step_config.slot:
                         updates["waiting_for_slot"] = current_step_config.slot
-                        updates["current_prompted_slot"] = current_step_config.slot
+                        # CRITICAL: Do NOT update current_prompted_slot here!
+                        # current_prompted_slot should only be updated by collect_next_slot
+                        # when it actually shows the prompt to the user. This allows
+                        # collect_next_slot to detect transitions (current_prompted_slot != next_slot)
+                        # and avoid unnecessary interrupt() calls.
                 else:
                     # Default for other step types
                     step_type_to_state = {

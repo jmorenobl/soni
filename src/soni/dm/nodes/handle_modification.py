@@ -235,6 +235,9 @@ async def handle_modification_node(
                 f"(previous was '{previous_step}') with state '{new_conversation_state}'"
             )
 
+            # CRITICAL: Clear user_message after processing to prevent routing loops
+            # The user_message has been processed (slot modified), so it should not
+            # trigger another understand cycle when collect_next_slot runs
             result = {
                 "flow_slots": flow_slots,
                 "conversation_state": new_conversation_state,
@@ -242,6 +245,7 @@ async def handle_modification_node(
                 "flow_stack": flow_stack,
                 "metadata": metadata,
                 "last_response": last_response,
+                "user_message": "",  # Clear to prevent loops
             }
 
             if waiting_for_slot:
@@ -260,11 +264,13 @@ async def handle_modification_node(
         slot_name=slot_name,
         new_value=normalized_value,
     )
+    # CRITICAL: Clear user_message after processing to prevent routing loops
     return {
         "flow_slots": flow_slots,
         "conversation_state": previous_conversation_state or "waiting_for_slot",
         "metadata": metadata,
         "last_response": acknowledgment,
+        "user_message": "",  # Clear to prevent loops
     }
 
 

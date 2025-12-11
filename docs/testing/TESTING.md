@@ -159,6 +159,11 @@ export OPENAI_API_KEY="sk-..."
 
 # Optional: Control test verbosity
 export PYTEST_ADDOPTS="-v"
+
+# Optional: Suppress litellm RuntimeWarning (known issue in litellm)
+# This warning appears after pytest finishes and doesn't affect test functionality.
+# It's caused by async cleanup coroutines in litellm not completing before event loop closes.
+export PYTHONWARNINGS="ignore::RuntimeWarning"
 ```
 
 ### pyproject.toml

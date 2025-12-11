@@ -66,7 +66,9 @@ class TestScenario1Sequential:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_scenario_1_complete_flow(self, runtime, skip_without_api_key):
+    async def test_scenario_1_complete_flow(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test complete sequential flow."""
         user_id = "test_scenario_1"
 
@@ -133,11 +135,12 @@ class TestScenario1Sequential:
         )
 
         # After response generation, conversation_state may be "idle" (this is correct)
-        # But if we're still in the flow, we should be at the action step or completed
+        # But if we're still in the flow, we should be at the action step, confirmation, or completed
         if state.get("conversation_state") != "idle":
-            # If not idle, should be ready_for_action or completed
+            # If not idle, should be ready_for_action, ready_for_confirmation, or completed
             assert state.get("conversation_state") in (
                 "ready_for_action",
+                "ready_for_confirmation",
                 "completed",
                 "executing_action",
             ), f"Unexpected conversation_state: {state.get('conversation_state')}"
@@ -148,7 +151,9 @@ class TestScenario2MultipleSlots:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_multiple_slots_in_one_message(self, runtime, skip_without_api_key):
+    async def test_multiple_slots_in_one_message(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test: 'I want to fly from New York to Los Angeles'"""
         user_id = "test_scenario_2"
 
@@ -172,13 +177,20 @@ class TestScenario2MultipleSlots:
 
         slots = get_all_slots(state)
         assert "departure_date" in slots
-        # After providing all slots, should be ready for action or waiting
+        # After providing all slots, should be ready for action, confirmation, or waiting
         # Note: current_step might be None if flow completed, but conversation_state should indicate readiness
-        assert state.get("conversation_state") in ("ready_for_action", "waiting_for_slot", "idle")
+        assert state.get("conversation_state") in (
+            "ready_for_action",
+            "ready_for_confirmation",
+            "waiting_for_slot",
+            "idle",
+        )
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_all_slots_at_once(self, runtime, skip_without_api_key):
+    async def test_all_slots_at_once(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test: 'I want to fly from X to Y on Z'"""
         user_id = "test_all_slots"
 
@@ -194,9 +206,14 @@ class TestScenario2MultipleSlots:
         assert slots.get("destination") == "Seattle"
         assert "departure_date" in slots
 
-        # Should advance all the way to action
+        # Should advance all the way to action or confirmation
         # Note: current_step might be None if flow completed
-        assert state.get("conversation_state") in ("ready_for_action", "waiting_for_slot", "idle")
+        assert state.get("conversation_state") in (
+            "ready_for_action",
+            "ready_for_confirmation",
+            "waiting_for_slot",
+            "idle",
+        )
 
 
 class TestScenario3Correction:
@@ -204,7 +221,9 @@ class TestScenario3Correction:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_scenario_3_correction(self, runtime, skip_without_api_key):
+    async def test_scenario_3_correction(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test correction of a previously provided slot."""
         user_id = "test_scenario_3"
 
@@ -244,7 +263,9 @@ class TestScenario4Digression:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_scenario_4_digression(self, runtime, skip_without_api_key):
+    async def test_scenario_4_digression(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test question during flow without changing flow."""
         user_id = "test_scenario_4"
 
@@ -291,7 +312,9 @@ class TestScenario5Cancellation:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_scenario_5_cancellation(self, runtime, skip_without_api_key):
+    async def test_scenario_5_cancellation(
+        self, runtime, configure_dspy_for_integration, skip_without_api_key
+    ):
         """Test canceling flow mid-way."""
         user_id = "test_scenario_5"
 

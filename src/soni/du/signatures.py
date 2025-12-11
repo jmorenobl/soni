@@ -1,4 +1,11 @@
-"""DSPy signatures for Dialogue Understanding."""
+"""DSPy signatures for Dialogue Understanding.
+
+For detailed developer documentation of data structures used in these signatures,
+see DATA_STRUCTURES.md in this directory.
+
+Note: Signature class docstrings are sent to the LLM and must be self-contained.
+      DATA_STRUCTURES.md is for developer reference only.
+"""
 
 import dspy
 
@@ -6,56 +13,77 @@ from soni.du.models import DialogueContext, NLUOutput
 
 
 class DialogueUnderstanding(dspy.Signature):
-    """Analyze user message in dialogue context to determine intent and extract all slot values.
+    """Analyze user messages in dialogue context to determine intent and extract slot values.
 
-    Extract ALL slot values mentioned in the message. Each slot gets an action
-    (provide/correct/modify) based on whether it's new or changing an existing value.
+    CRITICAL: Mapping user messages to flows when current_flow="none":
+    - When current_flow="none" and available_flows is not empty, you MUST check if the user message
+      matches any flow description semantically
+    - Match user intent to flow descriptions: "I want to book a flight" matches "Book a flight from origin to destination"
+    - If there's a semantic match, classify as INTERRUPTION and set command to the matching flow name
+    - Flow names are the keys in available_flows (e.g., "book_flight", "cancel_booking")
+    - Do NOT use CONTINUATION when user clearly wants to start a flow from available_flows
 
-    When available_flows contains flow descriptions, map user intent to the appropriate
-    flow name based on semantic matching. For example, if available_flows contains
-    {"book_flight": "Book a flight from origin to destination"}, and the user says
-    "I want to book a flight", set command="book_flight".
+    Examples of correct mapping:
+    - User: "I want to book a flight" + available_flows={"book_flight": "Book a flight from origin to destination"}
+      → INTERRUPTION, command="book_flight"
+    - User: "Book a hotel" + available_flows={"book_hotel": "Book a hotel room"}
+      → INTERRUPTION, command="book_hotel"
+    - User: "I need to cancel" + available_flows={"cancel_booking": "Cancel an existing booking"}
+      → INTERRUPTION, command="cancel_booking"
 
-    CRITICAL: Use context.conversation_state to determine message_type:
-    - If context.conversation_state is "confirming" or "ready_for_confirmation":
-      * The user is responding to a confirmation request
-      * Set message_type to CONFIRMATION (not SLOT_VALUE, even if the message contains slot-like words)
-      * Extract confirmation_value: True if user confirms (yes/correct/confirm/that's right/okay)
-      * Extract confirmation_value: False if user denies (no/wrong/incorrect/not right/change/modify)
-        ** CRITICAL: If user says "No" or "change" or "modify" during confirmation,
-           set confirmation_value=False. Even if the message contains words like "change destination",
-           the confirmation_value should be False. The modification request will be handled separately.
-      * Extract confirmation_value: None if unclear or ambiguous
-      * Set command to None (simple yes/no response, not a new intent)
-      * Exception: If user is changing intent while responding (e.g., "No, I want to cancel"),
-        then set command to the new intent (e.g., "cancel") and message_type to INTERRUPTION
+    Classify message type and extract information based on context and available flows/actions.
 
-    - If context.conversation_state is "waiting_for_slot" or context.current_prompted_slot is set:
-      * The user is responding to a slot collection prompt
-      * Set message_type to SLOT_VALUE and extract the slot value
-      * Use context.expected_slots to identify which slot is being filled
+    Key distinctions:
 
-    - Otherwise:
-      * Determine message_type based on message content and context
+    DIGRESSION vs CLARIFICATION:
+    - DIGRESSION: General question not about current step (e.g., "What destinations do you fly to?")
+    - CLARIFICATION: Question about why current step needs information (e.g., "Why do you need my email?")
+
+    MODIFICATION vs SLOT_VALUE:
+    - MODIFICATION: User explicitly requests to change existing slot (e.g., "Can I change destination to London?")
+      * Slot already in current_slots
+      * User uses request phrases: "change", "modify", "update", "can I change"
+    - SLOT_VALUE: User provides value directly (e.g., "London" when asked for destination)
+      * Direct answer to current prompt
+      * No request language, just provides value
+
+    CANCELLATION vs INTERRUPTION:
+    - CANCELLATION: User abandons current flow, no new flow in available_flows
+    - INTERRUPTION: User wants to start a flow that exists in available_flows
+      * When current_flow="none" and user mentions a flow from available_flows → INTERRUPTION
+      * When current_flow exists and user wants to switch to different flow → INTERRUPTION
+      * Set command to the flow name from available_flows (e.g., "book_flight")
+      * Examples: "I want to book a flight" → INTERRUPTION, command="book_flight"
+                 "Book a hotel" → INTERRUPTION, command="book_hotel" (if in available_flows)
+
+    CONFIRMATION vs CORRECTION (when conversation_state="confirming"):
+    - CONFIRMATION: Generic yes/no response to confirmation prompt
+      * When conversation_state="confirming", simple yes/no responses are CONFIRMATION
+      * "Yes", "No", "That's correct", "That's not right" → CONFIRMATION
+      * Set confirmation_value=True/False based on response
+      * Do NOT use CORRECTION unless user provides a specific corrected value
+    - CORRECTION: User specifies which value is wrong AND provides correct value
+      * "No, I meant Barcelona" (mentions specific value + provides correction) → CORRECTION
+      * "The date should be December 20th" (provides corrected value) → CORRECTION
+      * "No" alone → CONFIRMATION (not CORRECTION, no value provided)
+
+    Extract slots with actions: provide (new), correct (reactive fix), modify (proactive change).
     """
 
     # Input fields with structured types
-    user_message: str = dspy.InputField(desc="The user's message to analyze")
-    history: dspy.History = dspy.InputField(desc="Conversation history")
+    user_message: str = dspy.InputField(desc="User's input message to analyze")
+    history: dspy.History = dspy.InputField(
+        desc="Conversation history (list of {role, content} messages)"
+    )
     context: DialogueContext = dspy.InputField(
-        desc="Dialogue state: current_flow, expected_slots (use these EXACT names), "
-        "current_slots (already filled - check for corrections), current_prompted_slot, "
-        "conversation_state (CRITICAL: use this to determine if user is responding to confirmation), "
-        "available_flows (dict mapping flow names to descriptions - use descriptions to map user intent). "
-        "IMPORTANT: If conversation_state is 'confirming' or 'ready_for_confirmation', "
-        "the user is responding to a confirmation request - set message_type to CONFIRMATION."
+        desc="Current dialogue state including flow, slots, and conversation phase"
     )
     current_datetime: str = dspy.InputField(
-        desc="Current datetime in ISO format for relative date resolution",
+        desc="Current datetime (ISO format) for temporal expressions",
         default="",
     )
 
     # Output field with structured type
     result: NLUOutput = dspy.OutputField(
-        desc="NLU analysis with message_type, optional command, and extracted slots"
+        desc="Classified message with type, intent, slots, and confidence"
     )

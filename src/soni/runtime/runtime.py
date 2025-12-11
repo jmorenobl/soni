@@ -538,9 +538,13 @@ class RuntimeLoop:
             f"has_last_response_from_nodes={has_last_response_from_nodes}"
         )
 
-        if is_still_interrupted and not has_last_response_from_nodes:
-            # Graph is still interrupted AND no response from nodes - process interrupts to extract prompt
-            logger.info("Graph still interrupted and no node response, processing interrupts")
+        # CRITICAL: When graph is interrupted, ALWAYS process interrupts to extract the prompt
+        # even if there's a last_response from previous state. The interrupt value takes priority
+        # because it represents the NEW prompt from the interrupting node (e.g., collect_next_slot,
+        # confirm_action). The existing last_response is from a previous turn and should be replaced.
+        if is_still_interrupted:
+            # Graph is interrupted - process interrupts to extract the new prompt
+            logger.info("Graph interrupted, processing interrupts to extract new prompt")
             self._process_interrupts(result)
             logger.info(f"After processing interrupts, last_response={result.get('last_response')}")
         elif has_last_response_from_nodes:

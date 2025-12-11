@@ -52,10 +52,12 @@ def optimize_soni_du(
     print(f"Baseline accuracy: {baseline_score:.2%} (time: {baseline_time:.2f}s)")
 
     # Configure optimizer
+    # Note: auto=None is required when passing num_candidates and num_trials
     optimizer = MIPROv2(
         metric=intent_accuracy_metric,
         num_candidates=num_trials,
         init_temperature=1.0,
+        auto=None,  # Explicitly disable auto to allow manual num_candidates/num_trials
     )
 
     # Optimize
@@ -66,6 +68,7 @@ def optimize_soni_du(
         optimized_nlu = optimizer.compile(
             student=baseline_nlu,
             trainset=trainset,
+            num_trials=num_trials,  # Pass num_trials to compile() as well
             max_bootstrapped_demos=4,
             max_labeled_demos=16,
         )

@@ -618,8 +618,8 @@ async def test_execute_graph_processes_interrupts(runtime_loop):
 
 
 @pytest.mark.asyncio
-async def test_execute_graph_uses_node_response_over_interrupts(runtime_loop):
-    """Test _execute_graph prioritizes node response over interrupts."""
+async def test_execute_graph_extracts_prompt_from_interrupt(runtime_loop):
+    """Test _execute_graph extracts prompt from interrupt when graph is interrupted."""
     config_path = "examples/flight_booking/soni.yaml"
     runtime = await runtime_loop(config_path)
     await runtime._ensure_graph_initialized()
@@ -636,16 +636,16 @@ async def test_execute_graph_uses_node_response_over_interrupts(runtime_loop):
             type("StateSnapshot", (), {"values": {}, "next": ()})(),
             type("StateSnapshot", (), {"values": {}, "next": ("collect_next_slot",)})(),
         ]
-        # Result has both interrupt and last_response from nodes
+        # Result has interrupt with prompt (LangGraph format: list of Interrupt objects)
         mock_ainvoke.return_value = {
-            "__interrupt__": {"prompt": "What is your origin?"},
-            "last_response": "Processing your request...",
+            "__interrupt__": [type("Interrupt", (), {"value": "What is your origin?"})()],
+            "last_response": "Old response from previous turn",
         }
 
         result = await runtime._execute_graph(state, "user123")
 
-        # Should use last_response from nodes, not interrupt
-        assert result["last_response"] == "Processing your request..."
+        # Should extract prompt from interrupt (new behavior after fix)
+        assert result["last_response"] == "What is your origin?"
 
 
 # === _extract_response ===

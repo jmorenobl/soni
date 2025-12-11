@@ -17,29 +17,125 @@ logger = logging.getLogger(__name__)
 
 class SoniDU(dspy.Module):
     """
-    Soni Dialogue Understanding module with structured types.
+    Natural Language Understanding module for dialogue systems.
 
-    This module provides:
-    - Type-safe async interface for runtime
-    - Sync interface for DSPy optimizers
-    - Automatic prompt optimization via DSPy
-    - Structured Pydantic models throughout
-    - Configurable predictor: Predict (fast) or ChainOfThought (precise)
+    This module analyzes user messages in dialogue context to:
+    - Classify message type (slot value, confirmation, correction, interruption, etc.)
+    - Extract slot values with metadata (confidence, action type, previous value)
+    - Detect intent changes and digressions
+    - Resolve temporal expressions using current datetime
 
-    Performance Notes:
-    - Predict (use_cot=False): Faster, fewer tokens, sufficient for most cases
-    - ChainOfThought (use_cot=True): Slower, more tokens, shows reasoning,
-      useful when precision is critical or debugging NLU behavior
+    Data Flow
+    ---------
+    Input:
+        - user_message (str): Raw user input
+        - history (dspy.History): Conversation history
+        - context (DialogueContext): Current state (flow, slots, conversation phase)
+        - current_datetime (str): ISO timestamp for temporal resolution
+
+    Output:
+        - NLUOutput: Structured analysis with message_type, command, slots, confidence
+
+    For detailed data structure specifications, see DATA_STRUCTURES.md.
+
+    Usage
+    -----
+    The module provides multiple interfaces for different use cases:
+
+    1. **predict()** - Main async interface for production runtime
+       - High-level API with caching and post-processing
+       - Accepts structured types (dspy.History, DialogueContext)
+       - Returns NLUOutput Pydantic model
+       - Use this in production code
+
+    2. **understand()** - Dict-based async interface for compatibility
+       - Implements INLUProvider protocol
+       - Accepts dict-based dialogue_context
+       - Returns dict representation of NLUOutput
+       - Use this when integrating with dict-based systems
+
+    3. **forward()** - Sync interface for DSPy optimizers
+       - Used during optimization/training
+       - Called by MIPROv2, BootstrapFewShot, etc.
+       - Do not call directly in production
+
+    4. **aforward()** - Async version of forward()
+       - Used internally by predict()
+       - Do not call directly
+
+    Optimization
+    ------------
+    - use_cot=False (default): Use Predict for speed and efficiency
+      - Faster inference
+      - Fewer tokens
+      - Sufficient for most dialogue scenarios
+
+    - use_cot=True: Use ChainOfThought for debugging and precision
+      - Slower inference
+      - More tokens (shows reasoning)
+      - Useful for debugging NLU behavior
+      - Useful when precision is critical
+
+    Compatible with DSPy optimizers:
+    - MIPROv2 (recommended for dialogue NLU)
+    - BootstrapFewShot
+    - COPRO
+    - Others (see DSPy docs)
+
+    Examples
+    --------
+    Basic usage with structured types:
+
+    >>> import dspy
+    >>> from soni.du.modules import SoniDU
+    >>> from soni.du.models import DialogueContext
+    >>>
+    >>> # Initialize module
+    >>> nlu = SoniDU(use_cot=False)
+    >>>
+    >>> # Prepare inputs
+    >>> user_message = "I want to fly to Madrid"
+    >>> history = dspy.History(messages=[])
+    >>> context = DialogueContext(
+    ...     current_flow="book_flight",
+    ...     expected_slots=["destination", "departure_date"],
+    ...     current_slots={},
+    ...     conversation_state="waiting_for_slot",
+    ... )
+    >>>
+    >>> # Call predict
+    >>> result = await nlu.predict(user_message, history, context)
+    >>> print(result.message_type)  # MessageType.SLOT_VALUE
+    >>> print(result.slots[0].name)  # "destination"
+    >>> print(result.slots[0].value)  # "Madrid"
+
+    Dict-based interface (for compatibility):
+
+    >>> result_dict = await nlu.understand(
+    ...     user_message="Madrid",
+    ...     dialogue_context={
+    ...         "current_flow": "book_flight",
+    ...         "expected_slots": ["destination"],
+    ...         "current_slots": {},
+    ...         "conversation_state": "waiting_for_slot",
+    ...     },
+    ... )
+    >>> print(result_dict["message_type"])  # "slot_value"
     """
 
     def __init__(self, cache_size: int = 1000, cache_ttl: int = 300, use_cot: bool = False) -> None:
-        """Initialize SoniDU module.
+        """Initialize Natural Language Understanding module.
 
         Args:
-            cache_size: Maximum number of cached NLU results
-            cache_ttl: Time-to-live for cache entries in seconds
-            use_cot: If True, use ChainOfThought (slower, more precise).
-                     If False, use Predict (faster, less tokens). Default: False
+            cache_size: Maximum number of cached NLU results (default: 1000)
+            cache_ttl: Cache entry lifetime in seconds (default: 300 = 5 minutes)
+            use_cot: Predictor mode selection (default: False)
+                - False: Use Predict (faster, recommended for production)
+                - True: Use ChainOfThought (slower, better for debugging)
+
+        Note:
+            The module requires dspy.configure(lm=...) to be called before use.
+            See DSPy documentation for LM configuration.
         """
         super().__init__()  # CRITICAL: Must call super().__init__()
 
@@ -68,18 +164,23 @@ class SoniDU(dspy.Module):
         context: DialogueContext,
         current_datetime: str = "",
     ) -> dspy.Prediction:
-        """Sync forward pass for DSPy optimizers.
+        """Synchronous forward pass for DSPy optimizers.
 
-        Used during optimization/training with MIPROv2, BootstrapFewShot, etc.
+        This method is called by DSPy optimizers during training/optimization.
+        Do NOT call this method directly in production code - use predict() instead.
 
         Args:
-            user_message: User's input message
+            user_message: User's input message to analyze
             history: Conversation history (dspy.History)
-            context: Dialogue context with slots, actions, flows (DialogueContext)
-            current_datetime: Current datetime in ISO format
+            context: Current dialogue state (DialogueContext)
+            current_datetime: Current datetime in ISO format (auto-generated if empty)
 
         Returns:
-            dspy.Prediction object with result field containing NLUOutput
+            dspy.Prediction with result field containing NLUOutput
+
+        Note:
+            Used by MIPROv2, BootstrapFewShot, and other DSPy optimizers.
+            For production use, call predict() or understand() instead.
         """
         return self.predictor(
             user_message=user_message,
@@ -95,15 +196,22 @@ class SoniDU(dspy.Module):
         context: DialogueContext,
         current_datetime: str = "",
     ) -> dspy.Prediction:
-        """Async forward pass for production runtime.
+        """Asynchronous forward pass for production runtime.
 
-        Called internally by acall(). Uses async LM calls via DSPy's adapter system.
+        This method is called internally by predict(). Do NOT call directly.
 
         Args:
-            Same as forward()
+            user_message: User's input message to analyze
+            history: Conversation history (dspy.History)
+            context: Current dialogue state (DialogueContext)
+            current_datetime: Current datetime in ISO format (auto-generated if empty)
 
         Returns:
-            dspy.Prediction object with result field containing NLUOutput
+            dspy.Prediction with result field containing NLUOutput
+
+        Note:
+            Uses async LM calls via DSPy's adapter system.
+            Called internally by predict() - use that method instead.
         """
         # DSPy's predictor.acall() handles async LM calls
         return await self.predictor.acall(
@@ -155,18 +263,45 @@ class SoniDU(dspy.Module):
         user_message: str,
         dialogue_context: dict[str, Any],
     ) -> dict[str, Any]:
-        """High-level async interface for NLU (INLUProvider interface).
+        """Analyze user message with NLU (dict-based interface for compatibility).
 
-        This method implements INLUProvider.understand() to provide dict-based
-        interface compatibility. It adapts dict-based input to structured types
-        and delegates to predict() (the main implementation).
+        This method implements the INLUProvider protocol for compatibility with
+        dict-based systems. Internally converts dicts to structured types and
+        delegates to predict().
+
+        Use this method when integrating with systems that use dict-based state
+        (e.g., legacy code, external integrations). For new code, prefer predict().
 
         Args:
-            user_message: User's input message
-            dialogue_context: Dict with current_slots, available_actions, etc.
+            user_message: User's input message to analyze
+            dialogue_context: Dict with keys:
+                - current_slots (dict): Already filled slots
+                - expected_slots (list[str]): Expected slot names
+                - current_flow (str): Active flow name
+                - conversation_state (str): Current conversation phase
+                - available_flows (dict): Available flows {name: description}
+                - available_actions (list[str]): Available action names
+                - history (list): Conversation messages
 
         Returns:
-            Dict with message_type, command, slots, and confidence
+            Dict representation of NLUOutput with keys:
+                - message_type (str): Type of message
+                - command (str | None): Intent/flow name
+                - slots (list[dict]): Extracted slot values
+                - confidence (float): Overall confidence
+                - confirmation_value (bool | None): For confirmations
+
+        Example:
+            >>> result = await nlu.understand(
+            ...     user_message="Madrid",
+            ...     dialogue_context={
+            ...         "current_flow": "book_flight",
+            ...         "expected_slots": ["destination"],
+            ...         "current_slots": {},
+            ...         "conversation_state": "waiting_for_slot",
+            ...     },
+            ... )
+            >>> print(result["message_type"])  # "slot_value"
         """
         # Convert dict to structured types (DRY: uses centralized conversion)
         history, context = self._dict_to_structured_types(dialogue_context)
@@ -183,21 +318,26 @@ class SoniDU(dspy.Module):
         history: dspy.History,
         context: DialogueContext,
     ) -> NLUOutput:
-        """High-level async prediction method with caching.
+        """Analyze user message with NLU (main production interface).
 
-        This is the main entry point for runtime NLU calls. Provides:
-        - Structured type inputs (dspy.History, DialogueContext)
-        - NLUOutput Pydantic model output
-        - Automatic caching
+        This is the primary method for NLU analysis in production. It provides:
+        - Structured type inputs/outputs
+        - Automatic caching (avoid re-analyzing same inputs)
+        - Post-processing (validate slots, normalize confirmation values)
         - Internal datetime management
 
         Args:
-            user_message: User's input message
+            user_message: User's input message to analyze
             history: Conversation history (dspy.History)
-            context: Dialogue context (DialogueContext)
+            context: Current dialogue state (DialogueContext)
 
         Returns:
-            NLUOutput with message_type, command, slots, and confidence
+            NLUOutput: Structured analysis with message_type, command, slots, confidence
+
+        Example:
+            >>> result = await nlu.predict(user_message="Madrid", history=history, context=context)
+            >>> print(result.message_type)  # MessageType.SLOT_VALUE
+            >>> print(result.slots[0].name)  # "destination"
         """
         # Calculate current datetime (encapsulation principle)
         current_datetime_str = datetime.now().isoformat()

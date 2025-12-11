@@ -79,7 +79,7 @@ async def collect_next_slot_node(
         prompt = f"Please provide your {next_slot}."
 
     # CRITICAL: Set last_response BEFORE interrupt() so that if the flow goes to
-    # generate_response (e.g., after a digression), it has the correct prompt
+    # generate_response (e.g., after a digression or after validate_slot), it has the correct prompt
     # The prompt will be shown to the user immediately
     result = {
         "last_response": prompt,
@@ -88,6 +88,37 @@ async def collect_next_slot_node(
         "conversation_state": "waiting_for_slot",
     }
 
+    # Check if we're being called after validate_slot
+    # After validate_slot, user_message is cleared, but we can detect this by checking
+    # if the waiting_for_slot has changed (new slot) or if we're in a transition state
+    # The key indicator: if current_prompted_slot in state differs from next_slot,
+    # we're transitioning to a new slot after validation
+    current_prompted_slot = state.get("current_prompted_slot")
+    user_message = state.get("user_message", "")
+
+    # If we have a user_message, this is a re-execution after interrupt (user responded)
+    # In this case, we should NOT interrupt again - just return with the user_message
+    if user_message and user_message.strip():
+        result["user_message"] = user_message
+        return result
+
+    # If current_prompted_slot exists and is different from next_slot, we're transitioning
+    # after validate_slot (user_message was cleared). Don't interrupt, just set last_response
+    if current_prompted_slot and current_prompted_slot != next_slot:
+        logger.info("=" * 80)
+        logger.info("collect_next_slot: TRANSITIONING TO NEW SLOT (NO INTERRUPT)")
+        logger.info(
+            f"  Transitioning from '{current_prompted_slot}' to '{next_slot}' after validate_slot"
+        )
+        logger.info(f"  Setting last_response: '{prompt}'")
+        logger.info(f"  Setting waiting_for_slot: '{next_slot}'")
+        logger.info(f"  Setting current_prompted_slot: '{next_slot}'")
+        logger.info("  Returning WITHOUT interrupt() - writes should apply before next node")
+        logger.info(f"  RESULT TO RETURN: {result}")
+        logger.info("=" * 80)
+        return result
+
+    # Initial call or no previous prompt - need to interrupt and wait for user response
     # Pause here - wait for user response
     # The prompt is passed as the interrupt value
     # It will be available in result['__interrupt__'] after ainvoke()

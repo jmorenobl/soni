@@ -532,6 +532,22 @@ async def validate_slot_node(
         )
         updates["flow_slots"] = flow_slots
 
+        # CRITICAL: Clear user_message after processing to prevent routing loops
+        # The user_message has been processed (slot validated), so it should not
+        # trigger another understand cycle when collect_next_slot runs
+        updates["user_message"] = ""
+
+        # DEBUG: Log what validate_slot is returning
+        logger.info("=" * 80)
+        logger.info("validate_slot: COMPLETED SLOT VALIDATION")
+        logger.info(f"  Cleared user_message (was: '{state.get('user_message')}')")
+        logger.info(f"  Updated flow_slots: {updates.get('flow_slots', {})}")
+        logger.info(f"  conversation_state: {updates.get('conversation_state')}")
+        logger.info(f"  current_step: {updates.get('current_step')}")
+        logger.info("  CRITICAL: last_response NOT updated by validate_slot")
+        logger.info("  Next node (collect_next_slot) should update last_response")
+        logger.info("=" * 80)
+
         return updates
 
     except Exception as e:

@@ -134,8 +134,8 @@ async def confirm_action_node(
             }
 
     # Pause and wait for user confirmation
-    # The prompt is passed as the interrupt value
-    # It will be available in result['__interrupt__'] after ainvoke()
+    # The prompt is passed as the interrupt value and will be extracted by RuntimeLoop
+    # RuntimeLoop._process_interrupts() will set last_response = confirmation_msg
     user_response = interrupt(confirmation_msg)
 
     # Code after interrupt() executes when user responds

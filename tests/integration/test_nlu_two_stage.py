@@ -7,7 +7,9 @@ from soni.core.errors import SoniError
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_two_stage_prediction_without_active_flow(runtime, skip_without_api_key):
+async def test_two_stage_prediction_without_active_flow(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that two-stage prediction works when no flow is active."""
     user_id = "test-two-stage-001"
     await runtime._ensure_graph_initialized()
@@ -29,7 +31,9 @@ async def test_two_stage_prediction_without_active_flow(runtime, skip_without_ap
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_two_stage_with_invalid_command(runtime, skip_without_api_key):
+async def test_two_stage_with_invalid_command(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that two-stage handles invalid commands gracefully."""
     user_id = "test-two-stage-002"
     await runtime._ensure_graph_initialized()
@@ -50,7 +54,9 @@ async def test_two_stage_with_invalid_command(runtime, skip_without_api_key):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_two_stage_skipped_when_flow_active(runtime, skip_without_api_key):
+async def test_two_stage_skipped_when_flow_active(
+    runtime, configure_dspy_for_integration, skip_without_api_key
+):
     """Test that two-stage is skipped when flow is already active."""
     user_id = "test-two-stage-003"
     await runtime._ensure_graph_initialized()
