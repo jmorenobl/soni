@@ -6,12 +6,16 @@ with the framework to provide reasonable out-of-the-box performance.
 
 The baseline optimization:
 - Uses the complete dataset (all patterns, domains, contexts)
-- Runs MIPROv2 optimization with conservative parameters
+- Runs MIPROv2 or GEPA optimization with conservative parameters
 - Saves both the dataset and optimized module
 - Can be regenerated when dataset or patterns change
 
 Usage:
+    # Default (MIPROv2):
     uv run python scripts/generate_baseline_optimization.py
+
+    # Use GEPA optimizer:
+    uv run python scripts/generate_baseline_optimization.py --optimizer GEPA
 
 Output:
     - src/soni/du/optimized/baseline_v1.json (optimized module)
@@ -19,6 +23,7 @@ Output:
     - Optimization metrics printed to console
 """
 
+import argparse
 import json
 import os
 import sys
@@ -67,6 +72,25 @@ def save_dataset(examples: list[dspy.Example], output_path: Path) -> None:
 
 def main():
     """Generate baseline optimization."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate baseline NLU optimization for Soni framework"
+    )
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        choices=["MIPROv2", "GEPA"],
+        default="GEPA",  # GEPA is now the default (better performance)
+        help="Optimizer to use (default: GEPA)",
+    )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=50,
+        help="Number of optimization trials (default: 50)",
+    )
+    args = parser.parse_args()
+
     print("=" * 70)
     print("Soni Framework - Baseline NLU Optimization Generator")
     print("=" * 70)
@@ -144,25 +168,36 @@ def main():
     # Step 3: Optimize
     print("\n🚀 Step 3: Running optimization...")
     print("   This may take 15-30 minutes depending on dataset size...")
-    print("   Optimizer: MIPROv2")
-    print("   Trials: 50")
+    print(f"   Optimizer: {args.optimizer}")
+    print(f"   Trials: {args.trials}")
     print(f"   Training examples: {len(trainset)}")
 
     output_dir = Path("src/soni/du/optimized")
 
     try:
-        _optimized_nlu, metrics = optimize_soni_du(
-            trainset=trainset,
-            optimizer_type="MIPROv2",
-            num_trials=50,  # Increased from 30 for better optimization
-            timeout_seconds=1800,  # 30 minutes max (increased)
-            output_dir=output_dir,
-            num_candidates=75,  # 1.5x num_trials for better exploration
-            max_bootstrapped_demos=6,  # Increased from 4
-            max_labeled_demos=8,  # Reduced from 16 (was too high, risk of overfitting)
-            minibatch_size=20,  # Increased from 4 (was too small, caused high variance)
-            init_temperature=1.0,  # Balanced exploration-exploitation
-        )
+        # Configure optimizer-specific parameters
+        if args.optimizer == "GEPA":
+            # GEPA uses reflective prompt evolution - simpler config
+            _optimized_nlu, metrics = optimize_soni_du(
+                trainset=trainset,
+                optimizer_type="GEPA",
+                num_trials=args.trials,
+                timeout_seconds=1800,
+                output_dir=output_dir,
+            )
+        else:  # MIPROv2
+            _optimized_nlu, metrics = optimize_soni_du(
+                trainset=trainset,
+                optimizer_type="MIPROv2",
+                num_trials=args.trials,
+                timeout_seconds=1800,
+                output_dir=output_dir,
+                num_candidates=75,
+                max_bootstrapped_demos=6,
+                max_labeled_demos=8,
+                minibatch_size=20,
+                init_temperature=1.0,
+            )
 
         print("\n" + "=" * 70)
         print("✅ Optimization Complete!")

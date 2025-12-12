@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import dspy
-from dspy.teleprompt import MIPROv2
+from dspy.teleprompt import GEPA, MIPROv2
 
 from soni.du.metrics import intent_accuracy_metric
 from soni.du.modules import SoniDU
@@ -30,7 +30,7 @@ def optimize_soni_du(
 
     Args:
         trainset: List of dspy.Example instances for training
-        optimizer_type: Type of optimizer to use (currently only "MIPROv2")
+        optimizer_type: Type of optimizer to use (\"MIPROv2\" or \"GEPA\")
         num_trials: Number of optimization trials
         timeout_seconds: Maximum time for optimization in seconds
         output_dir: Optional directory to save optimized module
@@ -47,8 +47,8 @@ def optimize_soni_du(
         ValueError: If optimizer_type is not supported
         RuntimeError: If optimization fails
     """
-    if optimizer_type != "MIPROv2":
-        raise ValueError(f"Unsupported optimizer type: {optimizer_type}")
+    if optimizer_type not in ("MIPROv2", "GEPA"):
+        raise ValueError(f"Unsupported optimizer type: {optimizer_type}. Supported: MIPROv2, GEPA")
 
     # Create baseline module
     baseline_nlu = SoniDU()
@@ -61,42 +61,24 @@ def optimize_soni_du(
 
     print(f"Baseline accuracy: {baseline_score:.2%} (time: {baseline_time:.2f}s)")
 
-    # Calculate optimal parameters if not provided
-    if num_candidates is None:
-        num_candidates = max(int(num_trials * 1.5), 20)
-
-    if minibatch_size is None:
-        if len(trainset) < 50:
-            minibatch_size = 10
-        elif len(trainset) < 200:
-            minibatch_size = 20
-        else:
-            minibatch_size = 35
-
-    # Configure optimizer
-    # Note: auto=None is required when passing num_candidates and num_trials
-    optimizer = MIPROv2(
-        metric=intent_accuracy_metric,
-        num_candidates=num_candidates,
-        init_temperature=init_temperature,
-        auto=None,  # Explicitly disable auto to allow manual num_candidates/num_trials
-    )
-
-    # Optimize
+    # Configure and run optimizer based on type
     print(f"Optimizing with {optimizer_type} ({num_trials} trials)...")
     optimization_start = time.time()
 
     try:
-        compile_kwargs = {
-            "student": baseline_nlu,
-            "trainset": trainset,
-            "num_trials": num_trials,
-            "max_bootstrapped_demos": max_bootstrapped_demos,
-            "max_labeled_demos": max_labeled_demos,
-            "minibatch_size": minibatch_size,
-        }
-
-        optimized_nlu = optimizer.compile(**compile_kwargs)
+        if optimizer_type == "GEPA":
+            optimized_nlu = _optimize_with_gepa(baseline_nlu, trainset, num_trials, timeout_seconds)
+        else:  # MIPROv2
+            optimized_nlu = _optimize_with_miprov2(
+                baseline_nlu,
+                trainset,
+                num_trials,
+                minibatch_size,
+                num_candidates,
+                max_bootstrapped_demos,
+                max_labeled_demos,
+                init_temperature,
+            )
         optimization_time = time.time() - optimization_start
     except (ValueError, TypeError, AttributeError, RuntimeError) as e:
         # Errores esperados de optimización
@@ -146,6 +128,120 @@ def optimize_soni_du(
     }
 
     return optimized_nlu, metrics
+
+
+def _optimize_with_gepa(
+    baseline_nlu: SoniDU,
+    trainset: list[dspy.Example],
+    num_trials: int,
+    timeout_seconds: int,
+) -> SoniDU:
+    """Optimize using GEPA (Reflective Prompt Evolution).
+
+    GEPA uses natural language feedback to evolve prompts through reflection,
+    without relying on examples or demonstrations. It's more sample-efficient
+    and can outperform MIPROv2 by >10% in some benchmarks.
+
+    Args:
+        baseline_nlu: Baseline SoniDU module
+        trainset: Training examples for evaluation
+        num_trials: Number of optimization trials
+        timeout_seconds: Maximum optimization time
+
+    Returns:
+        Optimized SoniDU module
+    """
+
+    # Create a GEPA-compatible metric wrapper
+    # GEPA metrics can accept additional trace arguments for feedback
+    def gepa_metric(
+        gold: dspy.Example,
+        pred: dspy.Prediction,
+        trace=None,
+        pred_name: str | None = None,
+        pred_trace=None,
+    ) -> float:
+        """Wrapper that adapts intent_accuracy_metric for GEPA."""
+        return intent_accuracy_metric(gold, pred)
+
+    # Create a reflection LM for GEPA - this generates instruction proposals
+    # Using GPT-4o with higher temperature for diverse proposals
+    reflection_lm = dspy.LM(
+        model="openai/gpt-4o",
+        temperature=1.0,
+        max_tokens=4000,
+    )
+
+    optimizer = GEPA(
+        metric=gepa_metric,
+        auto="medium",  # Use medium auto-configuration for balanced results
+        reflection_lm=reflection_lm,
+        reflection_minibatch_size=min(5, len(trainset)),
+    )
+
+    result = optimizer.compile(
+        student=baseline_nlu,
+        trainset=trainset,
+    )
+    return result  # type: ignore[no-any-return]
+
+
+def _optimize_with_miprov2(
+    baseline_nlu: SoniDU,
+    trainset: list[dspy.Example],
+    num_trials: int,
+    minibatch_size: int | None,
+    num_candidates: int | None,
+    max_bootstrapped_demos: int,
+    max_labeled_demos: int,
+    init_temperature: float,
+) -> SoniDU:
+    """Optimize using MIPROv2 (Multiprompt Instruction Proposal Optimizer v2).
+
+    MIPROv2 jointly optimizes prompt instructions and few-shot examples
+    using Bayesian optimization.
+
+    Args:
+        baseline_nlu: Baseline SoniDU module
+        trainset: Training examples
+        num_trials: Number of optimization trials
+        minibatch_size: Optional minibatch size
+        num_candidates: Number of candidate prompts
+        max_bootstrapped_demos: Maximum bootstrapped demonstrations
+        max_labeled_demos: Maximum labeled demonstrations
+        init_temperature: Initial temperature for optimization
+
+    Returns:
+        Optimized SoniDU module
+    """
+    # Calculate optimal parameters if not provided
+    if num_candidates is None:
+        num_candidates = max(int(num_trials * 1.5), 20)
+
+    if minibatch_size is None:
+        if len(trainset) < 50:
+            minibatch_size = 10
+        elif len(trainset) < 200:
+            minibatch_size = 20
+        else:
+            minibatch_size = 35
+
+    optimizer = MIPROv2(
+        metric=intent_accuracy_metric,
+        num_candidates=num_candidates,
+        init_temperature=init_temperature,
+        auto=None,  # Explicitly disable auto to allow manual parameters
+    )
+
+    result = optimizer.compile(
+        student=baseline_nlu,
+        trainset=trainset,
+        num_trials=num_trials,
+        max_bootstrapped_demos=max_bootstrapped_demos,
+        max_labeled_demos=max_labeled_demos,
+        minibatch_size=minibatch_size,
+    )
+    return result  # type: ignore[no-any-return]
 
 
 def _evaluate_module(module: SoniDU, trainset: list[dspy.Example]) -> float:

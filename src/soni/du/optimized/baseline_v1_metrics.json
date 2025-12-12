@@ -1,12 +1,12 @@
 {
-  "baseline_accuracy": 0.8807692307692307,
+  "baseline_accuracy": 0.8923076923076922,
   "optimized_accuracy": 0.8923076923076922,
-  "improvement": 0.011538461538461497,
-  "improvement_pct": 1.1538461538461497,
-  "baseline_time": 0.3211090564727783,
-  "optimization_time": 1877.1230359077454,
-  "optimized_eval_time": 21.837949752807617,
-  "total_time": 1899.283005952835,
+  "improvement": 0.0,
+  "improvement_pct": 0.0,
+  "baseline_time": 0.16088008880615234,
+  "optimization_time": 723.4882729053497,
+  "optimized_eval_time": 0.1264188289642334,
+  "total_time": 723.776153087616,
   "num_trials": 50,
   "trainset_size": 52
 }

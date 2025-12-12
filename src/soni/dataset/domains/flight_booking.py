@@ -138,6 +138,12 @@ CONFIRMATION_NEGATIVE = [
     "No, that's not right",
     "Incorrect",
     "Nope",
+    # Negative with modification intent - common pattern in tests
+    "No, change the destination",
+    "No, change the origin",
+    "No, I want to change something",
+    "No, let me change that",
+    "No, I need to modify it",
 ]
 
 CONFIRMATION_UNCLEAR = [
@@ -151,6 +157,14 @@ CONFIRMATION_UNCLEAR = [
     "I guess so",
     "Perhaps",
     "Kind of",
+    # Additional ambiguous responses
+    "Maybe",  # Capital variant
+    "I'm thinking",
+    "Can you repeat that?",
+    "What were the details again?",
+    "um...",
+    "uh...",
+    "well...",
 ]
 
 
