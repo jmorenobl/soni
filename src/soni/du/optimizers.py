@@ -8,7 +8,7 @@ from typing import Any
 import dspy
 from dspy.teleprompt import GEPA, MIPROv2
 
-from soni.du.metrics import intent_accuracy_metric
+from soni.du.metrics import gepa_feedback_metric, intent_accuracy_metric
 from soni.du.modules import SoniDU
 
 logger = logging.getLogger(__name__)
@@ -152,31 +152,28 @@ def _optimize_with_gepa(
         Optimized SoniDU module
     """
 
-    # Create a GEPA-compatible metric wrapper
-    # GEPA metrics can accept additional trace arguments for feedback
-    def gepa_metric(
-        gold: dspy.Example,
-        pred: dspy.Prediction,
-        trace=None,
-        pred_name: str | None = None,
-        pred_trace=None,
-    ) -> float:
-        """Wrapper that adapts intent_accuracy_metric for GEPA."""
-        return intent_accuracy_metric(gold, pred)
-
     # Create a reflection LM for GEPA - this generates instruction proposals
     # Using GPT-4o with higher temperature for diverse proposals
+    # DSPy best practice: strong reflection LM improves optimization quality
     reflection_lm = dspy.LM(
         model="openai/gpt-4o",
         temperature=1.0,
-        max_tokens=4000,
+        max_tokens=8000,  # Increased for complex instructions
     )
 
+    # Calculate appropriate minibatch size based on dataset
+    # DSPy best practice: minibatch should be 3-5 for small datasets
+    minibatch = min(5, max(3, len(trainset) // 10))
+
     optimizer = GEPA(
-        metric=gepa_metric,
-        auto="medium",  # Use medium auto-configuration for balanced results
+        metric=gepa_feedback_metric,  # Uses textual feedback for better reflection
+        auto="medium",  # Balanced optimization budget
         reflection_lm=reflection_lm,
-        reflection_minibatch_size=min(5, len(trainset)),
+        reflection_minibatch_size=minibatch,
+        track_stats=True,  # Track detailed optimization statistics
+        skip_perfect_score=True,  # Skip examples with perfect score during reflection
+        use_merge=True,  # Enable merge-based optimization
+        seed=42,  # Reproducibility
     )
 
     result = optimizer.compile(

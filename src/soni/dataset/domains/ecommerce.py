@@ -72,6 +72,64 @@ SEARCH_UTTERANCES = [
     "Can you help me find a",
 ]
 
+# Confirmation responses - consistent across domains
+CONFIRMATION_POSITIVE = [
+    "Yes",
+    "Correct",
+    "That's right",
+    "Yes, add it to cart",
+    "Confirmed",
+    "Yeah",
+    "Perfect",
+]
+
+CONFIRMATION_NEGATIVE = [
+    "No",
+    "That's wrong",
+    "No, that's not right",
+    "Incorrect",
+    "Nope",
+    # Negative with modification intent
+    "No, different color",
+    "No, change the size",
+    "No, I want a different one",
+    "No, let me modify that",
+    "No, wrong product",
+]
+
+CONFIRMATION_UNCLEAR = [
+    "hmm, I'm not sure",
+    "maybe",
+    "hmm",
+    "I don't know",
+    "I'm not sure",
+    "Let me think",
+    "Not really sure",
+    "Perhaps",
+    "Maybe",
+    "um...",
+    "let me check",
+]
+
+CANCELLATION_UTTERANCES = [
+    "Cancel",
+    "Never mind",
+    "Forget it",
+    "I changed my mind",
+    "Stop",
+    "Remove from cart",
+    "Actually, cancel this",
+]
+
+# Invalid responses - for testing NLU rejection/clarification
+INVALID_RESPONSES = {
+    "product": ["sunshine", "happiness", "asdf", "123", "purple feeling"],
+    "quantity": ["some", "a lot", "purple", "many", "asdf"],
+    "color": ["123", "asdf", "happiness", "very", "the"],
+    "size": ["pizza", "asdf", "123", "blue", "happiness"],
+    "shipping_address": ["asdf", "123", "pizza", "the moon"],
+}
+
 
 def create_empty_shopping_context() -> ConversationContext:
     """Create context for new shopping session.

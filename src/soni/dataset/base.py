@@ -40,6 +40,10 @@ class ConversationContext(BaseModel):
     expected_slots: list[str] = Field(
         default_factory=list, description="Slot names expected to be filled next"
     )
+    conversation_state: str | None = Field(
+        default=None,
+        description="Current conversation state (e.g., 'confirming', 'waiting_for_slot')",
+    )
 
 
 class ExampleTemplate(BaseModel):
@@ -78,6 +82,7 @@ class ExampleTemplate(BaseModel):
             available_flows=available_flows_dict,
             current_flow=self.conversation_context.current_flow,
             expected_slots=self.conversation_context.expected_slots,
+            conversation_state=self.conversation_context.conversation_state,
         )
 
         return dspy.Example(

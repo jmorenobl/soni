@@ -56,9 +56,9 @@ class DialogueUnderstanding(dspy.Signature):
       * Examples: "I want to book a flight" → INTERRUPTION, command="book_flight"
                  "Book a hotel" → INTERRUPTION, command="book_hotel" (if in available_flows)
 
-    CONFIRMATION vs CORRECTION (when conversation_state="confirming"):
+    CONFIRMATION vs CORRECTION vs MODIFICATION (when conversation_state="confirming" or "ready_for_confirmation"):
     - CONFIRMATION: Generic yes/no response to confirmation prompt
-      * When conversation_state="confirming", simple yes/no responses are CONFIRMATION
+      * When conversation_state="confirming" or "ready_for_confirmation", simple yes/no responses are CONFIRMATION
       * "Yes", "No", "That's correct", "That's not right" → CONFIRMATION
       * Set confirmation_value=True/False based on response
       * Do NOT use CORRECTION unless user provides a specific corrected value
@@ -66,6 +66,11 @@ class DialogueUnderstanding(dspy.Signature):
       * "No, I meant Barcelona" (mentions specific value + provides correction) → CORRECTION
       * "The date should be December 20th" (provides corrected value) → CORRECTION
       * "No" alone → CONFIRMATION (not CORRECTION, no value provided)
+    - MODIFICATION: User says "no" AND requests to change a slot (with or without new value)
+      * "No, change the destination" → MODIFICATION (user wants to change, asks for new value)
+      * "No, change the date to tomorrow" → MODIFICATION with slot value
+      * "No, I want to change the origin" → MODIFICATION
+      * KEY: If user says "no" + asks to "change/modify/update" something → MODIFICATION, NOT CONFIRMATION!
 
     Extract slots with actions: provide (new), correct (reactive fix), modify (proactive change).
     """

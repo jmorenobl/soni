@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "created_at": "2025-12-12T02:07:45.312256",
-  "total_examples": 52,
+  "created_at": "2025-12-12T11:32:54.937204",
+  "total_examples": 62,
   "examples": [
     {
       "user_message": "I want to fly from Madrid to Barcelona",
@@ -117,6 +117,52 @@
       }
     },
     {
+      "user_message": "I need a flight to New York",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "origin",
+          "destination",
+          "departure_date",
+          "return_date",
+          "passengers",
+          "cabin_class"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "New York",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Los Angeles",
       "context": {
         "current_slots": {
@@ -201,6 +247,50 @@
           }
         ],
         "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Next Friday",
+      "context": {
+        "current_slots": {
+          "origin": "New York",
+          "destination": "Los Angeles"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "departure_date",
+            "value": "2025-12-19",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
         "confirmation_value": null
       }
     },
@@ -505,7 +595,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "correction",
@@ -548,7 +638,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "correction",
@@ -716,7 +806,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "modification",
@@ -759,7 +849,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "modification",
@@ -773,6 +863,41 @@
             "previous_value": null
           }
         ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, change the destination",
+      "context": {
+        "current_slots": {
+          "origin": "New York",
+          "destination": "Los Angeles",
+          "departure_date": "2025-12-15"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [],
         "confidence": 0.9,
         "confirmation_value": null
       }
@@ -1215,6 +1340,41 @@
         "current_flow": "book_flight",
         "expected_slots": [
           "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, cancel this",
+      "context": {
+        "current_slots": {
+          "origin": "Boston"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
         ],
         "current_prompted_slot": null,
         "conversation_state": null
@@ -1795,7 +1955,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "confirmation",
@@ -1830,7 +1990,7 @@
         "current_flow": "book_flight",
         "expected_slots": [],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "ready_for_confirmation"
       },
       "result": {
         "message_type": "confirmation",
@@ -1841,10 +2001,46 @@
       }
     },
     {
+      "user_message": "hmm, I'm not sure",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Yes",
       "context": {
         "current_slots": {
-          "location": "Barcelona"
+          "location": "Barcelona",
+          "checkin_date": "2024-12-20"
         },
         "available_actions": [
           "search_hotels",
@@ -1877,7 +2073,8 @@
       "user_message": "No",
       "context": {
         "current_slots": {
-          "location": "Barcelona"
+          "location": "Barcelona",
+          "checkin_date": "2024-12-20"
         },
         "available_actions": [
           "search_hotels",
@@ -1907,10 +2104,46 @@
       }
     },
     {
-      "user_message": "That's right",
+      "user_message": "hmm, I'm not sure",
       "context": {
         "current_slots": {
-          "party_size": "4"
+          "location": "Barcelona",
+          "checkin_date": "2024-12-20"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes",
+      "context": {
+        "current_slots": {
+          "location": "Madrid",
+          "party_size": "4",
+          "time": "8:00 PM"
         },
         "available_actions": [
           "search_restaurants",
@@ -1940,10 +2173,81 @@
       }
     },
     {
-      "user_message": "Correct",
+      "user_message": "No",
       "context": {
         "current_slots": {
-          "product": "laptop"
+          "location": "Madrid",
+          "party_size": "4",
+          "time": "8:00 PM"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": false
+      }
+    },
+    {
+      "user_message": "hmm, I'm not sure",
+      "context": {
+        "current_slots": {
+          "location": "Madrid",
+          "party_size": "4",
+          "time": "8:00 PM"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes",
+      "context": {
+        "current_slots": {
+          "product": "laptop",
+          "quantity": "1"
         },
         "available_actions": [
           "search_products",
@@ -1970,6 +2274,74 @@
         "slots": [],
         "confidence": 0.95,
         "confirmation_value": true
+      }
+    },
+    {
+      "user_message": "No",
+      "context": {
+        "current_slots": {
+          "product": "laptop",
+          "quantity": "1"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": false
+      }
+    },
+    {
+      "user_message": "hmm, I'm not sure",
+      "context": {
+        "current_slots": {
+          "product": "laptop",
+          "quantity": "1"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
       }
     }
   ]

@@ -73,6 +73,63 @@ BOOKING_UTTERANCES = [
     "Can you help me book a table",
 ]
 
+# Confirmation responses - consistent across domains
+CONFIRMATION_POSITIVE = [
+    "Yes",
+    "Correct",
+    "That's right",
+    "Yes, that looks good",
+    "Confirmed",
+    "Yeah",
+    "Perfect",
+]
+
+CONFIRMATION_NEGATIVE = [
+    "No",
+    "That's wrong",
+    "No, that's not right",
+    "Incorrect",
+    "Nope",
+    # Negative with modification intent
+    "No, change the time",
+    "No, different restaurant",
+    "No, I want to change the party size",
+    "No, let me modify that",
+    "No, wrong date",
+]
+
+CONFIRMATION_UNCLEAR = [
+    "hmm, I'm not sure",
+    "maybe",
+    "hmm",
+    "I don't know",
+    "I'm not sure",
+    "Let me think",
+    "Not really sure",
+    "Perhaps",
+    "Maybe",
+    "um...",
+]
+
+CANCELLATION_UTTERANCES = [
+    "Cancel",
+    "Never mind",
+    "Forget it",
+    "I changed my mind",
+    "Stop",
+    "Cancel the reservation",
+    "Actually, cancel this",
+]
+
+# Invalid responses - for testing NLU rejection/clarification
+INVALID_RESPONSES = {
+    "location": ["pizza", "123", "asdf", "the moon", "happiness"],
+    "date": ["purple", "never", "banana", "asdf", "blue"],
+    "time": ["purple", "yesterday", "never", "pizza", "asdf"],
+    "party_size": ["some", "a few", "blue", "pizza", "many"],
+    "cuisine": ["123", "asdf", "purple", "flying"],
+}
+
 
 def create_empty_restaurant_context() -> ConversationContext:
     """Create context for new restaurant reservation.

@@ -5,6 +5,193 @@
     "demos": [
       {
         "augmented": true,
+        "user_message": "No, change the destination",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from New York to Los Angeles on 2025-12-15",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "New York"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Los Angeles"
+                  },
+                  {
+                    "name": "departure_date",
+                    "value": "2025-12-15"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "New York",
+            "destination": "Los Angeles",
+            "departure_date": "2025-12-15"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-12T10:00:00",
+        "result": {
+          "message_type": "modification",
+          "command": "book_flight",
+          "slots": [
+            {
+              "name": "destination",
+              "value": null,
+              "confidence": 0.9,
+              "action": "modify",
+              "previous_value": "Los Angeles"
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "No, change the destination",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from New York to Los Angeles on 2025-12-15",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "New York"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Los Angeles"
+                  },
+                  {
+                    "name": "departure_date",
+                    "value": "2025-12-15"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "New York",
+            "destination": "Los Angeles",
+            "departure_date": "2025-12-15"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "ready_for_confirmation"
+        },
+        "current_datetime": "2024-12-12T10:00:00",
+        "result": {
+          "message_type": "modification",
+          "command": "book_flight",
+          "slots": [
+            {
+              "name": "destination",
+              "value": null,
+              "confidence": 0.9,
+              "action": "modify",
+              "previous_value": "Los Angeles"
+            }
+          ],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "Yes, that looks correct",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "Madrid"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Barcelona"
+                  },
+                  {
+                    "name": "departure_date",
+                    "value": "tomorrow"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "ready_for_confirmation"
+        },
+        "current_datetime": "2024-12-12T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.95,
+          "confirmation_value": true
+        }
+      },
+      {
+        "augmented": true,
         "user_message": "I want to fly from Madrid to Barcelona",
         "history": {
           "messages": []
@@ -505,7 +692,7 @@
       }
     ],
     "signature": {
-      "instructions": "In a critical travel booking context, analyze the user's latest message to determine its type (such as interruption, slot value, or confirmation) and extract key slot values like time, date, or location. Ensure that the user's intent aligns with the available booking flows, especially if the conversation is currently either in a “none” state or awaiting new slot information. Distinguish between any modifications to existing slots and new entries, and adapt to any user corrections or clarifications promptly. This will enable a quick and effective response to the user's travel requests.",
+      "instructions": "markdown\nThe task is to develop a robust assistant that can understand and process user inputs within a conversational system designed for handling both travel and commerce-related queries. The primary goals are to identify the types of messages being communicated, comprehend the context of the interaction, and map user intents to potential system actions accurately. The assistant needs to adeptly navigate through various user interactions, including confirmations, modifications, interruptions, corrections, and digressions. Below are detailed instructions and guidelines to help the assistant achieve these objectives:\n\n### Instructions for Identifying Message Types:\n\n1. **CANCELLATION**: Recognize when the user intends to stop an ongoing operation. This might include expressions such as \"cancel booking\" or \"stop my order,\" where the focus is on ceasing a specific current action.\n\n2. **MODIFICATION**: Detect when the user wishes to change an already provided slot value. Keep track of the slot being altered and its previous value. Example: If initially \"Book a table at 7:00 PM\" is provided but later corrected to \"actually, at 8:00 PM,\" classify it as a modification, with the slot action being 'modify.'\n\n3. **CONFIRMATION**: Identify when the user communicates acceptance or continuance of a decision, often seen in responses like \"yes\" or \"okay.\" It signals a commitment to the current flow and slot values.\n\n4. **CORRECTION**: Note when a user adjusts a previously given slot value due to an error. E.g., if a user stated \"Book a hotel in Madrid\" but then says \"I meant Paris,\" treat it as a correction with previous slots recorded.\n\n5. **CONTINUATION**: Recognize instances where a user adds new pertinent information without altering the current task flow. This adds depth to the ongoing process rather than creating a new directive.\n\n6. **INTERRUPTION**: Catch when a user diverts attention to a new subject that diverges from the current task or introduces new actions while an existing conversation flow is active. For instance, changing discussion from booking a hotel to searching flights should be noted as an interruption and might initiate a new flow like `search_flights`.\n\n7. **DIGRESSION**: When the user deviates from the current task flow without a clear intent to return or ask questions unrelated to the task, it should be viewed as a digression.\n\n### Special Cases to Consider:\n\n- **Uncertainty**: Expressions of doubt, such as \"hmm, I'm not sure\" should generally be treated as a confirmation unless clearly indicating more deliberation or requiring additional information.\n\n- **Clarification Requests**: If the user seeks explanations or further details about their current actions, categorize this as `clarification` and provide relevant task details.\n\n### Execution Guidelines:\n\n- Map user intents accurately to existing booking or purchase actions, especially when beginning a new flow or when filling in slots.\n- Distinguish between adjustments of current slots and entries of new information, ensuring corrections and clarifications are managed appropriately.\n- Use high-context-awareness and precise intent understanding to improve user interaction experiences related to travel bookings and commerce queries.\n- Continuously refine the ability to categorize, extract, and operationalize user inputs through feedback and historical data.\n- Ensure user experiences are enriched by maintaining accuracy in task predictions and providing relevant information or actions in response to user queries.\n\nBy adhering to these instructions, the assistant is expected to enhance user interaction quality and efficiency in travel and e-commerce related engagements.",
       "fields": [
         {
           "prefix": "User Message:",

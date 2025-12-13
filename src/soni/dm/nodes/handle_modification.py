@@ -56,7 +56,50 @@ async def handle_modification_node(
         logger.error(f"Unknown slot format: {type(slot)}")
         return {"conversation_state": "error"}
 
-    # Normalize value
+    # CASE: User requested to modify a slot but didn't provide new value
+    # e.g., "No, change the destination" without specifying the new destination
+    if raw_value is None:
+        logger.info(f"Modification requested for '{slot_name}' but no new value provided")
+
+        # Get the prompt for this slot
+        flow_manager = runtime.context["flow_manager"]
+        active_ctx = flow_manager.get_active_context(state)
+
+        if not active_ctx:
+            return {"conversation_state": "error"}
+
+        # CRITICAL: Delete the slot from flow_slots so collect_next_slot will ask for it
+        flow_id = active_ctx["flow_id"]
+        flow_slots = state.get("flow_slots", {}).copy()
+        if flow_id in flow_slots and slot_name in flow_slots[flow_id]:
+            del flow_slots[flow_id][slot_name]
+            logger.info(f"Deleted '{slot_name}' from flow_slots to prompt for new value")
+
+        # Get slot config to find the prompt
+        try:
+            from soni.core.state import get_slot_config
+
+            slot_config = get_slot_config(runtime.context, slot_name)
+            slot_prompt = (
+                slot_config.prompt
+                if hasattr(slot_config, "prompt") and slot_config.prompt
+                else f"What would you like to change {slot_name} to?"
+            )
+        except (KeyError, AttributeError):
+            slot_prompt = f"What would you like to change {slot_name} to?"
+
+        # Create a response asking for the new value
+        response = f"Sure, I'll change the {slot_name}. {slot_prompt}"
+
+        return {
+            "flow_slots": flow_slots,  # Updated without the deleted slot
+            "conversation_state": "waiting_for_slot",
+            "waiting_for_slot": slot_name,
+            "last_response": response,
+            "user_message": "",  # Clear to prevent loops
+        }
+
+    # Normalize value (only if we have a value)
     normalizer = runtime.context["normalizer"]
     try:
         normalized_value = await normalizer.normalize_slot(slot_name, raw_value)

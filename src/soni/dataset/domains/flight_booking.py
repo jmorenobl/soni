@@ -133,17 +133,27 @@ CONFIRMATION_POSITIVE = [
 ]
 
 CONFIRMATION_NEGATIVE = [
+    # Simple negation - should be message_type=CONFIRMATION, confirmation_value=False
     "No",
     "That's wrong",
     "No, that's not right",
     "Incorrect",
     "Nope",
-    # Negative with modification intent - common pattern in tests
-    "No, change the destination",
-    "No, change the origin",
-    "No, I want to change something",
-    "No, let me change that",
-    "No, I need to modify it",
+    "No way",
+    "That's incorrect",
+]
+
+# IMPORTANT: These should generate message_type=MODIFICATION, not CONFIRMATION
+# The user is denying AND requesting a change in the same message
+CONFIRMATION_WITH_MODIFICATION = [
+    # (user_message, target_slot) tuples
+    ("No, change the destination", "destination"),
+    ("No, change the origin", "origin"),
+    ("No, I want to change the date", "departure_date"),
+    ("No, let me change the destination", "destination"),
+    ("No, I need to modify the origin", "origin"),
+    ("Change the destination please", "destination"),
+    ("Actually, change the date", "departure_date"),
 ]
 
 CONFIRMATION_UNCLEAR = [
@@ -264,6 +274,8 @@ def create_context_before_confirmation(
     """Create context right before confirmation step.
 
     All required slots filled, ready for confirmation.
+    conversation_state is set to 'confirming' so NLU knows user is responding
+    to a confirmation prompt.
 
     Args:
         origin: Origin city
@@ -271,7 +283,7 @@ def create_context_before_confirmation(
         departure_date: Departure date
 
     Returns:
-        ConversationContext with all main slots filled
+        ConversationContext with all main slots filled and state='confirming'
     """
     return ConversationContext(
         history=dspy.History(
@@ -297,4 +309,5 @@ def create_context_before_confirmation(
         },
         current_flow="book_flight",
         expected_slots=[],  # All required slots filled
+        conversation_state="ready_for_confirmation",  # CRITICAL: indicates confirmation phase
     )

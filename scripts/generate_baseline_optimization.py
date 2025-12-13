@@ -136,8 +136,8 @@ def main():
     print(f"   - Max combinations: {stats['max_combinations']}")
 
     # Generate complete dataset
-    # Use 2 examples per combination for baseline
-    trainset = builder.build_all(examples_per_combination=2)
+    # Use 3 examples per combination for better coverage of edge cases
+    trainset = builder.build_all(examples_per_combination=3)
 
     print(f"\n   Generated {len(trainset)} training examples")
 

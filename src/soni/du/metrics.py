@@ -11,6 +11,101 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def gepa_feedback_metric(
+    gold: dspy.Example,
+    pred: dspy.Prediction,
+    trace: Any = None,
+    pred_name: str | None = None,
+    pred_trace: Any = None,
+) -> dspy.Prediction:
+    """Calculate accuracy metric with textual feedback for GEPA optimization.
+
+    GEPA benefits from textual feedback explaining what went wrong,
+    in addition to the numeric score. This helps the reflection LM
+    generate better instruction proposals.
+
+    Args:
+        gold: Ground truth example
+        pred: Model prediction
+        trace: Optional trace information
+        pred_name: Optional predictor name (used by GEPA)
+        pred_trace: Optional predictor trace (used by GEPA)
+
+    Returns:
+        dspy.Prediction with 'score' (float) and 'feedback' (str) attributes
+    """
+    score = intent_accuracy_metric(gold, pred)
+    feedback = _generate_feedback(gold, pred, score)
+    # GEPA expects a Prediction object with score and feedback attributes
+    return dspy.Prediction(score=score, feedback=feedback)
+
+
+def _generate_feedback(
+    gold: dspy.Example,
+    pred: dspy.Prediction,
+    score: float,
+) -> str:
+    """Generate textual feedback explaining what went wrong.
+
+    This feedback helps GEPA's reflection LM understand the errors
+    and propose better instructions.
+
+    Args:
+        gold: Ground truth example
+        pred: Model prediction
+        score: Numeric score from intent_accuracy_metric
+
+    Returns:
+        Human-readable feedback string
+    """
+    if score >= 1.0:
+        return "Perfect! All components matched correctly."
+
+    expected = _extract_nlu_output(gold.result if hasattr(gold, "result") else None)
+    predicted = _extract_nlu_output(pred.result if hasattr(pred, "result") else None)
+
+    if expected is None or predicted is None:
+        return "Missing result in example or prediction."
+
+    issues = []
+
+    # Check message_type mismatch
+    expected_mt = _normalize_message_type(expected.message_type)
+    predicted_mt = _normalize_message_type(predicted.message_type)
+    if expected_mt != predicted_mt:
+        issues.append(f"Wrong message_type: predicted '{predicted_mt}', expected '{expected_mt}'")
+
+    # Check confirmation_value mismatch (critical for confirmation flow)
+    if hasattr(expected, "confirmation_value") and hasattr(predicted, "confirmation_value"):
+        if expected.confirmation_value != predicted.confirmation_value:
+            issues.append(
+                f"Wrong confirmation_value: predicted {predicted.confirmation_value}, "
+                f"expected {expected.confirmation_value}"
+            )
+
+    # Check command mismatch
+    expected_cmd = (expected.command or "").lower()
+    predicted_cmd = (predicted.command or "").lower()
+    if expected_cmd != predicted_cmd:
+        issues.append(f"Wrong command: predicted '{predicted_cmd}', expected '{expected_cmd}'")
+
+    # Check slots mismatch
+    if not _compare_slots(expected.slots, predicted.slots):
+        expected_slot_names = [
+            s.get("name") if isinstance(s, dict) else getattr(s, "name", "?")
+            for s in expected.slots
+        ]
+        predicted_slot_names = [
+            s.get("name") if isinstance(s, dict) else getattr(s, "name", "?")
+            for s in predicted.slots
+        ]
+        issues.append(
+            f"Slot mismatch: predicted {predicted_slot_names}, expected {expected_slot_names}"
+        )
+
+    return ". ".join(issues) if issues else f"Partial match with score {score:.2f}"
+
+
 def intent_accuracy_metric(
     example: dspy.Example,
     prediction: dspy.Prediction,

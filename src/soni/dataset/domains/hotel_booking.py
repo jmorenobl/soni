@@ -65,6 +65,62 @@ BOOKING_UTTERANCES = [
     "Can you help me book a hotel",
 ]
 
+# Confirmation responses - consistent across domains
+CONFIRMATION_POSITIVE = [
+    "Yes",
+    "Correct",
+    "That's right",
+    "Yes, that looks good",
+    "Confirmed",
+    "Yeah",
+    "Perfect",
+]
+
+CONFIRMATION_NEGATIVE = [
+    "No",
+    "That's wrong",
+    "No, that's not right",
+    "Incorrect",
+    "Nope",
+    # Negative with modification intent
+    "No, change the dates",
+    "No, different hotel",
+    "No, I want to change something",
+    "No, let me modify that",
+]
+
+CONFIRMATION_UNCLEAR = [
+    "hmm, I'm not sure",
+    "maybe",
+    "hmm",
+    "I don't know",
+    "I'm not sure",
+    "Let me think",
+    "Not really sure",
+    "Perhaps",
+    "Maybe",
+    "um...",
+]
+
+CANCELLATION_UTTERANCES = [
+    "Cancel",
+    "Never mind",
+    "Forget it",
+    "I changed my mind",
+    "Stop",
+    "Cancel the reservation",
+    "Actually, cancel this",
+]
+
+# Invalid responses - for testing NLU rejection/clarification
+INVALID_RESPONSES = {
+    "location": ["pizza", "123", "asdf", "the moon", "happiness", "yesterday"],
+    "checkin_date": ["purple", "never", "banana", "very soon", "asdf"],
+    "checkout_date": ["pizza", "tomorrow's yesterday", "blue"],
+    "guests": ["many", "some", "a few", "blue", "pizza"],
+    "room_type": ["flying", "underwater", "123"],
+}
+
 
 def create_empty_hotel_context() -> ConversationContext:
     """Create context for new hotel booking conversation."""
