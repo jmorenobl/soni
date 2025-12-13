@@ -393,6 +393,16 @@ def route_after_understand(state: DialogueStateType) -> str:
                 return "handle_intent_change"
             return "validate_slot"
         case "correction":
+            # Special case: If we're in confirming state, route to handle_confirmation
+            # which has built-in correction handling during confirmation
+            conv_state = state.get("conversation_state")
+            if conv_state == "confirming":
+                logger.info(
+                    "NLU detected correction during confirming state, "
+                    "routing to handle_confirmation for automatic handling"
+                )
+                return "handle_confirmation"
+
             # Route to dedicated correction handler
             flow_stack = state.get("flow_stack", [])
             has_active_flow = bool(flow_stack)
@@ -412,6 +422,16 @@ def route_after_understand(state: DialogueStateType) -> str:
                 return "handle_intent_change"
             return "handle_correction"
         case "modification":
+            # Special case: If we're in confirming state, route to handle_confirmation
+            # which has built-in modification handling during confirmation
+            conv_state = state.get("conversation_state")
+            if conv_state == "confirming":
+                logger.info(
+                    "NLU detected modification during confirming state, "
+                    "routing to handle_confirmation for automatic handling"
+                )
+                return "handle_confirmation"
+
             # Route to dedicated modification handler
             flow_stack = state.get("flow_stack", [])
             has_active_flow = bool(flow_stack)
