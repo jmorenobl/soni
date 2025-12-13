@@ -5,6 +5,61 @@
     "demos": [
       {
         "augmented": true,
+        "user_message": "I don't know",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from Boston to Seattle next week",
+              "result": {
+                "command": "book_flight",
+                "message_type": "interruption",
+                "slots": [
+                  {
+                    "name": "origin",
+                    "value": "Boston"
+                  },
+                  {
+                    "name": "destination",
+                    "value": "Seattle"
+                  },
+                  {
+                    "name": "departure_date",
+                    "value": "next week"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Boston",
+            "destination": "Seattle",
+            "departure_date": "next week"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-12T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.7,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
         "user_message": "No, change the destination",
         "history": {
           "messages": [
