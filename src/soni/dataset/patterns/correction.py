@@ -124,6 +124,65 @@ class CorrectionGenerator(PatternGenerator):
                 )
             )
 
+            # Example 4: "Actually, I meant X not Y" - key test case pattern
+            examples.append(
+                ExampleTemplate(
+                    user_message="Actually, I meant Denver not Chicago",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Book a flight"},
+                                {"user_message": "Chicago"},
+                            ]
+                        ),
+                        current_slots={"origin": "Chicago"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CORRECTION,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="origin", value="Denver", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="correction",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 5: "I said X, not Y" variant
+            examples.append(
+                ExampleTemplate(
+                    user_message="I said Boston, not Austin",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to fly from Austin"},
+                            ]
+                        ),
+                        current_slots={"origin": "Austin"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CORRECTION,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="origin", value="Boston", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="correction",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "hotel_booking":
             from soni.dataset.domains.hotel_booking import CITIES
 

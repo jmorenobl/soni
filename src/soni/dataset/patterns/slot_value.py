@@ -529,6 +529,127 @@ class SlotValueGenerator(PatternGenerator):
                 )
             )
 
+            # Example 4: Simple single city as origin (key test scenario)
+            examples.append(
+                ExampleTemplate(
+                    user_message="New York",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to book a flight"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_flight",
+                        expected_slots=["origin"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="origin", value="New York", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 5: Simple single city as destination
+            examples.append(
+                ExampleTemplate(
+                    user_message="Los Angeles",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to book a flight"},
+                                {"user_message": "New York"},
+                            ]
+                        ),
+                        current_slots={"origin": "New York"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="destination", value="Los Angeles", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 6: Another single city destination - Miami (test scenario)
+            examples.append(
+                ExampleTemplate(
+                    user_message="Miami",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to book a flight"},
+                                {"user_message": "San Francisco"},
+                                {"user_message": "What airports do you support?"},
+                            ]
+                        ),
+                        current_slots={"origin": "San Francisco"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="destination", value="Miami", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 7: Seattle as destination (test scenario)
+            examples.append(
+                ExampleTemplate(
+                    user_message="Seattle",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Book a flight"},
+                                {"user_message": "Chicago"},
+                                {"user_message": "Actually, I meant Denver not Chicago"},
+                            ]
+                        ),
+                        current_slots={"origin": "Denver"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_flight",
+                        slots=[
+                            SlotValue(name="destination", value="Seattle", confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "hotel_booking":
             from soni.dataset.domains.hotel_booking import (
                 CITIES,
@@ -575,6 +696,36 @@ class SlotValueGenerator(PatternGenerator):
                             SlotValue(name="guests", value="2", confidence=0.95),
                         ],
                         confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 3: Multi-slot (Location + Date) in ongoing
+            examples.append(
+                ExampleTemplate(
+                    user_message=f"{CITIES[1]} for tomorrow",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Where and when?"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_hotel",
+                        expected_slots=["location", "checkin_date"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_hotel",
+                        slots=[
+                            SlotValue(name="location", value=CITIES[1], confidence=0.9),
+                            SlotValue(name="checkin_date", value="tomorrow", confidence=0.9),
+                        ],
+                        confidence=0.9,
                     ),
                     domain=domain_config.name,
                     pattern="slot_value",
@@ -637,6 +788,36 @@ class SlotValueGenerator(PatternGenerator):
                 )
             )
 
+            # Example 3: Multi-slot (Time + Party Size)
+            examples.append(
+                ExampleTemplate(
+                    user_message="Table for 2 at 8pm",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "For how many and what time?"},
+                            ]
+                        ),
+                        current_slots={"location": "Rome"},
+                        current_flow="book_table",
+                        expected_slots=["party_size", "time"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="book_table",
+                        slots=[
+                            SlotValue(name="party_size", value="2", confidence=0.9),
+                            SlotValue(name="time", value="8pm", confidence=0.9),
+                        ],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "ecommerce":
             from soni.dataset.domains.ecommerce import (
                 COLORS,
@@ -691,8 +872,38 @@ class SlotValueGenerator(PatternGenerator):
                 )
             )
 
+            # Example 3: Multi-slot (Color + Size)
+            examples.append(
+                ExampleTemplate(
+                    user_message="Red size 10",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "What color and size?"},
+                            ]
+                        ),
+                        current_slots={"product": "t-shirt"},
+                        current_flow="search_product",
+                        expected_slots=["color", "size"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="search_product",
+                        slots=[
+                            SlotValue(name="color", value="red", confidence=0.9),
+                            SlotValue(name="size", value="10", confidence=0.9),
+                        ],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "banking":
-            from soni.dataset.domains.banking import AMOUNTS
+            from soni.dataset.domains.banking import AMOUNTS, CURRENCIES
 
             # Explicitly create context here since we didn't add helper functions to banking.py yet
             context = ConversationContext(
@@ -752,6 +963,36 @@ class SlotValueGenerator(PatternGenerator):
                             SlotValue(name="recipient", value="Alice", confidence=0.95),
                         ],
                         confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="slot_value",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 3: Multi-slot (Amount + Currency)
+            examples.append(
+                ExampleTemplate(
+                    user_message=f"{AMOUNTS[1]} {CURRENCIES[1]}",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "How much?"},
+                            ]
+                        ),
+                        current_slots={"recipient": "Bob"},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount", "currency"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.SLOT_VALUE,
+                        command="transfer_funds",
+                        slots=[
+                            SlotValue(name="amount", value=str(AMOUNTS[1]), confidence=0.9),
+                            SlotValue(name="currency", value=CURRENCIES[1], confidence=0.9),
+                        ],
+                        confidence=0.9,
                     ),
                     domain=domain_config.name,
                     pattern="slot_value",

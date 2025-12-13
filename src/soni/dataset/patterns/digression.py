@@ -135,6 +135,88 @@ class DigressionGenerator(PatternGenerator):
                 )
             )
 
+            # Example 4: "What airports do you support?" - key test case pattern
+            examples.append(
+                ExampleTemplate(
+                    user_message="What airports do you support?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to book a flight"},
+                                {"user_message": "San Francisco"},
+                            ]
+                        ),
+                        current_slots={"origin": "San Francisco"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_flight",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 5: "What destinations do you fly to?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="What destinations do you fly to?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Book a flight from Boston"},
+                            ]
+                        ),
+                        current_slots={"origin": "Boston"},
+                        current_flow="book_flight",
+                        expected_slots=["destination"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_flight",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 6: "What cities can I fly to?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="What cities can I fly to?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to book a flight"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_flight",
+                        expected_slots=["origin"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_flight",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "hotel_booking":
             # Example 1
             examples.append(

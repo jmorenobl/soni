@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "created_at": "2025-12-13T10:18:53.580651",
-  "total_examples": 147,
+  "created_at": "2025-12-13T12:30:09.739979",
+  "total_examples": 151,
   "examples": [
     {
       "user_message": "I want to fly from Madrid to Barcelona",
@@ -575,6 +575,55 @@
       }
     },
     {
+      "user_message": "Barcelona for tomorrow",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location",
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "location",
+            "value": "Barcelona",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "checkin_date",
+            "value": "tomorrow",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "I need a table for 2 in Madrid",
       "context": {
         "current_slots": {},
@@ -767,6 +816,57 @@
       }
     },
     {
+      "user_message": "Table for 2 at 8pm",
+      "context": {
+        "current_slots": {
+          "location": "Rome"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "party_size",
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "2",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "time",
+            "value": "8pm",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "I want to buy a laptop",
       "context": {
         "current_slots": {},
@@ -948,6 +1048,57 @@
           }
         ],
         "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Red size 10",
+      "context": {
+        "current_slots": {
+          "product": "t-shirt"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "color",
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "color",
+            "value": "red",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "size",
+            "value": "10",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
         "confirmation_value": null
       }
     },
@@ -1145,6 +1296,57 @@
           }
         ],
         "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "50 EUR",
+      "context": {
+        "current_slots": {
+          "recipient": "Bob"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount",
+          "currency"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "50",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "currency",
+            "value": "EUR",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
         "confirmation_value": null
       }
     },
