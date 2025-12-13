@@ -12,7 +12,7 @@ def test_dataset_builder_auto_discovers_all():
     builder = DatasetBuilder()
 
     assert len(builder.pattern_generators) == 9  # All patterns
-    assert len(builder.domain_configs) == 4  # All domains
+    assert len(builder.domain_configs) == 5  # All domains
 
 
 def test_generate_complete_dataset():

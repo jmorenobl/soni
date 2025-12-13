@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "created_at": "2025-12-12T11:32:54.937204",
-  "total_examples": 62,
+  "created_at": "2025-12-13T10:18:53.580651",
+  "total_examples": 147,
   "examples": [
     {
       "user_message": "I want to fly from Madrid to Barcelona",
@@ -163,6 +163,52 @@
       }
     },
     {
+      "user_message": "I want to fly tomorrow",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "origin",
+          "destination",
+          "departure_date",
+          "return_date",
+          "passengers",
+          "cabin_class"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "departure_date",
+            "value": "tomorrow",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Los Angeles",
       "context": {
         "current_slots": {
@@ -295,6 +341,56 @@
       }
     },
     {
+      "user_message": "Tokyo to Rome",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin",
+          "destination",
+          "departure_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "Tokyo",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "destination",
+            "value": "Rome",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Book a hotel in Madrid",
       "context": {
         "current_slots": {},
@@ -330,6 +426,58 @@
           {
             "name": "location",
             "value": "Madrid",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I need a hotel in Barcelona for tomorrow",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "location",
+          "checkin_date",
+          "checkout_date",
+          "guests",
+          "room_type"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "location",
+            "value": "Barcelona",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "checkin_date",
+            "value": "tomorrow",
             "confidence": 0.9,
             "action": "provide",
             "previous_value": null
@@ -380,6 +528,49 @@
           }
         ],
         "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "2 adults",
+      "context": {
+        "current_slots": {
+          "location": "Paris"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "guests"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "guests",
+            "value": "2",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
         "confirmation_value": null
       }
     },
@@ -436,6 +627,58 @@
       }
     },
     {
+      "user_message": "Book dinner for 2 at 8pm",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "location",
+          "date",
+          "time",
+          "party_size",
+          "cuisine"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "2",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "time",
+            "value": "8pm",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "7:00 PM",
       "context": {
         "current_slots": {
@@ -471,6 +714,49 @@
           {
             "name": "time",
             "value": "7:00 PM",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "4 people",
+      "context": {
+        "current_slots": {
+          "location": "New York"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "party_size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "4",
             "confidence": 0.95,
             "action": "provide",
             "previous_value": null
@@ -526,6 +812,58 @@
       }
     },
     {
+      "user_message": "I want a red laptop",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "product",
+          "quantity",
+          "color",
+          "size",
+          "shipping_address"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "product",
+            "value": "laptop",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "color",
+            "value": "red",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "black",
       "context": {
         "current_slots": {
@@ -567,6 +905,246 @@
           }
         ],
         "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Size 10",
+      "context": {
+        "current_slots": {
+          "product": "shoes"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "size",
+            "value": "10",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Transfer 10 USD to mom",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "amount",
+          "currency",
+          "recipient",
+          "account_type",
+          "card_last_4"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "10",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "currency",
+            "value": "USD",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "recipient",
+            "value": "mom",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Send 50 to dad",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "none",
+        "expected_slots": [
+          "amount",
+          "currency",
+          "recipient",
+          "account_type",
+          "card_last_4"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "50",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          },
+          {
+            "name": "recipient",
+            "value": "dad",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "10",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount",
+          "currency",
+          "recipient"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "10",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Alice",
+      "context": {
+        "current_slots": {
+          "amount": "100"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "recipient"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "recipient",
+            "value": "Alice",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
         "confirmation_value": null
       }
     },
@@ -657,6 +1235,49 @@
       }
     },
     {
+      "user_message": "No, for 3 passengers",
+      "context": {
+        "current_slots": {
+          "origin": "Paris",
+          "destination": "London",
+          "departure_date": "next week"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "passengers",
+            "value": "3",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "No wait, Paris, not Madrid",
       "context": {
         "current_slots": {
@@ -690,6 +1311,92 @@
           {
             "name": "location",
             "value": "Paris",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, for 2 people",
+      "context": {
+        "current_slots": {
+          "guests": "1"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "guests",
+            "value": "2",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I meant next weekend",
+      "context": {
+        "current_slots": {
+          "checkin_date": "this weekend"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkout_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_hotel",
+        "slots": [
+          {
+            "name": "checkin_date",
+            "value": "next weekend",
             "confidence": 0.9,
             "action": "provide",
             "previous_value": null
@@ -741,6 +1448,92 @@
       }
     },
     {
+      "user_message": "No, table for 4",
+      "context": {
+        "current_slots": {
+          "party_size": "2"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "party_size",
+            "value": "4",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I meant nearby",
+      "context": {
+        "current_slots": {
+          "location": "city center"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "cuisine"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_table",
+        "slots": [
+          {
+            "name": "location",
+            "value": "nearby",
+            "confidence": 0.85,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "No, I want black not blue",
       "context": {
         "current_slots": {
@@ -772,6 +1565,221 @@
           {
             "name": "color",
             "value": "black",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I meant size 10",
+      "context": {
+        "current_slots": {
+          "size": "9"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "color"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "size",
+            "value": "10",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Change to 2 items",
+      "context": {
+        "current_slots": {
+          "quantity": "1"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "shipping_address"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "search_product",
+        "slots": [
+          {
+            "name": "quantity",
+            "value": "2",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, I meant 50 dollars",
+      "context": {
+        "current_slots": {
+          "amount": "500",
+          "currency": "dollars",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "50",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Change amount to 100",
+      "context": {
+        "current_slots": {
+          "amount": "10",
+          "currency": "USD",
+          "recipient": "Bob"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "recipient",
+            "value": "Alice",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Not to mom",
+      "context": {
+        "current_slots": {
+          "amount": "50",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "100",
             "confidence": 0.9,
             "action": "provide",
             "previous_value": null
@@ -903,6 +1911,119 @@
       }
     },
     {
+      "user_message": "No, change the origin",
+      "context": {
+        "current_slots": {
+          "origin": "New York",
+          "destination": "Los Angeles",
+          "departure_date": "2025-12-15"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, change the date",
+      "context": {
+        "current_slots": {
+          "origin": "New York",
+          "destination": "Los Angeles",
+          "departure_date": "2025-12-15"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "No, change the destination to San Francisco",
+      "context": {
+        "current_slots": {
+          "origin": "New York",
+          "destination": "Los Angeles",
+          "departure_date": "2025-12-15"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "San Francisco",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "I want to change the location to London",
       "context": {
         "current_slots": {
@@ -1023,6 +2144,84 @@
             "previous_value": null
           }
         ],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Change the amount to 50",
+      "context": {
+        "current_slots": {
+          "amount": "10",
+          "currency": "USD",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "amount",
+            "value": "50",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Can I change the currency?",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "modification",
+        "command": "transfer_funds",
+        "slots": [],
         "confidence": 0.9,
         "confirmation_value": null
       }
@@ -1284,6 +2483,70 @@
       }
     },
     {
+      "user_message": "I want to transfer money",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "none",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, check my balance instead",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "check_balance",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Cancel",
       "context": {
         "current_slots": {},
@@ -1388,6 +2651,39 @@
       }
     },
     {
+      "user_message": "Cancel this",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Cancel",
       "context": {
         "current_slots": {},
@@ -1408,6 +2704,76 @@
         "current_flow": "book_hotel",
         "expected_slots": [
           "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Stop booking",
+      "context": {
+        "current_slots": {
+          "room_type": "suite"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "dates"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Forget about it",
+      "context": {
+        "current_slots": {
+          "location": "Paris"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "dates"
         ],
         "current_prompted_slot": null,
         "conversation_state": null
@@ -1454,6 +2820,74 @@
       }
     },
     {
+      "user_message": "Cancel reservation",
+      "context": {
+        "current_slots": {
+          "party_size": "2"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Abort",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Forget it",
       "context": {
         "current_slots": {},
@@ -1481,6 +2915,175 @@
       "result": {
         "message_type": "cancellation",
         "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Cancel search",
+      "context": {
+        "current_slots": {
+          "product": "shoes"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Stop",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "product"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Cancel transfer",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Stop",
+      "context": {
+        "current_slots": {
+          "amount": "100"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "recipient"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Abort",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "cancellation",
+        "command": "transfer_funds",
         "slots": [],
         "confidence": 0.9,
         "confirmation_value": null
@@ -1588,6 +3191,74 @@
       }
     },
     {
+      "user_message": "Move on",
+      "context": {
+        "current_slots": {
+          "room_type": "suite"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "dates"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes, please proceed",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Yes, continue",
       "context": {
         "current_slots": {},
@@ -1621,6 +3292,72 @@
       }
     },
     {
+      "user_message": "Go to next step",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Sure, continue",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Proceed",
       "context": {
         "current_slots": {},
@@ -1648,6 +3385,181 @@
       "result": {
         "message_type": "continuation",
         "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Carry on",
+      "context": {
+        "current_slots": {
+          "product": "headphones"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "brand"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Next please",
+      "context": {
+        "current_slots": {
+          "product": "shoes"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Transfer more",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Also check balance",
+      "context": {
+        "current_slots": {
+          "amount": "50",
+          "currency": "EUR",
+          "recipient": "Alice"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Another one",
+      "context": {
+        "current_slots": {
+          "amount": "1000",
+          "currency": "USD",
+          "recipient": "Bob"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "continuation",
+        "command": "transfer_funds",
         "slots": [],
         "confidence": 0.9,
         "confirmation_value": null
@@ -1690,10 +3602,146 @@
       }
     },
     {
+      "user_message": "Do you have direct flights?",
+      "context": {
+        "current_slots": {
+          "destination": "Paris"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Can I bring my pet?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Do you have WiFi?",
       "context": {
         "current_slots": {
           "location": "Barcelona"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "checkin_date"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is breakfast included?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is there a gym?",
+      "context": {
+        "current_slots": {
+          "location": "Tokyo"
         },
         "available_actions": [
           "search_hotels",
@@ -1760,6 +3808,74 @@
       }
     },
     {
+      "user_message": "Do you have parking?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Do you have outdoor seating?",
+      "context": {
+        "current_slots": {
+          "party_size": "4"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "location"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "What's the warranty?",
       "context": {
         "current_slots": {
@@ -1795,6 +3911,181 @@
       }
     },
     {
+      "user_message": "What is the return policy?",
+      "context": {
+        "current_slots": {
+          "product": "shoes"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "size"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Do you ship internationally?",
+      "context": {
+        "current_slots": {
+          "product": "camera"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "brand"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What are your fees?",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is it safe?",
+      "context": {
+        "current_slots": {
+          "amount": "1000",
+          "currency": "EUR",
+          "recipient": "Bob"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Do you have a branch nearby?",
+      "context": {
+        "current_slots": {
+          "amount": "50",
+          "currency": "USD",
+          "recipient": "Alice"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Why do you need that?",
       "context": {
         "current_slots": {
@@ -1817,6 +4108,75 @@
         "current_flow": "book_flight",
         "expected_slots": [
           "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why do you need my passport number?",
+      "context": {
+        "current_slots": {
+          "origin": "London",
+          "destination": "New York"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "passport_number"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What is a redress number?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "redress_number"
         ],
         "current_prompted_slot": null,
         "conversation_state": null
@@ -1863,6 +4223,76 @@
       }
     },
     {
+      "user_message": "Is a credit card required?",
+      "context": {
+        "current_slots": {
+          "location": "Paris"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "payment_method"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why do I need to pay a deposit?",
+      "context": {
+        "current_slots": {
+          "room_type": "suite"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [
+          "deposit"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Why is that necessary?",
       "context": {
         "current_slots": {},
@@ -1892,6 +4322,74 @@
         "command": "book_table",
         "slots": [],
         "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Why do you need my phone number?",
+      "context": {
+        "current_slots": {
+          "party_size": "2"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "phone_number"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is there a dress code?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [
+          "time"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.85,
         "confirmation_value": null
       }
     },
@@ -1931,6 +4429,179 @@
       }
     },
     {
+      "user_message": "What do you use my email for?",
+      "context": {
+        "current_slots": {
+          "product": "shoes"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "email"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is my phone number necessary?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [
+          "phone"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Which account?",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Is there a transfer fee?",
+      "context": {
+        "current_slots": {
+          "amount": "500",
+          "currency": "EUR",
+          "recipient": "Alice"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What is the daily limit?",
+      "context": {
+        "current_slots": {
+          "amount": "5000",
+          "currency": "USD",
+          "recipient": "Bob"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "clarification",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Yes",
       "context": {
         "current_slots": {
@@ -2036,6 +4707,146 @@
       }
     },
     {
+      "user_message": "maybe",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "hmm",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I don't know",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I'm not sure",
+      "context": {
+        "current_slots": {
+          "origin": "Madrid",
+          "destination": "Barcelona",
+          "departure_date": "tomorrow"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": "ready_for_confirmation"
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Yes",
       "context": {
         "current_slots": {
@@ -2105,6 +4916,74 @@
     },
     {
       "user_message": "hmm, I'm not sure",
+      "context": {
+        "current_slots": {
+          "location": "Barcelona",
+          "checkin_date": "2024-12-20"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "maybe",
+      "context": {
+        "current_slots": {
+          "location": "Barcelona",
+          "checkin_date": "2024-12-20"
+        },
+        "available_actions": [
+          "search_hotels",
+          "book_hotel",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_hotel": "book_hotel",
+          "search_hotels": "search_hotels",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_hotel",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_hotel",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "hmm",
       "context": {
         "current_slots": {
           "location": "Barcelona",
@@ -2243,6 +5122,76 @@
       }
     },
     {
+      "user_message": "maybe",
+      "context": {
+        "current_slots": {
+          "location": "Madrid",
+          "party_size": "4",
+          "time": "8:00 PM"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "hmm",
+      "context": {
+        "current_slots": {
+          "location": "Madrid",
+          "party_size": "4",
+          "time": "8:00 PM"
+        },
+        "available_actions": [
+          "search_restaurants",
+          "book_table",
+          "modify_reservation",
+          "cancel_reservation",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_table": "book_table",
+          "search_restaurants": "search_restaurants",
+          "check_reservation": "check_reservation",
+          "modify_reservation": "modify_reservation",
+          "cancel_reservation": "cancel_reservation"
+        },
+        "current_flow": "book_table",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "book_table",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
       "user_message": "Yes",
       "context": {
         "current_slots": {
@@ -2339,6 +5288,249 @@
       "result": {
         "message_type": "confirmation",
         "command": "search_product",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "maybe",
+      "context": {
+        "current_slots": {
+          "product": "laptop",
+          "quantity": "1"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "hmm",
+      "context": {
+        "current_slots": {
+          "product": "laptop",
+          "quantity": "1"
+        },
+        "available_actions": [
+          "search_products",
+          "add_to_cart",
+          "process_payment",
+          "track_shipment",
+          "initiate_return"
+        ],
+        "available_flows": {
+          "search_product": "search_product",
+          "add_to_cart": "add_to_cart",
+          "checkout": "checkout",
+          "track_order": "track_order",
+          "return_product": "return_product"
+        },
+        "current_flow": "search_product",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "search_product",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Yes",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": true
+      }
+    },
+    {
+      "user_message": "No",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.95,
+        "confirmation_value": false
+      }
+    },
+    {
+      "user_message": "Maybe",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I don't know",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "transfer_funds",
+        "slots": [],
+        "confidence": 0.7,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Later",
+      "context": {
+        "current_slots": {
+          "amount": "100",
+          "currency": "USD",
+          "recipient": "Mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "confirmation",
+        "command": "transfer_funds",
         "slots": [],
         "confidence": 0.7,
         "confirmation_value": null

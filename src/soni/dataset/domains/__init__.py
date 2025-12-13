@@ -4,6 +4,7 @@ Each domain represents a business context (e.g., flight booking, hotel booking)
 with its own set of flows, actions, and slots.
 """
 
+from soni.dataset.domains.banking import BANKING
 from soni.dataset.domains.ecommerce import ECOMMERCE
 from soni.dataset.domains.flight_booking import FLIGHT_BOOKING
 from soni.dataset.domains.hotel_booking import HOTEL_BOOKING
@@ -15,6 +16,7 @@ ALL_DOMAINS = {
     "hotel_booking": HOTEL_BOOKING,
     "restaurant": RESTAURANT,
     "ecommerce": ECOMMERCE,
+    "banking": BANKING,
 }
 
 __all__ = [
@@ -22,5 +24,6 @@ __all__ = [
     "HOTEL_BOOKING",
     "RESTAURANT",
     "ECOMMERCE",
+    "BANKING",
     "ALL_DOMAINS",
 ]

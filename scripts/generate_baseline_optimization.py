@@ -136,8 +136,8 @@ def main():
     print(f"   - Max combinations: {stats['max_combinations']}")
 
     # Generate complete dataset
-    # Use 3 examples per combination for better coverage of edge cases
-    trainset = builder.build_all(examples_per_combination=3)
+    # Use 7 examples per combination for better coverage of edge cases
+    trainset = builder.build_all(examples_per_combination=7)
 
     print(f"\n   Generated {len(trainset)} training examples")
 
@@ -150,10 +150,10 @@ def main():
         print(f"   ⚠️  Dataset validation warning: {e}")
 
     # Print stats
-    print("\n   Dataset statistics:")
+    print("\n   Dataset statistics (Full):")
     print_dataset_stats(trainset)
 
-    # Save dataset
+    # Save full dataset
     dataset_path = Path("src/soni/du/datasets/baseline_v1.json")
     save_dataset(trainset, dataset_path)
 
@@ -168,9 +168,56 @@ def main():
     # Step 3: Optimize
     print("\n🚀 Step 3: Running optimization...")
     print("   This may take 15-30 minutes depending on dataset size...")
+
+    # Split dataset into train/val (80/20) using stratified sampling
+    # to ensure all patterns are represented in the validation set
+    import random
+    from collections import defaultdict
+
+    # Fixed seed for reproducibility
+    random.seed(42)
+
+    # Group by pattern type for stratified split
+    examples_by_pattern = defaultdict(list)
+    for ex in trainset:
+        # result.message_type is an enum or string
+        pattern_type = ex.result.message_type
+        examples_by_pattern[pattern_type].append(ex)
+
+    train_split = []
+    val_split = []
+
+    print("\n   Performing stratified split (90/10):")
+    for pattern, examples in examples_by_pattern.items():
+        # Shuffle examples for this pattern
+        random.shuffle(examples)
+
+        # Calculate split index
+        split_idx = int(len(examples) * 0.9)
+
+        # Ensure at least 1 example in val set if we have enough examples > 1
+        if len(examples) > 1 and split_idx == len(examples):
+            split_idx = len(examples) - 1
+
+        # Add to splits
+        pattern_train = examples[:split_idx]
+        pattern_val = examples[split_idx:]
+
+        train_split.extend(pattern_train)
+        val_split.extend(pattern_val)
+
+        print(f"   - {pattern}: {len(pattern_train)} train, {len(pattern_val)} val")
+
+    # Final shuffle of the splits
+    random.shuffle(train_split)
+    random.shuffle(val_split)
+
+    print("\n   Total split results:")
+    print(f"   - Training set: {len(train_split)} examples")
+    print(f"   - Validation set: {len(val_split)} examples")
+
     print(f"   Optimizer: {args.optimizer}")
     print(f"   Trials: {args.trials}")
-    print(f"   Training examples: {len(trainset)}")
 
     output_dir = Path("src/soni/du/optimized")
 
@@ -179,7 +226,8 @@ def main():
         if args.optimizer == "GEPA":
             # GEPA uses reflective prompt evolution - simpler config
             _optimized_nlu, metrics = optimize_soni_du(
-                trainset=trainset,
+                trainset=train_split,
+                valset=val_split,
                 optimizer_type="GEPA",
                 num_trials=args.trials,
                 timeout_seconds=1800,
@@ -187,7 +235,8 @@ def main():
             )
         else:  # MIPROv2
             _optimized_nlu, metrics = optimize_soni_du(
-                trainset=trainset,
+                trainset=train_split,
+                valset=val_split,
                 optimizer_type="MIPROv2",
                 num_trials=args.trials,
                 timeout_seconds=1800,

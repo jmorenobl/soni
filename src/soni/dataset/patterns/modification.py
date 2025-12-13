@@ -287,4 +287,53 @@ class ModificationGenerator(PatternGenerator):
                 )
             )
 
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import (
+                AMOUNTS,
+                MODIFICATION_UTTERANCES,
+                create_context_after_transfer,
+            )
+
+            # Example 1: Change amount explicitly
+            examples.append(
+                ExampleTemplate(
+                    user_message=f"Change the amount to {AMOUNTS[1]}",
+                    conversation_context=create_context_after_transfer(
+                        amount=str(AMOUNTS[0]), currency="USD", recipient="mom"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.MODIFICATION,
+                        command="transfer_funds",
+                        slots=[
+                            SlotValue(name="amount", value=str(AMOUNTS[1]), confidence=0.95),
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="modification",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 2: "Can I change the currency?"
+            examples.append(
+                ExampleTemplate(
+                    user_message=MODIFICATION_UTTERANCES[2],  # "Can I change the currency?"
+                    conversation_context=create_context_after_transfer(
+                        amount="100", currency="USD", recipient="mom"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.MODIFICATION,
+                        command="transfer_funds",
+                        slots=[],  # Intent to change, but no new value provided
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="modification",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         return examples[:count]

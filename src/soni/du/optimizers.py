@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def optimize_soni_du(
     trainset: list[dspy.Example],
+    valset: list[dspy.Example] | None = None,
     optimizer_type: str = "MIPROv2",
     num_trials: int = 10,
     timeout_seconds: int = 600,
@@ -30,7 +31,8 @@ def optimize_soni_du(
 
     Args:
         trainset: List of dspy.Example instances for training
-        optimizer_type: Type of optimizer to use (\"MIPROv2\" or \"GEPA\")
+        valset: Optional list of dspy.Example instances for validation
+        optimizer_type: Type of optimizer to use ("MIPROv2" or "GEPA")
         num_trials: Number of optimization trials
         timeout_seconds: Maximum time for optimization in seconds
         output_dir: Optional directory to save optimized module
@@ -67,11 +69,14 @@ def optimize_soni_du(
 
     try:
         if optimizer_type == "GEPA":
-            optimized_nlu = _optimize_with_gepa(baseline_nlu, trainset, num_trials, timeout_seconds)
+            optimized_nlu = _optimize_with_gepa(
+                baseline_nlu, trainset, valset, num_trials, timeout_seconds
+            )
         else:  # MIPROv2
             optimized_nlu = _optimize_with_miprov2(
                 baseline_nlu,
                 trainset,
+                valset,
                 num_trials,
                 minibatch_size,
                 num_candidates,
@@ -133,6 +138,7 @@ def optimize_soni_du(
 def _optimize_with_gepa(
     baseline_nlu: SoniDU,
     trainset: list[dspy.Example],
+    valset: list[dspy.Example] | None,
     num_trials: int,
     timeout_seconds: int,
 ) -> SoniDU:
@@ -145,6 +151,7 @@ def _optimize_with_gepa(
     Args:
         baseline_nlu: Baseline SoniDU module
         trainset: Training examples for evaluation
+        valset: Validation examples for evaluation
         num_trials: Number of optimization trials
         timeout_seconds: Maximum optimization time
 
@@ -179,6 +186,7 @@ def _optimize_with_gepa(
     result = optimizer.compile(
         student=baseline_nlu,
         trainset=trainset,
+        valset=valset,
     )
     return result  # type: ignore[no-any-return]
 
@@ -186,6 +194,7 @@ def _optimize_with_gepa(
 def _optimize_with_miprov2(
     baseline_nlu: SoniDU,
     trainset: list[dspy.Example],
+    valset: list[dspy.Example] | None,
     num_trials: int,
     minibatch_size: int | None,
     num_candidates: int | None,
@@ -233,6 +242,7 @@ def _optimize_with_miprov2(
     result = optimizer.compile(
         student=baseline_nlu,
         trainset=trainset,
+        valset=valset,
         num_trials=num_trials,
         max_bootstrapped_demos=max_bootstrapped_demos,
         max_labeled_demos=max_labeled_demos,

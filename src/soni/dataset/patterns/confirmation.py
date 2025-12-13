@@ -320,4 +320,74 @@ class ConfirmationGenerator(PatternGenerator):
                     )
                 )
 
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import (
+                CONFIRMATION_NEGATIVE,
+                CONFIRMATION_POSITIVE,
+                CONFIRMATION_UNCLEAR,
+                create_context_after_transfer,
+            )
+
+            context = create_context_after_transfer(amount="100", currency="USD", recipient="Mom")
+            # Simulate waiting for confirmation
+            context.expected_slots = []
+
+            # Positive confirmation
+            examples.append(
+                ExampleTemplate(
+                    user_message=CONFIRMATION_POSITIVE[0],
+                    conversation_context=context,
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONFIRMATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.95,
+                        confirmation_value=True,
+                    ),
+                    domain=domain_config.name,
+                    pattern="confirmation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Negative confirmation
+            examples.append(
+                ExampleTemplate(
+                    user_message=CONFIRMATION_NEGATIVE[0],
+                    conversation_context=context,
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONFIRMATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.95,
+                        confirmation_value=False,
+                    ),
+                    domain=domain_config.name,
+                    pattern="confirmation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Unclear confirmations
+            for unclear_phrase in CONFIRMATION_UNCLEAR[:3]:
+                examples.append(
+                    ExampleTemplate(
+                        user_message=unclear_phrase,
+                        conversation_context=context,
+                        expected_output=NLUOutput(
+                            message_type=MessageType.CONFIRMATION,
+                            command="transfer_funds",
+                            slots=[],
+                            confidence=0.7,
+                            confirmation_value=None,
+                        ),
+                        domain=domain_config.name,
+                        pattern="confirmation",
+                        context_type="ongoing",
+                        current_datetime="2024-12-11T10:00:00",
+                    )
+                )
+
         return examples[:count]

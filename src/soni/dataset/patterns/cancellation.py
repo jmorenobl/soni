@@ -159,6 +159,7 @@ class CancellationGenerator(PatternGenerator):
             )
 
         elif domain_config.name == "hotel_booking":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="Cancel",
@@ -184,8 +185,61 @@ class CancellationGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Stop booking",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Reserve suite"},
+                            ]
+                        ),
+                        current_slots={"room_type": "suite"},
+                        current_flow="book_hotel",
+                        expected_slots=["dates"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Forget about it",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Hotel in Paris"},
+                            ]
+                        ),
+                        current_slots={"location": "Paris"},
+                        current_flow="book_hotel",
+                        expected_slots=["dates"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "restaurant":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="Never mind",
@@ -211,8 +265,61 @@ class CancellationGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Cancel reservation",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Table for two"},
+                            ]
+                        ),
+                        current_slots={"party_size": "2"},
+                        current_flow="book_table",
+                        expected_slots=["time"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Abort",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Dinner booking"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_table",
+                        expected_slots=["location"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "ecommerce":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="Forget it",
@@ -229,6 +336,142 @@ class CancellationGenerator(PatternGenerator):
                     expected_output=NLUOutput(
                         message_type=MessageType.CANCELLATION,
                         command="search_product",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Cancel search",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Look for shoes"},
+                            ]
+                        ),
+                        current_slots={"product": "shoes"},
+                        current_flow="search_product",
+                        expected_slots=["size"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Stop",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Shopping"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="search_product",
+                        expected_slots=["product"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import CANCELLATION_UTTERANCES
+
+            # Example 1
+            examples.append(
+                ExampleTemplate(
+                    user_message=CANCELLATION_UTTERANCES[0],
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to transfer money"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2: Stop
+            examples.append(
+                ExampleTemplate(
+                    user_message=CANCELLATION_UTTERANCES[
+                        1
+                    ],  # "Stop the transfer" (assuming based on standard list)
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Transfer 100"},
+                            ]
+                        ),
+                        current_slots={"amount": "100"},
+                        current_flow="transfer_funds",
+                        expected_slots=["recipient"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="cancellation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3: Nevermind
+            examples.append(
+                ExampleTemplate(
+                    user_message=CANCELLATION_UTTERANCES[3],  # "Nevermind"
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Send money"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CANCELLATION,
+                        command="transfer_funds",
                         slots=[],
                         confidence=0.9,
                     ),

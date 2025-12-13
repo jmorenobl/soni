@@ -54,6 +54,7 @@ class DigressionGenerator(PatternGenerator):
                 "How long is the flight?",
             ]
 
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message=digression_questions[0],
@@ -81,8 +82,61 @@ class DigressionGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message=digression_questions[1],  # "Do you have direct flights?"
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Flights to Paris"},
+                            ]
+                        ),
+                        current_slots={"destination": "Paris"},
+                        current_flow="book_flight",
+                        expected_slots=["origin"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_flight",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Can I bring my pet?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Book a flight"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_flight",
+                        expected_slots=["origin"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_flight",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "hotel_booking":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="Do you have WiFi?",
@@ -108,8 +162,61 @@ class DigressionGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Is breakfast included?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Reserve a room"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_hotel",
+                        expected_slots=["location"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Is there a gym?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Hotel in Tokyo"},
+                            ]
+                        ),
+                        current_slots={"location": "Tokyo"},
+                        current_flow="book_hotel",
+                        expected_slots=["checkin_date"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "restaurant":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="Do you have vegetarian options?",
@@ -135,8 +242,61 @@ class DigressionGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Do you have parking?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Reserve dinner"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_table",
+                        expected_slots=["time"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Do you have outdoor seating?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Table for 4"},
+                            ]
+                        ),
+                        current_slots={"party_size": "4"},
+                        current_flow="book_table",
+                        expected_slots=["location"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "ecommerce":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message="What's the warranty?",
@@ -153,6 +313,122 @@ class DigressionGenerator(PatternGenerator):
                     expected_output=NLUOutput(
                         message_type=MessageType.DIGRESSION,
                         command="search_product",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="What is the return policy?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Buy shoes"},
+                            ]
+                        ),
+                        current_slots={"product": "shoes"},
+                        current_flow="search_product",
+                        expected_slots=["size"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Do you ship internationally?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Search for cameras"},
+                            ]
+                        ),
+                        current_slots={"product": "camera"},
+                        current_flow="search_product",
+                        expected_slots=["brand"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import (
+                DIGRESSION_UTTERANCES,
+                create_context_after_transfer,
+            )
+
+            # Example 1: Ask about fees during transfer
+            examples.append(
+                ExampleTemplate(
+                    user_message=DIGRESSION_UTTERANCES[0],  # "What are your fees?"
+                    conversation_context=create_context_after_transfer(
+                        amount="100", currency="USD", recipient="mom"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2: Safety
+            examples.append(
+                ExampleTemplate(
+                    user_message=DIGRESSION_UTTERANCES[1],  # "Is it safe?"
+                    conversation_context=create_context_after_transfer(
+                        amount="1000", currency="EUR", recipient="Bob"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="digression",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3: Branch
+            examples.append(
+                ExampleTemplate(
+                    user_message=DIGRESSION_UTTERANCES[2],  # "Do you have a branch nearby?"
+                    conversation_context=create_context_after_transfer(
+                        amount="50", currency="USD", recipient="Alice"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.DIGRESSION,
+                        command="transfer_funds",
                         slots=[],
                         confidence=0.85,
                     ),

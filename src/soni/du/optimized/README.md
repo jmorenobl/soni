@@ -5,17 +5,17 @@ This directory contains pre-trained NLU modules that ship with the Soni framewor
 ## Baseline v1
 
 **File:** `baseline_v1.json`
-**Created:** 2025-12-12
-**Training examples:** 62
+**Created:** 2025-12-13
+**Training examples:** 147
 
 ### Optimization Metrics
 
-- **Baseline accuracy:** 86.29%
-- **Optimized accuracy:** 86.29%
+- **Baseline accuracy:** 85.20%
+- **Optimized accuracy:** 85.20%
 - **Improvement:** +0.0%
 - **Optimizer:** MIPROv2
 - **Trials:** 50
-- **Training time:** 583.0s
+- **Training time:** 770.0s
 
 ### Dataset Coverage
 
@@ -79,10 +79,10 @@ uv run python scripts/generate_baseline_optimization.py
 
 ## Version History
 
-### v1 (2025-12-12)
+### v1 (2025-12-13)
 - Initial baseline optimization
-- 62 training examples
-- 86.29% accuracy on training set
+- 147 training examples
+- 85.20% accuracy on training set
 - Covers 9 patterns × 4 domains × 2 contexts
 
 ## Custom Optimizations

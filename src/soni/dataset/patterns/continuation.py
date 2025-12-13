@@ -104,6 +104,7 @@ class ContinuationGenerator(PatternGenerator):
             )
 
         elif domain_config.name == "hotel_booking":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message=continuation_phrases[2],
@@ -129,8 +130,61 @@ class ContinuationGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Move on",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Reserve suite"},
+                            ]
+                        ),
+                        current_slots={"room_type": "suite"},
+                        current_flow="book_hotel",
+                        expected_slots=["dates"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Yes, please proceed",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Hotel booking"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_hotel",
+                        expected_slots=["location"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="book_hotel",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "restaurant":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message=continuation_phrases[3],
@@ -156,8 +210,61 @@ class ContinuationGenerator(PatternGenerator):
                     current_datetime="2024-12-11T10:00:00",
                 )
             )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Go to next step",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Table reservation"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_table",
+                        expected_slots=["time"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Sure, continue",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Dinner booking"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="book_table",
+                        expected_slots=["location"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="book_table",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
 
         elif domain_config.name == "ecommerce":
+            # Example 1
             examples.append(
                 ExampleTemplate(
                     user_message=continuation_phrases[4],
@@ -174,6 +281,122 @@ class ContinuationGenerator(PatternGenerator):
                     expected_output=NLUOutput(
                         message_type=MessageType.CONTINUATION,
                         command="search_product",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2
+            examples.append(
+                ExampleTemplate(
+                    user_message="Carry on",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Buy headphones"},
+                            ]
+                        ),
+                        current_slots={"product": "headphones"},
+                        current_flow="search_product",
+                        expected_slots=["brand"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3
+            examples.append(
+                ExampleTemplate(
+                    user_message="Next please",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "Shop for shoes"},
+                            ]
+                        ),
+                        current_slots={"product": "shoes"},
+                        current_flow="search_product",
+                        expected_slots=["size"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="search_product",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import (
+                CONTINUATION_UTTERANCES,
+                create_context_after_transfer,
+            )
+
+            # Example 1: Continue after transfer
+            examples.append(
+                ExampleTemplate(
+                    user_message=CONTINUATION_UTTERANCES[1],  # "Transfer more"
+                    conversation_context=create_context_after_transfer(
+                        amount="100", currency="USD", recipient="mom"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 2: Go ahead
+            examples.append(
+                ExampleTemplate(
+                    user_message=CONTINUATION_UTTERANCES[0],  # "Yes, go ahead"
+                    conversation_context=create_context_after_transfer(
+                        amount="50", currency="EUR", recipient="Alice"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="continuation",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+            # Example 3: Proceed
+            examples.append(
+                ExampleTemplate(
+                    user_message=CONTINUATION_UTTERANCES[2],  # "Please proceed"
+                    conversation_context=create_context_after_transfer(
+                        amount="1000", currency="USD", recipient="Bob"
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.CONTINUATION,
+                        command="transfer_funds",
                         slots=[],
                         confidence=0.9,
                     ),

@@ -147,6 +147,31 @@ class InterruptionGenerator(PatternGenerator):
                 )
             )
 
+        elif domain_config.name == "banking":
+            from soni.dataset.domains.banking import TRANSFER_UTTERANCES
+
+            examples.append(
+                ExampleTemplate(
+                    user_message=TRANSFER_UTTERANCES[0],
+                    conversation_context=ConversationContext(
+                        history=dspy.History(messages=[]),
+                        current_slots={},
+                        current_flow="none",
+                        expected_slots=[],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="transfer_funds",
+                        slots=[],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="cold_start",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         return examples[:count]
 
     def _generate_ongoing_examples(
@@ -255,6 +280,33 @@ class InterruptionGenerator(PatternGenerator):
                     expected_output=NLUOutput(
                         message_type=MessageType.INTERRUPTION,
                         command="search_flights",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+        elif domain_config.name == "banking":
+            examples.append(
+                ExampleTemplate(
+                    user_message="Actually, check my balance instead",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"user_message": "I want to transfer money"},
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
                         slots=[],
                         confidence=0.85,
                     ),
