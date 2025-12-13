@@ -222,6 +222,70 @@ def should_continue_flow(state: DialogueState) -> Literal["next", "end"]:
     return "next"
 
 
+def _route_by_conversation_state(
+    state: DialogueStateType,
+    router_name: str,
+    *,
+    handle_completed: bool = False,
+    verbose_logging: bool = False,
+) -> str:
+    """
+    Common routing logic based on conversation_state.
+
+    This helper consolidates the shared routing pattern used by:
+    - route_after_validate
+    - route_after_correction
+    - route_after_modification
+
+    Args:
+        state: Current dialogue state
+        router_name: Name of the calling router (for logging)
+        handle_completed: If True, treat "completed" state as generate_response
+        verbose_logging: If True, log detailed state information
+
+    Returns:
+        Next node name based on conversation_state
+    """
+    conv_state = state.get("conversation_state")
+
+    if verbose_logging:
+        logger.info("=" * 80)
+        logger.info(f"ROUTING after {router_name}:")
+        logger.info(f"  conversation_state: {conv_state}")
+        logger.info(f"  last_response: '{state.get('last_response')}'")
+        logger.info(f"  user_message: '{state.get('user_message')}'")
+        logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
+        logger.info(f"  current_prompted_slot: '{state.get('current_prompted_slot')}'")
+        logger.info("=" * 80)
+    else:
+        logger.info(
+            f"{router_name}: conversation_state={conv_state}",
+            extra={"conversation_state": conv_state},
+        )
+
+    # Common routing based on conversation_state
+    if conv_state == "ready_for_action":
+        return "execute_action"
+    elif conv_state == "ready_for_confirmation":
+        return "confirm_action"
+    elif conv_state == "waiting_for_slot":
+        return "collect_next_slot"
+    elif handle_completed and conv_state == "completed":
+        return "generate_response"
+    else:
+        if verbose_logging:
+            logger.warning(
+                f"Unexpected conversation_state '{conv_state}' in {router_name}, "
+                f"falling back to generate_response. State keys: {list(state.keys())}",
+                extra={
+                    "conversation_state": conv_state,
+                    "state_keys": list(state.keys()),
+                    "has_nlu_result": "nlu_result" in state,
+                },
+            )
+        return "generate_response"
+
+
 def route_after_understand(state: DialogueStateType) -> str:
     """
     Route based on NLU result.
@@ -431,8 +495,7 @@ def route_after_understand(state: DialogueStateType) -> str:
 def route_after_correction(state: DialogueStateType) -> str:
     """Route after correction handling based on conversation_state.
 
-    Similar to route_after_validate - corrections return to a step,
-    so routing is based on the conversation_state set by the correction handler.
+    Delegates to _route_by_conversation_state helper (DRY).
 
     Args:
         state: Current dialogue state
@@ -440,29 +503,13 @@ def route_after_correction(state: DialogueStateType) -> str:
     Returns:
         Next node name
     """
-    conv_state = state.get("conversation_state")
-
-    logger.info(
-        f"route_after_correction: conversation_state={conv_state}",
-        extra={"conversation_state": conv_state},
-    )
-
-    # Route based on conversation_state (same as route_after_validate)
-    if conv_state == "ready_for_action":
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
-        return "confirm_action"
-    elif conv_state == "waiting_for_slot":
-        return "collect_next_slot"
-    else:
-        return "generate_response"
+    return _route_by_conversation_state(state, "route_after_correction")
 
 
 def route_after_modification(state: DialogueStateType) -> str:
     """Route after modification handling based on conversation_state.
 
-    Similar to route_after_validate - modifications return to a step,
-    so routing is based on the conversation_state set by the modification handler.
+    Delegates to _route_by_conversation_state helper (DRY).
 
     Args:
         state: Current dialogue state
@@ -470,65 +517,26 @@ def route_after_modification(state: DialogueStateType) -> str:
     Returns:
         Next node name
     """
-    conv_state = state.get("conversation_state")
-
-    logger.info(
-        f"route_after_modification: conversation_state={conv_state}",
-        extra={"conversation_state": conv_state},
-    )
-
-    # Route based on conversation_state (same as route_after_validate)
-    if conv_state == "ready_for_action":
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
-        return "confirm_action"
-    elif conv_state == "waiting_for_slot":
-        return "collect_next_slot"
-    else:
-        return "generate_response"
+    return _route_by_conversation_state(state, "route_after_modification")
 
 
 def route_after_validate(state: DialogueStateType) -> str:
     """Route after slot validation based on conversation_state.
 
+    Delegates to _route_by_conversation_state helper with verbose logging (DRY).
+
     Args:
         state: Current dialogue state
 
     Returns:
         Next node name
     """
-    conv_state = state.get("conversation_state")
-
-    logger.info("=" * 80)
-    logger.info("ROUTING after validate_slot:")
-    logger.info(f"  conversation_state: {conv_state}")
-    logger.info(f"  last_response: '{state.get('last_response')}'")
-    logger.info(f"  user_message: '{state.get('user_message')}'")
-    logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
-    logger.info(f"  current_prompted_slot: '{state.get('current_prompted_slot')}'")
-    logger.info("=" * 80)
-
-    # Route based on conversation_state as specified in design
-    if conv_state == "ready_for_action":
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
-        return "confirm_action"
-    elif conv_state == "waiting_for_slot":
-        return "collect_next_slot"
-    elif conv_state == "completed":
-        return "generate_response"
-    else:
-        # Default fallback - unexpected conversation_state
-        logger.warning(
-            f"Unexpected conversation_state '{conv_state}' in route_after_validate, "
-            f"falling back to generate_response. State keys: {list(state.keys())}",
-            extra={
-                "conversation_state": conv_state,
-                "state_keys": list(state.keys()),
-                "has_nlu_result": "nlu_result" in state,
-            },
-        )
-        return "generate_response"
+    return _route_by_conversation_state(
+        state,
+        "validate_slot",
+        handle_completed=True,
+        verbose_logging=True,
+    )
 
 
 def route_after_collect_next_slot(state: DialogueStateType) -> str:
