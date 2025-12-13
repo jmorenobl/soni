@@ -217,7 +217,7 @@ __marimo__/
 
 # Reference documents or projects
 ref/
-workflow/
+#workflow/
 
 # NLU Optimization - Keep baseline, ignore custom/temp optimizations
 # Keep baseline optimization (ships with framework)

@@ -2,13 +2,118 @@
 
 import logging
 from collections.abc import Callable
-from typing import Any, Literal
+from functools import wraps
+from typing import Any, Literal, cast
 
+from pydantic import BaseModel, Field, ValidationError
+
+from soni.core.constants import ConversationState, NodeName
 from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
 from soni.core.state import DialogueState, get_slot, state_from_dict
 from soni.core.types import DialogueState as DialogueStateType
 
 logger = logging.getLogger(__name__)
+
+
+def log_routing_decision(func: Callable) -> Callable:
+    """Decorator for consistent logging of routing decisions (DM-004).
+
+    Logs entry and result of routing functions with structured data.
+
+    Usage:
+        @log_routing_decision
+        def my_route_handler(state, nlu_result):
+            return NodeName.VALIDATE_SLOT
+    """
+
+    @wraps(func)
+    def wrapper(state: DialogueStateType, *args, **kwargs) -> str:
+        func_name = func.__name__
+        conv_state = state.get("conversation_state")
+
+        logger.debug(
+            f"[ROUTE] {func_name} entry",
+            extra={
+                "router": func_name,
+                "conversation_state": conv_state,
+            },
+        )
+
+        result = func(state, *args, **kwargs)
+
+        logger.info(
+            f"[ROUTE] {func_name} -> {result}",
+            extra={
+                "router": func_name,
+                "conversation_state": conv_state,
+                "next_node": result,
+            },
+        )
+
+        return cast(str, result)
+
+    return wrapper
+
+
+# =============================================================================
+# NLU Result Validation (DM-005)
+# Pydantic schema validation at routing boundary for type safety
+# =============================================================================
+
+
+class ValidatedNLUResult(BaseModel):
+    """Validated NLU result with type-safe fields.
+
+    Used at the routing boundary to ensure NLU results have valid structure
+    before processing. Provides clear error messages for malformed results.
+    """
+
+    message_type: str = Field(description="Classification of user message type")
+    command: str | None = Field(default=None, description="Flow/intent command if applicable")
+    slots: list[dict[str, Any]] = Field(default_factory=list, description="Extracted slot values")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="NLU confidence score")
+    confirmation_value: bool | None = Field(
+        default=None, description="Confirmation response (True/False/None)"
+    )
+
+
+class NLUResultValidationError(Exception):
+    """Error raised when NLU result fails validation.
+
+    Contains the original data for debugging.
+    """
+
+    def __init__(self, validation_error: ValidationError, original_data: dict[str, Any]):
+        self.validation_error = validation_error
+        self.original_data = original_data
+        super().__init__(
+            f"NLU result validation failed: {validation_error}. Original data: {original_data}"
+        )
+
+
+def validate_nlu_result(nlu_result: dict[str, Any] | None) -> ValidatedNLUResult | None:
+    """Validate NLU result at routing boundary.
+
+    Args:
+        nlu_result: Raw NLU result dict or None
+
+    Returns:
+        ValidatedNLUResult if valid, None if input is None
+
+    Raises:
+        NLUResultValidationError: If validation fails
+    """
+    if nlu_result is None:
+        return None
+
+    try:
+        return cast(ValidatedNLUResult, ValidatedNLUResult.model_validate(nlu_result))
+    except ValidationError as e:
+        logger.error(
+            f"NLU result validation failed: {e}",
+            extra={"nlu_result": nlu_result},
+        )
+        raise NLUResultValidationError(e, nlu_result) from e
 
 
 def should_continue(state: DialogueState | dict[str, Any]) -> str:
@@ -264,14 +369,14 @@ def _route_by_conversation_state(
         )
 
     # Common routing based on conversation_state
-    if conv_state == "ready_for_action":
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
-        return "confirm_action"
-    elif conv_state == "waiting_for_slot":
-        return "collect_next_slot"
-    elif handle_completed and conv_state == "completed":
-        return "generate_response"
+    if conv_state == ConversationState.READY_FOR_ACTION:
+        return NodeName.EXECUTE_ACTION
+    elif conv_state == ConversationState.READY_FOR_CONFIRMATION:
+        return NodeName.CONFIRM_ACTION
+    elif conv_state == ConversationState.WAITING_FOR_SLOT:
+        return NodeName.COLLECT_NEXT_SLOT
+    elif handle_completed and conv_state == ConversationState.COMPLETED:
+        return NodeName.GENERATE_RESPONSE
     else:
         if verbose_logging:
             logger.warning(
@@ -283,12 +388,242 @@ def _route_by_conversation_state(
                     "has_nlu_result": "nlu_result" in state,
                 },
             )
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
+
+
+# =============================================================================
+# Route Handlers for dispatch pattern (DM-001)
+# Each handler processes a specific message_type from NLU
+# =============================================================================
+
+
+def _normalize_message_type(message_type: Any) -> str | None:
+    """Normalize message_type to lowercase string.
+
+    Args:
+        message_type: Raw message type (string, enum, or None)
+
+    Returns:
+        Lowercase string or None
+    """
+    if message_type is None:
+        return None
+    # If it's an enum, get its value (string)
+    if hasattr(message_type, "value"):
+        message_type = message_type.value
+    return str(message_type).lower()
+
+
+def _redirect_if_confirming(state: DialogueStateType, message_type: str) -> str | None:
+    """Guard: redirect to handle_confirmation if in confirming state.
+
+    This consolidates the duplicated check across slot_value, correction,
+    and modification handlers (DRY principle - DM-003).
+
+    Args:
+        state: Current dialogue state
+        message_type: The message type being processed (for logging)
+
+    Returns:
+        NodeName.HANDLE_CONFIRMATION if in confirming state, None otherwise
+    """
+    conv_state = state.get("conversation_state")
+
+    if conv_state == ConversationState.CONFIRMING:
+        logger.info(
+            f"Guard: {message_type} detected during confirming state, "
+            f"redirecting to handle_confirmation"
+        )
+        return NodeName.HANDLE_CONFIRMATION
+
+    return None
+
+
+def _route_slot_value(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route slot_value message type.
+
+    Handles special cases:
+    - If confirming: treat as confirmation
+    - If understanding after denial: treat as modification
+    - If no active flow but has command: start flow first
+    """
+    # Guard: redirect if in confirming state
+    if redirect := _redirect_if_confirming(state, "slot_value"):
+        return redirect
+
+    conv_state = state.get("conversation_state")
+
+    # Special case: In understanding state after denial, treat as modification
+    if conv_state == ConversationState.UNDERSTANDING:
+        flow_stack = state.get("flow_stack", [])
+        if flow_stack:
+            from soni.core.state import get_all_slots
+
+            existing_slots = get_all_slots(state)
+            slots = nlu_result.get("slots", [])
+            if slots:
+                slot = slots[0]
+                slot_name = (
+                    slot.get("name") if isinstance(slot, dict) else getattr(slot, "name", None)
+                )
+                if slot_name and slot_name in existing_slots:
+                    logger.info(
+                        f"slot_value detected but slot '{slot_name}' already exists "
+                        f"and conversation_state=understanding (after denial), "
+                        f"treating as modification"
+                    )
+                    return NodeName.HANDLE_MODIFICATION
+
+    # Check if flow needs to be started first
+    flow_stack = state.get("flow_stack", [])
+    has_active_flow = bool(flow_stack)
+    command = nlu_result.get("command")
+
+    if not has_active_flow and command:
+        logger.info(
+            f"slot_value message with command '{command}' but no active flow, starting flow first"
+        )
+        return NodeName.HANDLE_INTENT_CHANGE
+
+    return NodeName.VALIDATE_SLOT
+
+
+def _route_correction(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route correction message type."""
+    # Guard: redirect if in confirming state
+    if redirect := _redirect_if_confirming(state, "correction"):
+        return redirect
+
+    flow_stack = state.get("flow_stack", [])
+    has_active_flow = bool(flow_stack)
+    command = nlu_result.get("command")
+
+    logger.info(
+        f"route_after_understand: CORRECTION detected, has_active_flow={has_active_flow}, "
+        f"command={command}, routing to handle_correction"
+    )
+
+    if not has_active_flow and command:
+        logger.info(
+            f"correction message with command '{command}' but no active flow, starting flow first"
+        )
+        return NodeName.HANDLE_INTENT_CHANGE
+
+    return NodeName.HANDLE_CORRECTION
+
+
+def _route_modification(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route modification message type."""
+    # Guard: redirect if in confirming state
+    if redirect := _redirect_if_confirming(state, "modification"):
+        return redirect
+
+    flow_stack = state.get("flow_stack", [])
+    has_active_flow = bool(flow_stack)
+    command = nlu_result.get("command")
+
+    if not has_active_flow and command:
+        logger.info(
+            f"modification message with command '{command}' but no active flow, starting flow first"
+        )
+        return NodeName.HANDLE_INTENT_CHANGE
+
+    return NodeName.HANDLE_MODIFICATION
+
+
+def _route_intent_change(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route interruption/intent_change message type."""
+    return NodeName.HANDLE_INTENT_CHANGE
+
+
+def _route_clarification(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route clarification message type."""
+    return NodeName.HANDLE_CLARIFICATION
+
+
+def _route_digression(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route digression/question message type."""
+    return NodeName.HANDLE_DIGRESSION
+
+
+def _route_cancellation(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route cancellation message type."""
+    return NodeName.HANDLE_CANCELLATION
+
+
+def _route_confirmation(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route confirmation message type."""
+    conv_state = state.get("conversation_state")
+
+    if (
+        conv_state == ConversationState.CONFIRMING
+        or conv_state == ConversationState.READY_FOR_CONFIRMATION
+    ):
+        return NodeName.HANDLE_CONFIRMATION
+
+    # Not in confirmation state - treat as continuation or digression
+    logger.warning(
+        f"NLU detected confirmation but conversation_state={conv_state}, treating as continuation"
+    )
+    flow_stack = state.get("flow_stack", [])
+    has_active_flow = bool(flow_stack)
+
+    if has_active_flow:
+        return NodeName.COLLECT_NEXT_SLOT
+    return NodeName.GENERATE_RESPONSE
+
+
+def _route_continuation(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Route continuation message type."""
+    flow_stack = state.get("flow_stack", [])
+    has_active_flow = bool(flow_stack)
+    command = nlu_result.get("command")
+
+    if has_active_flow:
+        return NodeName.COLLECT_NEXT_SLOT
+    elif command:
+        logger.info(
+            f"Continuation with no active flow and command '{command}', treating as intent_change"
+        )
+        return NodeName.HANDLE_INTENT_CHANGE
+    return NodeName.GENERATE_RESPONSE
+
+
+def _route_fallback(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
+    """Fallback handler for unknown message types."""
+    message_type = nlu_result.get("message_type") if nlu_result else None
+    logger.warning(
+        f"Unknown message_type '{message_type}' in route_after_understand, "
+        f"falling back to generate_response.",
+        extra={
+            "message_type": message_type,
+            "command": nlu_result.get("command") if nlu_result else None,
+        },
+    )
+    return NodeName.GENERATE_RESPONSE
+
+
+# Type alias for route handlers
+RouteHandler = Callable[[DialogueStateType, dict[str, Any]], str]
+
+# Dispatch dictionary for message types -> handlers
+ROUTE_HANDLERS: dict[str, RouteHandler] = {
+    "slot_value": _route_slot_value,
+    "correction": _route_correction,
+    "modification": _route_modification,
+    "interruption": _route_intent_change,
+    "intent_change": _route_intent_change,
+    "clarification": _route_clarification,
+    "digression": _route_digression,
+    "question": _route_digression,
+    "cancellation": _route_cancellation,
+    "confirmation": _route_confirmation,
+    "continuation": _route_continuation,
+}
 
 
 def route_after_understand(state: DialogueStateType) -> str:
-    """
-    Route based on NLU result.
+    """Route based on NLU result using dispatch pattern.
 
     Pattern: Routing Function (synchronous, returns node name)
 
@@ -296,32 +631,17 @@ def route_after_understand(state: DialogueStateType) -> str:
         state: Current dialogue state
 
     Returns:
-        Name of next node to execute
-
-    Note:
-        Only returns values that are in the builder.py edge map:
-        - validate_slot
-        - handle_digression
-        - handle_intent_change
-        - handle_confirmation
-        - collect_next_slot
-        - generate_response
+        Name of next node to execute (from NodeName enum)
     """
     nlu_result = state.get("nlu_result")
 
     if not nlu_result:
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
 
-    message_type = nlu_result.get("message_type")
+    # Normalize message type
+    message_type = _normalize_message_type(nlu_result.get("message_type"))
 
-    # Normalize message_type - it can be a string or an enum (MessageType)
-    if message_type is not None:
-        # If it's an enum, get its value (string)
-        if hasattr(message_type, "value"):
-            message_type = message_type.value
-        # Convert to lowercase for consistent matching
-        message_type = str(message_type).lower()
-
+    # Log routing decision
     slots = nlu_result.get("slots", [])
     logger.info(
         f"route_after_understand: message_type={message_type}, command={nlu_result.get('command')}, "
@@ -329,187 +649,17 @@ def route_after_understand(state: DialogueStateType) -> str:
         extra={
             "message_type": message_type,
             "command": nlu_result.get("command"),
-            "slots": [
-                s["name"] for s in slots
-            ],  # Slots are always dicts after model_dump(mode='json')
+            "slots": [s["name"] for s in slots] if slots else [],
             "confidence": nlu_result.get("confidence"),
         },
     )
 
-    # Route based on message type
-    # Map to nodes that exist in builder.py edge map
-    match message_type:
-        case "slot_value":
-            # Special case: If we're in confirming state, treat as confirmation
-            # This handles cases where NLU incorrectly detects slot_value
-            # when user is responding to a confirmation prompt
-            conv_state = state.get("conversation_state")
-            if conv_state == "confirming":
-                logger.warning(
-                    "NLU detected slot_value but conversation_state=confirming, "
-                    "treating as confirmation to avoid errors"
-                )
-                return "handle_confirmation"
-
-            # Special case: If we're in understanding state after denying confirmation,
-            # and the user provides a slot value that already exists, treat as modification
-            # This handles the case: user denies confirmation -> "What would you like to change?"
-            # -> user says "San Francisco" (should modify destination, not collect new slot)
-            if conv_state == "understanding":
-                flow_stack = state.get("flow_stack", [])
-                if flow_stack:
-                    # Check if the slot value provided already exists in flow_slots
-                    from soni.core.state import get_all_slots
-
-                    existing_slots = get_all_slots(state)
-                    slots = nlu_result.get("slots", [])
-                    if slots:
-                        slot = slots[0]
-                        slot_name = (
-                            slot.get("name")
-                            if isinstance(slot, dict)
-                            else getattr(slot, "name", None)
-                        )
-                        if slot_name and slot_name in existing_slots:
-                            # This is a modification of an existing slot after denying confirmation
-                            logger.info(
-                                f"slot_value detected but slot '{slot_name}' already exists "
-                                f"and conversation_state=understanding (after denial), "
-                                f"treating as modification"
-                            )
-                            return "handle_modification"
-
-            # Check if flow needs to be started first
-            flow_stack = state.get("flow_stack", [])
-            has_active_flow = bool(flow_stack)
-            command = nlu_result.get("command")
-
-            if not has_active_flow and command:
-                # No flow active but user provided command - start flow first
-                logger.info(
-                    f"slot_value message with command '{command}' but no active flow, "
-                    f"starting flow first"
-                )
-                return "handle_intent_change"
-            return "validate_slot"
-        case "correction":
-            # Special case: If we're in confirming state, route to handle_confirmation
-            # which has built-in correction handling during confirmation
-            conv_state = state.get("conversation_state")
-            if conv_state == "confirming":
-                logger.info(
-                    "NLU detected correction during confirming state, "
-                    "routing to handle_confirmation for automatic handling"
-                )
-                return "handle_confirmation"
-
-            # Route to dedicated correction handler
-            flow_stack = state.get("flow_stack", [])
-            has_active_flow = bool(flow_stack)
-            command = nlu_result.get("command")
-
-            logger.info(
-                f"route_after_understand: CORRECTION detected, has_active_flow={has_active_flow}, "
-                f"command={command}, routing to handle_correction"
-            )
-
-            if not has_active_flow and command:
-                # No flow active but user provided command - start flow first
-                logger.info(
-                    f"correction message with command '{command}' but no active flow, "
-                    f"starting flow first"
-                )
-                return "handle_intent_change"
-            return "handle_correction"
-        case "modification":
-            # Special case: If we're in confirming state, route to handle_confirmation
-            # which has built-in modification handling during confirmation
-            conv_state = state.get("conversation_state")
-            if conv_state == "confirming":
-                logger.info(
-                    "NLU detected modification during confirming state, "
-                    "routing to handle_confirmation for automatic handling"
-                )
-                return "handle_confirmation"
-
-            # Route to dedicated modification handler
-            flow_stack = state.get("flow_stack", [])
-            has_active_flow = bool(flow_stack)
-            command = nlu_result.get("command")
-
-            if not has_active_flow and command:
-                # No flow active but user provided command - start flow first
-                logger.info(
-                    f"modification message with command '{command}' but no active flow, "
-                    f"starting flow first"
-                )
-                return "handle_intent_change"
-            return "handle_modification"
-        case "interruption" | "intent_change":
-            return "handle_intent_change"
-        case "clarification":
-            # Clarification: user asks why information is needed
-            # Route to dedicated clarification handler
-            return "handle_clarification"
-        case "digression" | "question":
-            # Digression: question without flow change
-            # Route to handle_digression, which preserves waiting_for_slot and re-prompts
-            return "handle_digression"
-        case "cancellation":
-            # Cancellation should pop flow and return to previous or idle
-            # Design: docs/design/10-dsl-specification/06-patterns.md
-            return "handle_cancellation"
-        case "confirmation":
-            # Check if we're actually in a confirmation state
-            # If conversation_state is "confirming", we're waiting for confirmation
-            # Otherwise, this might be a false positive from NLU
-            conv_state = state.get("conversation_state")
-            if conv_state == "confirming" or conv_state == "ready_for_confirmation":
-                return "handle_confirmation"
-            else:
-                # Not in confirmation state - treat as continuation or digression
-                logger.warning(
-                    f"NLU detected confirmation but conversation_state={conv_state}, "
-                    f"treating as continuation"
-                )
-                flow_stack = state.get("flow_stack", [])
-                has_active_flow = bool(flow_stack)
-                if has_active_flow:
-                    return "collect_next_slot"
-                else:
-                    return "generate_response"
-        case "continuation":
-            # Check if there's an active flow
-            flow_stack = state.get("flow_stack", [])
-            has_active_flow = bool(flow_stack)
-            command = nlu_result.get("command")
-
-            if has_active_flow:
-                # Continue the current flow - collect next slot
-                return "collect_next_slot"
-            elif command:
-                # No active flow but has command - treat as intent to start flow
-                logger.info(
-                    f"Continuation with no active flow and command '{command}', "
-                    f"treating as intent_change"
-                )
-                return "handle_intent_change"
-            else:
-                # No flow, no command - just generate response
-                return "generate_response"
-        case _:
-            logger.warning(
-                f"Unknown message_type '{message_type}' in route_after_understand, "
-                f"falling back to generate_response. NLU result: {nlu_result}",
-                extra={
-                    "message_type": message_type,
-                    "command": nlu_result.get("command"),
-                    "nlu_result_keys": list(nlu_result.keys())
-                    if isinstance(nlu_result, dict)
-                    else [],
-                },
-            )
-            return "generate_response"
+    # Dispatch to appropriate handler
+    if message_type:
+        handler = ROUTE_HANDLERS.get(message_type, _route_fallback)
+    else:
+        handler = _route_fallback
+    return handler(state, nlu_result)
 
 
 def route_after_correction(state: DialogueStateType) -> str:
@@ -585,41 +735,41 @@ def route_after_collect_next_slot(state: DialogueStateType) -> str:
     logger.info("=" * 80)
 
     # Route based on conversation_state set by advance_to_next_step
-    if conv_state == "ready_for_action":
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
-        return "confirm_action"
-    elif conv_state == "waiting_for_slot":
+    if conv_state == ConversationState.READY_FOR_ACTION:
+        return NodeName.EXECUTE_ACTION
+    elif conv_state == ConversationState.READY_FOR_CONFIRMATION:
+        return NodeName.CONFIRM_ACTION
+    elif conv_state == ConversationState.WAITING_FOR_SLOT:
         # Still waiting for a slot - check if we have a user message
         # If we have a user message, go to understand to process it
         # If not, we're in an interrupt state - don't go to understand (would create loop)
         user_message = state.get("user_message", "")
         if user_message and user_message.strip():
-            return "understand"
+            return NodeName.UNDERSTAND
         else:
             # No user message - we're in an interrupt state, generate response
             logger.warning(
                 "collect_next_slot: waiting_for_slot but no user_message, "
                 "generating response to avoid loop"
             )
-            return "generate_response"
-    elif conv_state == "completed":
-        return "generate_response"
-    elif conv_state == "generating_response":
-        return "generate_response"
+            return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.COMPLETED:
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.GENERATING_RESPONSE:
+        return NodeName.GENERATE_RESPONSE
     else:
         # Default: if we have a user message, go to understand
         # Otherwise, something went wrong
         user_message = state.get("user_message", "")
         if user_message and user_message.strip():
-            return "understand"
+            return NodeName.UNDERSTAND
         else:
             # No user message and unexpected state - generate response
             logger.warning(
                 f"Unexpected conversation_state '{conv_state}' in route_after_collect_next_slot, "
                 f"no user message, falling back to generate_response"
             )
-            return "generate_response"
+            return NodeName.GENERATE_RESPONSE
 
 
 def route_after_action(state: DialogueStateType) -> str:
@@ -639,31 +789,31 @@ def route_after_action(state: DialogueStateType) -> str:
     )
 
     # After executing an action, check what's next
-    if conv_state == "ready_for_action":
+    if conv_state == ConversationState.READY_FOR_ACTION:
         # Another action to execute
         logger.info("Routing to execute_action (another action)")
-        return "execute_action"
-    elif conv_state == "ready_for_confirmation":
+        return NodeName.EXECUTE_ACTION
+    elif conv_state == ConversationState.READY_FOR_CONFIRMATION:
         # Next step is a confirmation - display confirmation message
         logger.info("Routing to confirm_action (ready for confirmation)")
-        return "confirm_action"
-    elif conv_state == "completed":
+        return NodeName.CONFIRM_ACTION
+    elif conv_state == ConversationState.COMPLETED:
         # Flow complete, generate final response
         logger.info("Routing to generate_response (flow completed)")
-        return "generate_response"
-    elif conv_state == "generating_response":
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.GENERATING_RESPONSE:
         # Next step is a "say" step - generate response
         logger.info("Routing to generate_response (say step)")
-        return "generate_response"
-    elif conv_state == "waiting_for_slot":
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.WAITING_FOR_SLOT:
         # Unexpected: action revealed missing slots
         # This shouldn't happen in current implementation but handle gracefully
         logger.warning("Routing to generate_response (unexpected waiting_for_slot)")
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
     else:
         # Default: flow complete
         logger.info(f"Routing to generate_response (default, state={conv_state})")
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
 
 
 def route_after_confirmation(state: DialogueStateType) -> str:
@@ -678,25 +828,25 @@ def route_after_confirmation(state: DialogueStateType) -> str:
     conv_state = state.get("conversation_state")
 
     # After handling confirmation
-    if conv_state == "ready_for_action":
+    if conv_state == ConversationState.READY_FOR_ACTION:
         # User confirmed, proceed to action
-        return "execute_action"
-    elif conv_state == "confirming":
+        return NodeName.EXECUTE_ACTION
+    elif conv_state == ConversationState.CONFIRMING:
         # Confirmation unclear - show message and wait for next user input
         # Go to generate_response to display the "I didn't understand" message
         # This ends the turn and waits for the next user message (avoids infinite loop)
-        return "generate_response"
-    elif conv_state == "error":
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.ERROR:
         # Max retries exceeded or other error - show error message
-        return "generate_response"
-    elif conv_state == "understanding":
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.UNDERSTANDING:
         # User denied or wants to modify
         # Go to generate_response to show "What would you like to change?" and END
         # This prevents re-processing the same message through understand
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
     else:
         # Unexpected state - go to generate_response as fallback
         logger.warning(
             f"Unexpected conversation_state={conv_state} after confirmation, routing to generate_response"
         )
-        return "generate_response"
+        return NodeName.GENERATE_RESPONSE
