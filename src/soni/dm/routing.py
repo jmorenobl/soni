@@ -537,12 +537,54 @@ def _route_intent_change(state: DialogueStateType, nlu_result: dict[str, Any]) -
 
 
 def _route_clarification(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
-    """Route clarification message type."""
+    """Route clarification message type.
+
+    Special case: If the user asks something that NLU classifies as clarification
+    but the command matches a DIFFERENT available flow, treat it as an interruption.
+    This handles cases like "how much do I have?" during transfer being classified
+    as clarification but actually wanting to check_balance.
+    """
+    command = nlu_result.get("command")
+    flow_stack = state.get("flow_stack", [])
+
+    if command and flow_stack:
+        # Get current flow name
+        active_ctx = flow_stack[-1] if flow_stack else None
+        current_flow = active_ctx.get("flow_name") if active_ctx else None
+
+        # If command is a different flow, treat as interruption
+        if current_flow and command != current_flow:
+            logger.info(
+                f"Clarification rerouted to intent_change: command '{command}' != current_flow '{current_flow}'"
+            )
+            return NodeName.HANDLE_INTENT_CHANGE
+
     return NodeName.HANDLE_CLARIFICATION
 
 
 def _route_digression(state: DialogueStateType, nlu_result: dict[str, Any]) -> str:
-    """Route digression/question message type."""
+    """Route digression/question message type.
+
+    Special case: If the NLU classifies as digression but the command
+    matches a DIFFERENT available flow, treat it as an interruption.
+    This handles semantic ambiguity where questions like "how much do I have?"
+    are misclassified as digression instead of check_balance interruption.
+    """
+    command = nlu_result.get("command")
+    flow_stack = state.get("flow_stack", [])
+
+    if command and flow_stack:
+        # Get current flow name
+        active_ctx = flow_stack[-1] if flow_stack else None
+        current_flow = active_ctx.get("flow_name") if active_ctx else None
+
+        # If command is a different flow, treat as interruption
+        if current_flow and command != current_flow:
+            logger.info(
+                f"Digression rerouted to intent_change: command '{command}' != current_flow '{current_flow}'"
+            )
+            return NodeName.HANDLE_INTENT_CHANGE
+
     return NodeName.HANDLE_DIGRESSION
 
 

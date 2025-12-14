@@ -53,7 +53,8 @@ class ConversationSimulator:
             config: Parsed SoniConfig from YAML file.
         """
         self.config = config
-        self._available_flows = {name: name for name in config.flows}
+        # Use flow descriptions for semantic matching during NLU
+        self._available_flows = {name: flow.description for name, flow in config.flows.items()}
         self._available_actions = list(config.actions.keys())
 
     def generate_dataset(
@@ -83,8 +84,50 @@ class ConversationSimulator:
             examples.extend(self._generate_interruption_during_flow())
             examples.extend(self._generate_confirmation_variations())
             examples.extend(self._generate_cancellation_examples())
+            # Include edge_cases from edge_cases.py for critical boundary examples
+            # Oversample these to give them more weight during training
+            edge_case_examples = self._get_domain_edge_cases()
+            OVERSAMPLE_FACTOR = 5  # Repeat edge cases 5x for better learning
+            for _ in range(OVERSAMPLE_FACTOR):
+                examples.extend(edge_case_examples)
 
         return examples
+
+    def _get_domain_edge_cases(self) -> list[dspy.Example]:
+        """Get domain-specific edge cases from edge_cases.py.
+
+        Filters edge cases to only include those relevant to the current domain
+        (based on flows defined in the YAML config).
+        """
+        from soni.dataset.edge_cases import get_all_edge_cases
+
+        edge_cases = get_all_edge_cases()
+        domain_examples: list[dspy.Example] = []
+
+        # Determine domain from config flows
+        flow_names = set(self.config.flows.keys())
+
+        for template in edge_cases:
+            # Check if the template's command matches a flow in our config
+            if template.expected_output.command in flow_names:
+                # Convert to dspy.Example with correct available_flows
+                example = dspy.Example(
+                    user_message=template.user_message,
+                    history=template.conversation_context.history,
+                    context=DialogueContext(
+                        current_flow=template.conversation_context.current_flow,
+                        current_slots=dict(template.conversation_context.current_slots),
+                        expected_slots=list(template.conversation_context.expected_slots),
+                        available_flows=self._available_flows,  # Use our flow descriptions!
+                        available_actions=self._available_actions,
+                        conversation_state=template.conversation_context.conversation_state,
+                    ),
+                    result=template.expected_output,
+                    current_datetime=template.current_datetime,
+                ).with_inputs("user_message", "history", "context", "current_datetime")
+                domain_examples.append(example)
+
+        return domain_examples
 
     def simulate_flow(
         self,
@@ -396,11 +439,20 @@ class ConversationSimulator:
     # =========================================================================
 
     def _generate_interruption_during_flow(self) -> list[dspy.Example]:
-        """Generate examples of interrupting one flow with another."""
+        """Generate examples of interrupting one flow with another.
+
+        These examples teach the NLU to recognize when a user wants to switch
+        to a different flow while in the middle of an active flow (e.g., asking
+        about balance while in the middle of a transfer).
+        """
         examples: list[dspy.Example] = []
         flow_names = list(self.config.flows.keys())
 
-        for source_flow in flow_names[:2]:  # Limit for efficiency
+        for source_flow in flow_names:
+            source_config = self.config.flows[source_flow]
+            if not source_config.steps_or_process:
+                continue
+
             for target_flow in flow_names:
                 if source_flow == target_flow:
                     continue
@@ -409,23 +461,25 @@ class ConversationSimulator:
                 if not target_config.trigger or not target_config.trigger.intents:
                     continue
 
-                # Create state as if we're in source_flow
+                # Create realistic state: in middle of collecting a slot
                 state = ConversationState(
                     current_flow=source_flow,
-                    current_slots={"slot1": "value1"},
+                    current_slots={"some_slot": "some_value"},
                     messages=[
-                        {"role": "user", "content": f"Starting {source_flow}"},
+                        {"role": "user", "content": f"I want to {source_flow}"},
+                        {"role": "assistant", "content": "Please provide the next value"},
                     ],
+                    conversation_state="waiting_for_slot",  # Critical for realistic context
                 )
 
-                # Use first intent from target flow
-                intent = target_config.trigger.intents[0]
-                turn = self._create_interruption_turn(
-                    user_message=intent,
-                    target_flow=target_flow,
-                    current_state=state,
-                )
-                examples.append(self._turn_to_example(turn))
+                # Generate examples for MULTIPLE intents from target flow (not just first)
+                for intent in target_config.trigger.intents[:3]:  # Up to 3 intents
+                    turn = self._create_interruption_turn(
+                        user_message=intent,
+                        target_flow=target_flow,
+                        current_state=state,
+                    )
+                    examples.append(self._turn_to_example(turn))
 
         return examples
 
