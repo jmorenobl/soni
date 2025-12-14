@@ -198,7 +198,7 @@ async def test_process_message_handles_graph_error(runtime_loop):
 
 @pytest.mark.asyncio
 async def test_runtime_cleanup():
-    """Test that RuntimeLoop cleanup calls builder cleanup"""
+    """Test that RuntimeLoop cleanup closes checkpointer"""
     # Arrange
     import tempfile
 
@@ -208,6 +208,7 @@ async def test_runtime_cleanup():
 
     # Load config and configure memory backend for tests
     config = load_test_config("examples/flight_booking/soni.yaml")
+    config.settings.persistence.backend = "memory"
 
     # Create temporary config file with memory backend
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -217,18 +218,17 @@ async def test_runtime_cleanup():
     try:
         runtime = RuntimeLoop(temp_config_path)
 
-        # Initialize checkpointer (lazy initialization)
-        await runtime.builder.initialize()
+        # Initialize directly using internal method to setup checkpointer
+        await runtime._ensure_graph_initialized()
 
-        # Verify builder exists
-        assert runtime.builder is not None
-        assert runtime.builder.checkpointer is not None
+        # Verify checkpointer exists
+        assert runtime.checkpointer is not None
 
         # Act
         await runtime.cleanup()
 
-        # Assert - builder's checkpointer should be closed
-        assert runtime.builder.checkpointer is None
+        # Assert - checkpointer should be None after cleanup
+        assert runtime.checkpointer is None
     finally:
         # Cleanup temporary config file
         Path(temp_config_path).unlink(missing_ok=True)
@@ -246,6 +246,7 @@ async def test_runtime_cleanup_called_multiple_times():
 
     # Load config and configure memory backend for tests
     config = load_test_config("examples/flight_booking/soni.yaml")
+    config.settings.persistence.backend = "memory"
 
     # Create temporary config file with memory backend
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -254,6 +255,7 @@ async def test_runtime_cleanup_called_multiple_times():
 
     try:
         runtime = RuntimeLoop(temp_config_path)
+        await runtime._ensure_graph_initialized()
 
         # Act
         await runtime.cleanup()
@@ -263,7 +265,7 @@ async def test_runtime_cleanup_called_multiple_times():
         Path(temp_config_path).unlink(missing_ok=True)
 
     # Assert
-    assert runtime.builder.checkpointer is None
+    assert runtime.checkpointer is None
 
 
 @pytest.mark.asyncio
