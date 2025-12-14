@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from soni.core.config import ConfigLoader, SoniConfig
-from soni.dm.graph import SoniGraphBuilder
 
 
 @pytest.mark.asyncio
@@ -20,22 +19,23 @@ async def test_checkpointer_is_async():
     config.settings.persistence.backend = "memory"
 
     # Act
-    builder = SoniGraphBuilder(config)
-    await builder.initialize()  # Initialize checkpointer first
-    await builder.build_manual(flow_name="book_flight")
+    from soni.dm.persistence import CheckpointerFactory
 
-    # Assert
-    # Verify that checkpointer is InMemorySaver (which supports async methods)
-    assert builder.checkpointer is not None
-    # Check that it's InMemorySaver and has async methods
-    checkpointer_type = type(builder.checkpointer).__name__
-    assert checkpointer_type == "InMemorySaver"
-    # Verify it has async methods
-    assert hasattr(builder.checkpointer, "aget")
-    assert hasattr(builder.checkpointer, "aput")
+    checkpointer, cm = await CheckpointerFactory.create(config.settings.persistence)
 
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
+    try:
+        # Assert
+        # Verify that checkpointer is InMemorySaver (which supports async methods)
+        assert checkpointer is not None
+        # Check that it's InMemorySaver and has async methods
+        checkpointer_type = type(checkpointer).__name__
+        assert checkpointer_type == "InMemorySaver"
+        # Verify it has async methods
+        assert hasattr(checkpointer, "aget")
+        assert hasattr(checkpointer, "aput")
+    finally:
+        if cm:
+            await cm.__aexit__(None, None, None)
 
 
 @pytest.mark.asyncio
@@ -47,20 +47,35 @@ async def test_all_nodes_are_async():
     config = SoniConfig(**config_dict)
     # Configure memory backend for tests
     config.settings.persistence.backend = "memory"
-    builder = SoniGraphBuilder(config)
-    await builder.initialize()  # Initialize checkpointer first
 
-    # Act
-    graph = await builder.build_manual(flow_name="book_flight")
+    from soni.actions.base import ActionHandler
+    from soni.core.scope import ScopeManager
+    from soni.core.state import create_runtime_context
+    from soni.dm.builder import build_graph
+    from soni.dm.persistence import CheckpointerFactory
+    from soni.du.modules import SoniDU
+    from soni.du.normalizer import SlotNormalizer
 
-    # Assert
-    # Verify that all nodes are async functions
-    # Get nodes from graph (this may require accessing internal structure)
-    assert graph is not None
-    # The graph should be compiled successfully, which means all nodes are valid
+    scope_manager = ScopeManager(config=config)
+    normalizer = SlotNormalizer(config=config)
+    action_handler = ActionHandler(config=config)
+    du = SoniDU()
 
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
+    context = create_runtime_context(config, scope_manager, normalizer, action_handler, du)
+    checkpointer, cm = await CheckpointerFactory.create(config.settings.persistence)
+
+    try:
+        # Act
+        graph = build_graph(context, checkpointer)
+
+        # Assert
+        # Verify that all nodes are async functions
+        # The graph should be compiled successfully, which means all nodes are valid
+        assert graph is not None
+        # We assume build_graph uses async nodes (verified by other tests)
+    finally:
+        if cm:
+            await cm.__aexit__(None, None, None)
 
 
 @pytest.mark.asyncio

@@ -623,7 +623,7 @@ class StepCompiler:
         Create node function from DAG node.
 
         Uses NodeFactoryRegistry to get the appropriate factory function.
-        This follows the same pattern as SoniGraphBuilder.
+        This follows the factory pattern.
 
         Note:
             Return type is `Any` because LangGraph's node types are complex

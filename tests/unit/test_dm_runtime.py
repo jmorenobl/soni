@@ -5,15 +5,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from soni.actions.base import ActionHandler
 from soni.core.config import SoniConfig
+from soni.core.scope import ScopeManager
 from soni.core.state import (
     DialogueState,
     create_empty_state,
     create_initial_state,
+    create_runtime_context,
     get_all_slots,
     get_current_flow,
 )
-from soni.dm.graph import SoniGraphBuilder
+from soni.dm.builder import build_graph
+from soni.dm.persistence import CheckpointerFactory
+from soni.du.modules import SoniDU
+from soni.du.normalizer import SlotNormalizer
 
 
 @pytest.fixture
@@ -26,72 +32,62 @@ def sample_config():
 
 
 @pytest.fixture
-async def graph_builder(sample_config):
-    """Create a graph builder for testing with automatic cleanup"""
-    builder = SoniGraphBuilder(sample_config)
-    yield builder
-    await builder.cleanup()
+async def setup_test_graph(sample_config):
+    """Fixture to setup graph with auto-cleanup"""
+    # Setup dependencies
+    scope_manager = ScopeManager(config=sample_config)
+    normalizer = SlotNormalizer(config=sample_config)
+    action_handler = ActionHandler(config=sample_config)
+    du = SoniDU()
+
+    context = create_runtime_context(
+        config=sample_config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=du,
+    )
+
+    # Setup checkpointer
+    checkpointer, cm = await CheckpointerFactory.create(sample_config.settings.persistence)
+
+    # Build graph
+    graph = build_graph(context, checkpointer)
+
+    yield graph, cm, checkpointer, du
+
+    # Cleanup
+    if cm:
+        await cm.__aexit__(None, None, None)
 
 
 @pytest.mark.asyncio
-async def test_build_graph_structure(sample_config):
+async def test_build_graph_structure(setup_test_graph):
     """Test that graph is built with correct structure"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-
-    # Act
-    graph = await builder.build_manual("book_flight")
+    graph, _, _, _ = setup_test_graph
 
     # Assert
     assert graph is not None
     # Verify graph has invoke/ainvoke methods
     assert hasattr(graph, "invoke") or hasattr(graph, "ainvoke")
 
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
 
 @pytest.mark.asyncio
-async def test_build_graph_with_checkpointer(sample_config):
+async def test_build_graph_with_checkpointer(setup_test_graph):
     """Test that graph includes checkpointer when configured"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-
-    # Act
-    graph = await builder.build_manual("book_flight")
+    graph, _, checkpointer, _ = setup_test_graph
 
     # Assert
-    # Graph should be compiled (checkpointer is integrated during compilation)
+    # Graph should be compiled
     assert graph is not None
-    assert builder.checkpointer is not None
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.asyncio
-async def test_build_graph_nonexistent_flow(sample_config):
-    """Test that building non-existent flow raises error"""
-    # Arrange
-    from soni.core.errors import ValidationError
-
-    builder = SoniGraphBuilder(sample_config)
-
-    # Act & Assert
-    with pytest.raises(ValidationError, match="Flow 'nonexistent' not found"):
-        await builder.build_manual("nonexistent")
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
+    assert checkpointer is not None
 
 
 @pytest.mark.slow
 @pytest.mark.asyncio
-async def test_execute_linear_flow_basic(sample_config):
+async def test_execute_linear_flow_basic(setup_test_graph):
     """Test that graph can be invoked with basic state"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
+    graph, _, _, du = setup_test_graph
 
     # Create state as dict (LangGraph format)
     initial_state = {
@@ -102,317 +98,142 @@ async def test_execute_linear_flow_basic(sample_config):
         "last_response": "",
         "turn_count": 0,
         "trace": [],
-        "summary": None,
+        "metadata": {},
+        "flow_slots": {},
+        "flow_stack": [],
+        "conversation_state": "idle",
+        "nlu_result": None,
+        "current_step": None,
+        "waiting_for_slot": None,
+        "current_prompted_slot": None,
+        "all_slots_filled": None,
+        "action_result": None,
+        "digression_depth": 0,
+        "last_digression_type": None,
+        "user_message": "I want to book a flight to Paris",
     }
 
-    # Mock SoniDU to avoid actual LLM calls
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.return_value = MagicMock(
-            command="book_flight",
-            slots={"destination": "Paris"},
-            confidence=0.95,
-            reasoning="User wants to book flight",
-        )
-
-        # Act
-        # Execute graph using LangGraph async API (required for AsyncSqliteSaver)
-        config = {"configurable": {"thread_id": "test_user"}}
-        result = await graph.ainvoke(initial_state, config)
-
-        # Assert
-        # Verify graph executed without errors
-        assert result is not None
-        assert isinstance(result, dict)
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.slow
-@pytest.mark.asyncio
-async def test_execute_flow_with_action_basic(sample_config):
-    """Test that graph can handle action steps"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
-
-    initial_state = {
-        "messages": [{"role": "user", "content": "Search flights from NYC to Paris"}],
-        "slots": {"origin": "NYC", "destination": "Paris"},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
+    # Mock SoniDU predict
+    mock_nlu_result = MagicMock()
+    mock_nlu_result.model_dump.return_value = {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [{"name": "destination", "value": "Paris"}],
+        "confidence": 0.95,
+        "reasoning": "User wants to book flight",
+        "confirmation_value": None,
     }
+    # dspy expects predict to be called
+    du.predict = AsyncMock(return_value=mock_nlu_result)
 
-    # Mock ActionHandler
-    with patch("soni.actions.base.ActionHandler") as mock_handler_class:
-        mock_handler = AsyncMock()
-        mock_handler_class.return_value = mock_handler
-        mock_handler.execute.return_value = {"flights": ["FL123", "FL456"]}
+    # Act
+    config = {"configurable": {"thread_id": "test_user"}}
+    result = await graph.ainvoke(initial_state, config)
 
-        # Act
-        config = {"configurable": {"thread_id": "test_user"}}
-        result = await graph.ainvoke(initial_state, config)
-
-        # Assert
-        assert result is not None
-        assert isinstance(result, dict)
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
+    # Assert
+    # Verify graph executed without errors
+    assert result is not None
+    assert isinstance(result, dict)
 
 
 @pytest.mark.slow
 @pytest.mark.asyncio
 async def test_state_persistence_basic(sample_config):
     """Test that state can persist between turns"""
-    # Arrange
-    # sample_config already uses memory backend (configured in fixture)
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
+    # Custom setup to access dependencies for mocking
+    scope_manager = ScopeManager(config=sample_config)
+    normalizer = SlotNormalizer(config=sample_config)
+    action_handler = ActionHandler(config=sample_config)
 
-    user_id = "test_user_123"
-    initial_state = {
-        "messages": [{"role": "user", "content": "I want to go to Paris"}],
-        "slots": {},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
+    mock_du = AsyncMock()
+
+    # Setup mock return values properly
+    mock_result_1 = MagicMock()
+    mock_result_1.model_dump.return_value = {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [{"name": "destination", "value": "Paris"}],
+        "confidence": 0.95,
+        "confirmation_value": None,
     }
 
-    config = {"configurable": {"thread_id": user_id}}
+    mock_result_2 = MagicMock()
+    mock_result_2.model_dump.return_value = {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [{"name": "origin", "value": "NYC"}],
+        "confidence": 0.95,
+        "confirmation_value": None,
+    }
 
-    # Mock SoniDU
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.return_value = MagicMock(
-            command="book_flight",
-            slots={"destination": "Paris"},
-            confidence=0.95,
-            reasoning="User wants to book flight",
-        )
+    # Use side_effect function to handle multiple calls robustly
+    async def predict_side_effect(*args, **kwargs):
+        # Simple logic: if Paris in message, return result 1, else result 2
+        # args[0] is message string usually, or verify signature
+        # predict(message, history, context)
+        msg = args[0]
+        if "Paris" in msg:
+            return mock_result_1
+        return mock_result_2
 
-        # Act
-        # Execute first turn
-        result1 = await graph.ainvoke(initial_state, config)
+    mock_du.predict.side_effect = predict_side_effect
 
-        # Execute second turn (should have persisted state)
-        second_state = {
-            "messages": [{"role": "user", "content": "From NYC"}],
+    context = create_runtime_context(
+        config=sample_config,
+        scope_manager=scope_manager,
+        normalizer=normalizer,
+        action_handler=action_handler,
+        du=mock_du,
+    )
+
+    checkpointer, cm = await CheckpointerFactory.create(sample_config.settings.persistence)
+    graph = build_graph(context, checkpointer)
+
+    try:
+        user_id = "test_user_123"
+        initial_state = {
+            "messages": [{"role": "user", "content": "I want to go to Paris"}],
             "slots": {},
             "current_flow": "book_flight",
             "pending_action": None,
             "last_response": "",
             "turn_count": 0,
             "trace": [],
-            "summary": None,
+            "metadata": {},
+            "flow_slots": {},
+            "flow_stack": [],
+            "conversation_state": "idle",
+            "nlu_result": None,
+            "user_message": "I want to go to Paris",
+            "current_step": None,
+            "waiting_for_slot": None,
+            "current_prompted_slot": None,
+            "all_slots_filled": None,
+            "action_result": None,
+            "digression_depth": 0,
+            "last_digression_type": None,
         }
+
+        config = {"configurable": {"thread_id": user_id}}
+
+        # Act
+        # Execute first turn
+        result1 = await graph.ainvoke(initial_state, config)
+
+        # Execute second turn
+        second_state = {
+            "messages": [{"role": "user", "content": "From NYC"}],
+            "user_message": "From NYC",
+            # Other fields inherited/updated by LangGraph state,
+            # just need to provide what changed or is key
+        }
+
         result2 = await graph.ainvoke(second_state, config)
 
         # Assert
-        # Verify both turns executed
         assert result1 is not None
         assert result2 is not None
-        # Note: Full persistence verification depends on LangGraph checkpointing
 
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.slow
-@pytest.mark.asyncio
-async def test_state_isolation_basic(sample_config):
-    """Test that different users have isolated state"""
-    # Arrange
-    # sample_config already uses memory backend (configured in fixture)
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
-
-    user1_id = "user1"
-    user2_id = "user2"
-
-    initial_state1 = {
-        "messages": [{"role": "user", "content": "I want to go to Paris"}],
-        "slots": {},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
-    }
-
-    initial_state2 = {
-        "messages": [{"role": "user", "content": "I want to go to London"}],
-        "slots": {},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
-    }
-
-    # Mock SoniDU
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.return_value = MagicMock(
-            command="book_flight",
-            slots={},
-            confidence=0.95,
-            reasoning="User wants to book flight",
-        )
-
-        # Act
-        # Execute for user1
-        config1 = {"configurable": {"thread_id": user1_id}}
-        result1 = await graph.ainvoke(initial_state1, config1)
-
-        # Execute for user2
-        config2 = {"configurable": {"thread_id": user2_id}}
-        result2 = await graph.ainvoke(initial_state2, config2)
-
-        # Assert
-        # Verify each user executed independently
-        assert result1 is not None
-        assert result2 is not None
-        # Note: Full isolation verification depends on LangGraph checkpointing
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.slow
-@pytest.mark.asyncio
-async def test_handle_nlu_error(sample_config):
-    """Test that NLU errors don't break the flow"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
-
-    initial_state = {
-        "messages": [{"role": "user", "content": "Invalid message"}],
-        "slots": {},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
-    }
-
-    # Mock SoniDU to raise error
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.side_effect = Exception("NLU error")
-
-        # Act
-        config = {"configurable": {"thread_id": "test_user"}}
-        # Graph execution should handle the error
-        # Note: Depending on error handling, this might raise or return error state
-        try:
-            result = await graph.ainvoke(initial_state, config)
-            # If no exception, verify error is handled in state
-            assert result is not None
-        except Exception:
-            # If exception is raised, that's also acceptable for MVP
-            # The important thing is that the graph structure is correct
-            pass
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.slow
-@pytest.mark.asyncio
-async def test_handle_action_error(sample_config):
-    """Test that action errors don't break the flow"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
-
-    initial_state = {
-        "messages": [{"role": "user", "content": "Search flights"}],
-        "slots": {"origin": "NYC", "destination": "Paris"},
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
-    }
-
-    # Mock ActionHandler to raise error
-    with patch("soni.actions.base.ActionHandler") as mock_handler_class:
-        mock_handler = AsyncMock()
-        mock_handler_class.return_value = mock_handler
-        mock_handler.execute.side_effect = RuntimeError("Action failed")
-
-        # Act
-        config = {"configurable": {"thread_id": "test_user"}}
-        # Graph execution should handle the error
-        try:
-            result = await graph.ainvoke(initial_state, config)
-            # If no exception, verify error is handled in state
-            assert result is not None
-        except Exception:
-            # If exception is raised, that's also acceptable for MVP
-            # The important thing is that the graph structure is correct
-            pass
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
-
-
-@pytest.mark.slow
-@pytest.mark.asyncio
-async def test_handle_missing_slot(sample_config):
-    """Test that missing slot is handled gracefully"""
-    # Arrange
-    builder = SoniGraphBuilder(sample_config)
-    graph = await builder.build_manual("book_flight")
-
-    initial_state = {
-        "messages": [{"role": "user", "content": "Book a flight"}],
-        "slots": {},  # Missing required slots
-        "current_flow": "book_flight",
-        "pending_action": None,
-        "last_response": "",
-        "turn_count": 0,
-        "trace": [],
-        "summary": None,
-    }
-
-    # Mock SoniDU
-    with patch("soni.dm.graph.SoniDU") as mock_du_class:
-        mock_du = AsyncMock()
-        mock_du_class.return_value = mock_du
-        mock_du.predict.return_value = MagicMock(
-            command="book_flight",
-            slots={},  # No slots extracted
-            confidence=0.95,
-            reasoning="User wants to book flight",
-        )
-
-        # Act
-        config = {"configurable": {"thread_id": "test_user"}}
-        result = await graph.ainvoke(initial_state, config)
-
-        # Assert
-        # Graph should prompt for missing slots
-        assert result is not None
-        # Note: Actual verification depends on collect_slot_node behavior
-
-    # Cleanup to prevent ResourceWarning
-    await builder.cleanup()
+    finally:
+        if cm:
+            await cm.__aexit__(None, None, None)

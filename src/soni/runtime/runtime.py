@@ -5,8 +5,9 @@ import logging
 import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from soni.actions.base import ActionHandler
 from soni.core.errors import (
     ActionNotFoundError,
     NLUError,
@@ -31,7 +32,12 @@ from soni.core.state import (
     state_from_dict,
     state_to_dict,
 )
-from soni.dm.graph import SoniGraphBuilder
+from soni.dm.persistence import CheckpointerFactory
+
+if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
+    from langgraph.checkpoint.base import BaseCheckpointSaver
 from soni.du.modules import SoniDU
 from soni.du.normalizer import SlotNormalizer
 from soni.runtime.config_manager import ConfigurationManager
@@ -76,9 +82,10 @@ class RuntimeLoop:
         self.config_manager = ConfigurationManager(config_path)
         self.config = self.config_manager.load()
 
-        # Initialize SoniGraphBuilder for dependency management (checkpointer, action_handler)
-        # Note: We use build_graph() from builder.py for graph construction, not build_manual()
-        self.builder = SoniGraphBuilder(self.config)
+        # Initialize checkpointer state
+        self._checkpointer_cm: AbstractAsyncContextManager[BaseCheckpointSaver] | None = None
+        self.checkpointer: BaseCheckpointSaver | None = None
+
         # Graph will be built lazily on first use (requires async)
         self.graph: Any = None
         self._flow_name: str = list(self.config.flows.keys())[0]
@@ -114,8 +121,8 @@ class RuntimeLoop:
                 f"Using default (non-optimized) DU module with use_reasoning={use_reasoning}"
             )
 
-        # Store action_handler for future use (will be used in Task 040)
-        self.action_handler = action_handler
+        # Initialize action handler
+        self.action_handler = action_handler or ActionHandler(config=self.config)
 
         # Auto-discover and import actions from config directory
         # Also try importing __init__.py from config directory if it exists
@@ -274,7 +281,7 @@ class RuntimeLoop:
                 # Double-check pattern: another coroutine might have initialized it
                 if self.graph is None:
                     # Initialize checkpointer
-                    await self.builder.initialize()
+                    await self._initialize_checkpointer()
 
                     # Create runtime context with all dependencies
                     from soni.core.state import create_runtime_context
@@ -284,7 +291,7 @@ class RuntimeLoop:
                         config=self.config,
                         scope_manager=self.scope_manager,
                         normalizer=self.normalizer,
-                        action_handler=self.builder.action_handler,
+                        action_handler=self.action_handler,
                         du=self.du,
                     )
 
@@ -292,7 +299,7 @@ class RuntimeLoop:
                     # This graph has proper routing for all conversation states
                     self.graph = build_graph(
                         context=runtime_context,
-                        checkpointer=self.builder.checkpointer,
+                        checkpointer=self.checkpointer,
                     )
 
                     # Store runtime context for reference
@@ -302,6 +309,41 @@ class RuntimeLoop:
                     self.conversation_manager = ConversationManager(self.graph)
                     self.streaming_manager = StreamingManager()
 
+    async def _initialize_checkpointer(self) -> None:
+        """Initialize the checkpointer asynchronously."""
+        if self.checkpointer is None:
+            self.checkpointer, self._checkpointer_cm = await CheckpointerFactory.create(
+                self.config.settings.persistence
+            )
+
+    async def _cleanup_checkpointer(self) -> None:
+        """Cleanup checkpointer resources."""
+        if self._checkpointer_cm is not None:
+            try:
+                # Close the async context manager to release resources
+                await self._checkpointer_cm.__aexit__(None, None, None)
+                logger.debug("Checkpointer context manager closed successfully")
+            except (OSError, ConnectionError, RuntimeError) as e:
+                logger.warning(
+                    f"Error closing checkpointer context manager: {e}",
+                    extra={"error_type": type(e).__name__},
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error closing checkpointer: {e}",
+                    exc_info=True,
+                )
+            finally:
+                # Clear references immediately
+                self._checkpointer_cm = None
+                self.checkpointer = None
+                import gc
+
+                gc.collect()
+        elif self.checkpointer is not None:
+            # No context manager (e.g., InMemorySaver) - just clear reference
+            self.checkpointer = None
+
     async def cleanup(self) -> None:
         """Cleanup resources, especially the graph builder's checkpointer.
 
@@ -309,9 +351,8 @@ class RuntimeLoop:
         proper resource cleanup. Idempotent - safe to call multiple times.
         """
         if not self._cleaned_up:
-            if hasattr(self, "builder") and self.builder:
-                await self.builder.cleanup()
-                logger.info("RuntimeLoop cleanup completed")
+            await self._cleanup_checkpointer()
+            logger.info("RuntimeLoop cleanup completed")
             self._cleaned_up = True
 
     def __del__(self) -> None:
@@ -394,7 +435,7 @@ class RuntimeLoop:
         existing_state_snapshot = None
         try:
             # Use aget_state() to retrieve the current checkpoint for this thread (async)
-            if self.builder.checkpointer:
+            if self.checkpointer:
                 existing_state_snapshot = await self.graph.aget_state(config)
                 if existing_state_snapshot and existing_state_snapshot.values:
                     logger.info(f"Loaded existing state for user {user_id}")
