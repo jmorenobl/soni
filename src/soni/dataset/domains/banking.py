@@ -77,7 +77,26 @@ BALANCE_UTTERANCES = [
     "What is my balance?",
     "Check my account",
     "How much money do I have",
+    "How much do I have?",
+    "What's my balance?",
     "Show me my funds",
+    "How much is in my account?",
+    "What's in my account?",
+]
+
+# Intent switch utterances - when user switches from one flow to another
+INTENT_SWITCH_TO_BALANCE = [
+    "How much do I have?",
+    "What's my balance?",
+    "First, how much is in my account?",
+    "Wait, what's my balance?",
+    "Let me check my balance first",
+]
+
+INTENT_SWITCH_TO_TRANSFER = [
+    "I want to send some to my sister",
+    "Actually, transfer some to mom",
+    "Let me transfer money instead",
 ]
 
 # Pattern Helpers

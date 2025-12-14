@@ -59,6 +59,9 @@ class DialogueState(TypedDict):
     nlu_result: dict[str, Any] | None
     last_nlu_call: float | None
 
+    # Action execution
+    action_result: dict[str, Any] | None
+
     # Digression tracking
     digression_depth: int
     last_digression_type: str | None

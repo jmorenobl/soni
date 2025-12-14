@@ -58,11 +58,20 @@ async def collect_next_slot_node(
     next_slot = step_manager.get_next_required_slot(state, current_step_config, runtime.context)
 
     if not next_slot:
-        # No slot to collect, advance to next step
-        step_updates = step_manager.advance_to_next_step(state, runtime.context)
-        # CRITICAL: If we advanced to next step, return updates and let routing handle it
-        # Don't go to interrupt() if there's no slot to collect
-        return dict(step_updates) if step_updates else {}
+        # Check if we should advance to next step
+        # Only advance if current step is 'collect' (implied completion since no slot needed)
+        # For 'action', 'confirm', etc., we should NOT advance here as they need execution
+        if current_step_config.type == "collect":
+            step_updates = step_manager.advance_to_next_step(state, runtime.context)
+            return dict(step_updates) if step_updates else {}
+        else:
+            # Not a collect step (e.g., action), so return empty updates
+            # State remains as is (e.g., ready_for_action), allowing routing to send to correct node
+            logger.debug(
+                f"collect_next_slot: current step '{current_step_config.step}' "
+                f"is type '{current_step_config.type}', passing through to routing"
+            )
+            return {}
 
     # Get slot configuration for proper prompt
     from soni.core.state import get_slot_config

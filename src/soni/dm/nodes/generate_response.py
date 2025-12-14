@@ -26,23 +26,6 @@ async def generate_response_node(
     Returns:
         Partial state updates with last_response and conversation_state
     """
-    # DEBUG: Log input state to investigate last_response update issue
-    logger.info("=" * 80)
-    logger.info("generate_response_node INPUTS:")
-    logger.info(f"  last_response: '{state.get('last_response')}'")
-    logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
-    logger.info(f"  current_prompted_slot: '{state.get('current_prompted_slot')}'")
-    logger.info(f"  user_message: '{state.get('user_message')}'")
-    logger.info(f"  conversation_state: '{state.get('conversation_state')}'")
-
-    # Check for high-priority items that might override last_response
-    from soni.core.state import get_all_slots
-
-    all_slots = get_all_slots(state)
-    logger.info(f"  confirmation slot: {all_slots.get('confirmation')}")
-    logger.info(f"  action_result: {state.get('action_result')}")
-    logger.info("=" * 80)
-
     # Generate response using priority-based logic
     response = ResponseGenerator.generate_from_priority(state)
     logger.info(f"generate_response_node OUTPUT: '{response[:100]}...'")

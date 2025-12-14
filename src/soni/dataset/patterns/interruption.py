@@ -291,23 +291,162 @@ class InterruptionGenerator(PatternGenerator):
             )
 
         elif domain_config.name == "banking":
+            # Example 1: Explicit switch - "check my balance instead"
             examples.append(
                 ExampleTemplate(
                     user_message="Actually, check my balance instead",
                     conversation_context=ConversationContext(
                         history=dspy.History(
                             messages=[
-                                {"user_message": "I want to transfer money"},
+                                {"role": "user", "content": "I want to transfer money"},
+                                {
+                                    "role": "assistant",
+                                    "content": "How much would you like to transfer?",
+                                },
                             ]
                         ),
                         current_slots={},
                         current_flow="transfer_funds",
                         expected_slots=["amount"],
+                        conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
                         message_type=MessageType.INTERRUPTION,
                         command="check_balance",
                         slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 2: Implicit switch - "How much do I have?" (matches check_balance description)
+            # Critical pattern: User asks about balance without explicitly requesting flow switch
+            examples.append(
+                ExampleTemplate(
+                    user_message="How much do I have?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "user", "content": "I want to transfer money"},
+                                {
+                                    "role": "assistant",
+                                    "content": "How much would you like to transfer?",
+                                },
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[],
+                        confidence=0.90,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 3: Implicit switch - "What's my balance?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="What's my balance?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "user", "content": "I want to send money to mom"},
+                                {"role": "assistant", "content": "How much?"},
+                            ]
+                        ),
+                        current_slots={"recipient": "mom"},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount", "currency"],
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[],
+                        confidence=0.90,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 4: Implicit switch during block_card - asking about balance
+            examples.append(
+                ExampleTemplate(
+                    user_message="First, how much money is in my account?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "user", "content": "I need to block my card"},
+                                {
+                                    "role": "assistant",
+                                    "content": "What are the last 4 digits of your card?",
+                                },
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="block_card",
+                        expected_slots=["card_last_4"],
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[],
+                        confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 5: Implicit switch from check_balance to transfer
+            examples.append(
+                ExampleTemplate(
+                    user_message="I want to send some to my sister",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "user", "content": "Check my balance"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Which account (checking or savings)?",
+                                },
+                            ]
+                        ),
+                        current_slots={},
+                        current_flow="check_balance",
+                        expected_slots=["account_type"],
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="transfer_funds",
+                        slots=[
+                            {
+                                "name": "recipient",
+                                "value": "sister",
+                                "confidence": 0.9,
+                                "action": "provide",
+                            }
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,

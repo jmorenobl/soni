@@ -140,16 +140,22 @@ def run(
         help="Path to Soni configuration YAML file",
     ),
     user_id: str = typer.Option(
-        "cli_user",
+        None,
         "--user-id",
         "-u",
-        help="User ID for conversation session",
+        help="User ID for conversation session (random if not specified)",
     ),
     optimized_du: str | None = typer.Option(
         None,
         "--optimized-du",
         "-d",
         help="Path to optimized DU module (JSON)",
+    ),
+    handlers: str | None = typer.Option(
+        None,
+        "--handlers",
+        "-h",
+        help="Python module path containing action handlers (e.g., 'examples.banking.handlers')",
     ),
 ) -> None:
     """
@@ -167,6 +173,12 @@ def run(
     """
     # Load environment variables from .env file if it exists
     load_dotenv()
+
+    # Generate random user_id if not specified
+    import uuid
+
+    if user_id is None:
+        user_id = f"cli_{uuid.uuid4().hex[:8]}"
 
     # Validate config file exists
     config_path = Path(config)
@@ -214,6 +226,18 @@ def run(
             typer.echo(f"Error: Optimized DU file not found: {optimized_du_path_obj}", err=True)
             raise typer.Exit(1)
         optimized_du_path = optimized_du_path_obj
+
+    # Load custom handlers module if specified
+    if handlers:
+        try:
+            import importlib
+
+            _handlers_module = importlib.import_module(handlers)  # noqa: F841
+            typer.echo(f"✓ Loaded handlers from {handlers}")
+        except ImportError as e:
+            typer.echo(f"Error: Failed to load handlers module '{handlers}': {e}", err=True)
+            typer.echo("   Make sure the module path is correct and accessible.", err=True)
+            raise typer.Exit(1) from e
 
     # Initialize RuntimeLoop
     try:

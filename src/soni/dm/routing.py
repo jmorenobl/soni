@@ -643,6 +643,7 @@ def route_after_understand(state: DialogueStateType) -> str:
 
     # Log routing decision
     slots = nlu_result.get("slots", [])
+
     logger.info(
         f"route_after_understand: message_type={message_type}, command={nlu_result.get('command')}, "
         f"slots_count={len(slots)}",

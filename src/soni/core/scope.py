@@ -391,31 +391,20 @@ class ScopeManager(IScopeManager):
         self,
         state: DialogueState | dict[str, Any],
     ) -> dict[str, str]:
-        """Get available flows with descriptions when no flow is active.
+        """Get available flows with descriptions.
 
-        When current_flow is "none", returns dict mapping flow names to descriptions.
-        When in an active flow, returns empty dict (flows cannot be started while in a flow).
+        Returns dict mapping flow names to descriptions. This is used by NLU
+        to detect when user wants to switch to a different flow (intent change).
 
         Args:
             state: Current dialogue state (DialogueState or dict)
 
         Returns:
-            Dict mapping flow names to descriptions when current_flow="none",
-            empty dict when in an active flow
+            Dict mapping flow names to descriptions
         """
-        # Import here to avoid circular import
-        # state can be DialogueState (TypedDict) or dict - both work with our helper functions
-        # No conversion needed since get_current_flow handle both
-
-        current_flow = get_current_flow(state)
-
-        # Only return flows when no flow is active
-        if not current_flow or current_flow == "none":
-            # Return dict mapping flow names to descriptions
-            flows_with_descriptions = {}
-            for flow_name, flow_config in self.config.flows.items():
-                flows_with_descriptions[flow_name] = flow_config.description
-            return flows_with_descriptions
-
-        # When in an active flow, no flows are available to start
-        return {}
+        # Always return all flows with descriptions so NLU can detect intent changes
+        # The routing logic will decide whether to allow the switch or treat as digression
+        flows_with_descriptions = {}
+        for flow_name, flow_config in self.config.flows.items():
+            flows_with_descriptions[flow_name] = flow_config.description
+        return flows_with_descriptions

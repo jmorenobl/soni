@@ -790,7 +790,13 @@ def test_get_available_flows_when_no_flow():
 
 
 def test_get_available_flows_when_in_flow():
-    """Test getting available flows when already in a flow returns empty dict"""
+    """Test getting available flows when already in a flow returns all flows.
+
+    Note: get_available_flows now returns all flows even when in an active flow.
+    This allows NLU to detect intent switches (e.g., user asking about balance
+    during a transfer flow should trigger check_balance interruption).
+    The routing logic decides whether to allow the switch or treat as digression.
+    """
     # Arrange
     config_dict = {
         "version": "0.1",
@@ -824,9 +830,11 @@ def test_get_available_flows_when_in_flow():
     # Act
     available_flows = scope_manager.get_available_flows(state)
 
-    # Assert
+    # Assert - Now returns all flows for intent switch detection
     assert isinstance(available_flows, dict)
-    assert available_flows == {}
+    assert "book_flight" in available_flows
+    assert "cancel_booking" in available_flows
+    assert len(available_flows) == 2
 
 
 def test_get_available_flows_with_dict_state():

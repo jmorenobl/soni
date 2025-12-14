@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "created_at": "2025-12-13T12:30:09.739979",
-  "total_examples": 151,
+  "created_at": "2025-12-14T10:32:30.522171",
+  "total_examples": 163,
   "examples": [
     {
       "user_message": "I want to fly from Madrid to Barcelona",
@@ -387,6 +387,133 @@
           }
         ],
         "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "New York",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "New York",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Los Angeles",
+      "context": {
+        "current_slots": {
+          "origin": "New York"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "Los Angeles",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Miami",
+      "context": {
+        "current_slots": {
+          "origin": "San Francisco"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "slot_value",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "destination",
+            "value": "Miami",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
         "confirmation_value": null
       }
     },
@@ -1470,6 +1597,92 @@
           {
             "name": "passengers",
             "value": "3",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "Actually, I meant Denver not Chicago",
+      "context": {
+        "current_slots": {
+          "origin": "Chicago"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "Denver",
+            "confidence": 0.95,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
+        "confidence": 0.95,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I said Boston, not Austin",
+      "context": {
+        "current_slots": {
+          "origin": "Austin"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "correction",
+        "command": "book_flight",
+        "slots": [
+          {
+            "name": "origin",
+            "value": "Boston",
             "confidence": 0.95,
             "action": "provide",
             "previous_value": null
@@ -2738,12 +2951,155 @@
           "amount"
         ],
         "current_prompted_slot": null,
-        "conversation_state": null
+        "conversation_state": "waiting_for_slot"
       },
       "result": {
         "message_type": "interruption",
         "command": "check_balance",
         "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "How much do I have?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": "waiting_for_slot"
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "check_balance",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What's my balance?",
+      "context": {
+        "current_slots": {
+          "recipient": "mom"
+        },
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "transfer_funds",
+        "expected_slots": [
+          "amount",
+          "currency"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": "waiting_for_slot"
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "check_balance",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "First, how much money is in my account?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "block_card",
+        "expected_slots": [
+          "card_last_4"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": "waiting_for_slot"
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "check_balance",
+        "slots": [],
+        "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "I want to send some to my sister",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "execute_transfer",
+          "get_balance",
+          "activate_card_service",
+          "block_card_service",
+          "fetch_transactions"
+        ],
+        "available_flows": {
+          "transfer_funds": "transfer_funds",
+          "check_balance": "check_balance",
+          "activate_card": "activate_card",
+          "block_card": "block_card",
+          "transaction_history": "transaction_history"
+        },
+        "current_flow": "check_balance",
+        "expected_slots": [
+          "account_type"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": "waiting_for_slot"
+      },
+      "result": {
+        "message_type": "interruption",
+        "command": "transfer_funds",
+        "slots": [
+          {
+            "name": "recipient",
+            "value": "sister",
+            "confidence": 0.9,
+            "action": "provide",
+            "previous_value": null
+          }
+        ],
         "confidence": 0.85,
         "confirmation_value": null
       }
@@ -3868,6 +4224,109 @@
         "command": "book_flight",
         "slots": [],
         "confidence": 0.85,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What airports do you support?",
+      "context": {
+        "current_slots": {
+          "origin": "San Francisco"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What destinations do you fly to?",
+      "context": {
+        "current_slots": {
+          "origin": "Boston"
+        },
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "destination"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
+        "confirmation_value": null
+      }
+    },
+    {
+      "user_message": "What cities can I fly to?",
+      "context": {
+        "current_slots": {},
+        "available_actions": [
+          "search_flights",
+          "book_flight",
+          "modify_booking",
+          "cancel_booking",
+          "send_confirmation"
+        ],
+        "available_flows": {
+          "book_flight": "book_flight",
+          "search_flights": "search_flights",
+          "check_booking": "check_booking",
+          "modify_booking": "modify_booking",
+          "cancel_booking": "cancel_booking"
+        },
+        "current_flow": "book_flight",
+        "expected_slots": [
+          "origin"
+        ],
+        "current_prompted_slot": null,
+        "conversation_state": null
+      },
+      "result": {
+        "message_type": "digression",
+        "command": "book_flight",
+        "slots": [],
+        "confidence": 0.9,
         "confirmation_value": null
       }
     },
