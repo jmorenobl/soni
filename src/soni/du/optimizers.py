@@ -16,31 +16,53 @@ logger = logging.getLogger(__name__)
 
 
 def _inject_format_examples(trainset: list[dspy.Example]) -> list[dspy.Example]:
-    """Inject minimal format-guidance examples at the start of trainset.
+    """Inject stratified format-guidance examples at the start of trainset.
 
-    These examples teach the LLM the correct output format (lowercase enums,
-    slot structure, etc.) without introducing domain-specific bias.
+    These examples ensure the LLM sees at least one example of each message type,
+    particularly critical patterns like CONFIRMATION that may be underrepresented
+    in optimizer-selected demos.
+
+    CRITICAL: The optimizer (MIPROv2/GEPA) may not select demos from minority
+    patterns like CONFIRMATION. By injecting stratified examples, we guarantee
+    coverage of all 9 message types in every prompt.
 
     Args:
         trainset: Domain-specific training examples
 
     Returns:
-        Combined list with format examples prepended
+        Combined list with stratified format examples prepended
     """
-    # Create minimal format examples that show correct structure
+    # Create confirmation context for confirmation examples
+    confirmation_context = DialogueContext(
+        current_flow="book_flight",
+        current_slots={
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow",
+        },
+        expected_slots=[],
+        conversation_state="confirming",
+        available_flows={"book_flight": "Book a flight"},
+    )
+
+    # Stratified format examples - one or more per message type
     format_examples = [
-        # Example 1: Simple slot value with lowercase enum
+        # ============================================================
+        # SLOT_VALUE - User provides a value for an expected slot
+        # ============================================================
         dspy.Example(
             user_message="New York",
             history=dspy.History(messages=[]),
             context=DialogueContext(
-                current_flow="example_flow",
+                current_flow="book_flight",
                 expected_slots=["destination"],
+                current_prompted_slot="destination",
+                conversation_state="waiting_for_slot",
             ),
             current_datetime="2024-12-11T10:00:00",
             result=NLUOutput(
                 message_type=MessageType.SLOT_VALUE,
-                command="example_flow",
+                command="book_flight",
                 slots=[
                     SlotValue(
                         name="destination",
@@ -52,42 +74,208 @@ def _inject_format_examples(trainset: list[dspy.Example]) -> list[dspy.Example]:
                 confidence=0.95,
             ),
         ).with_inputs("user_message", "history", "context", "current_datetime"),
-        # Example 2: Confirmation with boolean
+        # ============================================================
+        # CONFIRMATION - Positive (user says yes)
+        # ============================================================
         dspy.Example(
-            user_message="Yes, please proceed",
+            user_message="Yes, that's correct",
             history=dspy.History(messages=[]),
-            context=DialogueContext(
-                current_flow="example_flow",
-                conversation_state="confirming",
-            ),
+            context=confirmation_context,
             current_datetime="2024-12-11T10:00:00",
             result=NLUOutput(
                 message_type=MessageType.CONFIRMATION,
-                command="example_flow",
+                command="book_flight",
                 slots=[],
                 confidence=0.95,
                 confirmation_value=True,
             ),
         ).with_inputs("user_message", "history", "context", "current_datetime"),
-        # Example 3: Interruption (new intent)
+        # ============================================================
+        # CONFIRMATION - Negative (user says no)
+        # ============================================================
         dspy.Example(
-            user_message="I want to do something else",
+            user_message="No, that's not right",
+            history=dspy.History(messages=[]),
+            context=confirmation_context,
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CONFIRMATION,
+                command="book_flight",
+                slots=[],
+                confidence=0.95,
+                confirmation_value=False,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # CONFIRMATION - Unclear/Ambiguous (critical for max_retries)
+        # ============================================================
+        dspy.Example(
+            user_message="I'm not sure",
+            history=dspy.History(messages=[]),
+            context=confirmation_context,
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CONFIRMATION,
+                command="book_flight",
+                slots=[],
+                confidence=0.6,
+                confirmation_value=None,  # None = unclear/ambiguous
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # CORRECTION - User corrects a previously provided value
+        # ============================================================
+        dspy.Example(
+            user_message="No, I meant Barcelona not Madrid",
             history=dspy.History(messages=[]),
             context=DialogueContext(
-                current_flow="none",
-                available_flows={"other_flow": "other_flow"},
+                current_flow="book_flight",
+                current_slots={"origin": "Madrid"},
+                expected_slots=["destination"],
+                conversation_state="waiting_for_slot",
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CORRECTION,
+                command="book_flight",
+                slots=[
+                    SlotValue(
+                        name="origin",
+                        value="Barcelona",
+                        confidence=0.95,
+                        action=SlotAction.CORRECT,
+                        previous_value="Madrid",
+                    )
+                ],
+                confidence=0.95,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # MODIFICATION - User proactively requests to change a value
+        # ============================================================
+        dspy.Example(
+            user_message="Can I change the destination to London?",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                current_slots={"origin": "Paris", "destination": "Barcelona"},
+                expected_slots=[],
+                conversation_state="ready_for_confirmation",
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.MODIFICATION,
+                command="book_flight",
+                slots=[
+                    SlotValue(
+                        name="destination",
+                        value="London",
+                        confidence=0.90,
+                        action=SlotAction.MODIFY,
+                        previous_value="Barcelona",
+                    )
+                ],
+                confidence=0.90,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # INTERRUPTION - User wants to switch to a different flow
+        # ============================================================
+        dspy.Example(
+            user_message="Actually, I want to check my booking status",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                available_flows={
+                    "book_flight": "Book a flight",
+                    "check_booking": "Check booking status",
+                },
             ),
             current_datetime="2024-12-11T10:00:00",
             result=NLUOutput(
                 message_type=MessageType.INTERRUPTION,
-                command="other_flow",
+                command="check_booking",
                 slots=[],
                 confidence=0.90,
             ),
         ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # CANCELLATION - User wants to cancel/abort current flow
+        # ============================================================
+        dspy.Example(
+            user_message="Never mind, cancel this",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                current_slots={"origin": "Madrid"},
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CANCELLATION,
+                command=None,
+                slots=[],
+                confidence=0.90,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # DIGRESSION - User asks question without changing flow
+        # ============================================================
+        dspy.Example(
+            user_message="What is the baggage allowance?",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                current_slots={"origin": "Madrid", "destination": "Barcelona"},
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.DIGRESSION,
+                command=None,
+                slots=[],
+                confidence=0.85,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # CLARIFICATION - User asks for explanation about current step
+        # ============================================================
+        dspy.Example(
+            user_message="What do you mean by departure date?",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                current_prompted_slot="departure_date",
+                expected_slots=["departure_date"],
+                conversation_state="waiting_for_slot",
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CLARIFICATION,
+                command=None,
+                slots=[],
+                confidence=0.85,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # ============================================================
+        # CONTINUATION - General continuation without specific intent
+        # ============================================================
+        dspy.Example(
+            user_message="Okay, go ahead",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="book_flight",
+                current_slots={"origin": "Madrid"},
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CONTINUATION,
+                command=None,
+                slots=[],
+                confidence=0.80,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
     ]
 
-    # Prepend format examples to domain trainset
+    # Prepend stratified format examples to domain trainset
     return format_examples + list(trainset)
 
 

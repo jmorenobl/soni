@@ -5,542 +5,22 @@
     "demos": [
       {
         "augmented": true,
-        "user_message": "I want to fly from Madrid to Barcelona",
-        "history": {
-          "messages": []
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "none",
-          "expected_slots": [
-            "origin",
-            "destination",
-            "departure_date",
-            "return_date",
-            "passengers",
-            "cabin_class"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "interruption",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "origin",
-              "value": "Madrid",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            },
-            {
-              "name": "destination",
-              "value": "Barcelona",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Book a flight from Paris to London tomorrow",
-        "history": {
-          "messages": []
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "none",
-          "expected_slots": [
-            "origin",
-            "destination",
-            "departure_date",
-            "return_date",
-            "passengers",
-            "cabin_class"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "interruption",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "origin",
-              "value": "Paris",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            },
-            {
-              "name": "destination",
-              "value": "London",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            },
-            {
-              "name": "departure_date",
-              "value": "tomorrow",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "I need a flight to New York",
-        "history": {
-          "messages": []
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "none",
-          "expected_slots": [
-            "origin",
-            "destination",
-            "departure_date",
-            "return_date",
-            "passengers",
-            "cabin_class"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "interruption",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "destination",
-              "value": "New York",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "I want to fly tomorrow",
-        "history": {
-          "messages": []
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "none",
-          "expected_slots": [
-            "origin",
-            "destination",
-            "departure_date",
-            "return_date",
-            "passengers",
-            "cabin_class"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "interruption",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "departure_date",
-              "value": "tomorrow",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Los Angeles",
+        "user_message": "I'm not sure",
         "history": {
           "messages": [
             {
-              "user_message": "I want to book a flight",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption"
-              }
+              "role": "user",
+              "content": "Book flight to Paris tomorrow"
             },
             {
-              "user_message": "From Madrid",
-              "result": {
-                "command": "book_flight",
-                "message_type": "slot_value",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "Madrid"
-                  }
-                ]
-              }
+              "role": "assistant",
+              "content": "Confirm: Flight to Paris, departing tomorrow?"
             }
           ]
         },
         "context": {
           "current_slots": {
-            "origin": "Madrid"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "destination",
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "slot_value",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "destination",
-              "value": "Los Angeles",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Tomorrow",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption"
-              }
-            },
-            {
-              "user_message": "From Madrid to Barcelona",
-              "result": {
-                "command": "book_flight",
-                "message_type": "slot_value",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "Madrid"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Barcelona"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "slot_value",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "departure_date",
-              "value": "tomorrow",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Next Friday",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption"
-              }
-            },
-            {
-              "user_message": "From New York to Los Angeles",
-              "result": {
-                "command": "book_flight",
-                "message_type": "slot_value",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "New York"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Los Angeles"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "New York",
-            "destination": "Los Angeles"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2025-12-11T10:00:00",
-        "result": {
-          "message_type": "slot_value",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "departure_date",
-              "value": "next Friday",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Tokyo to Rome",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption"
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin",
-            "destination",
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "slot_value",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "origin",
-              "value": "Tokyo",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            },
-            {
-              "name": "destination",
-              "value": "Rome",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "No, I said Los Angeles not Barcelona",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "Madrid"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Barcelona"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "tomorrow"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona",
+            "destination": "Paris",
             "departure_date": "tomorrow"
           },
           "available_actions": [
@@ -560,97 +40,18 @@
           "current_flow": "book_flight",
           "expected_slots": [],
           "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
+          "conversation_state": "confirming"
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "correction",
+          "message_type": "confirmation",
           "command": "book_flight",
-          "slots": [
-            {
-              "name": "destination",
-              "value": "Los Angeles",
-              "confidence": 0.95,
-              "action": "correct",
-              "previous_value": "Barcelona"
-            }
-          ],
-          "confidence": 0.95,
+          "slots": [],
+          "confidence": 0.7,
           "confirmation_value": null
         }
       },
       {
-        "augmented": true,
-        "user_message": "Actually, I want to leave next Monday",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "Madrid"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Barcelona"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "tomorrow"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona",
-            "departure_date": "tomorrow"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "modification",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "departure_date",
-              "value": "next Monday",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": "tomorrow"
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
         "user_message": "No, for 3 passengers",
         "history": {
           "messages": [
@@ -704,12 +105,12 @@
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "modification",
+          "message_type": "correction",
           "command": "book_flight",
           "slots": [
             {
               "name": "passengers",
-              "value": 3,
+              "value": "3",
               "confidence": 0.95,
               "action": "provide",
               "previous_value": null
@@ -720,82 +121,18 @@
         }
       },
       {
-        "augmented": true,
-        "user_message": "Actually, I meant Denver not Chicago",
+        "user_message": "maybe",
         "history": {
           "messages": [
             {
-              "user_message": "Book a flight"
-            },
-            {
-              "user_message": "Chicago"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Chicago"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "destination"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "correction",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "origin",
-              "value": "Denver",
-              "confidence": 0.95,
-              "action": "correct",
-              "previous_value": "Chicago"
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Change the destination to Tokyo",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
+              "user_message": "I want to buy a laptop",
               "result": {
-                "command": "book_flight",
+                "command": "search_product",
                 "message_type": "interruption",
                 "slots": [
                   {
-                    "name": "origin",
-                    "value": "Madrid"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Barcelona"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "tomorrow"
+                    "name": "product",
+                    "value": "laptop"
                   }
                 ]
               }
@@ -804,687 +141,38 @@
         },
         "context": {
           "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona",
-            "departure_date": "tomorrow"
+            "product": "laptop",
+            "quantity": "1"
           },
           "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "search_product": "search_product",
+            "add_to_cart": "add_to_cart",
+            "checkout": "checkout",
+            "track_order": "track_order",
+            "return_product": "return_product"
           },
-          "current_flow": "book_flight",
+          "current_flow": "search_product",
           "expected_slots": [],
           "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "modification",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "destination",
-              "value": "Tokyo",
-              "confidence": 0.95,
-              "action": "modify",
-              "previous_value": "Barcelona"
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Can I modify the date to next Monday?",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "Madrid"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Barcelona"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "tomorrow"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona",
-            "departure_date": "tomorrow"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "modification",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "departure_date",
-              "value": "next Monday",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": "tomorrow"
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "No, change the destination",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from New York to Los Angeles 2025-12-15",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "New York"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Los Angeles"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "2025-12-15"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "New York",
-            "destination": "Los Angeles",
-            "departure_date": "2025-12-15"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "modification",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "No, change the origin",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from New York to Los Angeles 2025-12-15",
-              "result": {
-                "command": "book_flight",
-                "message_type": "interruption",
-                "slots": [
-                  {
-                    "name": "origin",
-                    "value": "New York"
-                  },
-                  {
-                    "name": "destination",
-                    "value": "Los Angeles"
-                  },
-                  {
-                    "name": "departure_date",
-                    "value": "2025-12-15"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "New York",
-            "destination": "Los Angeles",
-            "departure_date": "2025-12-15"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": "ready_for_confirmation"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "modification",
-          "command": "book_flight",
-          "slots": [
-            {
-              "name": "origin",
-              "value": null,
-              "confidence": 0.0,
-              "action": "modify",
-              "previous_value": "New York"
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Cancel",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin"
-          ],
-          "current_prompted_slot": null,
           "conversation_state": null
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "cancellation",
-          "command": "book_flight",
+          "message_type": "confirmation",
+          "command": "search_product",
           "slots": [],
-          "confidence": 0.9,
+          "confidence": 0.7,
           "confirmation_value": null
         }
       },
       {
-        "augmented": true,
-        "user_message": "Never mind",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid to Barcelona"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "cancellation",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Actually, cancel this",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight please"
-            },
-            {
-              "user_message": "Boston"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Boston"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "destination"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "cancellation",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Cancel this",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "cancellation",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Continue",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "continuation",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Go ahead",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight from Madrid"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "destination"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "continuation",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Next",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a hotel"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_hotels",
-            "book_hotel",
-            "modify_reservation",
-            "cancel_reservation",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_hotel": "book_hotel",
-            "search_hotels": "search_hotels",
-            "check_reservation": "check_reservation",
-            "modify_reservation": "modify_reservation",
-            "cancel_reservation": "cancel_reservation"
-          },
-          "current_flow": "book_hotel",
-          "expected_slots": [
-            "location"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "continuation",
-          "command": "book_hotel",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Move on",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Reserve suite"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "room_type": "suite"
-          },
-          "available_actions": [
-            "search_hotels",
-            "book_hotel",
-            "modify_reservation",
-            "cancel_reservation",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_hotel": "book_hotel",
-            "search_hotels": "search_hotels",
-            "check_reservation": "check_reservation",
-            "modify_reservation": "modify_reservation",
-            "cancel_reservation": "cancel_reservation"
-          },
-          "current_flow": "book_hotel",
-          "expected_slots": [
-            "dates"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "continuation",
-          "command": "book_hotel",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "What airlines fly that route?",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to book a flight from Madrid to Barcelona"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "origin": "Madrid",
-            "destination": "Barcelona"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "departure_date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "digression",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.85,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
-        "user_message": "Do you have direct flights?",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Flights to Paris"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "destination": "Paris"
-          },
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "digression",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.85,
-          "confirmation_value": null
-        }
-      },
-      {
-        "augmented": true,
         "user_message": "Can I bring my pet?",
         "history": {
           "messages": [
@@ -1526,39 +214,35 @@
         }
       },
       {
-        "augmented": true,
-        "user_message": "What airports do you support?",
+        "user_message": "Do you have vegetarian options?",
         "history": {
           "messages": [
             {
-              "user_message": "I want to book a flight"
-            },
-            {
-              "user_message": "San Francisco"
+              "user_message": "Book a table in Madrid"
             }
           ]
         },
         "context": {
           "current_slots": {
-            "origin": "San Francisco"
+            "location": "Madrid"
           },
           "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
+            "search_restaurants",
+            "book_table",
+            "modify_reservation",
+            "cancel_reservation",
             "send_confirmation"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "book_table": "book_table",
+            "search_restaurants": "search_restaurants",
+            "check_reservation": "check_reservation",
+            "modify_reservation": "modify_reservation",
+            "cancel_reservation": "cancel_reservation"
           },
-          "current_flow": "book_flight",
+          "current_flow": "book_table",
           "expected_slots": [
-            "destination"
+            "date"
           ],
           "current_prompted_slot": null,
           "conversation_state": null
@@ -1566,107 +250,201 @@
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
           "message_type": "digression",
-          "command": "book_flight",
+          "command": "book_table",
           "slots": [],
           "confidence": 0.85,
           "confirmation_value": null
         }
       },
       {
-        "augmented": true,
-        "user_message": "Why do you need that?",
+        "user_message": "Proceed",
         "history": {
           "messages": [
             {
-              "user_message": "Book a flight"
-            },
-            {
-              "user_message": "From Madrid"
+              "user_message": "I want to buy a laptop"
             }
           ]
         },
         "context": {
-          "current_slots": {
-            "origin": "Madrid"
-          },
+          "current_slots": {},
           "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "search_product": "search_product",
+            "add_to_cart": "add_to_cart",
+            "checkout": "checkout",
+            "track_order": "track_order",
+            "return_product": "return_product"
           },
-          "current_flow": "book_flight",
+          "current_flow": "search_product",
           "expected_slots": [
-            "destination"
+            "product"
           ],
           "current_prompted_slot": null,
           "conversation_state": null
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "clarification",
-          "command": "book_flight",
+          "message_type": "continuation",
+          "command": "search_product",
           "slots": [],
           "confidence": 0.9,
           "confirmation_value": null
         }
       },
       {
-        "augmented": true,
-        "user_message": "Why do you need my passport number?",
+        "user_message": "I want a red laptop",
         "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight to New York"
-            }
-          ]
+          "messages": []
         },
         "context": {
-          "current_slots": {
-            "origin": "London",
-            "destination": "New York"
-          },
+          "current_slots": {},
           "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "search_product": "search_product",
+            "add_to_cart": "add_to_cart",
+            "checkout": "checkout",
+            "track_order": "track_order",
+            "return_product": "return_product"
           },
-          "current_flow": "book_flight",
+          "current_flow": "none",
           "expected_slots": [
-            "passport_number"
+            "product",
+            "quantity",
+            "color",
+            "size",
+            "shipping_address"
           ],
           "current_prompted_slot": null,
           "conversation_state": null
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "clarification",
-          "command": "book_flight",
-          "slots": [],
+          "message_type": "interruption",
+          "command": "search_product",
+          "slots": [
+            {
+              "name": "product",
+              "value": "laptop",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            },
+            {
+              "name": "color",
+              "value": "red",
+              "confidence": 0.9,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
           "confidence": 0.9,
           "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Wait, I said 50 not 500",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Transfer 500 to mom"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "amount": "500",
+            "recipient": "mom"
+          },
+          "available_actions": [
+            "execute_transfer",
+            "get_balance",
+            "activate_card_service",
+            "block_card_service",
+            "fetch_transactions"
+          ],
+          "available_flows": {
+            "transfer_funds": "transfer_funds",
+            "check_balance": "check_balance",
+            "activate_card": "activate_card",
+            "block_card": "block_card",
+            "transaction_history": "transaction_history"
+          },
+          "current_flow": "transfer_funds",
+          "expected_slots": [
+            "currency"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "correction",
+          "command": "transfer_funds",
+          "slots": [
+            {
+              "name": "amount",
+              "value": "50",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "No, change the destination",
+        "history": {
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "Confirming: Flight to NYC on Dec 25. Correct?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "destination": "NYC",
+            "date": "2025-12-25"
+          },
+          "available_actions": [
+            "book_flight",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "book_flight"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.95,
+          "confirmation_value": false
         }
       }
     ],
     "signature": {
-      "instructions": "Task: Develop a messaging analysis system to understand user intents and manage dialogue flows based on dialogue history and current context.\n\nObjective: Analyze user messages in the context of a conversation to determine intent and accurately classify them while extracting necessary slot values. The system must decide the proper course of action (continuing current flow, interrupting for a new flow, answering a question, etc.) based on the provided information and context of the dialogue.\n\nInstructions:\n\n1. **Core Logic:**\n   - The primary goal is to map user messages to intents and flows, extracting slot values as needed.\n   - Utilize the provided context like current slots, available flows, current flow, and current conversation state to make decisions.\n\n2. **Context Awareness:**\n   - When `current_flow` is \"none\" and `available_flows` is not empty, compare user messages semantically with flow descriptions.\n   - If a semantic match is found, classify it as an `INTERRUPTION` and set the command to the corresponding flow name.\n   - Flow names match keys in `available_flows`.\n\n3. **Message Classification Logic:**\n   - Classify messages into specific types based on given conditions:\n     - **DIGRESSION:** General queries unrelated to the current step.\n     - **CLARIFICATION:** Questions about the necessity of current step information.\n     - **MODIFICATION:** Requests to change existing slot values.\n     - **SLOT_VALUE:** Direct provision of slot value without using request language.\n     - **CANCELLATION:** Abandonment of the current flow without switching to a new flow.\n     - **INTERRUPTION:** Transition to a new flow mentioned in `available_flows`.\n\n4. **Distinguishing between Similar Types:**\n   - Differentiate between CONFIRMATION, CORRECTION, and MODIFICATION when `conversation_state` is \"confirming\" or \"ready_for_confirmation\":\n     - **CONFIRMATION:** Simple acceptance or rejection (e.g., \"Yes\", \"No\") leading to setting `confirmation_value` as True/False.\n     - **CORRECTION:** Identification of wrong value and provision of its correction.\n     - **MODIFICATION:** Requests to change or update a slot, often with a \"no\" statement leading to change.\n\n5. **Slot Extraction:**\n   - Gather slots with actions determined as either provide (new), correct (reactive fix), or modify (proactive change).\n\n6. **Implement Examples as Test Cases:**\n   - Adapt examples given to ensure system correctly identifies types of messages and follows logic:\n     - Example: User wanting to book a flight when `current_flow` is \"none\" should lead to `INTERRUPTION` with the command set to \"book_flight\".\n     - Handle \"hmm\" as a confirmatory response when in a confirming state.\n\n7. **Generalization and Fallbacks:**\n   - Ensure system gracefully handles unexpected inputs by making educated guesses based on context and previous interactions.\n   - Maintain a high confidence threshold to prevent inappropriate flow changes or slot modifications.\n\nBy following the above instructions, the system should be capable of understanding user intents effectively and managing dialogue flow in a way that's logical and consistent with user expectations.",
+      "instructions": "Analyze and classify user messages within a dialogue context to determine intent and extract any relevant slot values. Classify the message into one of the following categories:\n- **slot_value**: The user provides a value for an expected slot.\n- **confirmation**: The user confirms or denies (responds with yes/no). If user denies without providing a new value, classify as confirmation (value=False).\n- **correction**: The user corrects a previously provided slot value.\n- **modification**: The user requests to change a slot value and provides the new value.\n- **interruption**: The user wishes to start or switch to a new flow from available options.\n- **cancellation**: The user abandons the current flow.\n- **digression**: The message is off-topic and does not correspond to any available flow.\n- **clarification**: The user seeks clarification about the current request.\n- **continuation**: The user's intent is unclear but they're proceeding with the conversation.\n\nObserve the following key rules:\n1. Match user messages semantically to the descriptions of available flows, not just based on exact wording.\n2. If a message matches a flow, classify it as an **interruption** for that flow.\n3. Only use **digression** when the message does not fit any available flow.\n4. Extract slot values from the message with the appropriate action type defined as provide (new), correct (reactive fix), or modify (proactive change).\n\nKeep the instruction clear and concise to guide the Language Model effectively.",
       "fields": [
         {
           "prefix": "User Message:",

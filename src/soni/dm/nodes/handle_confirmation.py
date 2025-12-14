@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from langgraph.types import interrupt
+
 from soni.core.types import DialogueState, NodeRuntime
 from soni.utils.metadata_manager import MetadataManager
 from soni.utils.response_generator import ResponseGenerator
@@ -62,7 +64,7 @@ async def handle_confirmation_node(
                 "I'm having trouble understanding your confirmation. "
                 "Let's start over. What would you like to do?"
             ),
-            "metadata": metadata_cleared,
+            "metadata": MetadataManager.clear_confirmation_flags(metadata),
         }
 
     message_type = nlu_result.get("message_type") if nlu_result else None
@@ -133,7 +135,8 @@ async def handle_confirmation_node(
         return {
             "conversation_state": "understanding",
             "last_response": "What would you like to change?",
-            "metadata": metadata_cleared,
+            "metadata": MetadataManager.clear_confirmation_flags(metadata)
+            | {"_skip_next_action": True},
         }
 
     # Confirmation value not extracted or unclear
@@ -158,7 +161,7 @@ async def handle_confirmation_node(
                     "I'm having trouble understanding your confirmation. "
                     "Let's start over. What would you like to do?"
                 ),
-                "metadata": metadata_cleared,
+                "metadata": MetadataManager.clear_confirmation_flags(metadata_updated),
             }
 
         logger.warning(
@@ -170,6 +173,9 @@ async def handle_confirmation_node(
         # This allows routing to detect it without depending on response text
         metadata_updated["_confirmation_processed"] = True
         metadata_updated["_confirmation_unclear"] = True
+
+        # Prevent action re-execution if we backtrack
+        metadata_updated["_skip_next_action"] = True
 
         return {
             "conversation_state": "confirming",
@@ -232,13 +238,36 @@ async def _handle_correction_during_confirmation(
         return {"conversation_state": "error"}
 
     flow_id = active_ctx["flow_id"]
+    # Prepare flow_slots for update (shallow copy of outer dict)
     flow_slots = state.get("flow_slots", {}).copy()
     if flow_id not in flow_slots:
         flow_slots[flow_id] = {}
 
+    # Check if value is actually different using current state (before update)
+    current_value = flow_slots.get(flow_id, {}).get(slot_name)
+
+    if normalized_value == current_value:
+        logger.info(
+            f"Modification value ({normalized_value}) same as current value. "
+            f"Treating as intent to change without value."
+        )
+        # Equality detected - interrupt to ask for new value
+        prompt = f"What would you like to change {slot_name} to?"
+        new_value_raw = interrupt(prompt)
+
+        # Normalize the new value
+        if new_value_raw:
+            try:
+                normalized_value = await normalizer.normalize_slot(slot_name, new_value_raw)
+                logger.info(f"User provided new value after interrupt: {normalized_value}")
+            except Exception as e:
+                logger.error(f"Normalization failed for new value: {e}")
+                pass
+
+    # Now update the slot with the final normalized value
     flow_slots[flow_id][slot_name] = normalized_value
 
-    # Set state variables (for Task 004, but implementing here)
+    # Update metadata flags
     metadata = state.get("metadata", {})
     if message_type == "correction":
         metadata = MetadataManager.set_correction_flags(metadata, slot_name, normalized_value)
@@ -282,9 +311,15 @@ async def _handle_correction_during_confirmation(
         f"re-displaying confirmation"
     )
 
+    # Set flag to skip the next action node execution (since we backtracked)
+    metadata["_skip_next_action"] = True
+
+    # Update response to indicate we are updating
+    combined_response = f"{acknowledgment}\n\nI'll update the details for you."
+
     return {
         "flow_slots": flow_slots,
-        "conversation_state": "confirming",  # Return to confirming state
+        "conversation_state": "confirming",  # Stay in confirming to verify new value
         "last_response": combined_response,
         "metadata": metadata,
     }

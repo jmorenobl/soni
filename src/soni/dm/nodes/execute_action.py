@@ -33,9 +33,22 @@ async def execute_action_node(
     # Get current step configuration
     current_step_config = step_manager.get_current_step_config(state, runtime.context)
 
+    # Check for skip flag (set by handle_confirmation when backtracking)
+    metadata = state.get("metadata", {})
+    if metadata.get("_skip_next_action"):
+        logger.info("Skipping action execution due to _skip_next_action flag")
+        # Clear the flag so it doesn't persist
+        new_metadata = metadata.copy()
+        new_metadata.pop("_skip_next_action")
+        # Return only metadata update (clearing flag)
+        return {"metadata": new_metadata}
+
     if not current_step_config or current_step_config.type != "action":
-        logger.error("Current step is not an action step")
-        return {"conversation_state": "error"}
+        logger.warning(
+            f"execute_action_node called but current step is '{current_step_config.type if current_step_config else 'None'}' "
+            "(expected 'action'). Skipping action execution."
+        )
+        return {}
 
     # Get action name from step config
     action_name = current_step_config.call

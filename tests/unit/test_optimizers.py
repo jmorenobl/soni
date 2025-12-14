@@ -150,9 +150,11 @@ def test_optimize_soni_du_basic_flow(mock_dspy, tmp_path):
             assert metrics["optimized_accuracy"] == 0.7
             assert metrics["improvement"] == pytest.approx(0.2, abs=1e-6)  # Handle float precision
             assert metrics["num_trials"] == 2
-            # trainset_size includes 3 format examples injected by _inject_format_examples
-            # This is by design: format examples teach correct output structure
-            expected_size = original_trainset_size + 3  # 2 original + 3 format examples
+            # trainset_size includes 11 stratified format examples injected by _inject_format_examples
+            # This is by design: stratified examples ensure coverage of all 9 message types
+            expected_size = (
+                original_trainset_size + 11
+            )  # 2 original + 11 stratified format examples
             assert metrics["trainset_size"] == expected_size
             # Time metrics should exist
             assert "baseline_time" in metrics
