@@ -63,6 +63,15 @@ class ConversationState(StrEnum):
     ERROR = "error"
     """An error occurred in the dialogue flow."""
 
+    VALIDATING_SLOT = "validating_slot"
+    """Validating a slot value provided by the user."""
+
+    EXECUTING_ACTION = "executing_action"
+    """Performing the requested action/side-effect."""
+
+    FALLBACK = "fallback"
+    """System is in an unknown or invalid state, requiring recovery."""
+
 
 class NodeName(StrEnum):
     """Valid node names in the dialogue graph.

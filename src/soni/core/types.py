@@ -85,6 +85,7 @@ ConversationState = Literal[
     "completed",
     "generating_response",
     "error",
+    "fallback",
 ]
 
 

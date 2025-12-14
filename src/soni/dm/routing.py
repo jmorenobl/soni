@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 from soni.core.constants import ConversationState, NodeName
 from soni.core.events import EVENT_SLOT_COLLECTION, EVENT_VALIDATION_ERROR
 from soni.core.state import DialogueState, get_slot, state_from_dict
+from soni.core.state_semantics import validate_conversation_state
 from soni.core.types import DialogueState as DialogueStateType
 
 logger = logging.getLogger(__name__)
@@ -351,12 +352,15 @@ def _route_by_conversation_state(
     Returns:
         Next node name based on conversation_state
     """
-    conv_state = state.get("conversation_state")
+    # Validate conversation_state
+    raw_state = state.get("conversation_state")
+    conv_state = validate_conversation_state(raw_state)
 
     if verbose_logging:
         logger.info("=" * 80)
         logger.info(f"ROUTING after {router_name}:")
-        logger.info(f"  conversation_state: {conv_state}")
+        logger.info(f"  conversation_state (raw): {raw_state}")
+        logger.info(f"  conversation_state (validated): {conv_state}")
         logger.info(f"  last_response: '{state.get('last_response')}'")
         logger.info(f"  user_message: '{state.get('user_message')}'")
         logger.info(f"  waiting_for_slot: '{state.get('waiting_for_slot')}'")
@@ -369,7 +373,10 @@ def _route_by_conversation_state(
         )
 
     # Common routing based on conversation_state
-    if conv_state == ConversationState.READY_FOR_ACTION:
+    if conv_state == ConversationState.FALLBACK:
+        # Validation failure already logged handling as fallback
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.READY_FOR_ACTION:
         return NodeName.EXECUTE_ACTION
     elif conv_state == ConversationState.READY_FOR_CONFIRMATION:
         return NodeName.CONFIRM_ACTION
@@ -766,7 +773,7 @@ def route_after_collect_next_slot(state: DialogueStateType) -> str:
     Returns:
         Next node name
     """
-    conv_state = state.get("conversation_state")
+    conv_state = validate_conversation_state(state.get("conversation_state"))
 
     logger.info("=" * 80)
     logger.info("ROUTING after collect_next_slot:")
@@ -778,7 +785,9 @@ def route_after_collect_next_slot(state: DialogueStateType) -> str:
     logger.info("=" * 80)
 
     # Route based on conversation_state set by advance_to_next_step
-    if conv_state == ConversationState.READY_FOR_ACTION:
+    if conv_state == ConversationState.FALLBACK:
+        return NodeName.GENERATE_RESPONSE
+    elif conv_state == ConversationState.READY_FOR_ACTION:
         return NodeName.EXECUTE_ACTION
     elif conv_state == ConversationState.READY_FOR_CONFIRMATION:
         return NodeName.CONFIRM_ACTION
