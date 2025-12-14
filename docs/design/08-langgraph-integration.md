@@ -645,8 +645,9 @@ def build_graph(
         }
     )
 
-    # After digression, back to understand
-    builder.add_edge("handle_digression", "understand")
+    # After digression, go to response generation (then END)
+    # Digressions are handled as single-turn interactions
+    builder.add_edge("handle_digression", "generate_response")
 
     # After validating slot
     builder.add_conditional_edges(
@@ -658,7 +659,7 @@ def build_graph(
         }
     )
 
-    # After collecting slot, back to understand
+    # After collecting slot, back to understand (wait for user input)
     builder.add_edge("collect_next_slot", "understand")
 
     # Action → response → END
@@ -666,7 +667,7 @@ def build_graph(
     builder.add_edge("generate_response", END)
 
     # Compile with checkpointer
-    checkpointer = create_checkpointer(config)
+    # soni.dm.builder.build_graph handles this logic
     return builder.compile(checkpointer=checkpointer)
 ```
 
@@ -675,6 +676,7 @@ def build_graph(
 - **Explicit routing**: Conditional edges for branching logic
 - **Loop patterns**: Nodes can loop back to `understand`
 - **Clear termination**: All paths eventually reach `END`
+- **Builder Pattern**: The `soni.dm.builder` module is the single source of truth for graph construction.
 
 ## Checkpointer Backends
 
