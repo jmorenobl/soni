@@ -9,9 +9,86 @@ import dspy
 from dspy.teleprompt import GEPA, MIPROv2
 
 from soni.du.metrics import gepa_feedback_metric, intent_accuracy_metric
+from soni.du.models import DialogueContext, MessageType, NLUOutput, SlotAction, SlotValue
 from soni.du.modules import SoniDU
 
 logger = logging.getLogger(__name__)
+
+
+def _inject_format_examples(trainset: list[dspy.Example]) -> list[dspy.Example]:
+    """Inject minimal format-guidance examples at the start of trainset.
+
+    These examples teach the LLM the correct output format (lowercase enums,
+    slot structure, etc.) without introducing domain-specific bias.
+
+    Args:
+        trainset: Domain-specific training examples
+
+    Returns:
+        Combined list with format examples prepended
+    """
+    # Create minimal format examples that show correct structure
+    format_examples = [
+        # Example 1: Simple slot value with lowercase enum
+        dspy.Example(
+            user_message="New York",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="example_flow",
+                expected_slots=["destination"],
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.SLOT_VALUE,
+                command="example_flow",
+                slots=[
+                    SlotValue(
+                        name="destination",
+                        value="New York",
+                        confidence=0.95,
+                        action=SlotAction.PROVIDE,
+                    )
+                ],
+                confidence=0.95,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # Example 2: Confirmation with boolean
+        dspy.Example(
+            user_message="Yes, please proceed",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="example_flow",
+                conversation_state="confirming",
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.CONFIRMATION,
+                command="example_flow",
+                slots=[],
+                confidence=0.95,
+                confirmation_value=True,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+        # Example 3: Interruption (new intent)
+        dspy.Example(
+            user_message="I want to do something else",
+            history=dspy.History(messages=[]),
+            context=DialogueContext(
+                current_flow="none",
+                available_flows={"other_flow": "other_flow"},
+            ),
+            current_datetime="2024-12-11T10:00:00",
+            result=NLUOutput(
+                message_type=MessageType.INTERRUPTION,
+                command="other_flow",
+                slots=[],
+                confidence=0.90,
+            ),
+        ).with_inputs("user_message", "history", "context", "current_datetime"),
+    ]
+
+    # Prepend format examples to domain trainset
+    return format_examples + list(trainset)
 
 
 def optimize_soni_du(
@@ -52,8 +129,13 @@ def optimize_soni_du(
     if optimizer_type not in ("MIPROv2", "GEPA"):
         raise ValueError(f"Unsupported optimizer type: {optimizer_type}. Supported: MIPROv2, GEPA")
 
-    # Create baseline module
-    baseline_nlu = SoniDU()
+    # Create baseline module WITHOUT pre-loaded optimization
+    # This ensures we're measuring improvement from a fresh start
+    baseline_nlu = SoniDU(load_baseline=False)
+
+    # Inject a few base examples for format guidance (lowercase enums, structure)
+    # These teach the LLM the correct output format without domain bias
+    trainset = _inject_format_examples(trainset)
 
     # Evaluate baseline
     print("Evaluating baseline...")

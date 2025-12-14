@@ -6,6 +6,8 @@ import dspy
 
 from soni.dataset.base import DomainConfig, PatternGenerator
 from soni.dataset.domains import ALL_DOMAINS
+from soni.dataset.edge_cases import get_all_edge_cases
+from soni.dataset.example_factory import ExampleFactory
 from soni.dataset.patterns import ALL_PATTERN_GENERATORS
 
 
@@ -32,13 +34,17 @@ class DatasetBuilder:
         self,
         pattern_generators: dict[str, PatternGenerator] | None = None,
         domain_configs: dict[str, DomainConfig] | None = None,
+        seed: int | None = 42,
     ):
         """Initialize builder with registries.
 
         Args:
             pattern_generators: Registry of pattern generators (default: auto-discover)
             domain_configs: Registry of domain configs (default: auto-discover)
+            seed: Random seed for reproducible example generation (default: 42)
         """
+        # Create factory for reproducible random generation
+        self.factory = ExampleFactory(seed=seed)
         # Auto-discover if not provided
         self.pattern_generators = pattern_generators or ALL_PATTERN_GENERATORS.copy()
         self.domain_configs = domain_configs or ALL_DOMAINS.copy()
@@ -117,21 +123,36 @@ class DatasetBuilder:
 
         return all_examples
 
-    def build_all(self, examples_per_combination: int = 2) -> list[dspy.Example]:
+    def build_all(
+        self,
+        examples_per_combination: int = 2,
+        include_edge_cases: bool = True,
+    ) -> list[dspy.Example]:
         """Build complete dataset with all registered patterns, domains, and contexts.
 
         Args:
             examples_per_combination: Examples per (pattern × domain × context)
+            include_edge_cases: Whether to include boundary examples for robustness
 
         Returns:
-            Complete training dataset
+            Complete training dataset including edge cases
         """
-        return self.build(
+        examples = self.build(
             patterns=None,
             domains=None,
             contexts=None,
             examples_per_combination=examples_per_combination,
         )
+
+        # Add edge cases for boundary robustness
+        if include_edge_cases:
+            edge_case_templates = get_all_edge_cases()
+            for template in edge_case_templates:
+                domain_config = self.domain_configs.get(template.domain)
+                if domain_config:
+                    examples.append(template.to_dspy_example(domain_config))
+
+        return examples
 
     def get_stats(self) -> dict[str, int]:
         """Get statistics about registered generators and domains.

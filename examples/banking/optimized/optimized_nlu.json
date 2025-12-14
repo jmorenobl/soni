@@ -1,0 +1,358 @@
+{
+  "predictor": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "user_message": "Check my checking account",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "account_type",
+            "source_account",
+            "recipient",
+            "amount",
+            "currency",
+            "card_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "check_balance",
+          "slots": [
+            {
+              "name": "account_type",
+              "value": "checking",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "What is my balance?",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "account_type",
+            "source_account",
+            "recipient",
+            "amount",
+            "currency",
+            "card_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "check_balance",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Hello",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "account_type",
+            "source_account",
+            "recipient",
+            "amount",
+            "currency",
+            "card_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "greet",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "I want to do something else",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [],
+          "available_flows": {
+            "other_flow": "other_flow"
+          },
+          "current_flow": "none",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "other_flow",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "checking",
+        "history": {
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "Which account?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "check_balance",
+          "expected_slots": [
+            "account_type"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "slot_value",
+          "command": "check_balance",
+          "slots": [
+            {
+              "name": "account_type",
+              "value": "checking",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Yes, please proceed",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [],
+          "available_flows": {},
+          "current_flow": "example_flow",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "example_flow",
+          "slots": [],
+          "confidence": 0.95,
+          "confirmation_value": true
+        }
+      },
+      {
+        "user_message": "Show me my balance",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "account_type",
+            "source_account",
+            "recipient",
+            "amount",
+            "currency",
+            "card_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "check_balance",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Hi",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "get_balance",
+            "format_balance_message",
+            "execute_transfer",
+            "block_card_service",
+            "say_hello"
+          ],
+          "available_flows": {
+            "greet": "greet",
+            "check_balance": "check_balance",
+            "transfer_funds": "transfer_funds",
+            "block_card": "block_card"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "account_type",
+            "source_account",
+            "recipient",
+            "amount",
+            "currency",
+            "card_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "greet",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      }
+    ],
+    "signature": {
+      "instructions": "Analyze the user's message within the conversation context to determine its intent and extract any relevant slot values. Classify the message type into one of the following categories: 'slot_value', 'confirmation', 'correction', 'modification', 'interruption', 'cancellation', 'digression', 'clarification', or 'continuation'. Use semantic matching for flow identification and ensure to extract slot values with the correct action type (e.g., provide, correct, modify). Utilize the rules outlined for handling user intent appropriately.",
+      "fields": [
+        {
+          "prefix": "User Message:",
+          "description": "User's input message to analyze"
+        },
+        {
+          "prefix": "History:",
+          "description": "Conversation history (list of {role, content} messages)"
+        },
+        {
+          "prefix": "Context:",
+          "description": "Current dialogue state including flow, slots, and conversation phase"
+        },
+        {
+          "prefix": "Current Datetime:",
+          "description": "Current datetime (ISO format) for temporal expressions"
+        },
+        {
+          "prefix": "Result:",
+          "description": "Classified message with type, intent, slots, and confidence"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.13",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

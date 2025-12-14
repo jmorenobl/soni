@@ -18,6 +18,9 @@ from soni.dataset.base import (
     PatternGenerator,
 )
 from soni.dataset.builder import DatasetBuilder
+from soni.dataset.conversation_simulator import ConversationSimulator
+from soni.dataset.edge_cases import get_all_edge_cases
+from soni.dataset.example_factory import ExampleFactory
 from soni.dataset.registry import print_dataset_stats, validate_dataset
 
 __all__ = [
@@ -26,6 +29,9 @@ __all__ = [
     "ConversationContext",
     "ExampleTemplate",
     "PatternGenerator",
+    "ExampleFactory",
+    "ConversationSimulator",
+    "get_all_edge_cases",
     "validate_dataset",
     "print_dataset_stats",
 ]

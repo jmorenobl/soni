@@ -1,4 +1,4 @@
-"""CLI command for optimizing SoniDU modules"""
+"""CLI command for optimizing SoniDU modules."""
 
 import json
 from pathlib import Path
@@ -7,27 +7,22 @@ import dspy
 import typer
 from typer import Option
 
+from soni.core.config import SoniConfig
+from soni.dataset.conversation_simulator import ConversationSimulator
 from soni.du.optimizers import load_optimized_module, optimize_soni_du
 
 app = typer.Typer(help="Optimize SoniDU modules with DSPy")
 
 
 def _load_trainset_from_file(trainset_path: Path) -> list[dspy.Example]:
-    """
-    Load trainset from a JSON file.
+    """Load trainset from a JSON file.
 
     Expected format:
     [
         {
             "user_message": "...",
             "dialogue_history": "...",
-            "current_slots": "{}",
-            "available_actions": "[]",
-            "current_flow": "none",
-            "structured_command": "...",
-            "extracted_slots": "{}",
-            "confidence": "0.85",
-            "reasoning": "..."
+            ...
         },
         ...
     ]
@@ -67,11 +62,17 @@ def _load_trainset_from_file(trainset_path: Path) -> list[dspy.Example]:
 
 @app.command()
 def optimize(
-    trainset_path: Path = Option(
+    config_path: Path = Option(
         ...,
+        "--config",
+        "-c",
+        help="Path to soni.yaml configuration file",
+    ),
+    trainset_path: Path | None = Option(
+        None,
         "--trainset",
         "-t",
-        help="Path to JSON file with training examples",
+        help="Optional: Override with custom JSON trainset",
     ),
     optimizer: str = Option(
         "MIPROv2",
@@ -96,26 +97,65 @@ def optimize(
         "-O",
         help="Directory to save optimized module (optional)",
     ),
+    examples_per_pattern: int = Option(
+        3,
+        "--examples",
+        "-e",
+        help="Number of example variations per pattern when generating from YAML",
+    ),
 ) -> None:
-    """
-    Optimize a SoniDU module using DSPy optimizers.
+    """Optimize a SoniDU module for a specific domain.
+
+    This command generates training examples from your soni.yaml configuration
+    by simulating conversations based on your flow definitions, then optimizes
+    the NLU module for your specific domain.
 
     Example:
-        soni optimize --trainset data/trainset.json --trials 10 --output models/
+        soni optimize --config examples/banking/soni.yaml --output models/
     """
-    typer.echo(f"Loading trainset from: {trainset_path}")
+    # Load config
+    typer.echo(f"Loading configuration from: {config_path}")
     try:
-        trainset = _load_trainset_from_file(trainset_path)
-    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as e:
-        # Errores esperados al cargar trainset
-        typer.echo(f"Error loading trainset: {e}", err=True)
-        raise typer.Exit(1)
+        config = SoniConfig.from_yaml(config_path)
     except Exception as e:
-        # Errores inesperados
-        typer.echo(f"Unexpected error loading trainset: {e}", err=True)
+        typer.echo(f"Error loading configuration: {e}", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"Loaded {len(trainset)} training examples")
+    typer.echo(f"  Found {len(config.flows)} flows")
+    typer.echo(f"  Found {len(config.slots)} slots")
+    typer.echo(f"  Found {len(config.actions)} actions")
+    typer.echo("")
+
+    # Configure DSPy LM from YAML settings
+    import dspy
+
+    nlu_config = config.settings.models.nlu
+    model_name = f"{nlu_config.provider}/{nlu_config.model}"
+    typer.echo(f"Configuring LM: {model_name}")
+    lm = dspy.LM(model_name, temperature=nlu_config.temperature, max_tokens=1024)
+    dspy.configure(lm=lm)
+
+    # Generate or load trainset
+    if trainset_path:
+        typer.echo(f"Loading custom trainset from: {trainset_path}")
+        try:
+            trainset = _load_trainset_from_file(trainset_path)
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as e:
+            typer.echo(f"Error loading trainset: {e}", err=True)
+            raise typer.Exit(1)
+    else:
+        typer.echo("Generating trainset from YAML configuration...")
+        try:
+            simulator = ConversationSimulator(config)
+            trainset = simulator.generate_dataset(
+                examples_per_pattern=examples_per_pattern,
+                include_edge_cases=True,
+            )
+        except Exception as e:
+            typer.echo(f"Error generating trainset: {e}", err=True)
+            raise typer.Exit(1)
+
+    typer.echo(f"Generated {len(trainset)} training examples")
     typer.echo(f"Using optimizer: {optimizer}")
     typer.echo(f"Number of trials: {num_trials}")
     typer.echo(f"Timeout: {timeout}s")
@@ -130,11 +170,9 @@ def optimize(
             output_dir=output_dir,
         )
     except (RuntimeError, ValueError, TypeError) as e:
-        # Errores esperados de optimización
         typer.echo(f"Optimization failed: {e}", err=True)
         raise typer.Exit(1)
     except Exception as e:
-        # Errores inesperados
         typer.echo(f"Unexpected error during optimization: {e}", err=True)
         raise typer.Exit(1)
 
@@ -162,8 +200,7 @@ def load(
         help="Path to saved optimized module JSON file",
     ),
 ) -> None:
-    """
-    Load and validate a previously optimized module.
+    """Load and validate a previously optimized module.
 
     Example:
         soni optimize load --module models/optimized_nlu.json
@@ -174,10 +211,86 @@ def load(
         typer.echo("✅ Module loaded successfully")
         typer.echo(f"Module type: {type(module).__name__}")
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as e:
-        # Errores esperados al cargar módulo
         typer.echo(f"Error loading module: {e}", err=True)
         raise typer.Exit(1)
     except Exception as e:
-        # Errores inesperados
         typer.echo(f"Unexpected error loading module: {e}", err=True)
         raise typer.Exit(1)
+
+
+@app.command()
+def preview(
+    config_path: Path = Option(
+        ...,
+        "--config",
+        "-c",
+        help="Path to soni.yaml configuration file",
+    ),
+    examples_per_pattern: int = Option(
+        3,
+        "--examples",
+        "-e",
+        help="Number of example variations per pattern",
+    ),
+    output_file: Path | None = Option(
+        None,
+        "--output",
+        "-o",
+        help="Optional: Save generated examples to JSON file",
+    ),
+) -> None:
+    """Preview generated training examples without running optimization.
+
+    Useful for inspecting and validating the generated dataset before
+    running a full optimization.
+
+    Example:
+        soni optimize preview --config examples/banking/soni.yaml
+    """
+    typer.echo(f"Loading configuration from: {config_path}")
+    try:
+        config = SoniConfig.from_yaml(config_path)
+    except Exception as e:
+        typer.echo(f"Error loading configuration: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo("Generating training examples...")
+    simulator = ConversationSimulator(config)
+    trainset = simulator.generate_dataset(
+        examples_per_pattern=examples_per_pattern,
+        include_edge_cases=True,
+    )
+
+    typer.echo(f"\nGenerated {len(trainset)} examples:")
+    typer.echo("-" * 50)
+
+    # Show sample examples
+    for i, example in enumerate(trainset[:10]):
+        typer.echo(f"\n[Example {i + 1}]")
+        typer.echo(f"  User: {example.user_message}")
+        result = example.result
+        typer.echo(f"  Expected: {result.message_type.value} → {result.command}")
+        if result.slots:
+            slots_str = ", ".join(f"{s.name}={s.value}" for s in result.slots)
+            typer.echo(f"  Slots: {slots_str}")
+
+    if len(trainset) > 10:
+        typer.echo(f"\n... and {len(trainset) - 10} more examples")
+
+    if output_file:
+        # Save to JSON for inspection
+        import json
+
+        examples_data = []
+        for ex in trainset:
+            examples_data.append(
+                {
+                    "user_message": ex.user_message,
+                    "expected_type": ex.result.message_type.value,
+                    "expected_command": ex.result.command,
+                    "slots": [{"name": s.name, "value": s.value} for s in ex.result.slots],
+                }
+            )
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(examples_data, f, indent=2)
+        typer.echo(f"\nSaved to: {output_file}")

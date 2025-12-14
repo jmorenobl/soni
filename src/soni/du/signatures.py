@@ -15,21 +15,21 @@ from soni.du.models import DialogueContext, NLUOutput
 class DialogueUnderstanding(dspy.Signature):
     """Analyze user messages in dialogue context to determine intent and extract slot values.
 
-    Classify the user's message into one of the following types based on context:
-    - SLOT_VALUE: User provides a value for an expected slot
-    - CONFIRMATION: User confirms or denies (yes/no response to confirmation prompt)
-    - CORRECTION: User corrects a previously provided slot value
-    - MODIFICATION: User requests to change a slot value
-    - INTERRUPTION: User wants to start/switch to a flow in available_flows
-    - CANCELLATION: User abandons the current flow
-    - DIGRESSION: General question not related to any available flow
-    - CLARIFICATION: User asks for clarification about the current request
-    - CONTINUATION: User continues without clear intent
+    Classify the user's message into one of the following types (use exactly these values):
+    - slot_value: User provides a value for an expected slot
+    - confirmation: User confirms or denies (yes/no response to confirmation prompt)
+    - correction: User corrects a previously provided slot value
+    - modification: User requests to change a slot value
+    - interruption: User wants to start/switch to a flow in available_flows
+    - cancellation: User abandons the current flow
+    - digression: General question not related to any available flow
+    - clarification: User asks for clarification about the current request
+    - continuation: User continues without clear intent
 
     Key rules:
     1. Match user message semantically to available_flows descriptions, not just exact words
-    2. If message matches a flow, use INTERRUPTION with that flow as command
-    3. Use DIGRESSION only when message doesn't match ANY available flow
+    2. If message matches a flow, use interruption with that flow as command
+    3. Use digression only when message doesn't match ANY available flow
     4. Extract slot values mentioned in the message with appropriate action type
 
     Extract slots with actions: provide (new), correct (reactive fix), modify (proactive change).
