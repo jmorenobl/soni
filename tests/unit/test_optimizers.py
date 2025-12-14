@@ -122,6 +122,7 @@ def test_optimize_soni_du_basic_flow(mock_dspy, tmp_path):
     """Test optimize_soni_du basic flow with mocked components."""
     # Arrange
     trainset = create_trainset_with_history()
+    original_trainset_size = len(trainset)  # 2 examples
 
     # Mock DummyLM
     mock_lm = MagicMock()
@@ -149,7 +150,10 @@ def test_optimize_soni_du_basic_flow(mock_dspy, tmp_path):
             assert metrics["optimized_accuracy"] == 0.7
             assert metrics["improvement"] == pytest.approx(0.2, abs=1e-6)  # Handle float precision
             assert metrics["num_trials"] == 2
-            assert metrics["trainset_size"] == 2
+            # trainset_size includes 3 format examples injected by _inject_format_examples
+            # This is by design: format examples teach correct output structure
+            expected_size = original_trainset_size + 3  # 2 original + 3 format examples
+            assert metrics["trainset_size"] == expected_size
             # Time metrics should exist
             assert "baseline_time" in metrics
             assert "optimization_time" in metrics

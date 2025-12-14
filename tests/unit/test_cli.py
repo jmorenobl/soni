@@ -54,19 +54,24 @@ def test_optimize_help():
     assert "load" in result.stdout
 
 
-def test_optimize_optimize_missing_trainset():
-    """Test optimize command fails with missing trainset file"""
+def test_optimize_optimize_missing_config():
+    """Test optimize command fails when required --config is missing.
+
+    Typer returns exit code 2 for missing required parameters (usage error).
+    """
     # Arrange
     runner = CliRunner()
 
-    # Act
+    # Act - Call optimize without required --config parameter
     result = runner.invoke(
         app, ["optimize", "optimize", "--trainset", "/nonexistent/trainset.json"]
     )
 
-    # Assert - Command should fail with non-zero exit code
-    assert result.exit_code == 1
-    assert "Loading trainset from" in result.stdout
+    # Assert - Typer returns exit code 2 for missing required arguments
+    assert result.exit_code == 2
+    # Error message is captured in result.output (combined stdout/stderr)
+    combined_output = result.output.lower() if hasattr(result, "output") else result.stdout.lower()
+    assert "missing" in combined_output or "--config" in combined_output
 
 
 def test_optimize_load_missing_module():
@@ -177,12 +182,45 @@ def test_load_trainset_from_file_not_array():
 
 
 def test_optimize_optimize_success(tmp_path, monkeypatch):
-    """Test optimize command success path"""
+    """Test optimize command success path with all required parameters."""
     # Arrange
     import json
+    from unittest.mock import MagicMock
 
     from soni.du.modules import SoniDU
 
+    # Create minimal valid config file
+    config_file = tmp_path / "soni.yaml"
+    config_content = """
+version: "0.1"
+
+flows:
+  book_flight:
+    description: "Book a flight"
+    trigger:
+      intents:
+        - "book a flight"
+    steps:
+      - step: collect_destination
+        type: collect
+        slot: destination
+
+slots:
+  destination:
+    type: string
+    prompt: "Where to?"
+    required: true
+
+settings:
+  models:
+    nlu:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.0
+"""
+    config_file.write_text(config_content)
+
+    # Create trainset file
     trainset_file = tmp_path / "trainset.json"
     trainset_data = [
         {
@@ -204,23 +242,41 @@ def test_optimize_optimize_success(tmp_path, monkeypatch):
         return SoniDU(), {
             "baseline_accuracy": 0.5,
             "optimized_accuracy": 0.8,
+            "improvement": 0.3,
             "improvement_pct": 30.0,
             "total_time": 10.5,
         }
 
     monkeypatch.setattr("soni.cli.optimize.optimize_soni_du", mock_optimize)
 
+    # Mock dspy.LM to avoid actual LLM calls
+    mock_lm = MagicMock()
+    monkeypatch.setattr("soni.cli.optimize.dspy.LM", lambda *args, **kwargs: mock_lm)
+    monkeypatch.setattr("soni.cli.optimize.dspy.configure", lambda **kwargs: None)
+
     runner = CliRunner()
 
     # Act
     result = runner.invoke(
-        app, ["optimize", "optimize", "--trainset", str(trainset_file), "--trials", "1"]
+        app,
+        [
+            "optimize",
+            "optimize",
+            "--config",
+            str(config_file),
+            "--trainset",
+            str(trainset_file),
+            "--trials",
+            "1",
+        ],
     )
 
     # Assert
-    assert result.exit_code == 0
-    assert "Baseline accuracy:" in result.stdout
-    assert "Optimized accuracy:" in result.stdout
+    output = result.output if hasattr(result, "output") else result.stdout
+    error_info = f"output: {output}\nexception: {result.exception}"
+    assert result.exit_code == 0, f"Command failed with: {error_info}"
+    assert "Baseline accuracy:" in output
+    assert "Optimized accuracy:" in output
 
 
 def test_optimize_load_success(tmp_path, monkeypatch):
