@@ -322,9 +322,21 @@ def test_route_after_understand_message_types_parametrized(
     ]
     if conversation_state:
         state["conversation_state"] = conversation_state
+
+    # Use appropriate command based on message type
+    # - For question/clarification: use None to avoid cross-flow rerouting
+    # - For intent_change/cancellation: command is expected
+    # - For other types: use same flow name to avoid rerouting
+    command = None
+    if message_type in ("intent_change", "cancellation"):
+        command = "book_flight"  # Use current flow for non-cross-flow scenarios
+    elif message_type in ("slot_value", "correction", "modification", "confirmation"):
+        command = "book_flight"
+    # else: command = None for question/clarification
+
     state["nlu_result"] = {
         "message_type": message_type,
-        "command": "continue",
+        "command": command,
         "slots": [],
     }
 
