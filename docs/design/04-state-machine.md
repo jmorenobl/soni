@@ -2,7 +2,10 @@
 
 ## Overview
 
-Soni implements an explicit state machine to track conversation progress. This provides clear visibility into what the system is doing at any moment and enables context-aware message processing using a **Pure Data** approach compatible with LangGraph persistence.
+Soni implements an explicit state machine to track conversation progress. The command-driven architecture uses this state machine for deterministic execution - Commands modify state, and the DM routes based on state values (not LLM classification).
+
+**Key Principle**: State transitions are triggered by Command execution, not by NLU classification.
+
 
 ## DialogueState Schema
 
@@ -148,6 +151,20 @@ class DialogueState(TypedDict):
 
     last_digression_type: str | None
     """Type of last digression (question, help, clarification, etc.)."""
+
+    # ===== Command Audit (New in v2.0) =====
+
+    command_log: list[dict[str, Any]]
+    """
+    Log of all executed commands for audit trail.
+    Each entry: {"command": str, "args": dict, "timestamp": float, "result": str}
+
+    Example:
+        [
+            {"command": "StartFlow", "args": {"flow_name": "book_flight"}, "timestamp": 1701234567.89, "result": "success"},
+            {"command": "SetSlot", "args": {"slot_name": "origin", "value": "NYC"}, "timestamp": 1701234570.12, "result": "success"}
+        ]
+    """
 
     # ===== Metadata & Audit =====
 
@@ -545,24 +562,23 @@ def create_initial_state() -> DialogueState:
 
 Soni's explicit state machine provides:
 
-1.  ✅ **Pure Data Architecture**: Fully serializable `TypedDict` structure
-2.  ✅ **Instance Identity**: `flow_id` allows concurrent flows of same type
-3.  ✅ **Single Source of Truth**: `flow_stack` (no redundant caches)
-4.  ✅ **Clear Visibility**: Explicit `conversation_state` and `flow_state`
-5.  ✅ **Automatic Persistence**: Compatible with LangGraph checkpointing
-6.  ✅ **Isolated Scope**: Data scoped to flow instances, preventing collisions
+1.  ✅ **Command-Driven Transitions**: State changes triggered by Commands, not classification
+2.  ✅ **Pure Data Architecture**: Fully serializable `TypedDict` structure
+3.  ✅ **Command Audit Trail**: Full log of executed commands for debugging
+4.  ✅ **Instance Identity**: `flow_id` allows concurrent flows of same type
+5.  ✅ **Single Source of Truth**: `flow_stack` (no redundant caches)
+6.  ✅ **Automatic Persistence**: Compatible with LangGraph checkpointing
 7.  ✅ **Memory Management**: Automatic pruning prevents unbounded growth
 
-**Design Philosophy**: Minimal, clean, zero-legacy architecture optimized for LangGraph and conversation dynamics.
+**Design Philosophy**: Deterministic, auditable state transitions driven by explicit Commands.
 
 ## Next Steps
 
 - **[05-message-flow.md](05-message-flow.md)** - Message processing pipeline
-- **[07-flow-management.md](07-flow-management.md)** - Detailed flow stack operations
-- **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns
+- **[11-commands.md](11-commands.md)** - Complete Command specification
+- **[12-conversation-patterns.md](12-conversation-patterns.md)** - Conversation Patterns reference
 
 ---
 
-**Design Version**: v1.0 (Zero-Legacy Clean Design)
+**Design Version**: v2.0 (Command-Driven Architecture)
 **Status**: Production-ready design specification
-**Last Updated**: 2024-12-03

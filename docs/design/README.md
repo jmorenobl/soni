@@ -1,63 +1,99 @@
-# Soni Framework - Design Documentation v0.5
+# Soni Framework - Design Documentation v2.0
 
-This directory contains the complete design documentation for Soni v0.5, a conversational dialogue system with automatic prompt optimization.
+This directory contains the complete design documentation for Soni v2.0, a conversational dialogue system with **Command-Driven Architecture** and automatic prompt optimization.
+
+## What's New in v2.0
+
+- **Command Layer**: Explicit contract between DU and DM
+- **Handler Registry**: SOLID-compliant command execution
+- **Conversation Patterns**: Declarative non-happy-path handling
+- **Deterministic DM**: LLM interprets, DM executes deterministically
 
 ## Quick Start
 
 New to Soni? Start here:
 
-1. **[01-overview.md](01-overview.md)** - What is Soni and what problems it solves
-2. **[02-architecture.md](02-architecture.md)** - Core architectural principles and design
-3. **[03-components.md](03-components.md)** - System components and their responsibilities
+1. **[01-overview.md](01-overview.md)** - What is Soni and command-driven architecture
+2. **[02-architecture.md](02-architecture.md)** - Core architectural principles and Handler Registry
+3. **[03-components.md](03-components.md)** - Commands, Handlers, Executor, and other components
 
 For detailed technical design:
 
-4. **[04-state-machine.md](04-state-machine.md)** - Dialogue state and conversation flow
-5. **[05-message-flow.md](05-message-flow.md)** - Message processing pipeline
-6. **[06-nlu-system.md](06-nlu-system.md)** - NLU with context enrichment
-7. **[07-flow-management.md](07-flow-management.md)** - Flow stack and complex conversations
+4. **[04-state-machine.md](04-state-machine.md)** - Dialogue state and command-driven transitions
+5. **[05-message-flow.md](05-message-flow.md)** - NLU → Commands → Executor flow
+6. **[06-nlu-system.md](06-nlu-system.md)** - DSPy NLU with Command output
+7. **[07-flow-management.md](07-flow-management.md)** - Flow stack and command-driven operations
 8. **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns and usage
 9. **[09-dspy-optimization.md](09-dspy-optimization.md)** - Prompt optimization with DSPy
 10. **[10-dsl-specification/](10-dsl-specification/)** - DSL Specification (multi-document)
+11. **[11-commands.md](11-commands.md)** - Complete Command layer specification
+12. **[12-conversation-patterns.md](12-conversation-patterns.md)** - Conversation Patterns reference
 
 ## Document Overview
 
 | Document | Purpose | Key Topics |
 |----------|---------|------------|
-| [01-overview.md](01-overview.md) | System introduction | Features, goals, use cases |
-| [02-architecture.md](02-architecture.md) | Architectural design | Principles, stack, component overview |
-| [03-components.md](03-components.md) | Component details | RuntimeLoop, NLU, handlers, registries |
-| [04-state-machine.md](04-state-machine.md) | State management | DialogueState schema, transitions |
-| [05-message-flow.md](05-message-flow.md) | Message processing | Routing, NLU-first pattern, decision logic |
-| [06-nlu-system.md](06-nlu-system.md) | Natural language understanding | Context enrichment, DSPy module |
-| [07-flow-management.md](07-flow-management.md) | Complex conversations | Flow stack, interruptions, slot scoping |
-| [08-langgraph-integration.md](08-langgraph-integration.md) | Graph execution | Checkpointing, interrupt/resume patterns |
-| [09-dspy-optimization.md](09-dspy-optimization.md) | Prompt optimization | Signatures, metrics, training |
-| [10-dsl-specification/](10-dsl-specification/) | DSL specification | YAML schema, step types, patterns, examples |
+| [01-overview](01-overview.md) | System introduction | Command-driven architecture, features |
+| [02-architecture](02-architecture.md) | Architectural design | Handler Registry, SOLID principles |
+| [03-components](03-components.md) | Component details | Commands, Handlers, Executor, Registry |
+| [04-state-machine](04-state-machine.md) | State management | DialogueState, command_log, transitions |
+| [05-message-flow](05-message-flow.md) | Message processing | NLU→Commands→DM pipeline |
+| [06-nlu-system](06-nlu-system.md) | NLU system | DSPy module, Command extraction |
+| [07-flow-management](07-flow-management.md) | Flow operations | Stack operations via Commands |
+| [08-langgraph](08-langgraph-integration.md) | Graph execution | Checkpointing, interrupt patterns |
+| [09-dspy](09-dspy-optimization.md) | Optimization | Signatures, metrics, training |
+| [10-dsl](10-dsl-specification/) | DSL specification | YAML schema, step types |
+| [11-commands](11-commands.md) | Command layer | All command types and handlers |
+| [12-patterns](12-conversation-patterns.md) | Conv. patterns | Correction, Clarification, etc. |
 
 ## Key Concepts
 
-### Unified NLU Approach
+### Command-Driven Architecture
 
-Every user message flows through a single NLU provider with enriched context. The NLU handles:
-- Slot value extraction
-- Intent detection and changes
-- Digression detection (questions, clarifications)
-- Resume request identification
+```
+User Message → NLU (LLM) → Commands → CommandExecutor → DM State Machine
+                 ↑                         ↑
+            Interprets only          Deterministic execution
+```
 
-### Flow Stack
+- **NLU produces Commands**: Pure data objects representing user intent
+- **CommandExecutor executes**: Via Handler Registry (OCP)
+- **DM routes on state**: Not on LLM classification
 
-Complex conversation support through a flow stack:
-- Push new flows (pauses current flow)
-- Pop completed flows (resumes previous flow)
-- Maintain state across interruptions
+### Commands
 
-### LangGraph Integration
+| Command | Purpose |
+|---------|---------|
+| `StartFlow` | Start a new flow |
+| `SetSlot` | Set a slot value |
+| `CorrectSlot` | Correct a previous value |
+| `CancelFlow` | Cancel current flow |
+| `Clarify` | Request clarification |
+| `AffirmConfirmation` | Confirm action |
+| `DenyConfirmation` | Deny and optionally specify slot |
+| `HumanHandoff` | Request human agent |
 
-Native LangGraph patterns:
-- `interrupt()` - Pause execution waiting for user input
-- `Command(resume=)` - Continue execution after interrupt
-- Automatic checkpointing via `thread_id`
+### Handler Registry (SOLID)
+
+```python
+registry = {
+    StartFlow: StartFlowHandler(),
+    SetSlot: SetSlotHandler(),
+    # New command = new entry (OCP)
+}
+
+for command in commands:
+    handler = registry[type(command)]
+    updates = await handler.execute(command, state, context)
+```
+
+### Conversation Patterns
+
+Declarative handling of non-happy-path:
+- **Correction**: Update previous values
+- **Clarification**: Answer questions without leaving flow
+- **Cancellation**: Cancel current flow
+- **Human Handoff**: Escalate to human agent
 
 ### Zero-Leakage Architecture
 
@@ -70,107 +106,46 @@ YAML describes **WHAT** (semantics), Python implements **HOW** (logic):
 
 ### For Developers Implementing Soni
 
-1. [02-architecture.md](02-architecture.md) - Understand the overall design
-2. [03-components.md](03-components.md) - Learn component responsibilities
-3. [08-langgraph-integration.md](08-langgraph-integration.md) - Master LangGraph patterns
-4. [04-state-machine.md](04-state-machine.md) - Understand state management
-5. [05-message-flow.md](05-message-flow.md) - Implement message processing
+1. [02-architecture.md](02-architecture.md) - Understand command-driven design
+2. [03-components.md](03-components.md) - Learn Commands, Handlers, Executor
+3. [11-commands.md](11-commands.md) - Complete command specification
+4. [05-message-flow.md](05-message-flow.md) - Implement message processing
+5. [08-langgraph-integration.md](08-langgraph-integration.md) - Master LangGraph patterns
 
-### For Understanding Complex Conversations
+### For Understanding Conversation Handling
 
-1. [07-flow-management.md](07-flow-management.md) - Flow stack mechanics
-2. [05-message-flow.md](05-message-flow.md) - Decision logic and routing
-3. [06-nlu-system.md](06-nlu-system.md) - Context-aware understanding
+1. [12-conversation-patterns.md](12-conversation-patterns.md) - Pattern reference
+2. [07-flow-management.md](07-flow-management.md) - Flow stack mechanics
+3. [05-message-flow.md](05-message-flow.md) - Decision logic and routing
 
 ### For NLU and Prompt Optimization
 
-1. [06-nlu-system.md](06-nlu-system.md) - NLU system design
+1. [06-nlu-system.md](06-nlu-system.md) - NLU with Command output
 2. [09-dspy-optimization.md](09-dspy-optimization.md) - DSPy optimization workflow
 
 ## Design Principles
 
 All design documents follow these core principles:
 
-1. **Explicit State Machine** - Clear tracking of conversation state and position
-2. **Context-Aware Execution** - Rich context enables accurate understanding
-3. **Resumable Execution** - Leverage LangGraph checkpointing for automatic resumption
+1. **Command-Driven DM** - LLM interprets, DM executes deterministically
+2. **Handler Registry** - SOLID-compliant command execution (OCP)
+3. **Explicit State Machine** - Clear tracking of conversation state
 4. **Zero-Leakage** - YAML for semantics, Python for implementation
-5. **SOLID Principles** - Interface-based design with dependency injection
+5. **SOLID Principles** - SRP, OCP, LSP, ISP, DIP throughout
 6. **Async-First** - Everything is async, no blocking operations
-
-## Quick Reference
-
-Common questions and answers:
-
-| Question | Answer | Document |
-|----------|--------|----------|
-| How are messages processed? | Unified NLU with enriched context | [05-message-flow.md](05-message-flow.md) |
-| How to handle flow interruptions? | Push new flow to stack, pause current | [07-flow-management.md](07-flow-management.md) |
-| How to pause/resume execution? | Use `interrupt()` and `Command(resume=)` | [08-langgraph-integration.md](08-langgraph-integration.md) |
-| How are slots scoped? | Flow-scoped slots prevent naming conflicts | [07-flow-management.md](07-flow-management.md) |
-| How to transfer data between flows? | FlowContext.outputs for cross-flow data | [07-flow-management.md](07-flow-management.md) |
-| How to optimize prompts? | DSPy with business metrics | [09-dspy-optimization.md](09-dspy-optimization.md) |
-
-## Conventions
-
-### Code Examples
-
-All code examples in this documentation:
-- Use Python 3.11+ with full type hints
-- Follow async/await patterns throughout
-- Include clear, descriptive variable names
-- Are production-ready patterns, not pseudocode
-
-### Diagrams
-
-Diagrams are integrated into documents where conceptually appropriate:
-- **Mermaid format** for flowcharts, sequence diagrams, and state machines
-- **ASCII diagrams** for simple architectural layouts
-- Diagrams illustrate concepts explained in surrounding text
-
-### Cross-References
-
-Documents reference each other for related concepts:
-- Internal links use relative paths: `[document.md](document.md)`
-- External links to LangGraph/DSPy docs included where relevant
 
 ## Technology Stack
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| Language | Python | 3.11+ | Modern async, type hints |
-| Dialogue Management | LangGraph | 1.0.4+ | State graphs, checkpointing |
-| NLU | DSPy | 3.0.4+ | Automatic prompt optimization |
-| Web Framework | FastAPI | 0.122.0+ | Async API, WebSocket |
-| Persistence | SQLite/Postgres/Redis | Latest | Flexible checkpointing |
-| Validation | Pydantic | 2.12.5+ | Data validation |
-
-## Related Documentation
-
-- **[AGENTS.md](../../AGENTS.md)** - Development rules and conventions
-- **[docs/adr/](../adr/)** - Architectural decision records
-- **[examples/](../../examples/)** - Working examples and demos
-- **[LangGraph Documentation](https://langchain-ai.github.io/langgraph/)** - LangGraph reference
-- **[DSPy Documentation](https://dspy-docs.vercel.app/)** - DSPy reference
-
-## Version Information
-
-**Design Version**: v0.5
-**Status**: Production-ready design specification
-**Last Updated**: 2025-12-02
-
-This documentation represents the complete, finalized design for Soni v0.5. All design decisions have been made and consolidated. The documents are ready for implementation reference.
-
-## Contributing
-
-When modifying design documents:
-
-1. Ensure consistency across all affected documents
-2. Update cross-references if document structure changes
-3. Maintain diagram accuracy with text descriptions
-4. Follow the established conventions and writing style
-5. All documentation must be in English
+| Component | Technology |
+|-----------|------------|
+| Language | Python 3.11+ |
+| Dialogue Management | LangGraph 1.0.4+ |
+| NLU | DSPy 3.0.4+ |
+| LLM Providers | OpenAI, Anthropic |
+| Web Framework | FastAPI 0.122.0+ |
+| Validation | Pydantic 2.12.5+ |
 
 ---
 
-**Ready to start?** Begin with [01-overview.md](01-overview.md) to understand what Soni is and what problems it solves.
+**Design Version**: v2.0 (Command-Driven Architecture)
+**Status**: Production-ready design specification

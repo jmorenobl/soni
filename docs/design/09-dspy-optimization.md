@@ -34,29 +34,24 @@ from enum import Enum
 from typing import Any
 import dspy
 
-class MessageType(str, Enum):
-    """Type of user message."""
-    SLOT_VALUE = "slot_value"           # Direct answer to current prompt
-    CORRECTION = "correction"            # Fixing a previous value
-    MODIFICATION = "modification"        # Requesting to change a slot
-    INTERRUPTION = "interruption"        # New intent/flow
-    DIGRESSION = "digression"            # Question without flow change
-    CLARIFICATION = "clarification"      # Asking for explanation
-    CANCELLATION = "cancellation"        # Wants to stop
-    CONFIRMATION = "confirmation"        # Yes/no to confirm prompt
-    CONTINUATION = "continuation"        # General continuation
+class Command(BaseModel):
+    """Base command class."""
+    pass
 
-class SlotValue(BaseModel):
-    """Extracted slot value with metadata."""
-    name: str = Field(description="Slot name (must match expected_slots)")
-    value: Any = Field(description="Extracted value")
-    confidence: float = Field(ge=0.0, le=1.0, description="Extraction confidence")
+class StartFlow(Command):
+    flow_name: str
+    slots: dict[str, Any] = {}
+
+class SetSlot(Command):
+    slot_name: str
+    value: Any
+    confidence: float = 1.0
+
+# ... other command types defined in 11-commands.md ...
 
 class NLUOutput(BaseModel):
     """Structured NLU output."""
-    message_type: MessageType = Field(description="Type of user message")
-    command: str = Field(description="User's intent/command")
-    slots: list[SlotValue] = Field(default_factory=list, description="Extracted slot values")
+    commands: list[Command] = Field(description="Extracted commands")
     confidence: float = Field(ge=0.0, le=1.0, description="Overall confidence")
     reasoning: str = Field(description="Step-by-step reasoning")
 
@@ -133,10 +128,11 @@ When you use Pydantic models in signatures, DSPy automatically validates LLM out
 # 4. If validation fails → ValidationError
 
 # Example signature with validation
+# Example signature with validation
 class NLUOutput(BaseModel):
-    message_type: MessageType  # Must be valid enum value
+    commands: list[Command]  # Must be list of Command objects
     confidence: float = Field(ge=0.0, le=1.0)  # Must be in [0, 1]
-    slots: list[SlotValue]  # Must be list of SlotValue objects
+    reasoning: str  # Reasoning trace
 ```
 
 ### Field-Level Constraints
@@ -146,10 +142,10 @@ Pydantic constraints are enforced automatically:
 ```python
 from pydantic import BaseModel, Field
 
-class SlotValue(BaseModel):
-    name: str = Field(min_length=1, max_length=50)  # Length constraints
+class SetSlot(Command):
+    slot_name: str = Field(min_length=1, max_length=50)  # Length constraints
     confidence: float = Field(ge=0.0, le=1.0)  # Numeric bounds
-    value: str = Field(pattern=r"^[A-Z][a-z]+$")  # Regex validation
+    value: Any  # Any valid value
 ```
 
 **When LLM violates constraints**:
@@ -166,11 +162,9 @@ except ValidationError as e:
     logger.error(f"LLM output validation failed: {e}")
     # Provide fallback result
     result = NLUOutput(
-        message_type=MessageType.CONTINUATION,
-        command="unknown",
-        slots=[],
+        commands=[],
         confidence=0.0,
-        reasoning="Validation error"
+        reasoning=f"Validation error: {e}"
     )
 ```
 
@@ -193,25 +187,15 @@ except ValidationError as e:
 from pydantic import BaseModel, field_validator
 
 class NLUOutput(BaseModel):
-    command: str
-    slots: list[SlotValue]
+    commands: list[Command]
     confidence: float
+    reasoning: str
 
-    @field_validator('command')
+    @field_validator('commands')
     @classmethod
-    def command_not_empty(cls, v: str) -> str:
-        """Validate command is not empty or whitespace."""
-        if not v or not v.strip():
-            raise ValueError("Command cannot be empty")
-        return v.strip()
-
-    @field_validator('slots')
-    @classmethod
-    def slots_must_be_unique(cls, v: list[SlotValue]) -> list[SlotValue]:
-        """Validate no duplicate slot names."""
-        names = [slot.name for slot in v]
-        if len(names) != len(set(names)):
-            raise ValueError("Duplicate slot names not allowed")
+    def commands_not_empty_for_action(cls, v: list[Command]) -> list[Command]:
+        """Validate commands list is not empty when action expected."""
+        # Structural validation only
         return v
 ```
 
@@ -414,7 +398,7 @@ prediction = await module.aforward(user_message=msg, ...)  # Called by acall()
             context: Dialogue context (DialogueContext)
 
         Returns:
-            NLUOutput with message_type, command, slots, confidence, and reasoning
+            NLUOutput with commands, confidence, and reasoning
         """
         from datetime import datetime
 
@@ -523,10 +507,11 @@ example = dspy.Example(
     current_datetime="2024-12-02T10:00:00",
 
     # Expected output
+    # Expected output
     result=NLUOutput(
-        message_type=MessageType.INTERRUPTION,
-        command="book_flight",
-        slots=[],
+        commands=[
+            StartFlow(flow_name="book_flight")
+        ],
         confidence=0.95,
         reasoning="User explicitly states intent to book a flight"
     )
@@ -557,9 +542,9 @@ def create_training_data():
         ),
         current_datetime="2024-12-02T10:00:00",
         result=NLUOutput(
-            message_type=MessageType.INTERRUPTION,
-            command="book_flight",
-            slots=[],
+            commands=[
+                StartFlow(flow_name="book_flight")
+            ],
             confidence=0.95,
             reasoning="User explicitly states intent to book a flight"
         )
@@ -580,11 +565,9 @@ def create_training_data():
         ),
         current_datetime="2024-12-02T10:00:00",
         result=NLUOutput(
-            message_type=MessageType.SLOT_VALUE,
-            command="book_flight",
-            slots=[
-                SlotValue(name="origin", value="Madrid", confidence=0.9),
-                SlotValue(name="destination", value="Barcelona", confidence=0.9)
+            commands=[
+                SetSlot(slot_name="origin", value="Madrid"),
+                SetSlot(slot_name="destination", value="Barcelona")
             ],
             confidence=0.9,
             reasoning="User provides origin and destination when expected"
@@ -616,10 +599,9 @@ def extract_training_data_from_logs():
 
         # Build NLUOutput from metadata
         result = NLUOutput(
-            message_type=MessageType(log["nlu_result"]["message_type"]),
-            command=log["nlu_result"]["command"],
-            slots=[
-                SlotValue(**slot) for slot in log["nlu_result"]["slots"]
+            commands=[
+                globals()[cmd["type"]](**cmd["args"])
+                for cmd in log["nlu_result"]["commands"]
             ],
             confidence=log["nlu_result"]["confidence"],
             reasoning=log["nlu_result"].get("reasoning", "")
@@ -664,9 +646,9 @@ Make them realistic and diverse (casual, formal, indirect, etc.)
             ),
             current_datetime="2024-12-02T10:00:00",
             result=NLUOutput(
-                message_type=MessageType.INTERRUPTION,
-                command="book_flight",
-                slots=[],
+                commands=[
+                    StartFlow(flow_name="book_flight")
+                ],
                 confidence=0.9,
                 reasoning=f"User wants to book flight: '{variation}'"
             )
@@ -679,76 +661,31 @@ Make them realistic and diverse (casual, formal, indirect, etc.)
 
 ## Business Metrics
 
-### Intent Accuracy
+### Command Type Accuracy
 
 ```python
-def intent_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
-    """
-    Measure intent detection accuracy with structured types.
+def command_type_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
+    """Measure if the correct command types were extracted."""
+    expected = {type(c).__name__ for c in example.result.commands}
+    predicted = {type(c).__name__ for c in prediction.result.commands}
 
-    Returns 1.0 if command matches, 0.0 otherwise.
-    """
-    return float(prediction.result.command == example.result.command)
+    if not expected and not predicted:
+        return 1.0
+
+    intersection = expected & predicted
+    union = expected | predicted
+
+    return len(intersection) / len(union)
 ```
 
-### Message Type Accuracy
+### Command Arguments Accuracy
 
 ```python
-def message_type_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
-    """Measure message type classification accuracy."""
-    return float(prediction.result.message_type == example.result.message_type)
-```
-
-### Slot Extraction F1
-
-```python
-def slot_extraction_f1(example: dspy.Example, prediction: dspy.Prediction) -> float:
-    """
-    Measure slot extraction quality with F1 score.
-
-    Accounts for both precision and recall with structured types.
-    """
-    # Extract slot names from structured SlotValue objects
-    predicted_slots = {slot.name for slot in prediction.result.slots}
-    expected_slots = {slot.name for slot in example.result.slots}
-
-    # Calculate metrics
-    tp = len(predicted_slots & expected_slots)  # True positives
-    fp = len(predicted_slots - expected_slots)  # False positives
-    fn = len(expected_slots - predicted_slots)  # False negatives
-
-    if tp == 0:
-        return 0.0
-
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-
-    if precision + recall == 0:
-        return 0.0
-
-    f1 = 2 * (precision * recall) / (precision + recall)
-    return f1
-```
-
-### Slot Value Accuracy
-
-```python
-def slot_value_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
-    """Measure accuracy of slot values (not just names)."""
-    if not example.result.slots or not prediction.result.slots:
-        return 0.0
-
-    # Create dicts for comparison
-    expected_dict = {slot.name: slot.value for slot in example.result.slots}
-    predicted_dict = {slot.name: slot.value for slot in prediction.result.slots}
-
-    # Count exact matches
-    matches = sum(
-        1 for name, value in expected_dict.items()
-        if predicted_dict.get(name) == value
-    )
-
-    return matches / len(expected_dict) if expected_dict else 0.0
+def command_args_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> float:
+    """Measure if command arguments match."""
+    # Logic to compare arguments of matching command types
+    # Returns 0.0-1.0 score
+    ...
 ```
 
 ### Combined Metric
@@ -756,26 +693,16 @@ def slot_value_accuracy(example: dspy.Example, prediction: dspy.Prediction) -> f
 ```python
 def combined_metric(example: dspy.Example, prediction: dspy.Prediction) -> float:
     """
-    Combined metric for overall NLU quality with structured types.
+    Combined metric for overall NLU quality.
 
     Weights:
-    - 40% intent accuracy
-    - 20% message type accuracy
-    - 20% slot extraction F1
-    - 20% slot value accuracy
+    - 40% command type accuracy
+    - 60% command arguments accuracy
     """
-    intent_score = intent_accuracy(example, prediction)
-    msg_type_score = message_type_accuracy(example, prediction)
-    slot_f1 = slot_extraction_f1(example, prediction)
-    slot_val_score = slot_value_accuracy(example, prediction)
+    type_score = command_type_accuracy(example, prediction)
+    args_score = command_args_accuracy(example, prediction)
 
-    # Weighted combination
-    return (
-        0.4 * intent_score +
-        0.2 * msg_type_score +
-        0.2 * slot_f1 +
-        0.2 * slot_val_score
-    )
+    return 0.4 * type_score + 0.6 * args_score
 ```
 
 ## Optimization Strategies
@@ -966,22 +893,20 @@ dspy.configure(lm=lm)
 
 ```python
 def soni_metric(example: dspy.Example, prediction: dspy.Prediction) -> float:
-    """Custom metric for Soni NLU"""
+    """Custom metric for Soni NLU (Command-Driven)"""
 
-    # Command accuracy (most important)
-    command_score = float(prediction.result.command == example.result.command)
+    # Command type accuracy (most important)
+    expected_types = {type(c).__name__ for c in example.result.commands}
+    predicted_types = {type(c).__name__ for c in prediction.result.commands}
+    type_score = len(expected_types & predicted_types) / max(len(expected_types | predicted_types), 1)
 
-    # Slot extraction F1
-    slot_score = slot_extraction_f1(example, prediction)
-
-    # Message type accuracy (includes digression detection via QUESTION type)
-    msg_type_score = float(prediction.result.message_type == example.result.message_type)
+    # Command arguments accuracy
+    args_score = command_args_accuracy(example, prediction)
 
     # Weighted combination
     return (
-        0.5 * command_score +
-        0.3 * slot_score +
-        0.2 * msg_type_score
+        0.4 * type_score +
+        0.6 * args_score
     )
 ```
 
@@ -1266,11 +1191,11 @@ def analyze_errors(module, dataset):
             current_datetime=example.current_datetime
         )
 
-        if prediction.result.command != example.result.command:
+        if prediction.result.commands != example.result.commands:
             errors.append({
                 "message": example.user_message,
-                "expected": example.result.command,
-                "predicted": prediction.result.command,
+                "expected": example.result.commands,
+                "predicted": prediction.result.commands,
                 "context": example.context
             })
 
@@ -1313,9 +1238,7 @@ async def safe_predict(module, **inputs):
         logger.error(f"Pydantic validation failed: {e}")
         # Fallback: return default result
         return NLUOutput(
-            message_type=MessageType.CONTINUATION,
-            command="unknown",
-            slots=[],
+            commands=[],
             confidence=0.0,
             reasoning=f"Validation error: {str(e)}"
         )
@@ -1489,19 +1412,26 @@ from dspy.utils.dummies import DummyLM
 lm = DummyLM([
     {
         "result": {
-            "message_type": "interruption",
-            "command": "book_flight",
-            "slots": [],
+            "commands": [
+                {
+                    "type": "StartFlow",
+                    "flow_name": "book_flight",
+                    "slots": {}
+                }
+            ],
             "confidence": 0.95,
             "reasoning": "User explicitly states intent to book a flight"
         }
     },
     {
         "result": {
-            "message_type": "slot_value",
-            "command": "book_flight",
-            "slots": [
-                {"name": "origin", "value": "Madrid", "confidence": 0.9}
+            "commands": [
+                {
+                    "type": "SetSlot",
+                    "slot_name": "origin",
+                    "value": "Madrid",
+                    "confidence": 0.9
+                }
             ],
             "confidence": 0.9,
             "reasoning": "User provides origin city"
@@ -1524,18 +1454,25 @@ Returns responses based on input content matching:
 lm = DummyLM({
     "book a flight": {
         "result": {
-            "message_type": "interruption",
-            "command": "book_flight",
-            "slots": [],
+            "commands": [
+                {
+                    "type": "StartFlow",
+                    "flow_name": "book_flight",
+                    "slots": {}
+                }
+            ],
             "confidence": 0.95,
             "reasoning": "Booking intent detected"
         }
     },
     "cancel": {
         "result": {
-            "message_type": "cancellation",
-            "command": "cancel_booking",
-            "slots": [],
+            "commands": [
+                {
+                    "type": "CancelFlow",
+                    "reason": "user_request"
+                }
+            ],
             "confidence": 0.9,
             "reasoning": "Cancellation intent detected"
         }
@@ -1565,9 +1502,9 @@ demo = dspy.Example(
     context=DialogueContext(),
     current_datetime="2024-12-02T10:00:00",
     result=NLUOutput(
-        command="demo_command",
-        message_type=MessageType.INTERRUPTION,
-        slots=[],
+        commands=[
+            StartFlow(flow_name="demo_flow")
+        ],
         confidence=1.0,
         reasoning="From demo"
     )
@@ -1596,9 +1533,13 @@ def nlu_module() -> SoniDU:
     lm = DummyLM([
         {
             "result": {
-                "message_type": "interruption",
-                "command": "book_flight",
-                "slots": [],
+                "commands": [
+                    {
+                        "type": "StartFlow",
+                        "flow_name": "book_flight",
+                        "slots": {}
+                    }
+                ],
                 "confidence": 0.95,
                 "reasoning": "User explicitly states intent"
             }
@@ -1630,8 +1571,9 @@ async def test_nlu_intent_detection(nlu_module: SoniDU):
     )
 
     # Assert
-    assert result.command == "book_flight"
-    assert result.message_type == MessageType.INTERRUPTION
+    assert len(result.commands) == 1
+    assert isinstance(result.commands[0], StartFlow)
+    assert result.commands[0].flow_name == "book_flight"
     assert result.confidence > 0.7
 ```
 
@@ -1665,8 +1607,5 @@ This enables systematic, data-driven improvement of dialogue understanding quali
 
 ---
 
-**Design Version**: v0.8 (Future State with Structured Types)
-**Status**: Design specification for post-refactor implementation
-**Current Implementation**: v0.5 (see README.md for production status)
-
-**Note**: This document describes the target architecture using Pydantic structured types and dspy.History. The current v0.5 implementation uses JSON strings. This design will be implemented during the planned refactoring. See [`docs/design/README.md`](docs/design/README.md) for current production state.
+**Design Version**: v2.0 (Command-Driven Architecture)
+**Status**: Production-ready design specification

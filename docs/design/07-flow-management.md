@@ -2,15 +2,38 @@
 
 ## Overview
 
-Soni supports complex conversation patterns through a robust flow stack architecture managed by a dedicated `FlowManager`. This system enables flow interruptions, resumption, concurrent flow instances, and context-aware digression handling using a **Pure Data** approach compatible with LangGraph's persistence model.
+Soni supports complex conversation patterns through a robust flow stack architecture managed by a dedicated `FlowManager`. In the command-driven architecture (v2.0), **Commands trigger flow operations** - the FlowManager is called by CommandHandlers, not directly by routing logic.
 
 **Key Capabilities**:
 - Multiple concurrent flow instances (e.g., comparing two bookings)
 - Flow interruption and resumption with preserved state
 - Explicit data transfer between flows via inputs/outputs
-- Digression handling WITHOUT stack modification
+- Command-driven operations (StartFlow, CancelFlow commands)
 - Strategy-based stack depth limiting
 - Automatic memory management
+
+## Command-Driven Flow Operations
+
+In v2.0, Commands trigger FlowManager operations:
+
+| Command | FlowManager Operation |
+|---------|----------------------|
+| `StartFlow("book_flight")` | `flow_manager.push_flow(state, "book_flight")` |
+| `CancelFlow()` | `flow_manager.pop_flow(state, result="cancelled")` |
+| `SetSlot("origin", "NYC")` | `flow_manager.set_slot(state, "origin", "NYC")` |
+| `CorrectSlot("dest", "LA")` | `flow_manager.set_slot(state, "destination", "LA")` |
+
+```python
+# Example: StartFlowHandler calls FlowManager
+class StartFlowHandler:
+    async def execute(self, cmd: StartFlow, state, context) -> dict:
+        flow_id = context.flow_manager.push_flow(
+            state,
+            cmd.flow_name,
+            cmd.slots
+        )
+        return {"active_flow_id": flow_id}
+```
 
 ## Flow Stack Architecture
 
@@ -406,21 +429,20 @@ updates = step_manager.advance_through_completed_steps(state, context)
 
 Soni's flow management architecture is built on strict software engineering principles:
 
-1.  **SRP**: `FlowManager` handles stack logic; `FlowStepManager` handles step progression; `RuntimeLoop` handles orchestration.
-2.  **OCP**: Stack limiting strategies are extensible.
-3.  **Pure Data**: State is fully serializable (TypedDict).
-4.  **Explicit Dependencies**: Data transfer is explicit via inputs/outputs.
-5.  **Robustness**: Unique IDs prevent collisions; strategies handle limits gracefully.
-6.  **Iterative Advancement**: Multiple slots processed through centralized step advancement logic.
+1.  **Command-Driven**: FlowManager operations triggered by Commands via Handlers
+2.  **SRP**: `FlowManager` handles stack logic; `FlowStepManager` handles step progression
+3.  **OCP**: Stack limiting strategies are extensible
+4.  **Pure Data**: State is fully serializable (TypedDict)
+5.  **Explicit Dependencies**: Data transfer is explicit via inputs/outputs
+6.  **Robustness**: Unique IDs prevent collisions; strategies handle limits gracefully
 
 ## Next Steps
 
+- **[11-commands.md](11-commands.md)** - Command layer specification
+- **[03-components.md](03-components.md)** - Component reference
 - **[04-state-machine.md](04-state-machine.md)** - Complete DialogueState schema
-- **[05-message-flow.md](05-message-flow.md)** - Message routing pipeline
-- **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns
 
 ---
 
-**Design Version**: v1.2 (SOLID Compliant)
+**Design Version**: v2.0 (Command-Driven Architecture)
 **Status**: Production-ready design specification
-**Last Updated**: 2024-12-03

@@ -2,21 +2,27 @@
 
 ## Overview
 
-Every user message in Soni flows through a unified processing pipeline with context-aware NLU at its core. This document details how messages are processed, routed, and handled.
+Every user message in Soni flows through a unified processing pipeline. The key difference in v2.0 is that NLU produces **Commands** (not classifications), and the **CommandExecutor** executes them deterministically.
 
-## Core Principle: Always Through NLU First
+## Core Principle: NLU Produces Commands
 
-**Critical Pattern**: Every user message MUST pass through NLU first, even when waiting for a specific slot.
+**Critical Pattern**: NLU produces Commands, CommandExecutor executes them.
 
-###Why This Matters
+```
+User Message → NLU → [Commands] → CommandExecutor → State Updates
+                                        ↓
+                               DM Routes on State
+```
+
+### Why This Matters
 
 When the system asks "Where would you like to fly from?", the user might respond with:
-- `"New York"` - Direct slot value
-- `"What cities do you support?"` - Question (digression)
-- `"Actually, I want to cancel"` - Intent change
-- `"Change the destination to LA first"` - Correction
+- `"New York"` → `SetSlot(slot_name="origin", value="New York")`
+- `"What cities do you support?"` → `Clarify(topic="supported_cities")`
+- `"Actually, I want to cancel"` → `CancelFlow()`
+- `"Change the destination to LA first"` → `CorrectSlot(slot_name="destination", new_value="LA")`
 
-The NLU determines what type of response it is and routes accordingly.
+The NLU produces Commands, the DM executes them deterministically.
 
 ## Message Processing Flow
 
@@ -30,683 +36,309 @@ flowchart TD
     Resume --> AutoLoad[LangGraph Auto-Loads<br/>Last Checkpoint]
     NewInvoke --> AutoLoad
 
-    AutoLoad --> NLU[ALWAYS: Understand Node<br/>NLU with Context]
+    AutoLoad --> NLU[Understand Node<br/>SoniDU → Commands]
 
-    NLU --> AnalyzeResult{NLU Result Type?}
+    NLU --> Executor[Execute Commands Node<br/>CommandExecutor]
 
-    AnalyzeResult -->|Slot Value| Validate[Validate &<br/>Normalize Value]
-    AnalyzeResult -->|Digression| DigressionCoord[DigressionHandler<br/>Coordinator]
-    AnalyzeResult -->|New Flow| CheckStack{Flow Stack<br/>Empty?}
-    AnalyzeResult -->|Resume Flow| PopToFlow[Pop Flows Until<br/>Requested Flow]
-    AnalyzeResult -->|Continue| NextStep[Continue to<br/>Next Step]
+    Executor --> StateMachine{DM Routes on<br/>conversation_state}
 
-    DigressionCoord --> KBQuery[KnowledgeBase:<br/>Answer Question]
-    DigressionCoord --> HelpGen[HelpGenerator:<br/>Generate Help]
-    KBQuery --> BackToNLU[Back to Understand<br/>with re-prompt]
-    HelpGen --> BackToNLU
-    BackToNLU -->|interrupt| Pause1[Pause: Wait<br/>for user]
+    StateMachine -->|waiting_for_slot| CollectNext[Collect Next Slot<br/>interrupt]
+    StateMachine -->|executing_action| ExecuteAction[Execute Action]
+    StateMachine -->|confirming| ConfirmAction[Confirm Action<br/>interrupt]
+    StateMachine -->|completed| FlowComplete[Flow Complete<br/>Pop Stack]
+    StateMachine -->|idle| Idle[Return to Idle]
 
-    CheckStack -->|Has Active| PushFlow[Push New Flow<br/>Pause Current]
-    CheckStack -->|Empty| ActivateFlow[Activate New Flow]
-    PushFlow --> ActivateFlow
+    CollectNext -->|interrupt| Pause1[Pause: Wait<br/>for user]
+    ConfirmAction -->|interrupt| Pause2[Pause: Wait<br/>for user]
 
-    Validate --> CollectMore{Need More<br/>Slots?}
-    CollectMore -->|Yes| AskNext[Ask Next Slot]
-    CollectMore -->|No| ExecuteAction[Execute Action]
-
-    AskNext -->|interrupt| Pause2[Pause: Wait<br/>for user]
-
-    ActivateFlow --> AskNext
-    PopToFlow --> NextStep
-    NextStep --> CollectMore
-
-    ExecuteAction --> Complete[Flow Complete<br/>Pop Stack]
-    Complete --> CheckResume{More Flows<br/>in Stack?}
+    ExecuteAction --> FlowComplete
+    FlowComplete --> CheckResume{More Flows<br/>in Stack?}
     CheckResume -->|Yes| ResumeFlow[Resume<br/>Previous Flow]
-    CheckResume -->|No| Idle[Return to<br/>Idle State]
+    CheckResume -->|No| Idle
 
-    ResumeFlow --> NextStep
+    ResumeFlow --> StateMachine
 
-    Pause1 --> Return([Return Response<br/>Auto-Save Checkpoint])
+    Pause1 --> Return([Return Response<br/>Auto-Save])
     Pause2 --> Return
     Idle --> Return
 
     style Start fill:#4a90e2,stroke:#2e5c8a,color:#ffffff
     style Return fill:#4a90e2,stroke:#2e5c8a,color:#ffffff
     style NLU fill:#ff9800,stroke:#e65100,color:#ffffff
-    style DigressionCoord fill:#ffd966,stroke:#d4a500,color:#000000
-    style KBQuery fill:#fff59d,stroke:#f57f17,color:#000000
-    style HelpGen fill:#fff59d,stroke:#f57f17,color:#000000
-    style PushFlow fill:#e57373,stroke:#c62828,color:#ffffff
-    style Complete fill:#81c784,stroke:#388e3c,color:#000000
+    style Executor fill:#4caf50,stroke:#2e7d32,color:#ffffff
+    style StateMachine fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
     style Pause1 fill:#ce93d8,stroke:#7b1fa2,color:#000000
     style Pause2 fill:#ce93d8,stroke:#7b1fa2,color:#000000
-    style CheckState fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
-    style AnalyzeResult fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
-    style AutoLoad fill:#4fc3f7,stroke:#0288d1,color:#000000
 ```
 
 **Legend**:
+- 🟠 Orange: Understand Node (NLU → Commands)
+- 🟢 Green: Execute Commands Node (deterministic)
+- 🟣 Purple: DM State Machine (routes on state, not classification)
 - 🔵 Blue: Entry/Exit points
-- 🟠 Orange: CRITICAL - Understand Node (ALWAYS first)
-- 🔷 Cyan: LangGraph automatic checkpoint loading
-- 🟣 Purple: Decision points and interrupt pauses
-- 🟡 Yellow: Digression handling components
-- 🔴 Red: Flow stack push
-- 🟢 Green: Flow completion
 
-## Context-Aware Routing
-
-### Building NLU Context
-
-Every NLU call receives enriched context with structured types:
-
-```python
-import dspy
-
-async def build_nlu_context(state: DialogueState) -> tuple[dspy.History, DialogueContext]:
-    """Build enriched context for NLU with structured types"""
-
-    # Build conversation history using dspy.History
-    history = dspy.History(messages=[
-        {
-            "user_message": msg["content"],
-            "role": msg["role"]
-        }
-        for msg in state.messages[-10:]  # Last 10 turns
-    ])
-
-    # Get current flow name from stack
-    active_flow = context.flow_manager.get_active_context(state)
-    current_flow_name = active_flow["flow_name"] if active_flow else "none"
-
-    # Get slots from active flow
-    current_slots = state["flow_slots"].get(active_flow["flow_id"], {}) if active_flow else {}
-
-    # Build structured dialogue context
-    context = DialogueContext(
-        current_slots=current_slots,
-        available_actions=[
-            action_name
-            for action_name, action in config.actions.items()
-        ],
-        available_flows=[
-            flow_name
-            for flow_name, flow in config.flows.items()
-        ],
-        current_flow=current_flow_name,
-        expected_slots=get_expected_slots(state, config)
-    )
-
-    return history, context
-```
-
-### Decision Logic
-
-```mermaid
-flowchart TD
-    Message[User Message Received] --> Analyze[Analyze with NLU]
-
-    Analyze --> Decision{NLU Result Type?}
-
-    Decision -->|Slot Value| ExtractValue["Extract & Validate Slot<br/>(e.g., 'New York', '42')"]
-    Decision -->|Digression| HandleDigression["Handle Digression:<br/>• Answer question<br/>• Re-prompt original<br/>• NO stack change"]
-    Decision -->|Intent Change| IsNewFlow["New Flow or Cancel?"]
-    Decision -->|Resume Request| ResumeFlow["Check Paused Flows"]
-
-    IsNewFlow -->|New Task| PushNew["Push New Flow:<br/>• Pause current<br/>• Start new"]
-    IsNewFlow -->|Cancel Current| PopCancel["Pop Current Flow:<br/>• Mark as CANCELLED<br/>• Resume previous"]
-
-    ResumeFlow -->|Found in Stack| PopToResume["Pop Until Flow:<br/>• Remove flows above<br/>• Activate requested"]
-    ResumeFlow -->|Not Found| Clarify["Ask for Clarification:<br/>'Which task do you<br/>want to resume?'"]
-
-    ExtractValue --> Continue[Continue Current Flow]
-    HandleDigression --> Continue
-    PushNew --> Continue
-    PopCancel --> Continue
-    PopToResume --> Continue
-    Clarify --> Continue
-
-    Continue --> Response[Generate Response<br/>& Save State]
-
-    style Message fill:#4a90e2,stroke:#2e5c8a,color:#ffffff
-    style Analyze fill:#4fc3f7,stroke:#0288d1,color:#000000
-    style HandleDigression fill:#81c784,stroke:#388e3c,color:#000000
-    style PushNew fill:#e57373,stroke:#c62828,color:#ffffff
-    style PopCancel fill:#ef5350,stroke:#c62828,color:#ffffff
-    style ExtractValue fill:#64b5f6,stroke:#1976d2,color:#ffffff
-    style Decision fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
-    style IsNewFlow fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
-    style ResumeFlow fill:#ba68c8,stroke:#7b1fa2,color:#ffffff
-    style Response fill:#4a90e2,stroke:#2e5c8a,color:#ffffff
-```
+## Command-Driven Routing
 
 ### Examples by Message Type
 
-| User Message | NLU Detection | System Action |
-|--------------|---------------|---------------|
-| "New York" | Slot value | Extract, validate, store |
-| "What cities do you support?" | Digression (question) | Answer + re-prompt, NO stack change |
-| "Actually, I want to cancel" | Intent change | Push cancel_flow OR pop current |
-| "Go back to booking" | Resume request | Pop to book_flight |
-| "Why do you need my date?" | Digression (clarification) | Explain + re-prompt |
-| "Help" | Digression (help) | Show capabilities + re-prompt |
+| User Message | Commands Produced | Handler Executed | State Update |
+|--------------|-------------------|------------------|--------------|
+| "New York" | `SetSlot("origin", "NYC")` | `SetSlotHandler` | `waiting_for_slot → destination` |
+| "What cities?" | `Clarify("supported_cities")` | `ClarifyHandler` | `digression_depth += 1` |
+| "Cancel" | `CancelFlow()` | `CancelFlowHandler` | `pop flow, resume previous` |
+| "Change dest to LA" | `CorrectSlot("destination", "LA")` | `CorrectSlotHandler` | `update slot, re-validate` |
+| "Yes" (confirming) | `AffirmConfirmation()` | `AffirmHandler` | `proceed to action` |
+| "No, change date" | `DenyConfirmation("date")` | `DenyHandler` | `waiting_for_slot → date` |
+
+### Multiple Commands Per Message
+
+```python
+# User: "Cancel this and check my balance"
+commands = [
+    CancelFlow(reason="user_request"),
+    StartFlow(flow_name="check_balance")
+]
+
+# CommandExecutor executes sequentially:
+# 1. CancelFlowHandler → pop current flow
+# 2. StartFlowHandler → push check_balance
+```
 
 ## Implementation
 
 ### Understand Node
 
-Always the first node - processes ALL user messages with structured types:
+Produces Commands from user message:
 
 ```python
-import dspy
-
 async def understand_node(
     state: DialogueState,
-    context: RuntimeContext
+    runtime: Runtime[RuntimeContext]
 ) -> dict[str, Any]:
     """
-    ALWAYS processes user messages with NLU using structured types.
+    Produce Commands from user message.
 
-    Determines if user provided:
-    - Slot value
-    - Question
-    - Intent change
-    - Resume request
-    - Correction
+    Returns NLUOutput with list[Command].
     """
     user_message = state["user_message"]
+    context = runtime.context
 
-    # Build conversation history using dspy.History
+    # Build NLU context
     history = dspy.History(messages=[
-        {
-            "user_message": msg["content"],
-            "role": msg["role"]
-        }
-        for msg in state.messages[-10:]  # Last 10 turns
+        {"user_message": msg["content"], "role": msg["role"]}
+        for msg in state["messages"][-10:]
     ])
 
-    # Get active flow context
     active_ctx = context.flow_manager.get_active_context(state)
-    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
-    current_slots = state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
 
-    # Build structured dialogue context
     dialogue_context = DialogueContext(
-        current_slots=current_slots,
-        available_actions=context.scope_manager.get_available_actions(state),
+        current_slots=state["flow_slots"].get(
+            active_ctx["flow_id"], {}
+        ) if active_ctx else {},
         available_flows=context.scope_manager.get_available_flows(state),
-        current_flow=current_flow_name,
-        expected_slots=get_expected_slots(state, context.config)
+        current_flow=active_ctx["flow_name"] if active_ctx else "none",
+        expected_slots=get_expected_slots(state, context.config),
+        waiting_for_slot=state.get("waiting_for_slot")
     )
 
-    # Call NLU with structured types - understands ANY type of message
+    # NLU produces Commands
     nlu_result: NLUOutput = await context.nlu_provider.understand(
         user_message=user_message,
         history=history,
         context=dialogue_context
     )
 
-    # Extract flat slots dict for state
-    extracted_slots = {
-        slot.name: slot.value
-        for slot in nlu_result.slots
-    }
-
     return {
-        "nlu_result": nlu_result.model_dump(),  # Serialize for checkpoint
-        "conversation_state": ConversationState.UNDERSTANDING.value,
-        "last_nlu_call": time.time(),
-        "slots": {**state.slots, **extracted_slots}
+        "nlu_result": nlu_result.model_dump(),
+        "last_nlu_call": time.time()
     }
 ```
 
-### Conditional Routing
+### Execute Commands Node
 
-Route based on NLU result type:
-
-```python
-def route_after_understand(state: DialogueState) -> str:
-    """Route based on NLU result and conversation state"""
-    result = state["nlu_result"]
-    conv_state = ConversationState(state["conversation_state"])
-
-    # If we're in confirming state, handle confirmation response
-    if conv_state == ConversationState.CONFIRMING:
-        return "handle_confirmation"
-
-    # Route based on NLU result message_type
-    match result.message_type:
-        case MessageType.SLOT_VALUE:
-            return "validate_slot"
-        case MessageType.CORRECTION:
-            return "handle_correction"
-        case MessageType.MODIFICATION:
-            return "handle_modification"
-        case MessageType.INTERRUPTION:
-            return "handle_interruption"
-        case MessageType.DIGRESSION:
-            return "handle_digression"
-        case MessageType.CLARIFICATION:
-            return "handle_clarification"
-        case MessageType.CANCELLATION:
-            return "handle_cancellation"
-        case MessageType.CONFIRMATION:
-            return "handle_confirmation"
-        case MessageType.CONTINUATION:
-            return "continue_flow"
-        case _:
-            return "generate_response"
-
-def route_after_validate(state: DialogueState) -> str:
-    """Route after slot validation"""
-    conv_state = ConversationState(state["conversation_state"])
-
-    if conv_state == ConversationState.READY_FOR_CONFIRMATION:
-        return "confirm_action"
-    elif conv_state == ConversationState.READY_FOR_ACTION:
-        return "execute_action"
-    else:
-        return "collect_next_slot"
-```
-
-### Slot Validation
+Executes Commands via Handler Registry:
 
 ```python
-async def validate_slot_node(
+async def execute_commands_node(
     state: DialogueState,
-    context: RuntimeContext
-) -> DialogueState:
-    """Validate and store slot value"""
-    nlu_result = state["nlu_result"]
-    slot_name = state["waiting_for_slot"]
-    value = nlu_result.slot_value
-
-    # Get current flow name from stack
-    active_ctx = context.flow_manager.get_active_context(state)
-    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
-
-    # Get validator for this slot
-    slot_config = get_slot_config(current_flow_name, slot_name)
-    validator = ValidatorRegistry.get(slot_config.validator)
-
-    # Validate
-    is_valid = await validator(value)
-
-    if not is_valid:
-        return {
-            "conversation_state": ConversationState.WAITING_FOR_SLOT,
-            "last_response": f"Invalid {slot_name}. Please try again."
-        }
-
-    # Normalize
-    normalizer = NormalizerRegistry.get(slot_config.normalizer)
-    normalized_value = await normalizer(value)
-
-    # Store in flow-scoped slots
-    context.flow_manager.set_slot(state, slot_name, normalized_value)
-    state["waiting_for_slot"] = None
-
-    # Check if we need more slots
-    next_slot = get_next_required_slot(state)
-    if next_slot:
-        return {
-            "conversation_state": ConversationState.WAITING_FOR_SLOT,
-            "waiting_for_slot": next_slot,
-            "last_response": get_slot_prompt(next_slot)
-        }
-    else:
-        # All slots collected - check what's the next step in the flow
-        next_step = get_next_step_in_flow(state)
-
-        if next_step and next_step.type == "confirm":
-            return {
-                "conversation_state": ConversationState.READY_FOR_CONFIRMATION,
-                "current_step": next_step.name
-            }
-        elif next_step and next_step.type == "action":
-            return {
-                "conversation_state": ConversationState.READY_FOR_ACTION,
-                "current_step": next_step.name
-            }
-        else:
-            # Default to action if no explicit next step
-            return {
-                "conversation_state": ConversationState.READY_FOR_ACTION
-            }
-```
-
-### Digression Handling
-
-```python
-async def handle_digression_node(state: DialogueState) -> DialogueState:
+    runtime: Runtime[RuntimeContext]
+) -> dict[str, Any]:
     """
-    Handle digression without changing flow stack.
+    Execute all commands from NLU via CommandExecutor.
 
-    Answer question/provide help, then re-prompt original question.
+    Deterministic execution - no LLM involved.
     """
-    nlu_result = state["nlu_result"]
+    context = runtime.context
 
-    # Delegate to DigressionHandler
-    response = await digression_handler.handle(
-        state,
-        nlu_result.digression_type,
-        nlu_result.digression_topic
+    # Deserialize commands from NLU result
+    nlu_result = NLUOutput.model_validate(state["nlu_result"])
+    commands = nlu_result.commands
+
+    # Execute via CommandExecutor
+    updates = await context.command_executor.execute(
+        commands=commands,
+        state=state,
+        context=context
     )
 
-    # Generate re-prompt based on waiting_for_slot
-    if state["waiting_for_slot"]:
-        # Get current flow from stack
-        active_ctx = context.flow_manager.get_active_context(state)
-        current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
-
-        slot_config = get_slot_config(current_flow_name, state["waiting_for_slot"])
-        reprompt = slot_config.prompt
-    else:
-        reprompt = "How can I help you?"
-
-    return {
-        "last_response": f"{response}\n\n{reprompt}",
-        "digression_depth": state.digression_depth + 1,
-        "conversation_state": ConversationState.WAITING_FOR_SLOT
-        # Note: NO flow_stack change for digressions
-    }
+    return updates
 ```
 
-### Confirmation Handling
+### Deterministic Routing
+
+Routes based on `conversation_state` (set by handlers), not NLU classification:
 
 ```python
-async def confirm_action_node(
-    state: DialogueState,
-    context: RuntimeContext
-) -> DialogueState:
+def route_after_execute_commands(state: DialogueState) -> str:
     """
-    Ask user to confirm collected information before executing action.
+    Route based on conversation_state.
 
-    Reads confirmation message from the step definition and shows collected slots.
+    Deterministic - no LLM involvement.
     """
-    # Get current flow from stack
-    active_ctx = context.flow_manager.get_active_context(state)
-    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+    conv_state = state["conversation_state"]
 
-    # Get slots from active flow
-    slots = state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
-
-    # Get the current confirm step from flow configuration
-    current_step = get_step_config(current_flow_name, state["current_step"])
-
-    # Build confirmation message from step configuration
-    confirmation_msg = current_step.message or "Let me confirm:\n"
-
-    for slot_name, value in slots.items():
-        slot_config = get_slot_config(current_flow_name, slot_name)
-        display_name = slot_config.display_name or slot_name
-        confirmation_msg += f"- {display_name}: {value}\n"
-
-    confirmation_msg += "\nIs this correct?"
-
-    # Pause and wait for user confirmation
-    user_response = interrupt({
-        "type": "confirmation_request",
-        "prompt": confirmation_msg
-    })
-
-    return {
-        "user_message": user_response,
-        "conversation_state": ConversationState.CONFIRMING.value,
-        "last_response": confirmation_msg
-    }
-
-async def handle_confirmation_response(state: DialogueState) -> DialogueState:
-    """
-    Handle user's confirmation response.
-
-    NLU has already classified the response using ConfirmationSignature,
-    so we just need to act on the structured result.
-    """
-    nlu_result = state["nlu_result"]
-
-    # Sanity check: should be a confirmation response
-    if result.message_type != MessageType.CONFIRMATION:
-        # Edge case: user said something unrelated during confirmation
-        # Treat as digression, interruption, or cancellation
-        if result.message_type == MessageType.DIGRESSION:
-            return {"conversation_state": ConversationState.UNDERSTANDING}
-        elif result.message_type == MessageType.CLARIFICATION:
-            return {"conversation_state": ConversationState.UNDERSTANDING}
-        elif result.message_type == MessageType.INTERRUPTION:
-            return {"conversation_state": ConversationState.UNDERSTANDING}
-        elif result.message_type == MessageType.CANCELLATION:
-            return {"conversation_state": ConversationState.UNDERSTANDING}
-        elif result.message_type == MessageType.MODIFICATION:
-            return {"conversation_state": ConversationState.UNDERSTANDING}
-        else:
-            # Ask again
-            return {
-                "conversation_state": ConversationState.CONFIRMING,
-                "last_response": "I didn't understand. Is this information correct? (yes/no)"
-            }
-
-    # User confirmed
-    if nlu_result.confirmation_value is True:
-        return {
-            "conversation_state": ConversationState.READY_FOR_ACTION,
-            "last_response": "Great! Processing your request..."
-        }
-
-    # User denied - wants to change something
-    elif nlu_result.confirmation_value is False:
-        # Check if user specified which slot to change
-        if nlu_result.slot_to_change:
-            # User said "change the destination" or similar
-            return {
-                "conversation_state": ConversationState.WAITING_FOR_SLOT,
-                "waiting_for_slot": nlu_result.slot_to_change,
-                "last_response": f"What would you like to change the {nlu_result.slot_to_change} to?"
-            }
-        elif nlu_result.wants_to_change:
-            # User said "yes I want to change something" but didn't specify what
-            active_ctx = context.flow_manager.get_active_context(state)
-            current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
-
-            flow_config = get_flow_config(current_flow_name)
-            slot_names = [s.name for s in flow_config.slots]
-            return {
-                "conversation_state": ConversationState.WAITING_FOR_SLOT,
-                "last_response": f"Which information would you like to change? ({', '.join(slot_names)})"
-            }
-        else:
-            # User just said "no" without clarification
-            # Cancel current flow and return to idle
-            context.flow_manager.pop_flow(state, result="cancelled")
-
-            return {
-                "conversation_state": ConversationState.IDLE,
-                "last_response": "Okay, I've cancelled this request. What would you like to do?"
-            }
-
-    # Unclear response
-    else:
-        return {
-            "conversation_state": ConversationState.CONFIRMING,
-            "last_response": "I didn't quite understand. Is this information correct? Please say yes or no."
-        }
+    match conv_state:
+        case "waiting_for_slot":
+            return "collect_next_slot"
+        case "executing_action":
+            return "execute_action"
+        case "confirming":
+            return "confirm_action"
+        case "completed":
+            return "handle_flow_complete"
+        case "idle":
+            return "generate_response"
+        case "error":
+            return "handle_error"
+        case _:
+            return "generate_response"
 ```
 
-### Intent Change Handling
+### LangGraph Graph Structure
 
 ```python
-async def handle_intent_change_node(state: DialogueState) -> DialogueState:
-    """
-    Handle flow interruption or cancellation.
+def build_graph(context: RuntimeContext) -> CompiledGraph:
+    """Build LangGraph with command-driven architecture."""
 
-    Push new flow (pausing current) or pop current flow.
-    """
-    nlu_result = state["nlu_result"]
-    new_intent = nlu_result.new_intent
+    builder = StateGraph(
+        state_schema=DialogueState,
+        context_schema=RuntimeContext
+    )
 
-    if new_intent == "cancel":
-        # Cancel current flow
-        _pop_flow(state, FlowState.CANCELLED)
+    # Nodes
+    builder.add_node("understand", understand_node)
+    builder.add_node("execute_commands", execute_commands_node)
+    builder.add_node("collect_next_slot", collect_next_slot_node)
+    builder.add_node("execute_action", execute_action_node)
+    builder.add_node("confirm_action", confirm_action_node)
+    builder.add_node("handle_flow_complete", handle_flow_complete_node)
+    builder.add_node("generate_response", generate_response_node)
 
-        if state.flow_stack:
-            return {
-                "last_response": "Cancelled. Returning to previous task.",
-                "conversation_state": ConversationState.UNDERSTANDING
-            }
-        else:
-            return {
-                "last_response": "Cancelled. How else can I help?",
-                "conversation_state": ConversationState.IDLE
-            }
+    # Entry: Always start with understand
+    builder.add_edge(START, "understand")
 
-    else:
-        # Start new flow (pause current)
-        reason = f"User wants to {new_intent}"
-        _push_flow(state, new_intent, reason)
+    # understand → execute_commands (always)
+    builder.add_edge("understand", "execute_commands")
 
-        return {
-            "conversation_state": ConversationState.WAITING_FOR_SLOT,
-            "current_flow": new_intent
+    # execute_commands → deterministic routing
+    builder.add_conditional_edges(
+        "execute_commands",
+        route_after_execute_commands,
+        {
+            "collect_next_slot": "collect_next_slot",
+            "execute_action": "execute_action",
+            "confirm_action": "confirm_action",
+            "handle_flow_complete": "handle_flow_complete",
+            "generate_response": "generate_response",
+            "handle_error": "generate_response"
         }
-```
+    )
 
-## LangGraph Pattern
+    # collect_next_slot → uses interrupt(), resumes at understand
+    builder.add_edge("collect_next_slot", "understand")
 
-### Graph Construction
+    # confirm_action → uses interrupt(), resumes at understand
+    builder.add_edge("confirm_action", "understand")
 
-```python
-from langgraph.graph import StateGraph, START, END
-from langgraph.types import interrupt
-
-# Create graph
-builder = StateGraph(DialogueState)
-
-# Add nodes
-builder.add_node("understand", understand_node)  # ALWAYS FIRST
-builder.add_node("validate_slot", validate_slot_node)
-builder.add_node("handle_digression", handle_digression_node)
-builder.add_node("handle_intent_change", handle_intent_change_node)
-builder.add_node("handle_confirmation", handle_confirmation_response)
-builder.add_node("collect_next_slot", collect_next_slot_node)
-builder.add_node("confirm_action", confirm_action_node)
-builder.add_node("execute_action", execute_action_node)
-builder.add_node("generate_response", generate_response_node)
-
-# Key pattern: START always goes to understand
-builder.add_edge(START, "understand")
-
-# Conditional routing from understand based on NLU result and state
-builder.add_conditional_edges(
-    "understand",
-    route_after_understand,
-    {
-        "validate_slot": "validate_slot",
-        "handle_digression": "handle_digression",
-        "handle_intent_change": "handle_intent_change",
-        "handle_confirmation": "handle_confirmation",
-        "generate_response": "generate_response"
-    }
-)
-
-# After handling digression, back to understand
-builder.add_edge("handle_digression", "understand")
-
-# After validating slot, check if need more slots, confirmation, or action
-builder.add_conditional_edges(
-    "validate_slot",
-    route_after_validate,
-    {
-        "confirm_action": "confirm_action",
-        "execute_action": "execute_action",
-        "collect_next_slot": "collect_next_slot"
-    }
-)
-
-# After confirmation request, back to understand (to process user's yes/no)
-builder.add_edge("confirm_action", "understand")
-
-# After handling confirmation response, route based on result
-builder.add_conditional_edges(
-    "handle_confirmation",
-    lambda state: "execute_action" if state["conversation_state"] == ConversationState.READY_FOR_ACTION.value else "collect_next_slot",
-    {
-        "execute_action": "execute_action",
-        "collect_next_slot": "collect_next_slot"
-    }
-)
-
-# After collecting next slot, back to understand
-builder.add_edge("collect_next_slot", "understand")
-
-# After action, generate response and end
-builder.add_edge("execute_action", "generate_response")
-builder.add_edge("generate_response", END)
-
-# Compile with checkpointer
-checkpointer = SqliteSaver.from_conn_string("dialogue_state.db")
-graph = builder.compile(checkpointer=checkpointer)
-```
-
-### Using interrupt()
-
-Pause execution to wait for user:
-
-```python
-async def collect_next_slot_node(
-    state: DialogueState,
-    context: RuntimeContext
-) -> DialogueState:
-    """
-    Ask for next slot and PAUSE execution.
-
-    User response will go through understand_node first.
-    """
-    next_slot = get_next_required_slot(state)
-
-    if next_slot:
-        # Get current flow from stack
-        active_ctx = context.flow_manager.get_active_context(state)
-        current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
-
-        slot_config = get_slot_config(current_flow_name, next_slot)
-
-        # Pause here - wait for user input
-        user_response = interrupt({
-            "type": "slot_request",
-            "slot": next_slot,
-            "prompt": slot_config.prompt
-        })
-
-        # This executes AFTER user responds
-        # But user_response goes through understand_node first!
-        return {
-            "user_message": user_response,
-            "waiting_for_slot": next_slot,
-            "conversation_state": ConversationState.WAITING_FOR_SLOT
+    # execute_action → handle_flow_complete or collect more
+    builder.add_conditional_edges(
+        "execute_action",
+        route_after_action,
+        {
+            "handle_flow_complete": "handle_flow_complete",
+            "collect_next_slot": "collect_next_slot"
         }
+    )
 
-    return state
+    # handle_flow_complete → generate_response or resume previous
+    builder.add_conditional_edges(
+        "handle_flow_complete",
+        route_after_flow_complete,
+        {
+            "generate_response": "generate_response",
+            "execute_commands": "execute_commands"  # Resume previous
+        }
+    )
+
+    # generate_response → END
+    builder.add_edge("generate_response", END)
+
+    return builder.compile(checkpointer=checkpointer)
 ```
 
-## Benefits
+## Sequence Diagram
 
-This unified message flow provides:
+```mermaid
+sequenceDiagram
+    participant User
+    participant RuntimeLoop
+    participant LangGraph
+    participant SoniDU
+    participant CommandExecutor
+    participant Handlers
+    participant FlowManager
 
-1. **Consistent handling** - All messages processed the same way
-2. **Context awareness** - NLU receives full conversation state
-3. **Flexible responses** - Users can deviate anytime
-4. **No assumptions** - System doesn't assume direct answers
-5. **Single optimization point** - Optimize one NLU module
-6. **Clear debugging** - Trace messages through predictable pipeline
+    User->>RuntimeLoop: "Book a flight from NYC"
+    RuntimeLoop->>LangGraph: ainvoke(initial_state)
+
+    LangGraph->>SoniDU: understand(message, context)
+    SoniDU-->>LangGraph: NLUOutput[StartFlow("book_flight"), SetSlot("origin", "NYC")]
+
+    LangGraph->>CommandExecutor: execute(commands)
+    CommandExecutor->>Handlers: StartFlowHandler.execute()
+    Handlers->>FlowManager: push_flow("book_flight")
+    Handlers-->>CommandExecutor: {conversation_state: "waiting_for_slot"}
+
+    CommandExecutor->>Handlers: SetSlotHandler.execute()
+    Handlers->>FlowManager: set_slot("origin", "NYC")
+    Handlers-->>CommandExecutor: {waiting_for_slot: "destination"}
+
+    CommandExecutor-->>LangGraph: merged_updates
+
+    LangGraph->>LangGraph: route → collect_next_slot
+    LangGraph->>LangGraph: interrupt("Where to?")
+    LangGraph-->>RuntimeLoop: response
+    RuntimeLoop-->>User: "Where would you like to fly to?"
+```
+
+## Summary
+
+Soni v2.0 message flow is characterized by:
+
+1. ✅ **NLU → Commands**: LLM produces structured Commands
+2. ✅ **CommandExecutor**: Deterministic handler-based execution
+3. ✅ **State-Based Routing**: DM routes on state, not classification
+4. ✅ **Multiple Commands**: Handle compound user messages
+5. ✅ **Full Audit Trail**: All commands logged
+6. ✅ **SOLID Compliance**: OCP via Handler Registry
 
 ## Next Steps
 
 - **[06-nlu-system.md](06-nlu-system.md)** - NLU implementation details
-- **[07-flow-management.md](07-flow-management.md)** - Flow stack mechanics
-- **[08-langgraph-integration.md](08-langgraph-integration.md)** - LangGraph patterns
+- **[11-commands.md](11-commands.md)** - Complete Command specification
+- **[03-components.md](03-components.md)** - Component reference
 
 ---
 
-**Design Version**: v0.8 (Production-Ready with Structured Types)
+**Design Version**: v2.0 (Command-Driven Architecture)
 **Status**: Production-ready design specification

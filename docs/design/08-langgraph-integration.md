@@ -202,12 +202,12 @@ builder = StateGraph(
 )
 
 # Node receives context via runtime parameter
-async def understand_node(
+async def execute_commands_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext]
 ) -> dict:
     """
-    Understand node with dependency injection.
+    Execute Commands node with dependency injection.
 
     Args:
         state: Current dialogue state (TypedDict)
@@ -217,27 +217,19 @@ async def understand_node(
         Partial state updates (dict)
     """
     # Access injected dependencies (type-safe)
-    flow_manager = runtime.context["flow_manager"]
-    nlu_provider = runtime.context["nlu_provider"]
+    command_executor = runtime.context["command_executor"]
 
-    # Use dependencies
-    active_ctx = flow_manager.get_active_context(state)
-    current_flow_name = active_ctx["flow_name"] if active_ctx else "none"
+    # Get commands from NLU result
+    nlu_result = NLUOutput.model_validate(state["nlu_result"])
 
-    # Build NLU context
-    dialogue_context = build_nlu_context(state, flow_manager)
-
-    # Call NLU
-    nlu_result = await nlu_provider.understand(
-        state["user_message"],
-        dialogue_context
+    # Execute commands deterministically via Executor
+    updates = await command_executor.execute(
+        commands=nlu_result.commands,
+        state=state,
+        context=runtime.context
     )
 
-    return {
-        "nlu_result": nlu_result.model_dump(),
-        "conversation_state": ConversationState.UNDERSTANDING.value,
-        "last_nlu_call": time.time()
-    }
+    return updates
 
 # Invoke with context
 result = await graph.ainvoke(
@@ -246,6 +238,7 @@ result = await graph.ainvoke(
     context={
         "flow_manager": flow_manager,
         "nlu_provider": nlu_provider,
+        "command_executor": command_executor,
         "action_handler": action_handler,
         "scope_manager": scope_manager,
         "normalizer": normalizer
@@ -526,6 +519,29 @@ async def validate_slot_node(
         }
 ```
 
+### Initial State Builder
+
+Using `add_messages` reducer requires careful initialization:
+
+```python
+def build_initial_state(
+    user_message: str,
+    flow_stack: list[FlowContext] | None = None
+) -> DialogueState:
+    """Build initial state for new conversation turn."""
+    return {
+        "user_message": user_message,
+        "last_response": "",
+        # LangGraph converts dict to HumanMessage automatically
+        "messages": [{"role": "user", "content": user_message}],
+        "flow_stack": flow_stack or [],
+        "flow_slots": {},
+        "conversation_state": ConversationState.IDLE.value,
+        "command_log": [],
+        "metadata": {}
+    }
+```
+
 ### Pattern B: Simple Computation
 
 For pure state transformations:
@@ -554,9 +570,9 @@ async def increment_turn_node(state: DialogueState) -> dict:
 For routing functions (not nodes):
 
 ```python
-def route_after_understand(state: DialogueState) -> str:
+def route_after_execute_commands(state: DialogueState) -> str:
     """
-    Route based on NLU result.
+    Route based on conversation state after command execution.
 
     Pattern: Routing Function (synchronous, returns node name)
 
@@ -566,19 +582,15 @@ def route_after_understand(state: DialogueState) -> str:
     Returns:
         Name of next node to execute
     """
-    nlu_result = state["nlu_result"]
+    current_state = state["conversation_state"]
 
-    # Deserialize if needed
-    if isinstance(nlu_result, dict):
-        nlu_result = NLUOutput.model_validate(nlu_result)
-
-    # Route based on NLU result
-    if nlu_result.is_slot_value:
-        return "validate_slot"
-    elif nlu_result.is_digression:
-        return "handle_digression"
-    elif nlu_result.is_intent_change:
-        return "handle_intent_change"
+    if current_state == ConversationState.WAITING_FOR_SLOT.value:
+        return "collect_next_slot"
+    elif current_state == ConversationState.EXECUTING_ACTION.value:
+        return "execute_action"
+    elif current_state == ConversationState.UNDERSTANDING.value:
+        # If still understanding (e.g., partial command), loop back or response
+        return "generate_response"
     else:
         return "generate_response"
 ```
@@ -623,6 +635,7 @@ def build_graph(
 
     # Add nodes
     builder.add_node("understand", understand_node)
+    builder.add_node("execute_commands", execute_commands_node) # New node for command execution
     builder.add_node("validate_slot", validate_slot_node)
     builder.add_node("handle_digression", handle_digression_node)
     builder.add_node("handle_intent_change", handle_intent_change_node)
@@ -633,15 +646,20 @@ def build_graph(
     # Entry point: START → understand (ALWAYS)
     builder.add_edge(START, "understand")
 
-    # Conditional routing from understand
+    # After understanding, execute commands
+    builder.add_edge("understand", "execute_commands")
+
+    # Conditional routing from execute_commands
     builder.add_conditional_edges(
-        "understand",
-        route_after_understand,
+        "execute_commands",
+        route_after_execute_commands, # New routing function
         {
             "validate_slot": "validate_slot",
             "handle_digression": "handle_digression",
             "handle_intent_change": "handle_intent_change",
-            "generate_response": "generate_response"
+            "generate_response": "generate_response",
+            "collect_next_slot": "collect_next_slot", # Can also route here
+            "execute_action": "execute_action", # Can also route here
         }
     )
 
@@ -1920,38 +1938,22 @@ async def test_with_fixture(graph_with_memory):
 
 ## Summary
 
-LangGraph integration in Soni provides:
+Soni integrates with LangGraph using:
 
-1. **Automatic checkpointing** - State saved after each node
-2. **Thread isolation** - Each user completely separate
-3. **interrupt()/Command(resume=)** - Human-in-the-loop pattern
-4. **Flexible backends** - SQLite, PostgreSQL, Redis
-5. **State recovery** - Access conversation history
-6. **Error handling** - Graceful recovery from failures
-7. **Multiple streaming modes** - updates, values, messages, debug
-8. **Context injection** - Type-safe dependency injection via `context_schema`
-9. **Static interrupts** - Compile-time pause points
-10. **Advanced routing** - Command.goto for explicit navigation
-
-These patterns enable robust, scalable dialogue management with minimal manual state management, following SOLID principles:
-
-- **SRP**: Nodes have single responsibility, context separate from state
-- **OCP**: Extensible via new nodes and checkpointer backends
-- **LSP**: All checkpointers implement `BaseCheckpointSaver`
-- **ISP**: Minimal interfaces (nodes just need `state` and optional `runtime`)
-- **DIP**: Dependencies injected via `context_schema`, not hardcoded
+1.  **TypedDict State**: Pure data state with `DialogueState`
+2.  **Context Injection**: `RuntimeContext` for dependency injection
+3.  **Command Execution**: `execute_commands_node` bridges NLU and DM
+4.  **Automatic Persistence**: `SqliteSaver` with `thread_id` isolation
+5.  **Interrupt Pattern**: `interrupt()` and `Command(resume=)` for human-in-loop
 
 ## Next Steps
 
-- **[04-state-machine.md](04-state-machine.md)** - DialogueState schema
+- **[02-architecture.md](02-architecture.md)** - Implementation details
 - **[05-message-flow.md](05-message-flow.md)** - Message processing pipeline
-- **[03-components.md](03-components.md)** - Component architecture
-- **[07-flow-management.md](07-flow-management.md)** - Flow stack mechanics
 
 ---
 
-**Design Version**: v1.0 (Complete, Zero-Legacy-Baggage)
+**Design Version**: v2.0 (Command-Driven Architecture)
 **Status**: Production-ready design specification
-**Last Updated**: 2024-12-03
 **Verified Against**: LangGraph v0.2.x source code
 **Design Philosophy**: Zero retrocompatibility, best practices first, SOLID principles
