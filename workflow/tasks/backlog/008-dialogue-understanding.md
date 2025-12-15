@@ -201,15 +201,24 @@ class SoniDU(dspy.Module):
     
     Features:
     - Native async with .acall() (more efficient than asyncify)
-    - ChainOfThought for reasoning
+    - Optional ChainOfThought reasoning (configurable)
     - Pydantic types for structured I/O
     - MIPROv2 optimization support
     - Save/load for persistence
     """
     
-    def __init__(self):
+    def __init__(self, use_cot: bool = True):
+        """Initialize SoniDU.
+        
+        Args:
+            use_cot: If True, use ChainOfThought for reasoning.
+                     If False, use simple Predict (faster, less tokens).
+        """
         super().__init__()
-        self.extractor = dspy.ChainOfThought(ExtractCommands)
+        if use_cot:
+            self.extractor = dspy.ChainOfThought(ExtractCommands)
+        else:
+            self.extractor = dspy.Predict(ExtractCommands)
     
     async def aforward(
         self,
