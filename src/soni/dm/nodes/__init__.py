@@ -1,29 +1,20 @@
-"""Dialogue management nodes."""
+"""Soni v3.0 dialogue management nodes.
 
-# Import node functions from individual modules
-from soni.dm.nodes.collect_next_slot import collect_next_slot_node
-from soni.dm.nodes.execute_action import execute_action_node
+4-node architecture:
+- understand: NLU → Commands
+- execute: Commands → State changes
+- step: Run current flow step
+- respond: Generate response
+"""
 
-# Import factory functions (this registers them with NodeFactoryRegistry)
-from soni.dm.nodes.factories import (  # noqa: F401
-    create_action_node_factory,
-    create_collect_node_factory,
-    create_understand_node,
-)
-from soni.dm.nodes.generate_response import generate_response_node
-from soni.dm.nodes.handle_error import handle_error_node
+from soni.dm.nodes.execute import execute_node
+from soni.dm.nodes.respond import respond_node
+from soni.dm.nodes.step import step_node
 from soni.dm.nodes.understand import understand_node
-from soni.dm.nodes.validate_slot import validate_slot_node
 
 __all__ = [
     "understand_node",
-    "validate_slot_node",
-    "collect_next_slot_node",
-    "handle_error_node",
-    "execute_action_node",
-    "generate_response_node",
-    # Factory functions
-    "create_understand_node",
-    "create_collect_node_factory",
-    "create_action_node_factory",
+    "execute_node",
+    "step_node",
+    "respond_node",
 ]

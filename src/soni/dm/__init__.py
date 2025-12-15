@@ -1,7 +1,24 @@
-"""Dialogue Management using LangGraph"""
+"""Dialogue Management for Soni v3.0.
 
-# Import nodes package to register node factories via decorators
-# This ensures NodeFactoryRegistry has all factories registered when this module is imported
-from soni.dm import nodes  # noqa: F401
+Simplified 4-node architecture:
+- understand: NLU → Commands
+- execute: Commands → State changes
+- step: Run current flow step
+- respond: Generate response
+"""
 
-__all__ = ["nodes"]
+from soni.dm.graph import build_graph
+from soni.dm.nodes import (
+    execute_node,
+    respond_node,
+    step_node,
+    understand_node,
+)
+
+__all__ = [
+    "build_graph",
+    "understand_node",
+    "execute_node",
+    "step_node",
+    "respond_node",
+]
