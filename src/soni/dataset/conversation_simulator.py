@@ -453,6 +453,13 @@ class ConversationSimulator:
             if not source_config.steps_or_process:
                 continue
 
+            # Skip flows that don't pause for user input (can't be interrupted)
+            interruptible = any(
+                step.type in ["collect", "confirm"] for step in source_config.steps_or_process
+            )
+            if not interruptible:
+                continue
+
             for target_flow in flow_names:
                 if source_flow == target_flow:
                     continue
@@ -461,27 +468,73 @@ class ConversationSimulator:
                 if not target_config.trigger or not target_config.trigger.intents:
                     continue
 
-                # Create realistic state: in middle of collecting a slot
-                state = ConversationState(
-                    current_flow=source_flow,
-                    current_slots={"some_slot": "some_value"},
-                    messages=[
-                        {"role": "user", "content": f"I want to {source_flow}"},
-                        {"role": "assistant", "content": "Please provide the next value"},
-                    ],
-                    conversation_state="waiting_for_slot",  # Critical for realistic context
-                )
-
-                # Generate examples for MULTIPLE intents from target flow (not just first)
+                # Generate examples for MULTIPLE intents from target flow
                 for intent in target_config.trigger.intents[:3]:  # Up to 3 intents
-                    turn = self._create_interruption_turn(
+                    # Scenario 1: Interruption with Greeting History (The CLI Bug Case)
+                    # User: Hi -> Bot: Hello... -> User: Transfer -> Bot: How much? -> User: Interruption
+                    state_greeting = self._generate_history_prefix(
+                        source_flow, include_greeting=True
+                    )
+                    turn_greeting = self._create_interruption_turn(
                         user_message=intent,
                         target_flow=target_flow,
-                        current_state=state,
+                        current_state=state_greeting,
                     )
-                    examples.append(self._turn_to_example(turn))
+                    examples.append(self._turn_to_example(turn_greeting))
+
+                    # Scenario 2: Direct Interruption (Existing Case)
+                    # User: Transfer -> Bot: How much? -> User: Interruption
+                    state_direct = self._generate_history_prefix(
+                        source_flow, include_greeting=False
+                    )
+                    turn_direct = self._create_interruption_turn(
+                        user_message=intent,
+                        target_flow=target_flow,
+                        current_state=state_direct,
+                    )
+                    examples.append(self._turn_to_example(turn_direct))
 
         return examples
+
+    def _generate_history_prefix(
+        self, flow_name: str, include_greeting: bool = False
+    ) -> ConversationState:
+        """Generate a realistic history prefix for a flow."""
+        messages: list[dict[str, str]] = []
+
+        if include_greeting:
+            messages.append({"role": "user", "content": "Hi"})
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": "Hello! I am your AI banking assistant. How can I help you?",
+                }
+            )
+
+        # Start the flow
+        flow_config = self.config.flows[flow_name]
+        trigger_intent = (
+            flow_config.trigger.intents[0]
+            if flow_config.trigger and flow_config.trigger.intents
+            else f"I want to {flow_name}"
+        )
+        messages.append({"role": "user", "content": trigger_intent})
+
+        # Simulate the first step prompt
+        first_step = flow_config.steps_or_process[0]
+        prompt = "Please provide the next value"
+        if first_step.type == "collect" and first_step.slot:
+            slot_config = self.config.slots.get(first_step.slot)
+            prompt = slot_config.prompt if slot_config else f"What is the {first_step.slot}?"
+
+        messages.append({"role": "assistant", "content": prompt})
+
+        return ConversationState(
+            current_flow=flow_name,
+            current_slots={},  # No slots filled yet
+            messages=messages,
+            conversation_state="waiting_for_slot",
+        )
 
     def _generate_confirmation_variations(self) -> list[dspy.Example]:
         """Generate additional confirmation edge cases."""
