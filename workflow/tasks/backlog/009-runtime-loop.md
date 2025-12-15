@@ -44,13 +44,9 @@ class RuntimeLoop:
     
     async def initialize(self) -> None:
         """Initialize the runtime (compile graph, setup checkpointer)."""
-        context = {
-            "config": self.config,
-            "flow_manager": self.flow_manager,
-            "du": self.du,
-        }
-        
-        orchestrator = OrchestratorGraph(self.config, context)
+        # Context is passed at invoke time, not build time
+        # but we need to pass a dummy or schema to builder if needed for validation
+        orchestrator = OrchestratorGraph(self.config, RuntimeContext)
         self.graph = orchestrator.build().compile(
             checkpointer=self.checkpointer
         )
@@ -64,6 +60,14 @@ class RuntimeLoop:
         if self.graph is None:
             await self.initialize()
         
+        # Create context for this specific run
+        context = RuntimeContext(
+            flow_manager=self.flow_manager,
+            du=self.du,
+            config=self.config,
+            # Add action_handler when implemented
+        )
+        
         config = {"configurable": {"thread_id": user_id}}
         
         # Get or create state
@@ -72,7 +76,11 @@ class RuntimeLoop:
         state["turn_count"] += 1
         
         # Run graph
-        result = await self.graph.ainvoke(state, config)
+        result = await self.graph.ainvoke(
+            state, 
+            config=config,
+            context=context,  # <-- Pass runtime context here
+        )
         
         return result.get("last_response", "I don't understand.")
     

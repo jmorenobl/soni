@@ -24,23 +24,29 @@ Implement OrchestratorGraph that coordinates flow subgraphs and manages the main
 
 ```python
 """Orchestrator graph - coordinates flow subgraphs."""
-from langgraph.graph import END, START, StateGraph
+from typing import Literal
+from langgraph.graph import END, START, StateGraph, Command
 from soni.core.config import SoniConfig
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, RuntimeContext
 from soni.compiler.subgraph import SubgraphBuilder
 from soni.dm.nodes import understand_node, execute_node, respond_node
 
 
 class OrchestratorGraph:
-    """Main dialogue graph that orchestrates flow subgraphs."""
+    """Main dialogue graph that orchestrates flow subgraphs.
     
-    def __init__(self, config: SoniConfig, context: dict):
+    Uses Runtime DI via context_schema=RuntimeContext.
+    Uses Command for state updates combined with routing.
+    """
+    
+    def __init__(self, config: SoniConfig, context: RuntimeContext):
         self.config = config
         self.context = context
         self.flow_subgraphs: dict[str, StateGraph] = {}
     
     def compile_flows(self) -> None:
         """Compile all flows to subgraphs."""
+        # Pass context.du.config/etc if needed by builder
         builder = SubgraphBuilder(self.context)
         
         for flow_name, flow_config in self.config.flows.items():
@@ -51,7 +57,8 @@ class OrchestratorGraph:
         """Build the orchestrator graph."""
         self.compile_flows()
         
-        builder = StateGraph(DialogueState)
+        # Initialize graph with context_schema for Dependency Injection
+        builder = StateGraph(DialogueState, context_schema=RuntimeContext)
         
         # Core nodes
         builder.add_node("understand", understand_node)
@@ -63,24 +70,27 @@ class OrchestratorGraph:
             builder.add_node(f"flow_{flow_name}", subgraph.compile())
         
         # Edges
+        # execute_node returns Command[Literal[...]], so traditional edges 
+        # from "execute" are replaced by the Command's goto logic
         builder.add_edge(START, "understand")
         builder.add_edge("understand", "execute")
-        builder.add_conditional_edges("execute", self._route_after_execute)
         
+        # Edges from flows back to respond (flows must end or return correct Command)
         for flow_name in self.flow_subgraphs:
             builder.add_edge(f"flow_{flow_name}", "respond")
         
         builder.add_edge("respond", END)
         
         return builder
-    
-    def _route_after_execute(self, state: DialogueState) -> str:
-        """Route to appropriate flow or respond."""
-        if not state["flow_stack"]:
-            return "respond"
-        
-        active = state["flow_stack"][-1]
-        return f"flow_{active['flow_name']}"
+
+# dm/nodes/execute.py would look like this:
+# 
+# def execute_node(
+#     state: DialogueState,
+#     runtime: Runtime[RuntimeContext]
+# ) -> Command[Literal["respond", "flow_..."]]:
+#     ...
+#     return Command(goto=f"flow_{name}", update=...)
 ```
 
 ### TDD Cycle
