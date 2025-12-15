@@ -52,6 +52,24 @@ class SlotValue(BaseModel):
     expected_type: str = Field(default="string", description="Expected type: string, date, number")
 
 
+class CommandInfo(BaseModel):
+    """Information about an available command.
+    
+    Passed dynamically to the LLM so it knows what commands it can generate.
+    """
+    
+    command_type: str = Field(description="Command identifier (e.g., 'start_flow')")
+    description: str = Field(description="What this command does")
+    required_fields: list[str] = Field(
+        default_factory=list,
+        description="Fields required when using this command"
+    )
+    example: str = Field(
+        default="",
+        description="Example user message that would trigger this command"
+    )
+
+
 class DialogueContext(BaseModel):
     """Complete dialogue context for NLU.
     
@@ -60,6 +78,9 @@ class DialogueContext(BaseModel):
     
     available_flows: list[FlowInfo] = Field(
         description="Flows the user can start. Each has name, description, and trigger examples"
+    )
+    available_commands: list[CommandInfo] = Field(
+        description="Commands the LLM can generate. Each has type, description, required_fields"
     )
     active_flow: str | None = Field(
         default=None,
@@ -85,10 +106,9 @@ class Command(BaseModel):
     The LLM outputs a list of these to drive the dialogue.
     """
     
-    command_type: Literal[
-        "start_flow", "set_slot", "correct_slot", "cancel_flow",
-        "affirm", "deny", "clarify", "human_handoff", "chitchat"
-    ] = Field(description="Type of command to execute")
+    command_type: str = Field(
+        description="Type of command (must match one from available_commands)"
+    )
     
     # Optional fields depending on command type
     flow_name: str | None = Field(default=None, description="For start_flow: which flow to start")
@@ -128,28 +148,24 @@ class ExtractCommands(dspy.Signature):
     """Analyze user messages in dialogue context and generate executable commands.
 
     You are the "Understanding Layer" of a deterministic dialogue system.
-    Your job is to translate the User's Message into a list of explicit Commands
-    based on the current Context.
+    Your job is to translate the User's Message into a list of Commands.
 
-    AVAILABLE COMMANDS:
-    - start_flow: User wants to start a specific flow (e.g. "book flight")
-    - set_slot: User provides a value for an expected slot
-    - correct_slot: User corrects a previously set slot
-    - cancel_flow: User wants to stop the current flow
-    - affirm: User says "yes" to a confirmation prompt
-    - deny: User says "no" to a confirmation prompt  
-    - clarify: User asks a question about what the system asked
-    - human_handoff: User asks for a human agent
-    - chitchat: Casual conversation unrelated to any flow
+    The available commands are provided in `context.available_commands`.
+    Each command has:
+    - command_type: The identifier to use
+    - description: What it does
+    - required_fields: Fields you must populate
+    - example: Example user message
 
     RULES:
-    1. If user provides a value and 'expected_slot' is set, generate set_slot
-    2. If user corrects a value, check 'current_slots' and generate correct_slot
-    3. If user asks to start a task, match against 'available_flows'
-    4. If 'conversation_state' is 'confirming':
+    1. ONLY use commands from context.available_commands
+    2. If user provides a value and 'expected_slot' is set, generate set_slot
+    3. If user corrects a value, check 'current_slots' and generate correct_slot
+    4. If user asks to start a task, match against 'available_flows'
+    5. If 'conversation_state' is 'confirming':
        - "Yes/Correct" -> affirm
        - "No/Wrong" -> deny (include slot_name if they specify what to change)
-    5. Be explicit. Generate exactly the commands needed.
+    6. Be explicit. Generate exactly the commands needed.
     """
 
     # Input fields with rich descriptions and Pydantic types
@@ -157,7 +173,7 @@ class ExtractCommands(dspy.Signature):
         desc="User's input message to analyze"
     )
     context: DialogueContext = dspy.InputField(
-        desc="Complete dialogue context including available_flows, current_slots, expected_slot, and conversation_state"
+        desc="Complete dialogue context including available_flows, available_commands, current_slots, expected_slot"
     )
     history: dspy.History = dspy.InputField(
         desc="Recent conversation history (list of {role, content} messages)"
