@@ -161,7 +161,7 @@ slots:
 | `set` | Set variables | No | Yes |
 | `handoff` | Transfer to human | Yes | No |
 
-*`confirm` modifies state when user makes corrections or modifications during confirmation (handled automatically by runtime).
+*`confirm` modifies state when user makes corrections or modifications during confirmation (handled by Conversation Patterns).
 
 ---
 
@@ -281,6 +281,6 @@ Future versions may add explicit support for iterative collection (e.g., "Add an
 
 ---
 
-**Document Version**: 1.5
+**Document Version**: 2.0
 **Status**: Design Specification
-**Last Updated**: 2024-12-05
+**Last Updated**: 2024-12-15

@@ -52,7 +52,7 @@ flows:
 
 **Using `trigger.condition`:**
 
-In addition to intent matching, you can require a condition to be true:
+In addition to `StartFlow` command training (via `intents`), you can require a condition to be true:
 
 ```yaml
 flows:
@@ -80,7 +80,7 @@ flows:
 ```
 
 **Trigger Logic:**
-- If only `intents`: Flow activates when intent matches
+- If only `intents`: Soni uses these examples to train the NLU to generate a `StartFlow` command for this flow.
 - If only `condition`: Flow activates when condition is true (evaluated each turn)
 - If both: Flow activates when intent matches **AND** condition is true
 - If `intents: []` (empty): Same as no `intents` - only `condition` is used

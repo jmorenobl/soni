@@ -1,8 +1,8 @@
-# DSL Specification - Soni Framework v1.0
+# DSL Specification - Soni Framework v2.0
 
-**Document Version**: 1.5
+**Document Version**: 2.0
 **Status**: Design Specification
-**Last Updated**: 2024-12-05
+**Last Updated**: 2024-12-15
 
 ---
 
@@ -39,7 +39,7 @@ This specification defines the Domain Specific Language (DSL) for the Soni Frame
 ### Configuration Structure
 
 ```yaml
-version: "1.0"
+version: "2.0"
 
 settings:
   # Runtime configuration

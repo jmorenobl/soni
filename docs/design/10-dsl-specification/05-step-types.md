@@ -577,7 +577,7 @@ Asks the user to confirm before proceeding. This is a **blocking step** that wai
 1. Check `when` condition → Skip if false
 2. Display confirmation message
 3. Wait for user response
-4. NLU classifies: confirm, deny, correction, modification
+4. NLU detects commands: `AffirmConfirmation`, `DenyConfirmation`, `CorrectSlot`, etc.
 5. Route to handler (auto-handle updates slot and re-confirms if not overridden)
 
 **With Rich UI:**

@@ -9,7 +9,7 @@
 This example demonstrates a complete flight booking flow using all the DSL features.
 
 ```yaml
-version: "1.0"
+version: "2.0"
 
 settings:
   conversation:
@@ -17,6 +17,14 @@ settings:
     fallback_flow: fallback
   i18n:
     default_language: en
+
+  conversation_patterns:
+    correction:
+      enabled: true
+    clarification:
+      enabled: true
+    cancellation:
+      enabled: true
 
 slots:
   origin:
@@ -192,9 +200,9 @@ flows:
         force: true
         jump_to: confirm  # Return to confirmation after change
 
-      # NOTE: Corrections during confirmation are handled AUTOMATICALLY by the runtime.
+      # NOTE: Corrections during confirmation are handled by the configured Correction pattern.
       # If user says "Sorry, I meant San Diego not San Francisco" during confirm step,
-      # the runtime updates the slot and re-displays confirmation without any DSL config.
+      # the runtime updates the slot and re-displays confirmation as configured.
 
       - step: search_error
         type: say
@@ -236,9 +244,9 @@ flows:
 ### 1. Multi-Slot Extraction
 When user says "Book a flight from Madrid to Paris on December 15th", the NLU extracts all three slots at once, skipping the individual `collect` steps.
 
-### 2. Automatic Corrections
-During the `confirm` step, if user says "Sorry, I meant San Diego not San Francisco", the runtime automatically:
-- Detects the correction
+### 2. Correction Pattern
+During the `confirm` step, if user says "Sorry, I meant San Diego not San Francisco", the configured Correction pattern:
+- Detects the `CorrectSlot` command
 - Updates the destination slot
 - Re-displays the confirmation
 

@@ -7,7 +7,7 @@
 ## 3. Configuration Structure
 
 ```yaml
-version: "1.0"
+version: "2.0"
 
 settings:
   # Runtime configuration (Section 3.1)
@@ -27,6 +27,10 @@ actions:
 
 flows:
   # Conversation logic (Section 6)
+  ...
+
+conversation_patterns:
+  # Pattern configuration (Section 8)
   ...
 ```
 
@@ -73,6 +77,27 @@ settings:
     default_language: en
     supported_languages: [en, es, fr]
     auto_detect: true           # Detect language from first message
+    auto_detect: true           # Detect language from first message
+
+  conversation_patterns:
+    correction:
+      enabled: true
+      behavior: reprompt_corrected_slot
+
+    clarification:
+      enabled: true
+      max_depth: 3
+      fallback: handoff
+
+    cancellation:
+      enabled: true
+      confirm_before_cancel: false
+
+    human_handoff:
+      enabled: true
+      trigger_conditions:
+        - clarification_depth > 3
+        - explicit_request
 ```
 
 ### 3.2 Responses (System Messages)

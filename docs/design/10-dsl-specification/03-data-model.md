@@ -174,7 +174,7 @@ actions:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `description` | Yes | Used by LLM for intent matching |
+| `description` | Yes | Human-readable purpose of the action |
 | `inputs` | Yes | List of slot names (append `?` for optional) |
 | `outputs` | Yes | List of output keys merged into state |
 
