@@ -127,6 +127,38 @@ def build_flow_subgraph(
             
             builder.add_conditional_edges(step_name, router, routing)
         
+        # Handle while loops with conditional back-edges
+        elif step.type == "while" and step.do:
+            # While loop routes to first do step if condition true, else to next step
+            do_steps = step.do
+            first_do_step = do_steps[0] if do_steps else None
+            last_do_step = do_steps[-1] if do_steps else None
+            
+            def make_while_router(first_body: str | None, exit_step: str | None):
+                def route(state: DialogueState) -> str:
+                    if state.get("loop_continue", False):
+                        if first_body:
+                            return first_body
+                        return exit_step or END
+                    return exit_step or END
+                return route
+            
+            router = make_while_router(first_do_step, next_step)
+            routing = {END: END}
+            if first_do_step and first_do_step in step_name_set:
+                routing[first_do_step] = first_do_step
+            if next_step:
+                routing[next_step] = next_step
+            
+            builder.add_conditional_edges(step_name, router, routing)
+            
+            # Add back-edge from last do step to while for loop continuation
+            if last_do_step and last_do_step in step_name_set:
+                # Override the default edge for last do step to return to while
+                # Note: This requires the do steps to exist in the flat step list
+                # For now, we just note this - proper nested steps would need more work
+                logger.debug(f"While loop: {last_do_step} should loop back to {step_name}")
+        
         # Steps that need user input end the subgraph turn
         elif step.type in ("collect", "confirm"):
             def make_router(current_step: StepConfig, next_name: str | None):
@@ -270,6 +302,70 @@ def _create_step_node(
         
         confirm_node.__name__ = f"confirm_{step_name}"
         return confirm_node
+    
+    elif step_type == "while":
+        # While loop - evaluates condition and routes to loop body or exit
+        condition_expr = step.condition or "True"
+        do_steps = step.do or []
+        first_do_step = do_steps[0] if do_steps else None
+        
+        def _evaluate_condition(expr: str, context: dict) -> bool:
+            """Safely evaluate a simple condition expression."""
+            # Handle common patterns
+            if expr.startswith("not "):
+                var_name = expr[4:].strip()
+                return not bool(context.get(var_name))
+            
+            # Handle comparison operators
+            for op in (" < ", " > ", " <= ", " >= ", " == ", " != "):
+                if op in expr:
+                    parts = expr.split(op)
+                    if len(parts) == 2:
+                        left = parts[0].strip()
+                        right = parts[1].strip()
+                        left_val = context.get(left, left)
+                        right_val = context.get(right, right)
+                        # Try to convert to numbers
+                        try:
+                            left_val = float(left_val) if str(left_val).replace(".", "").isdigit() else left_val
+                            right_val = float(right_val) if str(right_val).replace(".", "").isdigit() else right_val
+                        except (ValueError, TypeError):
+                            pass
+                        
+                        if op == " < ":
+                            return left_val < right_val
+                        elif op == " > ":
+                            return left_val > right_val
+                        elif op == " <= ":
+                            return left_val <= right_val
+                        elif op == " >= ":
+                            return left_val >= right_val
+                        elif op == " == ":
+                            return left_val == right_val
+                        elif op == " != ":
+                            return left_val != right_val
+            
+            # Simple boolean variable check
+            return bool(context.get(expr, False))
+        
+        async def while_node(state: DialogueState) -> dict[str, Any]:
+            slots = get_all_slots(state)
+            
+            # Merge state and slots for condition evaluation
+            eval_context = {**state, **slots}
+            
+            # Evaluate condition
+            should_continue = _evaluate_condition(condition_expr, eval_context)
+            
+            logger.debug(f"While condition '{condition_expr}' = {should_continue}")
+            
+            return {
+                "loop_continue": should_continue,
+                "flow_state": FlowState.RUNNING,
+            }
+        
+        while_node.__name__ = f"while_{step_name}"
+        return while_node
     
     elif step_type in ("say", "respond"):
         message = step.message or ""

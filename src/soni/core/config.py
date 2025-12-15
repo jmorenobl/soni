@@ -391,7 +391,7 @@ class StepConfig(BaseModel):
     """Configuration for a single step in a flow."""
 
     step: str = Field(..., description="Step identifier")
-    type: str = Field(..., description="Step type: collect, action, branch, confirm")
+    type: str = Field(..., description="Step type: collect, action, branch, confirm, while, say")
     slot: str | None = Field(
         default=None,
         description="Slot name (for collect steps)",
@@ -418,7 +418,16 @@ class StepConfig(BaseModel):
     )
     message: str | None = Field(
         default=None,
-        description="Message to display (for confirm steps, supports {slot} interpolation)",
+        description="Message to display (for confirm/say steps, supports {slot} interpolation)",
+    )
+    # While loop fields
+    condition: str | None = Field(
+        default=None,
+        description="Condition expression for while loops (e.g., 'not confirmed', 'retries < 3')",
+    )
+    do: list[str] | None = Field(
+        default=None,
+        description="List of step names to execute in the loop body (for while steps)",
     )
 
 
