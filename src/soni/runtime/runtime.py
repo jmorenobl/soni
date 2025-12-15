@@ -268,10 +268,10 @@ class RuntimeLoop:
         This method initializes the graph asynchronously if not already done.
         Uses a lock to prevent concurrent initialization.
 
-        Uses the simplified 4-node dialogue graph from dm/graph.py:
+        Uses the subgraph architecture with OrchestratorGraph:
         - understand: NLU → Commands
         - execute: Commands → State changes
-        - step: Run current flow step
+        - flow_* subgraphs: One compiled StateGraph per flow
         - respond: Generate response
         """
         if self.graph is None:
@@ -283,7 +283,7 @@ class RuntimeLoop:
 
                     # Create runtime context with all dependencies
                     from soni.core.state import create_runtime_context
-                    from soni.dm.graph import build_graph
+                    from soni.dm.orchestrator import build_orchestrator_graph
 
                     runtime_context = create_runtime_context(
                         config=self.config,
@@ -293,9 +293,9 @@ class RuntimeLoop:
                         du=self.du,
                     )
 
-                    # Build the generic dialogue graph (not the flow-specific one)
-                    # This graph has proper routing for all conversation states
-                    self.graph = build_graph(
+                    # Build orchestrator graph with flow subgraphs
+                    self.graph = build_orchestrator_graph(
+                        config=self.config,
                         context=runtime_context,
                         checkpointer=self.checkpointer,
                     )
