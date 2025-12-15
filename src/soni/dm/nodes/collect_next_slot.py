@@ -95,6 +95,7 @@ async def collect_next_slot_node(
         "waiting_for_slot": next_slot,
         "current_prompted_slot": next_slot,
         "conversation_state": "waiting_for_slot",
+        "action_result": None,  # Critical: Clear stale action results (e.g., from previous turns)
     }
 
     # Check if we're being called after validate_slot
