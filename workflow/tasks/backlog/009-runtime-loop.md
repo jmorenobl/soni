@@ -37,64 +37,49 @@ class RuntimeLoop:
     
     def __init__(self, config: SoniConfig):
         self.config = config
-        self.flow_manager = FlowManager()
-        self.du = SoniDU()
-        self.graph = None
-        self.checkpointer = None
+        # Lazy initialization for everything
+        self.flow_manager: FlowManager | None = None
+        self.du: SoniDU | None = None
+        self.graph: CompiledGraph | None = None
+        self.checkpointer: BaseCheckpointSaver | None = None
     
     async def initialize(self) -> None:
-        """Initialize the runtime (compile graph, setup checkpointer)."""
-        # Context is passed at invoke time, not build time
-        # but we need to pass a dummy or schema to builder if needed for validation
-        orchestrator = OrchestratorGraph(self.config, RuntimeContext)
-        self.graph = orchestrator.build().compile(
-            checkpointer=self.checkpointer
-        )
-    
-    async def process_message(
-        self,
-        message: str,
-        user_id: str = "default",
-    ) -> str:
-        """Process a user message and return response."""
+        """Initialize all components."""
+        self.flow_manager = FlowManager()
+        self.du = SoniDU(use_cot=True)
+        
+        # Use builder to compile graph
+        context = {"flow_manager": self.flow_manager} # passed to builder, not graph invoke
+        self.graph = build_orchestrator(self.config, context)
+
+    async def process_message(self, message: str, user_id: str = "default") -> str:
         if self.graph is None:
             await self.initialize()
-        
-        # Create context for this specific run
+
+        # Create runtime context for this request
         context = RuntimeContext(
             flow_manager=self.flow_manager,
             du=self.du,
-            config=self.config,
-            # Add action_handler when implemented
+            config=self.config
         )
-        
+
         config = {"configurable": {"thread_id": user_id}}
-        
-        # Get or create state
         state = await self._get_or_create_state(user_id)
         state["user_message"] = message
         state["turn_count"] += 1
         
-        # Run graph
         result = await self.graph.ainvoke(
             state, 
             config=config,
-            context=context,  # <-- Pass runtime context here
+            context=context
         )
-        
         return result.get("last_response", "I don't understand.")
-    
+
     async def _get_or_create_state(self, user_id: str) -> DialogueState:
         """Get existing state or create new one."""
-        if self.checkpointer:
-            # Try to load from checkpointer
-            pass
+        # TODO: Implement actual checkpoint loading
+        # For now, always fresh state if not using persistent checkpointer
         return create_empty_dialogue_state()
-    
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        # Close checkpointer, etc
-        pass
 ```
 
 ### TDD Cycle

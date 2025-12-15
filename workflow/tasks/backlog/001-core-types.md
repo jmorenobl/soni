@@ -123,16 +123,13 @@ def create_empty_dialogue_state() -> DialogueState:
 
 #### Red Phase: Write Failing Tests
 
-**Test file:** `tests/unit/core/test_types.py`
+**Test file:** `tests/unit/core/test_state.py`
 
 ```python
 """Unit tests for core types."""
 import pytest
-from soni.core.types import (
-    DialogueState,
-    FlowContext,
-    create_empty_dialogue_state,
-)
+from soni.core.types import DialogueState
+from soni.core.state import create_empty_dialogue_state
 
 
 class TestDialogueState:
@@ -150,7 +147,6 @@ class TestDialogueState:
         # Assert
         assert state["flow_stack"] == []
         assert state["flow_slots"] == {}
-        assert state["flow_state"] == "idle"
         assert state["turn_count"] == 0
 
     def test_dialogue_state_is_json_serializable(self):

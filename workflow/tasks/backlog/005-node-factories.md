@@ -37,7 +37,7 @@ NodeFunction = Callable[[DialogueState], dict[str, Any]]
 class NodeFactory(Protocol):
     """Protocol for step type node factories."""
     
-    def create(self, step: StepConfig, context: Any) -> NodeFunction:
+    def create(self, step: StepConfig) -> NodeFunction:
         """Create a node function for the given step config."""
         ...
 ```
@@ -54,11 +54,7 @@ from soni.compiler.nodes.base import NodeFunction
 
 
 class CollectNodeFactory:
-    """Factory for collect step nodes.
-    
-    Uses LangGraph's Runtime for dependency injection.
-    Requires graph to be initialized with context_schema=RuntimeContext.
-    """
+    """Factory for collect step nodes."""
     
     def create(self, step: StepConfig) -> NodeFunction:
         """Create a node that collects a slot value."""

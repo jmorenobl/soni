@@ -82,23 +82,36 @@ class SubgraphBuilder:
                 builder.add_edge(name, target)
                 continue
             
-            # Handle branch
-            if step.type == "branch" and step.cases:
-                self._add_branch_edges(builder, name, step, next_step)
-                continue
-            
-            # Handle while
-            if step.type == "while":
-                self._add_while_edges(builder, name, step, next_step)
-                continue
-            
-            # Handle collect/confirm (conditional on waiting)
-            if step.type in ("collect", "confirm"):
-                self._add_waiting_edges(builder, name, next_step)
-                continue
-            
-            # Default: linear edge
-            builder.add_edge(name, next_step or END)
+            # Use Command pattern in nodes for branching instead of complex conditional edges here
+            # But for simple linear flow, we add the default edge
+            if not step.jump_to and next_step:
+                builder.add_edge(name, next_step)
+            elif not next_step:
+                builder.add_edge(name, END)
+```
+
+**Archivo:** `src/soni/compiler/nodes/__init__.py`
+
+```python
+"""Node factory registry."""
+from .base import NodeFactory
+from .collect import CollectNodeFactory
+from .action import ActionNodeFactory
+# ... other imports
+
+def get_factory_for_step(step_type: str) -> NodeFactory:
+    """Get the appropriate factory for a step type."""
+    factories = {
+        "collect": CollectNodeFactory(),
+        "action": ActionNodeFactory(),
+        # Add others
+    }
+    
+    factory = factories.get(step_type)
+    if not factory:
+        raise ValueError(f"Unknown step type: {step_type}")
+        
+    return factory
 ```
 
 ### TDD Cycle

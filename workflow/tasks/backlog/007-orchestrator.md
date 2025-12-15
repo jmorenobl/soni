@@ -23,40 +23,20 @@ Implement OrchestratorGraph that coordinates flow subgraphs and manages the main
 **Archivo:** `src/soni/dm/orchestrator.py`
 
 ```python
-"""Orchestrator graph - coordinates flow subgraphs."""
+"""Orchestrator graph definition."""
 from typing import Literal
 from langgraph.graph import END, START, StateGraph, Command
-from soni.core.config import SoniConfig
 from soni.core.types import DialogueState, RuntimeContext
-from soni.compiler.subgraph import SubgraphBuilder
 from soni.dm.nodes import understand_node, execute_node, respond_node
 
-
 class OrchestratorGraph:
-    """Main dialogue graph that orchestrates flow subgraphs.
+    """Main dialogue graph definition."""
     
-    Uses Runtime DI via context_schema=RuntimeContext.
-    Uses Command for state updates combined with routing.
-    """
-    
-    def __init__(self, config: SoniConfig, context: RuntimeContext):
-        self.config = config
-        self.context = context
-        self.flow_subgraphs: dict[str, StateGraph] = {}
-    
-    def compile_flows(self) -> None:
-        """Compile all flows to subgraphs."""
-        # Pass context.du.config/etc if needed by builder
-        builder = SubgraphBuilder(self.context)
-        
-        for flow_name, flow_config in self.config.flows.items():
-            subgraph = builder.build(flow_config)
-            self.flow_subgraphs[flow_name] = subgraph
-    
+    def __init__(self, flow_subgraphs: dict[str, StateGraph]):
+        self.flow_subgraphs = flow_subgraphs
+
     def build(self) -> StateGraph:
-        """Build the orchestrator graph."""
-        self.compile_flows()
-        
+        """Build the orchestrator graph structure."""
         # Initialize graph with context_schema for Dependency Injection
         builder = StateGraph(DialogueState, context_schema=RuntimeContext)
         
@@ -70,8 +50,6 @@ class OrchestratorGraph:
             builder.add_node(f"flow_{flow_name}", subgraph.compile())
         
         # Edges
-        # execute_node returns Command[Literal[...]], so traditional edges 
-        # from "execute" are replaced by the Command's goto logic
         builder.add_edge(START, "understand")
         builder.add_edge("understand", "execute")
         
@@ -82,7 +60,30 @@ class OrchestratorGraph:
         builder.add_edge("respond", END)
         
         return builder
+```
 
+**Archivo:** `src/soni/dm/builder.py`
+
+```python
+"""Graph construction logic."""
+from soni.core.config import SoniConfig
+from soni.compiler.subgraph import SubgraphBuilder
+from soni.dm.orchestrator import OrchestratorGraph
+from langgraph.graph import CompiledGraph
+
+def build_orchestrator(config: SoniConfig, context: dict) -> CompiledGraph:
+    """Compile flows and build the complete orchestrator graph."""
+    # 1. Compile all flows to subgraphs
+    compiler = SubgraphBuilder(context)
+    subgraphs = {
+        name: compiler.build(flow) 
+        for name, flow in config.flows.items()
+    }
+
+    # 2. Build orchestrator with compiled subgraphs
+    orchestrator = OrchestratorGraph(subgraphs)
+    return orchestrator.build().compile()
+```
 # dm/nodes/execute.py would look like this:
 # 
 # def execute_node(

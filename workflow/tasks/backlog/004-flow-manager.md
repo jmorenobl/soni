@@ -75,38 +75,50 @@ class FlowManager:
         context["flow_state"] = result
         
         return context
-    
+    async def handle_intent_change(
+        self,
+        state: DialogueState,
+        new_flow: str,
+    ) -> None:
+        """Handle intent switch (push new flow)."""
+        self.push_flow(state, new_flow)
+        
     def get_active_context(self, state: DialogueState) -> FlowContext | None:
         """Get the currently active flow context."""
         if not state["flow_stack"]:
             return None
         return state["flow_stack"][-1]
     
-    def set_slot(
-        self,
-        state: DialogueState,
-        slot_name: str,
-        value: any,
-    ) -> None:
-        """Set a slot value for the active flow."""
+    def set_slot(self, state: DialogueState, slot_name: str, value: Any) -> None:
+        """Set a slot value in the active flow context."""
         context = self.get_active_context(state)
-        if context:
-            flow_id = context["flow_id"]
-            if flow_id not in state["flow_slots"]:
-                state["flow_slots"][flow_id] = {}
-            state["flow_slots"][flow_id][slot_name] = value
+        if not context:
+            return
+            
+        flow_id = context["flow_id"]
+        if flow_id not in state["flow_slots"]:
+            state["flow_slots"][flow_id] = {}
+            
+        state["flow_slots"][flow_id][slot_name] = value
+
+    def get_slot(self, state: DialogueState, slot_name: str) -> Any:
+        """Get a slot value from the active flow context."""
+        context = self.get_active_context(state)
+        if not context:
+            return None
+            
+        flow_id = context["flow_id"]
+        return state["flow_slots"].get(flow_id, {}).get(slot_name)
     
-    def get_slot(
-        self,
-        state: DialogueState,
-        slot_name: str,
-    ) -> any:
-        """Get a slot value from the active flow."""
+    def advance_step(self, state: DialogueState) -> bool:
+        """Advance to next step in current flow.
+        Returns True if advanced, False if flow complete.
+        """
         context = self.get_active_context(state)
-        if context:
-            flow_id = context["flow_id"]
-            return state["flow_slots"].get(flow_id, {}).get(slot_name)
-        return None
+        if not context:
+            return False
+        context["step_index"] += 1
+        return True
     
     def get_all_slots(self, state: DialogueState) -> dict:
         """Get all slots for the active flow."""

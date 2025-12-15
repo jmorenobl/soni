@@ -65,22 +65,29 @@ class ActionHandler:
     def __init__(self, registry: ActionRegistry):
         self.registry = registry
     
-    async def execute(
-        self,
-        action_name: str,
-        inputs: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute an action by name with given inputs."""
+    async def execute(self, action_name: str, inputs: dict) -> dict:
+        """Execute a registered action with validation."""
         action = self.registry.get(action_name)
-        
-        if action is None:
+        if not action:
             raise ActionError(f"Action '{action_name}' not found")
+
+        # Validate arguments using inspection
+        sig = inspect.signature(action)
+        required = [
+            p.name for p in sig.parameters.values() 
+            if p.default == inspect.Parameter.empty 
+            and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        ]
         
+        missing = [param for param in required if param not in inputs]
+        if missing:
+             raise ActionError(f"Action '{action_name}' missing inputs: {missing}")
+
+        # Execute
         try:
-            result = await action(**inputs)
-            return result
+            return await action(**inputs)
         except Exception as e:
-            raise ActionError(f"Action '{action_name}' failed: {e}") from e
+            raise ActionError(f"Action execution failed: {e}")
 ```
 
 ### TDD Cycle

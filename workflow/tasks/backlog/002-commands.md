@@ -156,6 +156,7 @@ def parse_command(data: dict[str, Any]) -> Command:
     
     cls = command_map.get(command_type, Command)
     return cls(**{k: v for k, v in data.items() if k != "type"})
+    return Command.parse(data)
 ```
 
 ### TDD Cycle (MANDATORY for new features)
@@ -187,7 +188,7 @@ class TestStartFlowCommand:
         cmd = StartFlow(flow_name="book_flight")
         
         # Assert
-        assert cmd.command_type == "start_flow"
+        assert cmd.type == "start_flow"
         assert cmd.flow_name == "book_flight"
 
     def test_start_flow_with_initial_slots(self):

@@ -88,8 +88,8 @@ class FlowConfig(BaseModel):
     """Configuration for a single flow."""
     
     description: str
-    steps: list[StepConfig] | None = None
-    process: list[StepConfig] | None = None
+    steps: list[StepConfig] = Field(default_factory=list)
+    process: list[StepConfig] | None = None # Keep for backward compatibility if needed
     
     @property
     def steps_or_process(self) -> list[StepConfig]:
@@ -97,22 +97,36 @@ class FlowConfig(BaseModel):
 
 
 class SoniConfig(BaseModel):
-    """Root configuration for Soni."""
+    """Main configuration model."""
     
     version: str = "1.0"
     flows: dict[str, FlowConfig] = Field(default_factory=dict)
+```
+
+**Archivo:** `src/soni/core/loader.py`
+
+```python
+"""Configuration loader service."""
+from pathlib import Path
+import yaml
+from soni.core.config import SoniConfig
+from soni.core.errors import ConfigError
+
+class ConfigLoader:
+    """Loads configuration from various sources."""
     
-    @classmethod
-    def load(cls, path: str | Path) -> "SoniConfig":
-        """Load configuration from YAML file."""
-        path = Path(path)
+    @staticmethod
+    def from_yaml(path: Path) -> SoniConfig:
+        """Load from YAML file."""
         if not path.exists():
-            raise FileNotFoundError(f"Config file not found: {path}")
-        
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        
-        return cls(**data)
+            raise ConfigError(f"Config not found: {path}")
+            
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f)
+            return SoniConfig.model_validate(data)
+        except Exception as e:
+            raise ConfigError(f"Failed to load config: {e}")
 ```
 
 ### TDD Cycle
@@ -128,13 +142,6 @@ def test_flow_stack_error_inherits_from_flow_error():
     assert issubclass(FlowStackError, FlowError)
 
 # tests/unit/core/test_config.py
-def test_soni_config_loads_from_yaml(tmp_path):
-    config_file = tmp_path / "soni.yaml"
-    config_file.write_text("""
-version: "1.0"
-flows:
-  book_flight:
-    description: Book a flight
     steps:
       - step: collect_origin
         type: collect
