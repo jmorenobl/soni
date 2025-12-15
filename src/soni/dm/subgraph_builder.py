@@ -68,14 +68,17 @@ def build_flow_subgraph(
         step_names.append(step_name)
         
         # Create node function for this step
-        node_fn = _create_step_node(step, context)
+        node_fn = _create_step_node(step, context, config)
         builder.add_node(step_name, node_fn)
     
-    # Add edges: linear by default
+    # Build step name lookup for jump_to resolution
+    step_name_set = set(step_names)
+    
+    # Add edges: linear by default, with special handling for branches
     # START → first step
     builder.add_edge(START, step_names[0])
     
-    # Each step → next step (with conditional for waiting)
+    # Each step → next step (with conditional for waiting/branching)
     for i, step_name in enumerate(step_names):
         step = steps[i]
         
@@ -84,9 +87,48 @@ def build_flow_subgraph(
         else:
             next_step = None  # Last step
         
+        # Handle explicit jump_to
+        if step.jump_to:
+            if step.jump_to in step_name_set:
+                builder.add_edge(step_name, step.jump_to)
+            elif step.jump_to in ("end", "__end__"):
+                builder.add_edge(step_name, END)
+            else:
+                logger.warning(f"Unknown jump_to target: {step.jump_to}")
+                builder.add_edge(step_name, END)
+            continue
+        
+        # Handle branch steps with conditional edges
+        if step.type == "branch" and step.cases:
+            def make_branch_router(cases: dict[str, str], default_next: str | None):
+                def route(state: DialogueState) -> str:
+                    # Get the value to branch on from state
+                    branch_value = state.get("branch_result", "default")
+                    
+                    if branch_value in cases:
+                        target = cases[branch_value]
+                        if target in ("end", "__end__"):
+                            return END
+                        return target
+                    
+                    # Default: continue to next step
+                    if default_next:
+                        return default_next
+                    return END
+                return route
+            
+            router = make_branch_router(step.cases, next_step)
+            routing = {END: END}
+            for target in step.cases.values():
+                if target not in ("end", "__end__"):
+                    routing[target] = target
+            if next_step:
+                routing[next_step] = next_step
+            
+            builder.add_conditional_edges(step_name, router, routing)
+        
         # Steps that need user input end the subgraph turn
-        if step.type in ("collect", "confirm"):
-            # Collect/confirm: route based on whether slot is filled
+        elif step.type in ("collect", "confirm"):
             def make_router(current_step: StepConfig, next_name: str | None):
                 async def route(state: DialogueState) -> str:
                     if state.get("flow_state") == FlowState.WAITING_INPUT:
@@ -115,6 +157,7 @@ def build_flow_subgraph(
 def _create_step_node(
     step: StepConfig,
     context: RuntimeContext,
+    config: SoniConfig,
 ) -> Any:
     """Create a node function for a step.
     
@@ -122,6 +165,37 @@ def _create_step_node(
     """
     step_type = step.type
     step_name = step.step
+    
+    # Handle branch step - evaluates condition and sets branch_result
+    if step_type == "branch":
+        input_var = step.input
+        cases = step.cases or {}
+        
+        async def branch_node(state: DialogueState) -> dict[str, Any]:
+            slots = get_all_slots(state)
+            
+            # Get the value to evaluate from slots or state
+            value = slots.get(input_var) or state.get(input_var, "")
+            
+            # Convert to string for case matching
+            value_str = str(value) if value else "default"
+            
+            logger.debug(f"Branch on {input_var}={value_str}, cases={list(cases.keys())}")
+            
+            # Find matching case
+            result = "default"
+            for case_value, target in cases.items():
+                if case_value == value_str:
+                    result = case_value
+                    break
+            
+            return {
+                "branch_result": result,
+                "flow_state": FlowState.RUNNING,
+            }
+        
+        branch_node.__name__ = f"branch_{step_name}"
+        return branch_node
     
     if step_type == "collect":
         slot_name = step.slot
