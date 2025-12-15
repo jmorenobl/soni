@@ -268,13 +268,11 @@ class RuntimeLoop:
         This method initializes the graph asynchronously if not already done.
         Uses a lock to prevent concurrent initialization.
 
-        Uses the generic dialogue graph from builder.py which has:
-        - understand node (NLU processing)
-        - validate_slot node (slot validation)
-        - collect_next_slot node (slot collection with interrupt)
-        - execute_action node (action execution)
-        - generate_response node (response generation)
-        - Routing based on NLU results and conversation state
+        Uses the simplified 4-node dialogue graph from dm/graph.py:
+        - understand: NLU → Commands
+        - execute: Commands → State changes
+        - step: Run current flow step
+        - respond: Generate response
         """
         if self.graph is None:
             async with self._graph_init_lock:
@@ -285,7 +283,7 @@ class RuntimeLoop:
 
                     # Create runtime context with all dependencies
                     from soni.core.state import create_runtime_context
-                    from soni.dm.builder import build_graph
+                    from soni.dm.graph import build_graph
 
                     runtime_context = create_runtime_context(
                         config=self.config,
