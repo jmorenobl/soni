@@ -47,22 +47,34 @@ class NodeFactory(Protocol):
 ```python
 """CollectNodeFactory - generates collect step nodes."""
 from typing import Any
+from langgraph.runtime import Runtime
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, RuntimeContext
 from soni.compiler.nodes.base import NodeFunction
 
 
 class CollectNodeFactory:
-    """Factory for collect step nodes."""
+    """Factory for collect step nodes.
     
-    def create(self, step: StepConfig, context: Any) -> NodeFunction:
-        """Create a node that collects a slot value."""
+    Uses LangGraph's Runtime for dependency injection instead of closures.
+    This is the recommended pattern for accessing context in nodes.
+    """
+    
+    def create(self, step: StepConfig) -> NodeFunction:
+        """Create a node that collects a slot value.
+        
+        The returned node uses Runtime[RuntimeContext] for accessing
+        flow_manager and other dependencies.
+        """
         slot_name = step.slot
         prompt = step.message or f"Please provide {slot_name}"
         
-        async def collect_node(state: DialogueState) -> dict[str, Any]:
-            # Check if slot already filled
-            flow_manager = context["flow_manager"]
+        async def collect_node(
+            state: DialogueState,
+            runtime: Runtime[RuntimeContext],
+        ) -> dict[str, Any]:
+            # Access dependencies via runtime context (DI pattern)
+            flow_manager = runtime.context["flow_manager"]
             value = flow_manager.get_slot(state, slot_name)
             
             if value is not None:

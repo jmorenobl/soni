@@ -32,8 +32,11 @@ These TypedDicts are the foundation of all state management in Soni. They must b
 
 Pure TypedDict structures for LangGraph state management.
 No methods - these are data-only structures.
+Uses Annotated reducers for message aggregation.
 """
-from typing import Any, Literal, TypedDict
+from typing import Any, Annotated, Literal, TypedDict
+from langgraph.graph.message import add_messages
+from langchain_core.messages import AnyMessage
 
 
 FlowState = Literal["idle", "active", "waiting_input", "done", "error"]
@@ -56,12 +59,15 @@ class DialogueState(TypedDict):
     
     This is the single source of truth for conversation state.
     All nodes read from and write to this structure.
+    
+    Uses Annotated reducers:
+    - messages: Uses add_messages for proper message aggregation
     """
     
-    # User communication
+    # User communication (with reducer for message accumulation)
     user_message: str
     last_response: str
-    messages: list[dict[str, Any]]
+    messages: Annotated[list[AnyMessage], add_messages]  # Reducer for messages
     
     # Flow management
     flow_stack: list[FlowContext]
@@ -71,7 +77,7 @@ class DialogueState(TypedDict):
     flow_state: FlowState
     waiting_for_slot: str | None
     
-    # Commands from NLU
+    # Commands from NLU (replaced each turn, no reducer)
     commands: list[dict[str, Any]]  # Serialized commands
     
     # Transient data

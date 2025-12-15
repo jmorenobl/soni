@@ -45,28 +45,44 @@ class ExtractCommands(dspy.Signature):
 **Archivo:** `src/soni/du/modules.py`
 
 ```python
-"""DSPy modules for dialogue understanding."""
+"""DSPy modules for dialogue understanding.
+
+IMPORTANT: Async-first design using dspy.asyncify.
+All public methods are async.
+"""
 import dspy
 from soni.core.commands import parse_command, Command
 from soni.du.signatures import ExtractCommands
 
 
 class SoniDU(dspy.Module):
-    """Dialogue Understanding module using DSPy."""
+    """Dialogue Understanding module using DSPy.
+    
+    Async-first design:
+    - Uses dspy.asyncify for async LM calls
+    - ChainOfThought for reasoning
+    - MIPROv2 optimization support
+    - Save/load for persistence
+    """
     
     def __init__(self):
         super().__init__()
         self.extractor = dspy.ChainOfThought(ExtractCommands)
+        # Wrap for async support
+        self._async_extractor = dspy.asyncify(self.extractor)
     
-    def forward(
+    async def forward(
         self,
         user_message: str,
         available_flows: list[str],
         active_flow: str = "none",
         waiting_for_slot: str = "none",
     ) -> list[Command]:
-        """Extract commands from user message."""
-        result = self.extractor(
+        """Extract commands from user message (async).
+        
+        All I/O operations use async patterns.
+        """
+        result = await self._async_extractor(
             user_message=user_message,
             available_flows=available_flows,
             active_flow=active_flow,
@@ -82,6 +98,58 @@ class SoniDU(dspy.Module):
                 continue
         
         return commands
+    
+    def save(self, path: str) -> None:
+        """Save optimized module to file."""
+        super().save(path)
+    
+    def load(self, path: str) -> None:
+        """Load optimized module from file."""
+        super().load(path)
+        # Re-wrap for async after loading
+        self._async_extractor = dspy.asyncify(self.extractor)
+```
+
+**Archivo:** `src/soni/du/optimizer.py`
+
+```python
+"""MIPROv2 optimizer wrapper for SoniDU.
+
+Uses DSPy's latest MIPROv2 for prompt optimization.
+"""
+from dspy.teleprompt import MIPROv2
+from soni.du.modules import SoniDU
+
+
+async def optimize_du(
+    trainset: list,
+    metric: callable,
+    auto: str = "light",  # "light", "medium", "heavy"
+) -> SoniDU:
+    """Optimize SoniDU with MIPROv2.
+    
+    Args:
+        trainset: Training examples
+        metric: Evaluation metric function
+        auto: Optimization intensity
+    
+    Returns:
+        Optimized SoniDU module
+    """
+    teleprompter = MIPROv2(
+        metric=metric,
+        auto=auto,
+    )
+    
+    program = SoniDU()
+    optimized = teleprompter.compile(
+        program.deepcopy(),
+        trainset=trainset,
+        max_bootstrapped_demos=3,
+        max_labeled_demos=4,
+    )
+    
+    return optimized
 ```
 
 ### TDD Cycle
