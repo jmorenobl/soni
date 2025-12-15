@@ -20,6 +20,13 @@ BANKING = DomainConfig(
         "block_card_service",
         "fetch_transactions",
     ],
+    flow_descriptions={
+        "transfer_funds": "Transfer money between accounts or to other people",
+        "check_balance": "Check your account balance or how much money you have",
+        "activate_card": "Activate a new debit or credit card",
+        "block_card": "Block a lost or stolen card",
+        "transaction_history": "View recent transactions and account activity",
+    },
     slots={
         "amount": "number",
         "currency": "string",

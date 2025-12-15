@@ -26,6 +26,13 @@ FLIGHT_BOOKING = DomainConfig(
         "cancel_booking",
         "send_confirmation",
     ],
+    flow_descriptions={
+        "book_flight": "Book flights between cities with departure and return dates",
+        "search_flights": "Search for available flights and compare prices",
+        "check_booking": "Check the status of an existing booking",
+        "modify_booking": "Modify an existing flight booking",
+        "cancel_booking": "Cancel a flight booking",
+    },
     slots={
         "origin": "city",
         "destination": "city",

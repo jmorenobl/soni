@@ -9,27 +9,30 @@
         "history": {
           "messages": [
             {
+              "role": "user",
+              "content": "I want to transfer money to mom"
+            },
+            {
               "role": "assistant",
-              "content": "How much would you like to send?"
+              "content": "How much would you like to transfer?"
             }
           ]
         },
         "context": {
           "current_slots": {
-            "recipient": "Mom"
+            "recipient": "mom"
           },
           "available_actions": [
             "execute_transfer",
             "get_balance"
           ],
           "available_flows": {
-            "transfer_funds": "transfer_funds",
-            "check_balance": "check_balance"
+            "transfer_funds": "Transfer money between accounts or to other people",
+            "check_balance": "Check your account balance or how much money you have"
           },
           "current_flow": "transfer_funds",
           "expected_slots": [
-            "amount",
-            "currency"
+            "amount"
           ],
           "current_prompted_slot": "amount",
           "conversation_state": "waiting_for_slot"
@@ -45,7 +48,158 @@
       },
       {
         "augmented": true,
-        "user_message": "I'm not sure",
+        "user_message": "and what about my credit account?",
+        "history": {
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "Which account?"
+            },
+            {
+              "role": "user",
+              "content": "debit account"
+            },
+            {
+              "role": "assistant",
+              "content": "Your debit balance is USD 0.00."
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "recipient": "mom"
+          },
+          "available_actions": [
+            "execute_transfer",
+            "get_balance"
+          ],
+          "available_flows": {
+            "transfer_funds": "Transfer money between accounts or to other people",
+            "check_balance": "Check your account balance or how much money you have"
+          },
+          "current_flow": "transfer_funds",
+          "expected_slots": [
+            "amount"
+          ],
+          "current_prompted_slot": "amount",
+          "conversation_state": "waiting_for_slot"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "check_balance",
+          "slots": [
+            {
+              "name": "account_type",
+              "value": "credit",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "what about credit?",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "How much do I have?"
+            },
+            {
+              "role": "assistant",
+              "content": "Which account?"
+            },
+            {
+              "role": "user",
+              "content": "debit"
+            },
+            {
+              "role": "assistant",
+              "content": "Your debit balance is USD 0.00."
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "execute_transfer",
+            "get_balance"
+          ],
+          "available_flows": {
+            "transfer_funds": "Transfer money between accounts or to other people",
+            "check_balance": "Check your account balance or how much money you have"
+          },
+          "current_flow": "none",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "completed"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "check_balance",
+          "slots": [
+            {
+              "name": "account_type",
+              "value": "credit",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            }
+          ],
+          "confidence": 0.95,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "Forget it",
+        "history": {
+          "messages": [
+            {
+              "user_message": "I want to buy a laptop"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
+          ],
+          "available_flows": {
+            "search_product": "Search for products by name or category",
+            "add_to_cart": "Add products to your shopping cart",
+            "checkout": "Complete purchase and payment",
+            "track_order": "Track the status of an order shipment",
+            "return_product": "Return a product and get a refund"
+          },
+          "current_flow": "search_product",
+          "expected_slots": [
+            "product"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "cancellation",
+          "command": "search_product",
+          "slots": [],
+          "confidence": 0.85,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "I guess",
         "history": {
           "messages": [
             {
@@ -71,11 +225,11 @@
             "send_confirmation"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
           },
           "current_flow": "book_flight",
           "expected_slots": [],
@@ -92,26 +246,67 @@
         }
       },
       {
-        "user_message": "No, for 3 passengers",
+        "user_message": "Is my phone number necessary?",
         "history": {
           "messages": [
             {
-              "user_message": "Book a flight from Paris to London next week",
+              "user_message": "Checkout"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "search_products",
+            "add_to_cart",
+            "process_payment",
+            "track_shipment",
+            "initiate_return"
+          ],
+          "available_flows": {
+            "search_product": "Search for products by name or category",
+            "add_to_cart": "Add products to your shopping cart",
+            "checkout": "Complete purchase and payment",
+            "track_order": "Track the status of an order shipment",
+            "return_product": "Return a product and get a refund"
+          },
+          "current_flow": "search_product",
+          "expected_slots": [
+            "phone"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "clarification",
+          "command": "search_product",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "I don't know",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from Madrid to Barcelona tomorrow",
               "result": {
                 "command": "book_flight",
                 "message_type": "interruption",
                 "slots": [
                   {
                     "name": "origin",
-                    "value": "Paris"
+                    "value": "Madrid"
                   },
                   {
                     "name": "destination",
-                    "value": "London"
+                    "value": "Barcelona"
                   },
                   {
                     "name": "departure_date",
-                    "value": "next week"
+                    "value": "tomorrow"
                   }
                 ]
               }
@@ -120,9 +315,9 @@
         },
         "context": {
           "current_slots": {
-            "origin": "Paris",
-            "destination": "London",
-            "departure_date": "next week"
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
           },
           "available_actions": [
             "search_flights",
@@ -132,11 +327,11 @@
             "send_confirmation"
           ],
           "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
           },
           "current_flow": "book_flight",
           "expected_slots": [],
@@ -145,12 +340,103 @@
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "correction",
+          "message_type": "confirmation",
           "command": "book_flight",
+          "slots": [],
+          "confidence": 0.7,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "What destinations do you fly to?",
+        "history": {
+          "messages": [
+            {
+              "user_message": "Book a flight from Boston"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Boston"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [
+            "destination"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "digression",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Send 50 to dad",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [
+            "execute_transfer",
+            "get_balance",
+            "activate_card_service",
+            "block_card_service",
+            "fetch_transactions"
+          ],
+          "available_flows": {
+            "transfer_funds": "Transfer money between accounts or to other people",
+            "check_balance": "Check your account balance or how much money you have",
+            "activate_card": "Activate a new debit or credit card",
+            "block_card": "Block a lost or stolen card",
+            "transaction_history": "View recent transactions and account activity"
+          },
+          "current_flow": "none",
+          "expected_slots": [
+            "amount",
+            "currency",
+            "recipient",
+            "account_type",
+            "card_last_4"
+          ],
+          "current_prompted_slot": null,
+          "conversation_state": null
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "interruption",
+          "command": "transfer_funds",
           "slots": [
             {
-              "name": "passengers",
-              "value": "3",
+              "name": "amount",
+              "value": "50",
+              "confidence": 0.95,
+              "action": "provide",
+              "previous_value": null
+            },
+            {
+              "name": "recipient",
+              "value": "dad",
               "confidence": 0.95,
               "action": "provide",
               "previous_value": null
@@ -161,18 +447,52 @@
         }
       },
       {
-        "user_message": "maybe",
+        "user_message": "What do you mean by departure date?",
+        "history": {
+          "messages": []
+        },
+        "context": {
+          "current_slots": {},
+          "available_actions": [],
+          "available_flows": {},
+          "current_flow": "book_flight",
+          "expected_slots": [
+            "departure_date"
+          ],
+          "current_prompted_slot": "departure_date",
+          "conversation_state": "waiting_for_slot"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "clarification",
+          "command": null,
+          "slots": [],
+          "confidence": 0.85,
+          "confirmation_value": null
+        }
+      },
+      {
+        "user_message": "Which account?",
         "history": {
           "messages": [
             {
-              "user_message": "I want to buy a laptop",
+              "user_message": "I want to transfer money"
+            },
+            {
               "result": {
-                "command": "search_product",
-                "message_type": "interruption",
+                "command": "transfer_funds",
                 "slots": [
                   {
-                    "name": "product",
-                    "value": "laptop"
+                    "name": "amount",
+                    "value": "100"
+                  },
+                  {
+                    "name": "currency",
+                    "value": "USD"
+                  },
+                  {
+                    "name": "recipient",
+                    "value": "mom"
                   }
                 ]
               }
@@ -181,231 +501,8 @@
         },
         "context": {
           "current_slots": {
-            "product": "laptop",
-            "quantity": "1"
-          },
-          "available_actions": [
-            "search_products",
-            "add_to_cart",
-            "process_payment",
-            "track_shipment",
-            "initiate_return"
-          ],
-          "available_flows": {
-            "search_product": "search_product",
-            "add_to_cart": "add_to_cart",
-            "checkout": "checkout",
-            "track_order": "track_order",
-            "return_product": "return_product"
-          },
-          "current_flow": "search_product",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "confirmation",
-          "command": "search_product",
-          "slots": [],
-          "confidence": 0.7,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "Can I bring my pet?",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a flight"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_flights",
-            "book_flight",
-            "modify_booking",
-            "cancel_booking",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight",
-            "search_flights": "search_flights",
-            "check_booking": "check_booking",
-            "modify_booking": "modify_booking",
-            "cancel_booking": "cancel_booking"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [
-            "origin"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "digression",
-          "command": "book_flight",
-          "slots": [],
-          "confidence": 0.85,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "Do you have vegetarian options?",
-        "history": {
-          "messages": [
-            {
-              "user_message": "Book a table in Madrid"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "location": "Madrid"
-          },
-          "available_actions": [
-            "search_restaurants",
-            "book_table",
-            "modify_reservation",
-            "cancel_reservation",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_table": "book_table",
-            "search_restaurants": "search_restaurants",
-            "check_reservation": "check_reservation",
-            "modify_reservation": "modify_reservation",
-            "cancel_reservation": "cancel_reservation"
-          },
-          "current_flow": "book_table",
-          "expected_slots": [
-            "date"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "digression",
-          "command": "book_table",
-          "slots": [],
-          "confidence": 0.85,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "Proceed",
-        "history": {
-          "messages": [
-            {
-              "user_message": "I want to buy a laptop"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_products",
-            "add_to_cart",
-            "process_payment",
-            "track_shipment",
-            "initiate_return"
-          ],
-          "available_flows": {
-            "search_product": "search_product",
-            "add_to_cart": "add_to_cart",
-            "checkout": "checkout",
-            "track_order": "track_order",
-            "return_product": "return_product"
-          },
-          "current_flow": "search_product",
-          "expected_slots": [
-            "product"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "continuation",
-          "command": "search_product",
-          "slots": [],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "I want a red laptop",
-        "history": {
-          "messages": []
-        },
-        "context": {
-          "current_slots": {},
-          "available_actions": [
-            "search_products",
-            "add_to_cart",
-            "process_payment",
-            "track_shipment",
-            "initiate_return"
-          ],
-          "available_flows": {
-            "search_product": "search_product",
-            "add_to_cart": "add_to_cart",
-            "checkout": "checkout",
-            "track_order": "track_order",
-            "return_product": "return_product"
-          },
-          "current_flow": "none",
-          "expected_slots": [
-            "product",
-            "quantity",
-            "color",
-            "size",
-            "shipping_address"
-          ],
-          "current_prompted_slot": null,
-          "conversation_state": null
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "interruption",
-          "command": "search_product",
-          "slots": [
-            {
-              "name": "product",
-              "value": "laptop",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            },
-            {
-              "name": "color",
-              "value": "red",
-              "confidence": 0.9,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.9,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "Wait, I said 50 not 500",
-        "history": {
-          "messages": [
-            {
-              "role": "user",
-              "content": "Transfer 500 to mom"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "amount": "500",
+            "amount": "100",
+            "currency": "USD",
             "recipient": "mom"
           },
           "available_actions": [
@@ -416,75 +513,29 @@
             "fetch_transactions"
           ],
           "available_flows": {
-            "transfer_funds": "transfer_funds",
-            "check_balance": "check_balance",
-            "activate_card": "activate_card",
-            "block_card": "block_card",
-            "transaction_history": "transaction_history"
+            "transfer_funds": "Transfer money between accounts or to other people",
+            "check_balance": "Check your account balance or how much money you have",
+            "activate_card": "Activate a new debit or credit card",
+            "block_card": "Block a lost or stolen card",
+            "transaction_history": "View recent transactions and account activity"
           },
           "current_flow": "transfer_funds",
-          "expected_slots": [
-            "currency"
-          ],
+          "expected_slots": [],
           "current_prompted_slot": null,
           "conversation_state": null
         },
         "current_datetime": "2024-12-11T10:00:00",
         "result": {
-          "message_type": "correction",
+          "message_type": "clarification",
           "command": "transfer_funds",
-          "slots": [
-            {
-              "name": "amount",
-              "value": "50",
-              "confidence": 0.95,
-              "action": "provide",
-              "previous_value": null
-            }
-          ],
-          "confidence": 0.95,
-          "confirmation_value": null
-        }
-      },
-      {
-        "user_message": "No, change the destination",
-        "history": {
-          "messages": [
-            {
-              "role": "assistant",
-              "content": "Confirming: Flight to NYC on Dec 25. Correct?"
-            }
-          ]
-        },
-        "context": {
-          "current_slots": {
-            "destination": "NYC",
-            "date": "2025-12-25"
-          },
-          "available_actions": [
-            "book_flight",
-            "send_confirmation"
-          ],
-          "available_flows": {
-            "book_flight": "book_flight"
-          },
-          "current_flow": "book_flight",
-          "expected_slots": [],
-          "current_prompted_slot": null,
-          "conversation_state": "confirming"
-        },
-        "current_datetime": "2024-12-11T10:00:00",
-        "result": {
-          "message_type": "confirmation",
-          "command": "book_flight",
           "slots": [],
-          "confidence": 0.95,
-          "confirmation_value": false
+          "confidence": 0.9,
+          "confirmation_value": null
         }
       }
     ],
     "signature": {
-      "instructions": "Analyze and classify user messages within a dialogue context to determine intent and extract any relevant slot values. Classify the message into one of the following categories:\n- **slot_value**: The user provides a value for an expected slot.\n- **confirmation**: The user confirms or denies (responds with yes/no). If user denies without providing a new value, classify as confirmation (value=False).\n- **correction**: The user corrects a previously provided slot value.\n- **modification**: The user requests to change a slot value and provides the new value.\n- **interruption**: The user wishes to start or switch to a new flow from available options.\n- **cancellation**: The user abandons the current flow.\n- **digression**: The message is off-topic and does not correspond to any available flow.\n- **clarification**: The user seeks clarification about the current request.\n- **continuation**: The user's intent is unclear but they're proceeding with the conversation.\n\nObserve the following key rules:\n1. Match user messages semantically to the descriptions of available flows, not just based on exact wording.\n2. If a message matches a flow, classify it as an **interruption** for that flow.\n3. Only use **digression** when the message does not fit any available flow.\n4. Extract slot values from the message with the appropriate action type defined as provide (new), correct (reactive fix), or modify (proactive change).\n\nKeep the instruction clear and concise to guide the Language Model effectively.",
+      "instructions": "In the context of a dialogue system, analyze the user's message to classify its intent into one of the predefined categories: slot_value, confirmation, correction, modification, interruption, cancellation, digression, clarification, or continuation. Utilize the following key rules to ensure accurate classification: \n\n1. Semantically match the user's message to the descriptions of available flows, avoiding reliance solely on exact wording.\n2. If a user's message aligns with an available flow, classify it as an interruption with the corresponding flow as the command and extract any relevant slot values provided by the user.\n3. Only categorize a message as digression when it does not match any existing flows.\n4. Extract slot values mentioned in the message, indicating the appropriate action type such as providing new values, correcting previous entries, or modifying existing ones.\n\nThis classification task aims to accurately capture the user's intent and extract necessary slot values for further processing, enhancing the functionality of the dialogue system in responding effectively to user inquiries.",
       "fields": [
         {
           "prefix": "User Message:",

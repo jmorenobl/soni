@@ -417,7 +417,12 @@ class SoniDU(dspy.Module):
         4. Validating and normalizing confirmation_value
         """
         # 1. Filter invalid slot names
-        valid_slots = [slot for slot in result.slots if slot.name in context.expected_slots]
+        # CRITICAL FIX: Only filter slots for in-flow messages.
+        # Interruptions start/resume other flows, so their slots won't match current expected_slots.
+        if result.message_type in (MessageType.INTERRUPTION, MessageType.DIGRESSION):
+            valid_slots = result.slots
+        else:
+            valid_slots = [slot for slot in result.slots if slot.name in context.expected_slots]
 
         # 2. Fix slot actions based on current_slots
         for slot in valid_slots:

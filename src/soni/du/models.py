@@ -405,7 +405,8 @@ class SlotValue(BaseModel):
     """
 
     name: str = Field(
-        description="Slot name - MUST be in context.expected_slots. "
+        description="Slot name. Should be in context.expected_slots for normal messages, "
+        "but can be a new slot if message_type is INTERRUPTION (switching flows). "
         "Example: 'destination', 'departure_date', 'return_date'"
     )
 

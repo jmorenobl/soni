@@ -48,6 +48,8 @@ flows:
         - "Balance please"
         - "What's in my account?"
         - "Show me my balance"
+        - "and in my {account_type} account?"
+        - "and my {account_type}?"
     steps:
       - step: collect_account
         type: collect

@@ -209,6 +209,52 @@ class InterruptionGenerator(PatternGenerator):
                 )
             )
 
+            # Follow-up with slot extraction: "and what about a return on Dec 20?"
+            # User just got outbound flight info, now asks about return with date
+            examples.append(
+                ExampleTemplate(
+                    user_message="and what about a return on December 20th?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "assistant", "content": "When would you like to return?"},
+                                {"role": "user", "content": "December 15th"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Found flights for December 15th.",
+                                },
+                            ]
+                        ),
+                        current_slots={
+                            "origin": "Madrid",
+                            "destination": "Paris",
+                            "departure_date": "2025-12-15",
+                        },
+                        current_flow="book_flight",
+                        expected_slots=["return_date"],
+                        current_prompted_slot="return_date",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="book_flight",
+                        slots=[
+                            {
+                                "name": "return_date",
+                                "value": "December 20th",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "hotel_booking":
             examples.append(
                 ExampleTemplate(
@@ -228,6 +274,51 @@ class InterruptionGenerator(PatternGenerator):
                         command="search_flights",
                         slots=[],
                         confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Follow-up with slot extraction: "and for next week?"
+            # User booked one week, now asks about another
+            examples.append(
+                ExampleTemplate(
+                    user_message="and what about next week?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {
+                                    "role": "assistant",
+                                    "content": "When would you like to check in?",
+                                },
+                                {"role": "user", "content": "December 15th"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Found rooms available for December 15th.",
+                                },
+                            ]
+                        ),
+                        current_slots={"location": "Paris", "checkin_date": "2025-12-15"},
+                        current_flow="book_hotel",
+                        expected_slots=["checkout_date"],
+                        current_prompted_slot="checkout_date",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="book_hotel",
+                        slots=[
+                            {
+                                "name": "checkin_date",
+                                "value": "next week",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
                     ),
                     domain=domain_config.name,
                     pattern="interruption",
@@ -263,6 +354,47 @@ class InterruptionGenerator(PatternGenerator):
                 )
             )
 
+            # Follow-up with slot extraction: "and for 8 PM?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="and what about for 8 PM?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "assistant", "content": "What time would you prefer?"},
+                                {"role": "user", "content": "7 PM"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Reserved for 7 PM.",
+                                },
+                            ]
+                        ),
+                        current_slots={"location": "Madrid", "date": "2025-12-15", "time": "7 PM"},
+                        current_flow="book_table",
+                        expected_slots=["party_size"],
+                        current_prompted_slot="party_size",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="book_table",
+                        slots=[
+                            {
+                                "name": "time",
+                                "value": "8 PM",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
         elif domain_config.name == "ecommerce":
             examples.append(
                 ExampleTemplate(
@@ -282,6 +414,47 @@ class InterruptionGenerator(PatternGenerator):
                         command="search_flights",
                         slots=[],
                         confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Follow-up with slot extraction: "what about in blue?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="what about in blue?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "assistant", "content": "What color would you prefer?"},
+                                {"role": "user", "content": "black"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Found black laptops starting at $999.",
+                                },
+                            ]
+                        ),
+                        current_slots={"product": "laptop", "color": "black"},
+                        current_flow="search_product",
+                        expected_slots=["quantity"],
+                        current_prompted_slot="quantity",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="search_product",
+                        slots=[
+                            {
+                                "name": "color",
+                                "value": "blue",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
                     ),
                     domain=domain_config.name,
                     pattern="interruption",
@@ -448,6 +621,129 @@ class InterruptionGenerator(PatternGenerator):
                             }
                         ],
                         confidence=0.85,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 6: Follow-up interruption WITH slot extraction
+            # Critical pattern: User asks about ANOTHER account type after a balance check
+            # This teaches the model that follow-ups can carry slots for the NEW flow
+            examples.append(
+                ExampleTemplate(
+                    user_message="and in my credit account?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "assistant", "content": "Which account?"},
+                                {"role": "user", "content": "debit account"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Your debit balance is USD 0.00.",
+                                },
+                            ]
+                        ),
+                        current_slots={"recipient": "mom"},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                        current_prompted_slot="amount",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[
+                            {
+                                "name": "account_type",
+                                "value": "credit",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 7: Alternative phrasing - "What about my savings?"
+            examples.append(
+                ExampleTemplate(
+                    user_message="and what about my savings account?",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {"role": "assistant", "content": "Which account?"},
+                                {"role": "user", "content": "checking"},
+                                {
+                                    "role": "assistant",
+                                    "content": "Your checking balance is $5,000.",
+                                },
+                            ]
+                        ),
+                        current_slots={"recipient": "mom"},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                        current_prompted_slot="amount",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[
+                            {
+                                "name": "account_type",
+                                "value": "savings",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
+                    ),
+                    domain=domain_config.name,
+                    pattern="interruption",
+                    context_type="ongoing",
+                    current_datetime="2024-12-11T10:00:00",
+                )
+            )
+
+            # Example 8: Direct account check during transfer - "Check my checking account"
+            examples.append(
+                ExampleTemplate(
+                    user_message="Check my checking account",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[
+                                {
+                                    "role": "assistant",
+                                    "content": "How much would you like to send?",
+                                },
+                            ]
+                        ),
+                        current_slots={"recipient": "Mom"},
+                        current_flow="transfer_funds",
+                        expected_slots=["amount"],
+                        current_prompted_slot="amount",
+                        conversation_state="waiting_for_slot",
+                    ),
+                    expected_output=NLUOutput(
+                        message_type=MessageType.INTERRUPTION,
+                        command="check_balance",
+                        slots=[
+                            {
+                                "name": "account_type",
+                                "value": "checking",
+                                "confidence": 0.95,
+                                "action": "provide",
+                            }
+                        ],
+                        confidence=0.95,
                     ),
                     domain=domain_config.name,
                     pattern="interruption",

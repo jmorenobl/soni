@@ -18,6 +18,9 @@ class DomainConfig(BaseModel):
     name: str = Field(description="Domain identifier (e.g., 'flight_booking')")
     description: str = Field(description="Human-readable description")
     available_flows: list[str] = Field(description="Flow names available in this domain")
+    flow_descriptions: dict[str, str] = Field(
+        default_factory=dict, description="Flow name -> description mapping for semantic matching"
+    )
     available_actions: list[str] = Field(description="Action names available in this domain")
     slots: dict[str, str] = Field(description="Slot name -> slot type mapping")
     slot_prompts: dict[str, str] = Field(description="Slot name -> prompt text mapping")
@@ -72,9 +75,12 @@ class ExampleTemplate(BaseModel):
         Returns:
             dspy.Example ready for training/optimization
         """
-        # Convert available_flows list to dict (flow_name -> flow_name)
-        # DialogueContext expects dict[str, str] but DomainConfig has list[str]
-        available_flows_dict = {flow: flow for flow in domain_config.available_flows}
+        # Convert available_flows list to dict (flow_name -> description)
+        # If flow_descriptions is provided, use it; otherwise fall back to flow_name
+        available_flows_dict = {
+            flow: domain_config.flow_descriptions.get(flow, flow)
+            for flow in domain_config.available_flows
+        }
 
         dialogue_context = DialogueContext(
             current_slots=self.conversation_context.current_slots,

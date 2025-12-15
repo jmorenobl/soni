@@ -22,6 +22,13 @@ RESTAURANT = DomainConfig(
         "cancel_reservation",
         "send_confirmation",
     ],
+    flow_descriptions={
+        "book_table": "Make restaurant reservations",
+        "search_restaurants": "Search for restaurants by cuisine and location",
+        "check_reservation": "Check the status of an existing restaurant reservation",
+        "modify_reservation": "Modify an existing restaurant reservation",
+        "cancel_reservation": "Cancel a restaurant reservation",
+    },
     slots={
         "location": "city",
         "date": "date",

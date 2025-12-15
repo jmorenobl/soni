@@ -28,7 +28,7 @@ class DialogueUnderstanding(dspy.Signature):
 
     Key rules:
     1. Match user message semantically to available_flows descriptions, not just exact words
-    2. If message matches a flow, use interruption with that flow as command
+    2. If message matches a flow, use interruption with that flow as command AND extract any provided slots
     3. Use digression only when message doesn't match ANY available flow
     4. Extract slot values mentioned in the message with appropriate action type
 

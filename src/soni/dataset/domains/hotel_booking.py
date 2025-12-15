@@ -22,6 +22,13 @@ HOTEL_BOOKING = DomainConfig(
         "cancel_reservation",
         "send_confirmation",
     ],
+    flow_descriptions={
+        "book_hotel": "Book hotel rooms in different cities",
+        "search_hotels": "Search for available hotels and compare options",
+        "check_reservation": "Check the status of an existing reservation",
+        "modify_reservation": "Modify an existing hotel reservation",
+        "cancel_reservation": "Cancel a hotel reservation",
+    },
     slots={
         "location": "city",
         "checkin_date": "date",

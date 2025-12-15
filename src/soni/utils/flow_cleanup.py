@@ -41,10 +41,27 @@ class FlowCleanupManager:
             metadata["completed_flows"] = []
         metadata["completed_flows"].append(completed_flow)
 
-        return {
+        result: dict[str, Any] = {
             "flow_stack": flow_stack_copy,
             "metadata": metadata,
         }
+
+        # Restore parent flow's conversation state if parent exists
+        if flow_stack_copy:
+            parent_flow = flow_stack_copy[-1]
+            parent_step = parent_flow.get("current_step")
+            # If parent was waiting for a slot, restore that state
+            if parent_step and parent_step.startswith("collect_"):
+                slot_name = parent_step.replace("collect_", "")
+                result["conversation_state"] = "waiting_for_slot"
+                result["waiting_for_slot"] = slot_name
+                result["current_prompted_slot"] = slot_name
+            elif parent_step and parent_step.startswith("confirm_"):
+                result["conversation_state"] = "confirming"
+            else:
+                result["conversation_state"] = "idle"
+
+        return result
 
     @staticmethod
     def should_cleanup(state: DialogueState) -> bool:

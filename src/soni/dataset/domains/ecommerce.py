@@ -22,6 +22,13 @@ ECOMMERCE = DomainConfig(
         "track_shipment",
         "initiate_return",
     ],
+    flow_descriptions={
+        "search_product": "Search for products by name or category",
+        "add_to_cart": "Add products to your shopping cart",
+        "checkout": "Complete purchase and payment",
+        "track_order": "Track the status of an order shipment",
+        "return_product": "Return a product and get a refund",
+    },
     slots={
         "product": "string",
         "quantity": "number",

@@ -54,9 +54,17 @@ def save_dataset(examples: list[dspy.Example], output_path: Path) -> None:
         "examples": [
             {
                 "user_message": ex.user_message,
+                "history": ex.history.model_dump()
+                if hasattr(ex.history, "model_dump")
+                else (
+                    {"messages": ex.history.messages}
+                    if hasattr(ex.history, "messages")
+                    else ex.history
+                ),
                 "context": ex.context.model_dump()
                 if hasattr(ex.context, "model_dump")
                 else ex.context,
+                "current_datetime": ex.current_datetime if hasattr(ex, "current_datetime") else "",
                 "result": ex.result.model_dump() if hasattr(ex.result, "model_dump") else ex.result,
             }
             for ex in examples
