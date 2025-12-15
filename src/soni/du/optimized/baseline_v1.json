@@ -532,6 +532,202 @@
           "confidence": 0.9,
           "confirmation_value": null
         }
+      },
+      {
+        "augmented": true,
+        "user_message": "maybe",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Book a flight from Madrid to Barcelona tomorrow"
+            },
+            {
+              "role": "assistant",
+              "content": "I found these flights. Would you like to confirm the booking?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.8,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "hmm",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Book a flight from Madrid to Barcelona tomorrow"
+            },
+            {
+              "role": "assistant",
+              "content": "Please review the details. Confirm?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.8,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "I don't know",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Book a flight from Madrid to Barcelona tomorrow"
+            },
+            {
+              "role": "assistant",
+              "content": "Confirm this?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "not sure",
+        "history": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Book a flight from Madrid to Barcelona tomorrow"
+            },
+            {
+              "role": "assistant",
+              "content": "Is this correct?"
+            }
+          ]
+        },
+        "context": {
+          "current_slots": {
+            "origin": "Madrid",
+            "destination": "Barcelona",
+            "departure_date": "tomorrow"
+          },
+          "available_actions": [
+            "search_flights",
+            "book_flight",
+            "modify_booking",
+            "cancel_booking",
+            "send_confirmation"
+          ],
+          "available_flows": {
+            "book_flight": "Book flights between cities with departure and return dates",
+            "search_flights": "Search for available flights and compare prices",
+            "check_booking": "Check the status of an existing booking",
+            "modify_booking": "Modify an existing flight booking",
+            "cancel_booking": "Cancel a flight booking"
+          },
+          "current_flow": "book_flight",
+          "expected_slots": [],
+          "current_prompted_slot": null,
+          "conversation_state": "confirming"
+        },
+        "current_datetime": "2024-12-11T10:00:00",
+        "result": {
+          "message_type": "confirmation",
+          "command": "book_flight",
+          "slots": [],
+          "confidence": 0.9,
+          "confirmation_value": null
+        }
       }
     ],
     "signature": {

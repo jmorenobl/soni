@@ -129,7 +129,7 @@ def configure_dspy_for_integration():
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and api_key.strip():
         try:
-            lm = dspy.LM("openai/gpt-4o-mini", api_key=api_key)
+            lm = dspy.LM("openai/gpt-4o-mini", api_key=api_key, cache=False)
             dspy.configure(lm=lm)
             yield
         except Exception as e:

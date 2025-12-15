@@ -184,6 +184,9 @@ async def test_confirmation_max_retries(
 
     # Give unclear responses 3 times
     response1 = await runtime.process_message("maybe", user_id)
+
+    # Assert assistant didn't understand and asks again
+    # "I didn't understand. Is this information correct? (yes/no)"
     assert "understand" in response1.lower()
 
     response2 = await runtime.process_message("hmm", user_id)

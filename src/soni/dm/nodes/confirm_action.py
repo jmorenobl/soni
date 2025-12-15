@@ -120,6 +120,7 @@ async def confirm_action_node(
             return {
                 "conversation_state": "confirming",
                 "last_response": existing_last_response,  # Preserve from handle_confirmation
+                "action_result": None,  # Clear to prevent priority override
             }
         else:
             # First re-execution after resume - this is the original confirmation message
@@ -131,6 +132,7 @@ async def confirm_action_node(
             return {
                 "conversation_state": "confirming",
                 # Don't set last_response - let it pass through
+                "action_result": None,  # Clear to prevent priority override
             }
 
     # Pause and wait for user confirmation
@@ -140,8 +142,10 @@ async def confirm_action_node(
 
     # Code after interrupt() executes when user responds
     # The node re-executes from the beginning, and interrupt() returns the resume value
+    # Clear action_result to prevent ResponseGenerator from using it instead of confirmation message
     return {
         "user_message": user_response,
         "conversation_state": "confirming",
         "last_response": confirmation_msg,
+        "action_result": None,  # Clear to prevent priority override in generate_response
     }
