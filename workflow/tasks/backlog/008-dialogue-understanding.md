@@ -120,14 +120,12 @@ class Command(BaseModel):
 class NLUOutput(BaseModel):
     """Structured output from NLU.
     
-    Contains the extracted commands and reasoning.
+    Note: reasoning is NOT included here because ChainOfThought
+    adds it automatically as a separate field.
     """
     
     commands: list[Command] = Field(
         description="List of commands to execute in order"
-    )
-    reasoning: str = Field(
-        description="Brief explanation of how user intent was interpreted"
     )
 ```
 
