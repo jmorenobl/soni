@@ -15,7 +15,7 @@ from soni.core.commands import (
 from soni.core.constants import ConversationState
 from soni.core.patterns.defaults import register_default_patterns
 from soni.core.patterns.registry import PatternRegistry
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState, NodeRuntime, RuntimeContext
 
 logger = logging.getLogger(__name__)
 
@@ -24,25 +24,31 @@ if not PatternRegistry.get_all():
     register_default_patterns()
 
 
-async def execute_commands_node(state: DialogueState, context: RuntimeContext) -> dict[str, Any]:
+async def execute_commands_node(state: DialogueState, runtime: NodeRuntime) -> dict[str, Any]:
     """LangGraph node for executing a list of commands.
 
     Args:
         state: Current dialogue state
-        context: Runtime dependencies
+        runtime: Runtime context with dependencies
 
     Returns:
         State updates (merged into global state)
     """
     commands: list[Command] = state.get("command_log", [])
     if not commands:
-        logger.info("No commands to execute.")
-        return {}
+        logger.info("No commands to execute. Defaulting to fallback response.")
+        # FIX: Prevent infinite loop if NLU returned no commands (e.g. "hmm", "maybe")
+        # Return generating_response so the turn ends and the user sees the fallback message
+        return {
+            "conversation_state": ConversationState.GENERATING_RESPONSE,
+            "last_response": "I didn't understand that. Could you rephrase?",
+        }
 
     logger.info(f"Executing {len(commands)} commands: {[str(c) for c in commands]}")
 
     # Track updates to return
     updates: dict[str, Any] = {}
+    context = runtime.context  # Extract RuntimeContext from NodeRuntime wrapper
 
     for command in commands:
         # 1. specific handling based on command type
@@ -72,20 +78,38 @@ async def _execute_single_command(
 
     if isinstance(command, StartFlow):
         # Push new flow
-        # Logic: flow_manager.push_flow(command.flow_name)
-        # We assume flow_manager is available in context
-        if context["flow_manager"]:
-            # This is a simplification; in real impl we'd call flow_manager methods
-            # For now, we return state updates that effectively start the flow
-            logger.info(f"Starting flow: {command.flow_name}")
-            # Real impl would involve updating flow_stack
-            return {"conversation_state": ConversationState.UNDERSTANDING}  # Placeholder
+        flow_manager = context.get("flow_manager")
+        if flow_manager:
+            try:
+                flow_manager.push_flow(
+                    state,
+                    flow_name=command.flow_name,
+                    inputs=command.slots,
+                    reason="nlu_command",
+                )
+                logger.info(f"Started flow: {command.flow_name} with inputs: {command.slots}")
+                return {
+                    "conversation_state": ConversationState.UNDERSTANDING,
+                    "flow_stack": state["flow_stack"],  # Persist modified stack
+                    "flow_slots": state["flow_slots"],  # Persist modified slots
+                }
+            except Exception as e:
+                logger.error(f"Failed to start flow {command.flow_name}: {e}")
+                return {}
 
     elif isinstance(command, SetSlot):
-        logger.info(f"Setting slot {command.slot_name} = {command.value}")
-        # Update flow_slots in state
-        # In a real impl, we'd merge this into the deeply nested flow_slots dict
-        return {}
+        flow_manager = context.get("flow_manager")
+        if flow_manager:
+            try:
+                flow_manager.set_slot(state, slot_name=command.slot_name, value=command.value)
+                logger.info(f"Set slot {command.slot_name} = {command.value}")
+                return {
+                    "flow_slots": state["flow_slots"],  # Persist modified slots
+                    "flow_stack": state["flow_stack"],  # Persist modified stack (ensure it exists)
+                }
+            except Exception as e:
+                logger.error(f"Failed to set slot {command.slot_name}: {e}")
+                return {}
 
     # AffirmConfirmation is now handled by ConfirmationPattern
     # elif isinstance(command, AffirmConfirmation):

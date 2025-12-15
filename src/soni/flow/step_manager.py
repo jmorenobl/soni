@@ -183,26 +183,36 @@ class FlowStepManager:
 
         # Set conversation_state based on step type
         step_type = next_step.type
+        updates = {"flow_stack": flow_stack}
+
         if step_type == "action":
             conversation_state = "ready_for_action"
+            updates["all_slots_filled"] = True
+            updates["waiting_for_slot"] = None
         elif step_type == "collect":
             conversation_state = "waiting_for_slot"
+            updates["all_slots_filled"] = False
+            if next_step.slot:
+                updates["waiting_for_slot"] = next_step.slot
         elif step_type == "confirm":
             conversation_state = "ready_for_confirmation"
+            updates["all_slots_filled"] = True
+            updates["waiting_for_slot"] = None
         elif step_type == "branch":
             # Branch steps don't have a specific waiting state
             conversation_state = "understanding"
+            updates["all_slots_filled"] = False
         elif step_type == "say":
             # Say steps just generate response
             conversation_state = "generating_response"
+            updates["all_slots_filled"] = False
         else:
             # Default to waiting_for_slot for unknown types
             conversation_state = "waiting_for_slot"
+            updates["all_slots_filled"] = False
 
-        return {
-            "flow_stack": flow_stack,
-            "conversation_state": conversation_state,
-        }
+        updates["conversation_state"] = conversation_state
+        return updates
 
     def is_step_complete(
         self,

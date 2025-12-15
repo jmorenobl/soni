@@ -42,8 +42,13 @@ def route_next(state: DialogueState) -> str:
         return NodeName.EXECUTE_ACTION
 
     # 4. Ready for Confirmation -> Ask
+    # 4. Ready for Confirmation -> Ask
     if conv_state == ConversationState.READY_FOR_CONFIRMATION:
         return NodeName.CONFIRM_ACTION
+
+    # 5. Generating Response -> Generate
+    if conv_state == ConversationState.GENERATING_RESPONSE:
+        return NodeName.GENERATE_RESPONSE
 
     # 5. Default: If active flow, continue flow steps
     if flow_stack:

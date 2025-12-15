@@ -84,12 +84,42 @@ def build_graph(
         },
     )
 
-    # Post-Node Routing logic (simplified for now - always generate response or loop back?)
-    # In v2.0, we usually generate response after doing something, then END.
+    # Post-Node Routing logic
+    # Nodes that can loop back or branch must use conditional edges
+    builder.add_conditional_edges(
+        NodeName.COLLECT_NEXT_SLOT,
+        route_next,
+        {
+            NodeName.EXECUTE_ACTION: NodeName.EXECUTE_ACTION,
+            NodeName.CONFIRM_ACTION: NodeName.CONFIRM_ACTION,
+            NodeName.COLLECT_NEXT_SLOT: NodeName.COLLECT_NEXT_SLOT,
+            NodeName.GENERATE_RESPONSE: NodeName.GENERATE_RESPONSE,
+            "END": NodeName.GENERATE_RESPONSE,
+        },
+    )
 
-    builder.add_edge(NodeName.COLLECT_NEXT_SLOT, NodeName.GENERATE_RESPONSE)
-    builder.add_edge(NodeName.CONFIRM_ACTION, NodeName.GENERATE_RESPONSE)
-    builder.add_edge(NodeName.EXECUTE_ACTION, NodeName.GENERATE_RESPONSE)
+    builder.add_conditional_edges(
+        NodeName.CONFIRM_ACTION,
+        route_next,
+        {
+            NodeName.EXECUTE_ACTION: NodeName.EXECUTE_ACTION,
+            NodeName.COLLECT_NEXT_SLOT: NodeName.COLLECT_NEXT_SLOT,
+            NodeName.CONFIRM_ACTION: NodeName.CONFIRM_ACTION,
+            NodeName.GENERATE_RESPONSE: NodeName.GENERATE_RESPONSE,
+            "END": NodeName.GENERATE_RESPONSE,
+        },
+    )
+    builder.add_conditional_edges(
+        NodeName.EXECUTE_ACTION,
+        route_next,
+        {
+            NodeName.EXECUTE_ACTION: NodeName.EXECUTE_ACTION,
+            NodeName.COLLECT_NEXT_SLOT: NodeName.COLLECT_NEXT_SLOT,
+            NodeName.CONFIRM_ACTION: NodeName.CONFIRM_ACTION,
+            NodeName.GENERATE_RESPONSE: NodeName.GENERATE_RESPONSE,
+            "END": NodeName.GENERATE_RESPONSE,
+        },
+    )
 
     builder.add_edge(NodeName.GENERATE_RESPONSE, END)
 

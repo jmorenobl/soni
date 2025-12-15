@@ -144,7 +144,7 @@ async def test_e2e_flight_booking_complete_flow(
     ), f"Response should mention date or error, got: {response3[:100]}"
 
     # Act & Assert - Step 4: Provide date
-    response4 = await runtime.process_message("Next Friday", user_id)
+    response4 = await runtime.process_message("2025-12-25", user_id)
     assert isinstance(response4, str), "Response should be a string"
     assert len(response4) > 0, "Response should not be empty"
     # Should show flights or confirm booking or handle the request

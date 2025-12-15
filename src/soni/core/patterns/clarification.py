@@ -33,8 +33,7 @@ class ClarificationPattern(ConversationPattern):
 
         return {
             "last_response": explanation,
-            # We usually stay in the same state or go to 'generating_response'
-            # but we want to re-prompt.
-            # In a graph, we might route to generate_response then back to collect_next_slot?
-            # Or just update response and let the graph loop.
+            # CRITICAL: End the turn here to show the explanation.
+            # On next turn, the flow will resume and re-prompt (via collect_next_slot logic).
+            "conversation_state": ConversationState.GENERATING_RESPONSE,
         }

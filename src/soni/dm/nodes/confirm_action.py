@@ -27,10 +27,6 @@ async def confirm_action_node(
     Returns:
         Partial state updates with confirmation prompt and user message
     """
-    # Import interrupt at runtime (not at module level)
-    import traceback
-
-    from langgraph.types import interrupt
 
     logger.info(
         "confirm_action_node ENTRY",
@@ -38,7 +34,6 @@ async def confirm_action_node(
             "user_message": state.get("user_message", "")[:50],
             "conversation_state": state.get("conversation_state"),
             "last_response": state.get("last_response", "")[:50],
-            "stack_trace": "".join(traceback.format_stack()[-5:]),
         },
     )
 
@@ -129,23 +124,20 @@ async def confirm_action_node(
                 f"confirm_action: First re-execution, passing through to understand. "
                 f"user_message={existing_user_message[:50]}..."
             )
+            # CRITICAL: We must NOT return 'confirming' state here if we want to process the answer via NLU
+            # Returning 'confirming' might cause the router to loop back to this node
+            # We want to go to 'understand' to process the Yes/No
             return {
-                "conversation_state": "confirming",
+                "conversation_state": "understanding",  # Let router send to NLU
                 # Don't set last_response - let it pass through
                 "action_result": None,  # Clear to prevent priority override
             }
 
-    # Pause and wait for user confirmation
-    # The prompt is passed as the interrupt value and will be extracted by RuntimeLoop
-    # RuntimeLoop._process_interrupts() will set last_response = confirmation_msg
-    user_response = interrupt(confirmation_msg)
-
-    # Code after interrupt() executes when user responds
-    # The node re-executes from the beginning, and interrupt() returns the resume value
-    # Clear action_result to prevent ResponseGenerator from using it instead of confirmation message
+    # Return confirmation message and state to end the turn
+    # Routing will see "confirming" state and return "END"
+    # The user's next message will flow through START -> UNDERSTAND
     return {
-        "user_message": user_response,
         "conversation_state": "confirming",
         "last_response": confirmation_msg,
-        "action_result": None,  # Clear to prevent priority override in generate_response
+        "action_result": None,
     }

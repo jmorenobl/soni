@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from soni.core.state import get_all_slots
 from soni.core.types import DialogueState, NodeRuntime
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ async def collect_next_slot_node(
     """
     # Import interrupt at runtime (not at module level)
     from langgraph.types import interrupt
+
+    logger.info("Entering collect_next_slot_node")
 
     # Get active flow (idempotent operation - safe before interrupt)
     flow_manager = runtime.context["flow_manager"]
@@ -55,23 +58,45 @@ async def collect_next_slot_node(
             return {"conversation_state": "error"}
 
     # Get next required slot from current step
+    logger.info(f"Checking next required slot for flow {active_ctx['flow_id']}")
+    slots = get_all_slots(state)
+    logger.info(f"Current slots for flow: {slots}")
+
     next_slot = step_manager.get_next_required_slot(state, current_step_config, runtime.context)
+    logger.info(f"Next required slot: {next_slot}")
 
     if not next_slot:
+        logger.info("collect_next_slot: Slot filled, advancing...")
         # Check if we should advance to next step
         # Only advance if current step is 'collect' (implied completion since no slot needed)
         # For 'action', 'confirm', etc., we should NOT advance here as they need execution
         if current_step_config.type == "collect":
             step_updates = step_manager.advance_to_next_step(state, runtime.context)
-            return dict(step_updates) if step_updates else {}
-        else:
-            # Not a collect step (e.g., action), so return empty updates
-            # State remains as is (e.g., ready_for_action), allowing routing to send to correct node
-            logger.debug(
-                f"collect_next_slot: current step '{current_step_config.step}' "
-                f"is type '{current_step_config.type}', passing through to routing"
-            )
+            if step_updates:
+                # CRITICAL: If we advanced to another 'waiting_for_slot' state (collect step),
+                # we must override it to something else (e.g. 'understanding') to force
+                # the Router to loop back to collect_next_slot.
+                # Otherwise, Router sees 'waiting_for_slot' and ends the turn without prompting!
+                if step_updates.get("conversation_state") == "waiting_for_slot":
+                    step_updates["conversation_state"] = "understanding"
+                return dict(step_updates)
             return {}
+        else:
+            # Not a collect step (e.g., action, confirm)
+            # We must explicitly set the state so route_next can send to the correct node
+            # otherwise we loop endlessly in COLLECT_NEXT_SLOT
+            step_type = current_step_config.type
+            updates = {}
+            if step_type == "action":
+                updates["conversation_state"] = "ready_for_action"
+            elif step_type == "confirm":
+                updates["conversation_state"] = "ready_for_confirmation"
+
+            logger.info(
+                f"collect_next_slot: delegating step '{current_step_config.step}' "
+                f"type '{step_type}' to router with updates: {updates}"
+            )
+            return updates
 
     # Get slot configuration for proper prompt
     from soni.core.state import get_slot_config

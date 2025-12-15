@@ -143,6 +143,7 @@ async def understand_node(
 
     return {
         "nlu_result": nlu_result,
+        "command_log": nlu_result_raw.commands,  # Pass Command objects to executor
         "conversation_state": new_conv_state,
         "last_nlu_call": time.time(),
         "metadata": metadata,
