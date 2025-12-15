@@ -10,6 +10,9 @@ from soni.core.commands import Command
 # Flow states for FlowContext
 FlowContextState = Literal["active", "completed", "cancelled"]
 
+# Backward compatibility alias for old code that imports FlowState
+FlowState = Literal["active", "paused", "completed", "cancelled", "abandoned", "error"]
+
 
 class FlowContext(TypedDict):
     """Context for a flow instance on the stack."""

@@ -125,7 +125,8 @@ def _create_step_node(
     
     if step_type == "collect":
         slot_name = step.slot
-        prompt = step.prompt or f"Please provide {slot_name}"
+        # Use message field if available, otherwise generate default
+        prompt = step.message or f"Please provide {slot_name}"
         
         async def collect_node(state: DialogueState) -> dict[str, Any]:
             slots = get_all_slots(state)
@@ -197,7 +198,7 @@ def _create_step_node(
         return confirm_node
     
     elif step_type in ("say", "respond"):
-        message = step.message or step.say or ""
+        message = step.message or ""
         
         async def say_node(state: DialogueState) -> dict[str, Any]:
             slots = get_all_slots(state)
