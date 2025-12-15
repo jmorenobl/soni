@@ -66,93 +66,13 @@ async def understand_node(
     # Two-stage: first detect command, then extract slots with correct expected_slots
     # Only applies when no active flow, no expected_slots, and there are available flows
     # This avoids passing all expected_slots from all flows (doesn't scale with many flows)
-    if current_flow_name == "none" and not expected_slots and available_flows:
-        logger.debug(
-            "No active flow and no expected_slots - using two-stage prediction: "
-            "first detect command, then extract slots"
-        )
+    # Note: Legacy two-stage prediction logic was removed here.
+    # It relied on legacy 'command' strings and 'activate_flow_by_intent'.
+    # With Command-Driven architecture, NLU directly produces StartFlow commands via dspy signatures.
+    # We fall back to the standard prediction path below, which handles 'none' flow with available actions.
+    if False and current_flow_name == "none" and not expected_slots and available_flows:
+        pass  # Disabled legacy logic
 
-        # Stage 1: Detect command/intent only (no slots needed)
-        intent_context = DialogueContext(
-            current_slots=(
-                state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
-            ),
-            available_actions=available_actions,
-            available_flows=available_flows,
-            current_flow="none",
-            expected_slots=[],  # Empty - just detect intent
-            current_prompted_slot=waiting_for_slot,
-            conversation_state=state.get("conversation_state"),
-        )
-
-        # First NLU call: detect command only
-        intent_result_raw = await nlu_provider.predict(
-            state["user_message"],
-            history,
-            intent_context,
-        )
-        intent_result = intent_result_raw.model_dump(mode="json")
-
-        # Extract command from first prediction
-        command = intent_result.get("command")
-
-        # Stage 2: If command detected, map to flow and re-predict with correct expected_slots
-        if command:
-            # Map command to flow using existing routing logic
-            from soni.dm.routing import activate_flow_by_intent
-
-            config = runtime.context["config"]
-            detected_flow = activate_flow_by_intent(
-                command=command,
-                current_flow="none",
-                config=config,
-            )
-
-            if detected_flow != "none":
-                # Get expected_slots for detected flow
-                detected_expected_slots = scope_manager.get_expected_slots(
-                    flow_name=detected_flow,
-                    available_actions=available_actions,
-                )
-
-                logger.debug(
-                    f"Two-stage NLU: detected command '{command}' -> flow '{detected_flow}', "
-                    f"expected_slots={detected_expected_slots}"
-                )
-
-                # Stage 2: Re-predict with correct expected_slots
-                slot_context = DialogueContext(
-                    current_slots=(
-                        state["flow_slots"].get(active_ctx["flow_id"], {}) if active_ctx else {}
-                    ),
-                    available_actions=available_actions,
-                    available_flows=available_flows,
-                    expected_slots=detected_expected_slots,  # Now we have the right slots!
-                    current_flow=detected_flow,
-                    current_prompted_slot=waiting_for_slot,
-                    conversation_state=state.get("conversation_state"),
-                )
-
-                # Second NLU call: extract slots with correct expected_slots
-                final_result_raw = await nlu_provider.predict(
-                    state["user_message"],
-                    history,
-                    slot_context,
-                )
-                final_result = final_result_raw.model_dump(mode="json")
-
-                # Use final_result (has both command and slots)
-                nlu_result = final_result
-            else:
-                # Command detected but couldn't map to flow - use intent_result
-                logger.warning(
-                    f"Command '{command}' detected but couldn't map to flow. "
-                    f"Available flows: {available_flows}"
-                )
-                nlu_result = intent_result
-        else:
-            # No command detected - use intent_result as-is
-            nlu_result = intent_result
     else:
         # Normal single-stage prediction (flow active or expected_slots provided)
         # If no active flow and no expected_slots yet, try fallback: combine all expected_slots

@@ -12,21 +12,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import CancelFlow
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput
+from soni.du.models import NLUOutput
 
 
 class CancellationGenerator(PatternGenerator):
     """Generates CANCELLATION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.CANCELLATION
 
     def generate_examples(
         self,
@@ -65,9 +62,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -91,9 +88,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["departure_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -103,7 +100,7 @@ class CancellationGenerator(PatternGenerator):
                 )
             )
 
-            # Example with "Actually, cancel this" - matches test scenario
+            # Example with "Actually, cancel this"
             examples.append(
                 ExampleTemplate(
                     user_message="Actually, cancel this",
@@ -119,9 +116,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User requested cancellation"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -146,9 +143,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User requested cancellation"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -174,9 +171,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -200,9 +197,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["dates"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User stopped booking"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -226,9 +223,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["dates"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -254,9 +251,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User changed mind"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -280,9 +277,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["time"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -306,9 +303,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User aborted"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -334,9 +331,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["product"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -360,9 +357,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["size"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -386,9 +383,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["product"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User stopped"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -416,9 +413,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["amount"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User cancelled"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -444,9 +441,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["recipient"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User stopped transfer"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -470,9 +467,9 @@ class CancellationGenerator(PatternGenerator):
                         expected_slots=["amount"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            CancelFlow(reason="User changed mind"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,

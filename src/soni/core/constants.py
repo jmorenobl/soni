@@ -6,7 +6,7 @@ to provide type safety, IDE autocompletion, and prevent typo bugs.
 DM-002: Eliminate Magic Strings with Enums
 
 Usage:
-    from soni.core.constants import ConversationState, NodeName, MessageType
+    from soni.core.constants import ConversationState, NodeName
 
     if state == ConversationState.CONFIRMING:
         return NodeName.HANDLE_CONFIRMATION
@@ -14,11 +14,7 @@ Usage:
 
 from enum import StrEnum
 
-# Re-export MessageType from du.models for centralized access
-# This allows importing all enums from one place
-from soni.du.models import MessageType
-
-__all__ = ["ConversationState", "NodeName", "MessageType"]
+__all__ = ["ConversationState", "NodeName"]
 
 
 class ConversationState(StrEnum):
@@ -99,6 +95,9 @@ class NodeName(StrEnum):
 
     EXECUTE_ACTION = "execute_action"
     """Execute the flow's action."""
+
+    EXECUTE_COMMANDS = "execute_commands"
+    """Execute the processed NLU commands (CommandExecutor)."""
 
     GENERATE_RESPONSE = "generate_response"
     """Generate response message."""

@@ -170,6 +170,45 @@ class DenyConfirmation(Command):
 
 ---
 
+### Scope & Digression Commands
+
+#### OutOfScope
+
+User asks something outside the bot's capabilities.
+
+```python
+class OutOfScope(Command):
+    """User input is outside bot capabilities."""
+    topic: str | None = Field(
+        default=None,
+        description="The out-of-scope topic"
+    )
+```
+
+**Examples**:
+- `"What's the meaning of life?"` → `OutOfScope(topic="philosophy")`
+- `"Can you order pizza?"` → `OutOfScope(topic="food_ordering")`
+
+#### ChitChat
+
+Casual conversation that doesn't affect the current flow.
+
+```python
+class ChitChat(Command):
+    """Casual conversation, flow continues."""
+    response_hint: str | None = Field(
+        default=None,
+        description="Suggested response topic"
+    )
+```
+
+**Examples**:
+- `"Nice weather today"` → `ChitChat(response_hint="weather")`
+- `"Thanks!"` → `ChitChat(response_hint="acknowledgment")`
+- `"What airlines do you support?"` → `ChitChat(response_hint="supported_airlines")`
+
+---
+
 ## Command Handlers
 
 Each command type has a corresponding handler. See [03-components.md](03-components.md) for full handler implementations.
@@ -184,6 +223,8 @@ Each command type has a corresponding handler. See [03-components.md](03-compone
 | `HumanHandoff` | `HumanHandoffHandler` | Trigger handoff action |
 | `AffirmConfirmation` | `AffirmHandler` | Proceed to action |
 | `DenyConfirmation` | `DenyHandler` | Return to slot collection |
+| `OutOfScope` | `OutOfScopeHandler` | Generate scope message |
+| `ChitChat` | `ChitChatHandler` | Generate casual response |
 
 ---
 

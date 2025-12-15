@@ -175,21 +175,3 @@ CLARIFICATION_TEMPLATES = [
     "What do you use my {slot} for?",
     "Is my {slot} required?",
 ]
-
-# =============================================================================
-# CONTINUATION Templates
-# =============================================================================
-
-CONTINUATION_TEMPLATES = [
-    "Continue",
-    "Go ahead",
-    "Next",
-    "Yes, continue",
-    "Proceed",
-    "Move on",
-    "Next please",
-    "Sure, continue",
-    "Yes, please proceed",
-    "Carry on",
-    "Go to next step",
-]

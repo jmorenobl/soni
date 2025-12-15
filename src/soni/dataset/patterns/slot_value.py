@@ -12,21 +12,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import SetSlot, StartFlow
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput, SlotValue
+from soni.du.models import NLUOutput
 
 
 class SlotValueGenerator(PatternGenerator):
     """Generates SLOT_VALUE pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.SLOT_VALUE
 
     def generate_examples(
         self,
@@ -81,11 +78,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,  # Starting new flow
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value=CITIES[0], confidence=0.9),
-                            SlotValue(name="destination", value=CITIES[1], confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                            SetSlot(slot_name="origin", value=CITIES[0]),
+                            SetSlot(slot_name="destination", value=CITIES[1]),
                         ],
                         confidence=0.9,
                     ),
@@ -107,14 +103,11 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value=CITIES[2], confidence=0.95),
-                            SlotValue(name="destination", value=CITIES[3], confidence=0.95),
-                            SlotValue(
-                                name="departure_date", value=DATES_RELATIVE[0], confidence=0.9
-                            ),
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                            SetSlot(slot_name="origin", value=CITIES[2]),
+                            SetSlot(slot_name="destination", value=CITIES[3]),
+                            SetSlot(slot_name="departure_date", value=DATES_RELATIVE[0]),
                         ],
                         confidence=0.93,
                     ),
@@ -136,10 +129,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value=CITIES[4], confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                            SetSlot(slot_name="destination", value=CITIES[4]),
                         ],
                         confidence=0.9,
                     ),
@@ -161,10 +153,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="departure_date", value="tomorrow", confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                            SetSlot(slot_name="departure_date", value="tomorrow"),
                         ],
                         confidence=0.9,
                     ),
@@ -188,10 +179,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="location", value=CITIES[0], confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_hotel"),
+                            SetSlot(slot_name="location", value=CITIES[0]),
                         ],
                         confidence=0.9,
                     ),
@@ -213,11 +203,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="location", value=CITIES[1], confidence=0.9),
-                            SlotValue(name="checkin_date", value="tomorrow", confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_hotel"),
+                            SetSlot(slot_name="location", value=CITIES[1]),
+                            SetSlot(slot_name="checkin_date", value="tomorrow"),
                         ],
                         confidence=0.9,
                     ),
@@ -241,13 +230,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(
-                                name="party_size", value=str(PARTY_SIZES[0]), confidence=0.95
-                            ),
-                            SlotValue(name="location", value=CITIES[0], confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_table"),
+                            SetSlot(slot_name="party_size", value=str(PARTY_SIZES[0])),
+                            SetSlot(slot_name="location", value=CITIES[0]),
                         ],
                         confidence=0.92,
                     ),
@@ -269,11 +255,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="party_size", value="2", confidence=0.9),
-                            SlotValue(name="time", value="8pm", confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="book_table"),
+                            SetSlot(slot_name="party_size", value="2"),
+                            SetSlot(slot_name="time", value="8pm"),
                         ],
                         confidence=0.9,
                     ),
@@ -297,10 +282,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="product", value=PRODUCTS[0], confidence=0.95),
+                        commands=[
+                            StartFlow(flow_name="search_product"),
+                            SetSlot(slot_name="product", value=PRODUCTS[0]),
                         ],
                         confidence=0.95,
                     ),
@@ -322,11 +306,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="product", value=PRODUCTS[0], confidence=0.9),
-                            SlotValue(name="color", value="red", confidence=0.9),
+                        commands=[
+                            StartFlow(flow_name="search_product"),
+                            SetSlot(slot_name="product", value=PRODUCTS[0]),
+                            SetSlot(slot_name="color", value="red"),
                         ],
                         confidence=0.9,
                     ),
@@ -351,12 +334,11 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value=str(AMOUNTS[0]), confidence=0.95),
-                            SlotValue(name="currency", value=CURRENCIES[0], confidence=0.95),
-                            SlotValue(name="recipient", value=RECIPIENTS[0], confidence=0.95),
+                        commands=[
+                            StartFlow(flow_name="transfer_funds"),
+                            SetSlot(slot_name="amount", value=str(AMOUNTS[0])),
+                            SetSlot(slot_name="currency", value=CURRENCIES[0]),
+                            SetSlot(slot_name="recipient", value=RECIPIENTS[0]),
                         ],
                         confidence=0.95,
                     ),
@@ -378,11 +360,10 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=list(domain_config.slots.keys()),
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value=str(AMOUNTS[1]), confidence=0.95),
-                            SlotValue(name="recipient", value=RECIPIENTS[1], confidence=0.95),
+                        commands=[
+                            StartFlow(flow_name="transfer_funds"),
+                            SetSlot(slot_name="amount", value=str(AMOUNTS[1])),
+                            SetSlot(slot_name="recipient", value=RECIPIENTS[1]),
                         ],
                         confidence=0.95,
                     ),
@@ -427,10 +408,8 @@ class SlotValueGenerator(PatternGenerator):
                     user_message=CITIES[5],
                     conversation_context=create_context_after_origin(origin=CITIES[0]),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value=CITIES[5], confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="destination", value=CITIES[5]),
                         ],
                         confidence=0.95,
                     ),
@@ -450,12 +429,8 @@ class SlotValueGenerator(PatternGenerator):
                         destination=CITIES[1],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(
-                                name="departure_date", value=DATES_RELATIVE[1], confidence=0.9
-                            ),
+                        commands=[
+                            SetSlot(slot_name="departure_date", value=DATES_RELATIVE[1]),
                         ],
                         confidence=0.9,
                     ),
@@ -475,13 +450,10 @@ class SlotValueGenerator(PatternGenerator):
                         destination="Los Angeles",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(
-                                name="departure_date",
-                                value="2025-12-19",  # Normalized value (example - actual depends on current_datetime)
-                                confidence=0.95,
+                        commands=[
+                            SetSlot(
+                                slot_name="departure_date",
+                                value="2025-12-19",
                             ),
                         ],
                         confidence=0.95,
@@ -514,11 +486,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["origin", "destination", "departure_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value=CITIES[6], confidence=0.9),
-                            SlotValue(name="destination", value=CITIES[7], confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="origin", value=CITIES[6]),
+                            SetSlot(slot_name="destination", value=CITIES[7]),
                         ],
                         confidence=0.9,
                     ),
@@ -544,10 +514,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value="New York", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="origin", value="New York"),
                         ],
                         confidence=0.95,
                     ),
@@ -574,10 +542,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value="Los Angeles", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="destination", value="Los Angeles"),
                         ],
                         confidence=0.95,
                     ),
@@ -605,10 +571,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value="Miami", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="destination", value="Miami"),
                         ],
                         confidence=0.95,
                     ),
@@ -636,10 +600,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value="Seattle", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="destination", value="Seattle"),
                         ],
                         confidence=0.95,
                     ),
@@ -661,10 +623,8 @@ class SlotValueGenerator(PatternGenerator):
                     user_message="tomorrow",
                     conversation_context=create_context_after_location(location=CITIES[0]),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="checkin_date", value="tomorrow", confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="checkin_date", value="tomorrow", confidence=0.9),
                         ],
                         confidence=0.9,
                     ),
@@ -690,10 +650,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["guests"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="guests", value="2", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="guests", value="2"),
                         ],
                         confidence=0.95,
                     ),
@@ -719,11 +677,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["location", "checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="location", value=CITIES[1], confidence=0.9),
-                            SlotValue(name="checkin_date", value="tomorrow", confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="location", value=CITIES[1]),
+                            SetSlot(slot_name="checkin_date", value="tomorrow"),
                         ],
                         confidence=0.9,
                     ),
@@ -745,10 +701,8 @@ class SlotValueGenerator(PatternGenerator):
                     user_message=TIMES[0],
                     conversation_context=create_context_after_location(location="Madrid"),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="time", value=TIMES[0], confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="time", value=TIMES[0]),
                         ],
                         confidence=0.95,
                     ),
@@ -774,10 +728,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["party_size"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="party_size", value="4", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="party_size", value="4"),
                         ],
                         confidence=0.95,
                     ),
@@ -803,11 +755,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["party_size", "time"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="party_size", value="2", confidence=0.9),
-                            SlotValue(name="time", value="8pm", confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="party_size", value="2"),
+                            SetSlot(slot_name="time", value="8pm"),
                         ],
                         confidence=0.9,
                     ),
@@ -829,10 +779,8 @@ class SlotValueGenerator(PatternGenerator):
                     user_message=COLORS[0],
                     conversation_context=create_context_after_product(product="laptop"),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="color", value=COLORS[0], confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="color", value=COLORS[0]),
                         ],
                         confidence=0.9,
                     ),
@@ -858,10 +806,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["size"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="size", value="10", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="size", value="10"),
                         ],
                         confidence=0.95,
                     ),
@@ -887,11 +833,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["color", "size"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="color", value="red", confidence=0.9),
-                            SlotValue(name="size", value="10", confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="color", value="red"),
+                            SetSlot(slot_name="size", value="10"),
                         ],
                         confidence=0.9,
                     ),
@@ -928,10 +872,8 @@ class SlotValueGenerator(PatternGenerator):
                     user_message=str(AMOUNTS[0]),
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value=str(AMOUNTS[0]), confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="amount", value=str(AMOUNTS[0])),
                         ],
                         confidence=0.95,
                     ),
@@ -957,10 +899,8 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["recipient"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="recipient", value="Alice", confidence=0.95),
+                        commands=[
+                            SetSlot(slot_name="recipient", value="Alice"),
                         ],
                         confidence=0.95,
                     ),
@@ -986,11 +926,9 @@ class SlotValueGenerator(PatternGenerator):
                         expected_slots=["amount", "currency"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.SLOT_VALUE,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value=str(AMOUNTS[1]), confidence=0.9),
-                            SlotValue(name="currency", value=CURRENCIES[1], confidence=0.9),
+                        commands=[
+                            SetSlot(slot_name="amount", value=str(AMOUNTS[1])),
+                            SetSlot(slot_name="currency", value=CURRENCIES[1]),
                         ],
                         confidence=0.9,
                     ),

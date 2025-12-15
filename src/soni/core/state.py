@@ -150,6 +150,7 @@ def create_empty_state() -> DialogueState:
         "current_prompted_slot": None,
         "all_slots_filled": None,
         "nlu_result": None,
+        "command_log": [],
         "action_result": None,
         "last_nlu_call": None,
         "digression_depth": 0,

@@ -6,6 +6,8 @@ required by LangGraph and provide runtime type safety.
 
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypedDict
 
+from soni.core.commands import Command
+
 if TYPE_CHECKING:
     from langgraph.graph.graph import CompiledStateGraph
 
@@ -57,6 +59,7 @@ class DialogueState(TypedDict):
 
     # NLU results
     nlu_result: dict[str, Any] | None
+    command_log: list[Command]  # Log of processed commands
     last_nlu_call: float | None
 
     # Action execution

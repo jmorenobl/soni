@@ -5,7 +5,7 @@ from typing import Any, Literal
 import dspy
 from pydantic import BaseModel, Field
 
-from soni.du.models import DialogueContext, MessageType, NLUOutput
+from soni.du.models import DialogueContext, NLUOutput
 
 
 class DomainConfig(BaseModel):
@@ -107,10 +107,10 @@ class PatternGenerator:
     (e.g., SLOT_VALUE, CORRECTION, INTERRUPTION).
     """
 
-    @property
-    def message_type(self) -> MessageType:
-        """The MessageType this generator produces."""
-        raise NotImplementedError("Subclasses must implement message_type property")
+    # Removed message_type property in v2.0 command implementation
+    # @property
+    # def message_type(self) -> MessageType:
+    #    ...
 
     def generate_examples(
         self,

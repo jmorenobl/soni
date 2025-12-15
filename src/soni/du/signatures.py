@@ -1,10 +1,8 @@
-"""DSPy signatures for Dialogue Understanding.
+"""DSPy signatures for Dialogue Understanding (v2.0 Command-Driven).
 
-For detailed developer documentation of data structures used in these signatures,
-see DATA_STRUCTURES.md in this directory.
-
-Note: Signature class docstrings are sent to the LLM and must be self-contained.
-      DATA_STRUCTURES.md is for developer reference only.
+This signature replaces the legacy MessageType classification with explicit
+Command generation. The LLM is responsible for mapping user intent + context
+directly to an executable Command sequence.
 """
 
 import dspy
@@ -13,26 +11,32 @@ from soni.du.models import DialogueContext, NLUOutput
 
 
 class DialogueUnderstanding(dspy.Signature):
-    """Analyze user messages in dialogue context to determine intent and extract slot values.
+    """Analyze user messages in dialogue context and generate executable commands.
 
-    Classify the user's message into one of the following types (use exactly these values):
-    - slot_value: User provides a value for an expected slot
-    - confirmation: User confirms or denies (yes/no response to confirmation prompt)
-    - correction: User corrects a previously provided slot value
-    - modification: User requests to change a slot value
-    - interruption: User wants to start/switch to a flow in available_flows
-    - cancellation: User abandons the current flow
-    - digression: General question not related to any available flow
-    - clarification: User asks for clarification about the current request
-    - continuation: User continues without clear intent
+    You are the "Understanding Layer" of a deterministic dialogue system.
+    Your job is to translate the User's Message into a list of explicit Commands
+    based on the current Context.
 
-    Key rules:
-    1. Match user message semantically to available_flows descriptions, not just exact words
-    2. If message matches a flow, use interruption with that flow as command AND extract any provided slots
-    3. Use digression only when message doesn't match ANY available flow
-    4. Extract slot values mentioned in the message with appropriate action type
+    AVAILABLE COMMANDS:
+    - StartFlow(flow_name, slots): User wants to start a specific flow (e.g. "book flight").
+    - SetSlot(slot_name, value): User provides a value for a slot.
+    - CorrectSlot(slot_name, new_value): User corrects a previously set slot.
+    - CancelFlow(reason): User wants to stop the current flow.
+    - Clarify(topic): User doesn't understand and asks a question about the prompt.
+    - AffirmConfirmation(): User says "yes" to a confirmation prompt.
+    - DenyConfirmation(slot_to_change): User says "no" to a confirmation prompt.
+    - HumanHandoff(reason): User asks for a human agent.
+    - OutOfScope(topic): User asks something the bot cannot handle.
+    - ChitChat(response_hint): Casual conversation.
 
-    Extract slots with actions: provide (new), correct (reactive fix), modify (proactive change).
+    RULES:
+    1. If a user provides a value for a slot in 'expected_slots', generate SetSlot.
+    2. If a user corrects a value, generate CorrectSlot (check 'current_slots').
+    3. If a user asks to start a task in 'available_flows', generate StartFlow.
+    4. If 'conversation_state' is 'confirming':
+       - "Yes/Correct" -> AffirmConfirmation
+       - "No/Wrong" -> DenyConfirmation
+    5. Be explicit. Generate the exact commands needed to handle the user's request.
     """
 
     # Input fields with structured types
@@ -49,6 +53,4 @@ class DialogueUnderstanding(dspy.Signature):
     )
 
     # Output field with structured type
-    result: NLUOutput = dspy.OutputField(
-        desc="Classified message with type, intent, slots, and confidence"
-    )
+    result: NLUOutput = dspy.OutputField(desc="List of executable Commands and raw entities")

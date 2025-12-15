@@ -11,21 +11,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import Clarify
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput
+from soni.du.models import NLUOutput
 
 
 class ClarificationGenerator(PatternGenerator):
     """Generates CLARIFICATION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.CLARIFICATION
 
     def generate_examples(
         self,
@@ -70,9 +67,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="reason for destination"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -96,9 +93,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["passport_number"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="passport number"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -122,9 +119,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["redress_number"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="redress number"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -150,9 +147,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="reason for location"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -176,9 +173,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["payment_method"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="credit card requirement"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -202,9 +199,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["deposit"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="deposit reason"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -230,9 +227,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="reason for location"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -256,9 +253,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["phone_number"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="phone number reason"),
+                        ],
                         confidence=0.95,
                     ),
                     domain=domain_config.name,
@@ -282,9 +279,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["time"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="dress code"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -310,9 +307,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["shipping_address"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="shipping address reason"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -336,9 +333,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["email"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="email usage"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -362,9 +359,9 @@ class ClarificationGenerator(PatternGenerator):
                         expected_slots=["phone"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="phone number requirement"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -388,9 +385,9 @@ class ClarificationGenerator(PatternGenerator):
                         amount="100", currency="USD", recipient="mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="which account"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -407,9 +404,9 @@ class ClarificationGenerator(PatternGenerator):
                         amount="500", currency="EUR", recipient="Alice"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="transfer fee"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -426,9 +423,9 @@ class ClarificationGenerator(PatternGenerator):
                         amount="5000", currency="USD", recipient="Bob"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CLARIFICATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            Clarify(topic="daily limit"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,

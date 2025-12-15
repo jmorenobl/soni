@@ -108,28 +108,3 @@ class TestNodeName:
         }
         actual_values = {n.value for n in NodeName}
         assert required_nodes <= actual_values
-
-
-class TestMessageTypeReexport:
-    """Test that MessageType is re-exported from constants."""
-
-    def test_can_import_message_type(self):
-        """MessageType should be importable from core.constants."""
-        from soni.core.constants import MessageType
-
-        assert MessageType is not None
-
-    def test_message_type_values(self):
-        """Verify MessageType has expected values."""
-        from soni.core.constants import MessageType
-
-        assert MessageType.SLOT_VALUE == "slot_value"
-        assert MessageType.CORRECTION == "correction"
-        assert MessageType.CONFIRMATION == "confirmation"
-
-    def test_same_as_du_models(self):
-        """Verify it's the same enum as du.models.MessageType."""
-        from soni.core.constants import MessageType as ConstantsMessageType
-        from soni.du.models import MessageType as DUMessageType
-
-        assert ConstantsMessageType is DUMessageType

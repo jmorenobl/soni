@@ -185,11 +185,15 @@ def main():
     # Fixed seed for reproducibility
     random.seed(42)
 
-    # Group by pattern type for stratified split
+    # Group by first command type for stratified split
     examples_by_pattern = defaultdict(list)
     for ex in trainset:
-        # result.message_type is an enum or string
-        pattern_type = ex.result.message_type
+        # Get first command type (or 'empty' if no commands)
+        if hasattr(ex.result, "commands") and ex.result.commands:
+            first_cmd = ex.result.commands[0]
+            pattern_type = first_cmd.__class__.__name__
+        else:
+            pattern_type = "empty"
         examples_by_pattern[pattern_type].append(ex)
 
     train_split = []

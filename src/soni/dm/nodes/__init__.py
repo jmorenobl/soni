@@ -11,10 +11,7 @@ from soni.dm.nodes.factories import (  # noqa: F401
     create_understand_node,
 )
 from soni.dm.nodes.generate_response import generate_response_node
-from soni.dm.nodes.handle_clarification import handle_clarification_node
-from soni.dm.nodes.handle_digression import handle_digression_node
 from soni.dm.nodes.handle_error import handle_error_node
-from soni.dm.nodes.handle_intent_change import handle_intent_change_node
 from soni.dm.nodes.understand import understand_node
 from soni.dm.nodes.validate_slot import validate_slot_node
 
@@ -22,9 +19,6 @@ __all__ = [
     "understand_node",
     "validate_slot_node",
     "collect_next_slot_node",
-    "handle_intent_change_node",
-    "handle_clarification_node",
-    "handle_digression_node",
     "handle_error_node",
     "execute_action_node",
     "generate_response_node",

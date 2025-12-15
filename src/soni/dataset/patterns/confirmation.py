@@ -9,20 +9,17 @@ Examples:
 
 from typing import Literal
 
+from soni.core.commands import AffirmConfirmation, DenyConfirmation
 from soni.dataset.base import (
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput
+from soni.du.models import NLUOutput
 
 
 class ConfirmationGenerator(PatternGenerator):
     """Generates CONFIRMATION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.CONFIRMATION
 
     def generate_examples(
         self,
@@ -58,11 +55,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_POSITIVE[0],
                     conversation_context=create_context_before_confirmation(),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            AffirmConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=True,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -77,11 +73,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_NEGATIVE[0],
                     conversation_context=create_context_before_confirmation(),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=False,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -90,18 +85,16 @@ class ConfirmationGenerator(PatternGenerator):
                 )
             )
 
-            # Unclear confirmations - with confirmation_value=None
-            for unclear_phrase in CONFIRMATION_UNCLEAR[:5]:  # First 5 to avoid exceeding count
+            # Unclear confirmations - map to empty commands or Clarify?
+            # For now, let's treat them as unknown intent or low confidence
+            for unclear_phrase in CONFIRMATION_UNCLEAR[:5]:
                 examples.append(
                     ExampleTemplate(
                         user_message=unclear_phrase,
                         conversation_context=create_context_before_confirmation(),
                         expected_output=NLUOutput(
-                            message_type=MessageType.CONFIRMATION,
-                            command="book_flight",
-                            slots=[],
-                            confidence=0.7,  # Lower confidence for ambiguous responses
-                            confirmation_value=None,  # CRITICAL: None indicates ambiguity
+                            commands=[],  # No clear command
+                            confidence=0.7,
                         ),
                         domain=domain_config.name,
                         pattern="confirmation",
@@ -128,11 +121,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_POSITIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            AffirmConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=True,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -147,11 +139,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_NEGATIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=False,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -167,11 +158,8 @@ class ConfirmationGenerator(PatternGenerator):
                         user_message=unclear_phrase,
                         conversation_context=context,
                         expected_output=NLUOutput(
-                            message_type=MessageType.CONFIRMATION,
-                            command="book_hotel",
-                            slots=[],
+                            commands=[],
                             confidence=0.7,
-                            confirmation_value=None,
                         ),
                         domain=domain_config.name,
                         pattern="confirmation",
@@ -198,11 +186,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_POSITIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            AffirmConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=True,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -217,11 +204,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_NEGATIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=False,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -237,11 +223,8 @@ class ConfirmationGenerator(PatternGenerator):
                         user_message=unclear_phrase,
                         conversation_context=context,
                         expected_output=NLUOutput(
-                            message_type=MessageType.CONFIRMATION,
-                            command="book_table",
-                            slots=[],
+                            commands=[],
                             confidence=0.7,
-                            confirmation_value=None,
                         ),
                         domain=domain_config.name,
                         pattern="confirmation",
@@ -268,11 +251,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_POSITIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            AffirmConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=True,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -287,11 +269,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_NEGATIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=False,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -307,11 +288,8 @@ class ConfirmationGenerator(PatternGenerator):
                         user_message=unclear_phrase,
                         conversation_context=context,
                         expected_output=NLUOutput(
-                            message_type=MessageType.CONFIRMATION,
-                            command="search_product",
-                            slots=[],
+                            commands=[],
                             confidence=0.7,
-                            confirmation_value=None,
                         ),
                         domain=domain_config.name,
                         pattern="confirmation",
@@ -338,11 +316,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_POSITIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            AffirmConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=True,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -357,11 +334,10 @@ class ConfirmationGenerator(PatternGenerator):
                     user_message=CONFIRMATION_NEGATIVE[0],
                     conversation_context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CONFIRMATION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(),
+                        ],
                         confidence=0.95,
-                        confirmation_value=False,
                     ),
                     domain=domain_config.name,
                     pattern="confirmation",
@@ -377,11 +353,8 @@ class ConfirmationGenerator(PatternGenerator):
                         user_message=unclear_phrase,
                         conversation_context=context,
                         expected_output=NLUOutput(
-                            message_type=MessageType.CONFIRMATION,
-                            command="transfer_funds",
-                            slots=[],
+                            commands=[],
                             confidence=0.7,
-                            confirmation_value=None,
                         ),
                         domain=domain_config.name,
                         pattern="confirmation",

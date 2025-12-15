@@ -5,7 +5,7 @@ Training dataset generator for NLU optimization with DSPy.
 ## Overview
 
 This package generates training examples by combining three dimensions:
-- **9 Patterns**: Conversational patterns (SLOT_VALUE, CORRECTION, etc.)
+- **9 Patterns**: Conversational patterns (SetSlot, CorrectSlot, StartFlow, etc.)
 - **4 Domains**: Business domains (flight_booking, hotel_booking, etc.)
 - **2 Contexts**: Conversation contexts (cold_start, ongoing)
 
@@ -29,7 +29,7 @@ print(f"Generated {len(trainset)} examples")
 ### Generate Specific Patterns
 
 ```python
-# Only SLOT_VALUE and CORRECTION patterns
+# Only slot_value and correction patterns
 trainset = builder.build(
     patterns=["slot_value", "correction"],
     domains=None,  # All domains
@@ -82,17 +82,18 @@ dataset/
 
 ## Pattern Reference
 
-| Pattern | Description | Contexts |
-|---------|-------------|----------|
-| SLOT_VALUE | Direct answer to prompt | Both |
-| CORRECTION | Fixing mistake | Ongoing |
-| MODIFICATION | Changing value | Ongoing |
-| INTERRUPTION | Starting new task | Both |
-| DIGRESSION | Off-topic question | Ongoing |
-| CLARIFICATION | Asking why | Ongoing |
-| CANCELLATION | Abandoning task | Ongoing |
-| CONFIRMATION | Yes/no answer | Ongoing |
-| CONTINUATION | General continuation | Ongoing |
+Each pattern produces specific Commands in the NLUOutput:
+
+| Pattern | Commands Produced | Contexts |
+|---------|-------------------|----------|
+| slot_value | `SetSlot` | Both |
+| correction | `CorrectSlot` | Ongoing |
+| modification | `CorrectSlot`, `DenyConfirmation` | Ongoing |
+| interruption | `StartFlow` | Both |
+| digression | `ChitChat` | Ongoing |
+| clarification | `Clarify` | Ongoing |
+| cancellation | `CancelFlow` | Ongoing |
+| confirmation | `AffirmConfirmation`, `DenyConfirmation` | Ongoing |
 
 ## Domain Reference
 
@@ -132,15 +133,12 @@ Implement `PatternGenerator` interface:
 
 ```python
 from soni.dataset.base import PatternGenerator
-from soni.du.models import MessageType
+from soni.du.models import NLUOutput
+from soni.core.commands import MyCommand
 
 class MyPatternGenerator(PatternGenerator):
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.MY_PATTERN
-
     def generate_examples(self, domain_config, context_type, count):
-        # Generate examples
+        # Generate examples with NLUOutput(commands=[MyCommand(...)])
         return examples
 ```
 

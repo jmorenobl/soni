@@ -5,8 +5,6 @@ from typing import Any
 
 import dspy
 
-from soni.du.models import MessageType
-
 
 def validate_dataset(examples: list[dspy.Example]) -> dict[str, Any]:
     """Validate a dataset and return statistics.
@@ -14,30 +12,17 @@ def validate_dataset(examples: list[dspy.Example]) -> dict[str, Any]:
     Checks:
     - All examples have required fields
     - Examples are properly formatted
-    - Distribution of patterns, domains, contexts
-
-    Args:
-        examples: List of dspy.Example instances
-
-    Returns:
-        Dictionary with validation results and statistics
-
-    Raises:
-        ValueError: If validation fails
+    - Distribution of commands
     """
     if not examples:
         raise ValueError("Dataset is empty")
 
-    patterns_counter: Counter[MessageType] = Counter()
-    domains_counter: Counter[str] = Counter()
-    contexts_counter: Counter[str] = Counter()
+    commands_counter: Counter[str] = Counter()
     validation_errors: list[str] = []
 
     stats: dict[str, Any] = {
         "total_examples": len(examples),
-        "patterns": patterns_counter,
-        "domains": domains_counter,
-        "contexts": contexts_counter,
+        "commands": commands_counter,
         "validation_errors": validation_errors,
     }
 
@@ -51,20 +36,15 @@ def validate_dataset(examples: list[dspy.Example]) -> dict[str, Any]:
         # Collect statistics
         if hasattr(example, "result"):
             result = example.result
-            if hasattr(result, "message_type"):
-                patterns_counter[result.message_type] += 1
+            if hasattr(result, "commands") and result.commands:
+                for cmd in result.commands:
+                    commands_counter[cmd.__class__.__name__] += 1
+            else:
+                # It might be empty commands (e.g. ChitChat without hinted command?)
+                # or legacy.
+                pass
 
-    # Check distribution balance
-    if patterns_counter:
-        pattern_counts = list(patterns_counter.values())
-        min_count = min(pattern_counts)
-        max_count = max(pattern_counts)
-
-        # Warn if imbalanced (max > 3 * min)
-        if max_count > 3 * min_count:
-            validation_errors.append(
-                f"Imbalanced pattern distribution: min={min_count}, max={max_count}"
-            )
+    # Check distribution (skip balance check for now as commands vary widely)
 
     if validation_errors:
         raise ValueError(
@@ -76,24 +56,23 @@ def validate_dataset(examples: list[dspy.Example]) -> dict[str, Any]:
 
 
 def print_dataset_stats(examples: list[dspy.Example]) -> None:
-    """Print human-readable dataset statistics.
-
-    Args:
-        examples: List of dspy.Example instances
-    """
-    # Collect stats manually to avoid validation errors on expected imbalance
+    """Print human-readable dataset statistics."""
+    # Collect stats manually
     if not examples:
         print("Dataset is empty")
         return
 
-    patterns_counter: Counter[MessageType] = Counter()
+    commands_counter: Counter[str] = Counter()
     for ex in examples:
-        if hasattr(ex, "result") and hasattr(ex.result, "message_type"):
-            patterns_counter[ex.result.message_type] += 1
+        if hasattr(ex, "result") and hasattr(ex.result, "commands"):
+            for cmd in ex.result.commands:
+                commands_counter[cmd.__class__.__name__] += 1
 
     print("\n=== Dataset Statistics ===")
     print(f"Total examples: {len(examples)}")
-    print("\nPattern distribution:")
-    for pattern, count in sorted(patterns_counter.items()):
-        percentage = (count / len(examples)) * 100
-        print(f"  {pattern}: {count} ({percentage:.1f}%)")
+    print("\nCommand distribution:")
+    for cmd_name, count in sorted(commands_counter.items()):
+        # Percentage is based on total COMMANDS, not total examples
+        total_cmds = sum(commands_counter.values())
+        percentage = (count / total_cmds) * 100 if total_cmds > 0 else 0
+        print(f"  {cmd_name}: {count} ({percentage:.1f}%)")

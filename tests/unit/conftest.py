@@ -5,9 +5,20 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from soni.core.commands import (
+    AffirmConfirmation,
+    CancelFlow,
+    Clarify,
+    Command,
+    CorrectSlot,
+    DenyConfirmation,
+    OutOfScope,
+    SetSlot,
+    StartFlow,
+)
 from soni.core.state import create_empty_state
 from soni.core.types import DialogueState
-from soni.du.models import MessageType, NLUOutput, SlotValue
+from soni.du.models import NLUOutput
 
 # === NLU MOCKING FIXTURES ===
 
@@ -15,22 +26,20 @@ from soni.du.models import MessageType, NLUOutput, SlotValue
 @pytest.fixture
 def create_nlu_mock():
     """
-    Factory fixture to create NLU mocks with specific message_type.
+    Factory fixture to create NLU mocks with specific commands.
 
     Usage:
         def test_something(create_nlu_mock):
-            nlu = create_nlu_mock(MessageType.SLOT_VALUE, slots=[...])
+            nlu = create_nlu_mock(commands=[SetSlot(...)])
     """
 
-    def _create(message_type: MessageType, **kwargs):
+    def _create(commands: list[Command] | None = None, **kwargs):
         nlu = AsyncMock()
         nlu.predict.return_value = NLUOutput(
-            message_type=message_type,
-            command=kwargs.get("command", "continue"),
-            slots=kwargs.get("slots", []),
+            commands=commands or [],
             confidence=kwargs.get("confidence", 0.95),
-            confirmation_value=kwargs.get("confirmation_value"),
             reasoning=kwargs.get("reasoning", "Mocked NLU response"),
+            entities=[],
         )
         return nlu
 
@@ -39,12 +48,10 @@ def create_nlu_mock():
 
 @pytest.fixture
 def mock_nlu_slot_value():
-    """Mock NLU returning SLOT_VALUE message type."""
+    """Mock NLU returning SetSlot command."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.SLOT_VALUE,
-        command="continue",
-        slots=[SlotValue(name="origin", value="Madrid", confidence=0.95)],
+        commands=[SetSlot(slot_name="origin", value="Madrid")],
         confidence=0.95,
         reasoning="User provided slot value",
     )
@@ -53,12 +60,10 @@ def mock_nlu_slot_value():
 
 @pytest.fixture
 def mock_nlu_correction():
-    """Mock NLU returning CORRECTION message type."""
+    """Mock NLU returning CorrectSlot command."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.CORRECTION,
-        command="continue",
-        slots=[SlotValue(name="destination", value="Barcelona", confidence=0.95)],
+        commands=[CorrectSlot(slot_name="destination", new_value="Barcelona")],
         confidence=0.95,
         reasoning="User is correcting a slot",
     )
@@ -67,12 +72,10 @@ def mock_nlu_correction():
 
 @pytest.fixture
 def mock_nlu_modification():
-    """Mock NLU returning MODIFICATION message type."""
+    """Mock NLU returning CorrectSlot command (modification is correction in v2)."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.MODIFICATION,
-        command="continue",
-        slots=[SlotValue(name="destination", value="Valencia", confidence=0.95)],
+        commands=[CorrectSlot(slot_name="destination", new_value="Valencia")],
         confidence=0.95,
         reasoning="User is modifying a slot",
     )
@@ -81,12 +84,10 @@ def mock_nlu_modification():
 
 @pytest.fixture
 def mock_nlu_confirmation_yes():
-    """Mock NLU returning YES confirmation."""
+    """Mock NLU returning AffirmConfirmation."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.CONFIRMATION,
-        command="continue",
-        confirmation_value=True,
+        commands=[AffirmConfirmation()],
         confidence=0.95,
         reasoning="User confirmed with yes",
     )
@@ -95,12 +96,10 @@ def mock_nlu_confirmation_yes():
 
 @pytest.fixture
 def mock_nlu_confirmation_no():
-    """Mock NLU returning NO confirmation."""
+    """Mock NLU returning DenyConfirmation."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.CONFIRMATION,
-        command="continue",
-        confirmation_value=False,
+        commands=[DenyConfirmation()],
         confidence=0.95,
         reasoning="User denied with no",
     )
@@ -109,12 +108,10 @@ def mock_nlu_confirmation_no():
 
 @pytest.fixture
 def mock_nlu_confirmation_unclear():
-    """Mock NLU returning UNCLEAR confirmation."""
+    """Mock NLU returning no commands (unclear)."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.CONFIRMATION,
-        command="continue",
-        confirmation_value=None,
+        commands=[],
         confidence=0.50,
         reasoning="Unclear confirmation response",
     )
@@ -123,12 +120,10 @@ def mock_nlu_confirmation_unclear():
 
 @pytest.fixture
 def mock_nlu_intent_change():
-    """Mock NLU returning INTENT_CHANGE message type."""
+    """Mock NLU returning StartFlow command."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.INTERRUPTION,
-        command="book_hotel",
-        slots=[],
+        commands=[StartFlow(flow_name="book_hotel")],
         confidence=0.95,
         reasoning="User wants to change to a new flow",
     )
@@ -137,12 +132,10 @@ def mock_nlu_intent_change():
 
 @pytest.fixture
 def mock_nlu_digression():
-    """Mock NLU returning QUESTION/HELP message type."""
+    """Mock NLU returning Clarify command (closest mapping for question)."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.DIGRESSION,
-        command="help",
-        slots=[],
+        commands=[Clarify(topic="general", original_text="help")],
         confidence=0.90,
         reasoning="User asked a question",
     )
@@ -151,12 +144,10 @@ def mock_nlu_digression():
 
 @pytest.fixture
 def mock_nlu_cancellation():
-    """Mock NLU returning CANCELLATION message type."""
+    """Mock NLU returning CancelFlow command."""
     nlu = AsyncMock()
     nlu.predict.return_value = NLUOutput(
-        message_type=MessageType.CANCELLATION,
-        command="cancel",
-        slots=[],
+        commands=[CancelFlow(reason="user request")],
         confidence=0.95,
         reasoning="User wants to cancel",
     )
@@ -339,9 +330,7 @@ def create_state_with_correction_context(
     ]
     state["flow_slots"] = {"flow_1": {slot_to_correct: old_value}}
     state["nlu_result"] = {
-        "message_type": "correction",
-        "command": "continue",
-        "slots": [{"name": slot_to_correct, "value": new_value}],
+        "commands": [CorrectSlot(slot_name=slot_to_correct, new_value=new_value)],
         "confidence": 0.95,
     }
     return state

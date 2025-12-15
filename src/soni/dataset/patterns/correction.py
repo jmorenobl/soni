@@ -11,21 +11,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import CorrectSlot
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput, SlotValue
+from soni.du.models import NLUOutput
 
 
 class CorrectionGenerator(PatternGenerator):
     """Generates CORRECTION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.CORRECTION
 
     def generate_examples(
         self,
@@ -63,10 +60,8 @@ class CorrectionGenerator(PatternGenerator):
                         departure_date="tomorrow",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value=CITIES[5], confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="destination", new_value=CITIES[5]),
                         ],
                         confidence=0.9,
                     ),
@@ -87,10 +82,8 @@ class CorrectionGenerator(PatternGenerator):
                         departure_date="tomorrow",  # Wrong value
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="departure_date", value="next Monday", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="departure_date", new_value="next Monday"),
                         ],
                         confidence=0.9,
                     ),
@@ -110,10 +103,8 @@ class CorrectionGenerator(PatternGenerator):
                         departure_date="next week",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="passengers", value="3", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="passengers", new_value="3"),
                         ],
                         confidence=0.95,
                     ),
@@ -124,7 +115,7 @@ class CorrectionGenerator(PatternGenerator):
                 )
             )
 
-            # Example 4: "Actually, I meant X not Y" - key test case pattern
+            # Example 4: "Actually, I meant X not Y"
             examples.append(
                 ExampleTemplate(
                     user_message="Actually, I meant Denver not Chicago",
@@ -140,10 +131,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value="Denver", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="origin", new_value="Denver"),
                         ],
                         confidence=0.95,
                     ),
@@ -169,10 +158,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="origin", value="Boston", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="origin", new_value="Boston"),
                         ],
                         confidence=0.95,
                     ),
@@ -200,10 +187,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="location", value=CITIES[2], confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="location", new_value=CITIES[2]),
                         ],
                         confidence=0.9,
                     ),
@@ -228,10 +213,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="guests", value="2", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="guests", new_value="2"),
                         ],
                         confidence=0.95,
                     ),
@@ -256,10 +239,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["checkout_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="checkin_date", value="next weekend", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="checkin_date", new_value="next weekend"),
                         ],
                         confidence=0.9,
                     ),
@@ -287,10 +268,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="time", value=TIMES[1], confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="time", new_value=TIMES[1]),
                         ],
                         confidence=0.9,
                     ),
@@ -315,10 +294,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["time"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="party_size", value="4", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="party_size", new_value="4"),
                         ],
                         confidence=0.95,
                     ),
@@ -343,10 +320,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["cuisine"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="location", value="nearby", confidence=0.85),
+                        commands=[
+                            CorrectSlot(slot_name="location", new_value="nearby"),
                         ],
                         confidence=0.85,
                     ),
@@ -372,10 +347,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="color", value="black", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="color", new_value="black"),
                         ],
                         confidence=0.9,
                     ),
@@ -400,10 +373,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["color"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="size", value="10", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="size", new_value="10"),
                         ],
                         confidence=0.95,
                     ),
@@ -428,10 +399,8 @@ class CorrectionGenerator(PatternGenerator):
                         expected_slots=["shipping_address"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="quantity", value="2", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="quantity", new_value="2"),
                         ],
                         confidence=0.95,
                     ),
@@ -457,10 +426,8 @@ class CorrectionGenerator(PatternGenerator):
                         amount="500", currency="dollars", recipient="mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value="50", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="amount", new_value="50"),
                         ],
                         confidence=0.9,
                     ),
@@ -479,10 +446,8 @@ class CorrectionGenerator(PatternGenerator):
                         amount=str(AMOUNTS[0]), currency="USD", recipient="Bob"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="recipient", value="Alice", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="recipient", new_value="Alice"),
                         ],
                         confidence=0.9,
                     ),
@@ -501,10 +466,8 @@ class CorrectionGenerator(PatternGenerator):
                         amount="50", currency="USD", recipient="Mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.CORRECTION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value="100", confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="amount", new_value="100"),
                         ],
                         confidence=0.9,
                     ),

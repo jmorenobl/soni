@@ -8,13 +8,19 @@ from dataclasses import dataclass, field
 
 import dspy
 
+from soni.core.commands import (
+    AffirmConfirmation,
+    CancelFlow,
+    Command,
+    CorrectSlot,
+    DenyConfirmation,
+    SetSlot,
+    StartFlow,
+)
 from soni.core.config import FlowConfig, SoniConfig, StepConfig
 from soni.du.models import (
     DialogueContext,
-    MessageType,
     NLUOutput,
-    SlotAction,
-    SlotValue,
 )
 
 
@@ -340,9 +346,7 @@ class ConversationSimulator:
             history=dspy.History(messages=list(current_state.messages)),
             context=context,
             expected_output=NLUOutput(
-                message_type=MessageType.INTERRUPTION,
-                command=target_flow,
-                slots=slots,
+                commands=[StartFlow(flow_name=target_flow)] + slots,
                 confidence=0.90,
             ),
         )
@@ -364,16 +368,7 @@ class ConversationSimulator:
             history=dspy.History(messages=list(state.messages)),
             context=context,
             expected_output=NLUOutput(
-                message_type=MessageType.SLOT_VALUE,
-                command=flow_name,
-                slots=[
-                    SlotValue(
-                        name=slot_name,
-                        value=slot_value,
-                        confidence=0.95,
-                        action=SlotAction.PROVIDE,
-                    )
-                ],
+                commands=[SetSlot(slot_name=slot_name, value=slot_value)],
                 confidence=0.95,
             ),
         )
@@ -395,17 +390,7 @@ class ConversationSimulator:
             history=dspy.History(messages=list(state.messages)),
             context=context,
             expected_output=NLUOutput(
-                message_type=MessageType.CORRECTION,
-                command=flow_name,
-                slots=[
-                    SlotValue(
-                        name=slot_name,
-                        value=new_value,
-                        confidence=0.90,
-                        action=SlotAction.CORRECT,
-                        previous_value=old_value,
-                    )
-                ],
+                commands=[CorrectSlot(slot_name=slot_name, new_value=new_value)],
                 confidence=0.90,
             ),
         )
@@ -421,16 +406,19 @@ class ConversationSimulator:
         context = self._build_context(state)
         context.conversation_state = "confirming"
 
+        commands = []
+        if confirmation_value is True:
+            commands.append(AffirmConfirmation())
+        elif confirmation_value is False:
+            commands.append(DenyConfirmation())
+
         return SimulatedTurn(
             user_message=user_message,
             history=dspy.History(messages=list(state.messages)),
             context=context,
             expected_output=NLUOutput(
-                message_type=MessageType.CONFIRMATION,
-                command=flow_name,
-                slots=[],
+                commands=commands,
                 confidence=0.90 if confirmation_value is not None else 0.60,
-                confirmation_value=confirmation_value,
             ),
         )
 
@@ -597,9 +585,7 @@ class ConversationSimulator:
                     history=dspy.History(messages=list(state.messages)),
                     context=context,
                     expected_output=NLUOutput(
-                        message_type=MessageType.CANCELLATION,
-                        command=flow_name,
-                        slots=[],
+                        commands=[CancelFlow(reason="User cancelled")],
                         confidence=0.90,
                     ),
                 )
@@ -665,25 +651,18 @@ class ConversationSimulator:
         self,
         user_message: str,
         flow_name: str,
-    ) -> list[SlotValue]:
+    ) -> list[Command]:
         """Try to extract slot values from an intent phrase.
 
         This is a simple heuristic - looks for patterns like "100 to mom".
         """
-        slots: list[SlotValue] = []
+        slots: list[Command] = []
 
         # Simple numeric extraction
         import re
 
         numbers = re.findall(r"\b\d+\b", user_message)
         if numbers and "amount" in str(self.config.slots):
-            slots.append(
-                SlotValue(
-                    name="amount",
-                    value=numbers[0],
-                    confidence=0.85,
-                    action=SlotAction.PROVIDE,
-                )
-            )
+            slots.append(SetSlot(slot_name="amount", value=numbers[0]))
 
         return slots

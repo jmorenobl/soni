@@ -11,21 +11,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import StartFlow
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput
+from soni.du.models import NLUOutput
 
 
 class InterruptionGenerator(PatternGenerator):
     """Generates INTERRUPTION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.INTERRUPTION
 
     def generate_examples(
         self,
@@ -60,9 +57,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -85,9 +82,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="book_hotel"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -110,9 +107,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="book_table"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -135,9 +132,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="search_product"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -160,9 +157,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="transfer_funds"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -197,9 +194,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_hotels",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="search_hotels"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -210,7 +207,6 @@ class InterruptionGenerator(PatternGenerator):
             )
 
             # Follow-up with slot extraction: "and what about a return on Dec 20?"
-            # User just got outbound flight info, now asks about return with date
             examples.append(
                 ExampleTemplate(
                     user_message="and what about a return on December 20th?",
@@ -236,15 +232,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[
-                            {
-                                "name": "return_date",
-                                "value": "December 20th",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="book_flight",
+                                slots={"return_date": "December 20th"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -270,9 +262,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_flights",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="search_flights"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -283,7 +275,6 @@ class InterruptionGenerator(PatternGenerator):
             )
 
             # Follow-up with slot extraction: "and for next week?"
-            # User booked one week, now asks about another
             examples.append(
                 ExampleTemplate(
                     user_message="and what about next week?",
@@ -308,15 +299,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_hotel",
-                        slots=[
-                            {
-                                "name": "checkin_date",
-                                "value": "next week",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="book_hotel",
+                                slots={"checkin_date": "next week"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -342,9 +329,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="book_flight"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -376,15 +363,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="book_table",
-                        slots=[
-                            {
-                                "name": "time",
-                                "value": "8 PM",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="book_table",
+                                slots={"time": "8 PM"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -410,9 +393,9 @@ class InterruptionGenerator(PatternGenerator):
                         expected_slots=["product"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_flights",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="search_flights"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -444,15 +427,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="search_product",
-                        slots=[
-                            {
-                                "name": "color",
-                                "value": "blue",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="search_product",
+                                slots={"color": "blue"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -484,9 +463,9 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="check_balance"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -497,7 +476,6 @@ class InterruptionGenerator(PatternGenerator):
             )
 
             # Example 2: Implicit switch - "How much do I have?" (matches check_balance description)
-            # Critical pattern: User asks about balance without explicitly requesting flow switch
             examples.append(
                 ExampleTemplate(
                     user_message="How much do I have?",
@@ -517,9 +495,9 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="check_balance"),
+                        ],
                         confidence=0.90,
                     ),
                     domain=domain_config.name,
@@ -546,9 +524,9 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="check_balance"),
+                        ],
                         confidence=0.90,
                     ),
                     domain=domain_config.name,
@@ -578,9 +556,9 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[],
+                        commands=[
+                            StartFlow(flow_name="check_balance"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -610,15 +588,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="transfer_funds",
-                        slots=[
-                            {
-                                "name": "recipient",
-                                "value": "sister",
-                                "confidence": 0.9,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="transfer_funds",
+                                slots={"recipient": "sister"},
+                            ),
                         ],
                         confidence=0.85,
                     ),
@@ -630,8 +604,6 @@ class InterruptionGenerator(PatternGenerator):
             )
 
             # Example 6: Follow-up interruption WITH slot extraction
-            # Critical pattern: User asks about ANOTHER account type after a balance check
-            # This teaches the model that follow-ups can carry slots for the NEW flow
             examples.append(
                 ExampleTemplate(
                     user_message="and in my credit account?",
@@ -653,15 +625,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[
-                            {
-                                "name": "account_type",
-                                "value": "credit",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="check_balance",
+                                slots={"account_type": "credit"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -694,15 +662,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[
-                            {
-                                "name": "account_type",
-                                "value": "savings",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="check_balance",
+                                slots={"account_type": "savings"},
+                            ),
                         ],
                         confidence=0.95,
                     ),
@@ -733,15 +697,11 @@ class InterruptionGenerator(PatternGenerator):
                         conversation_state="waiting_for_slot",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.INTERRUPTION,
-                        command="check_balance",
-                        slots=[
-                            {
-                                "name": "account_type",
-                                "value": "checking",
-                                "confidence": 0.95,
-                                "action": "provide",
-                            }
+                        commands=[
+                            StartFlow(
+                                flow_name="check_balance",
+                                slots={"account_type": "checking"},
+                            ),
                         ],
                         confidence=0.95,
                     ),

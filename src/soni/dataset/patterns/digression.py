@@ -11,21 +11,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import ChitChat
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput
+from soni.du.models import NLUOutput
 
 
 class DigressionGenerator(PatternGenerator):
     """Generates DIGRESSION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.DIGRESSION
 
     def generate_examples(
         self,
@@ -71,9 +68,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["departure_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="airlines"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -97,9 +94,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="flight_types"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -123,9 +120,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="pets"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -151,9 +148,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="supported_airports"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -178,9 +175,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["destination"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="destinations"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -205,9 +202,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["origin"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="destinations"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -233,9 +230,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="amenities_wifi"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -259,9 +256,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="amenities_breakfast"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -285,9 +282,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_hotel",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="amenities_gym"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -313,9 +310,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="dietary_restrictions"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -339,9 +336,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["time"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="parking"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -365,9 +362,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["location"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="book_table",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="seating_options"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -393,9 +390,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["quantity"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="warranty"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -419,9 +416,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["size"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="return_policy"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -445,9 +442,9 @@ class DigressionGenerator(PatternGenerator):
                         expected_slots=["brand"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="search_product",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="shipping"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -471,9 +468,9 @@ class DigressionGenerator(PatternGenerator):
                         amount="100", currency="USD", recipient="mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="fees"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -490,9 +487,9 @@ class DigressionGenerator(PatternGenerator):
                         amount="1000", currency="EUR", recipient="Bob"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="security"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,
@@ -509,9 +506,9 @@ class DigressionGenerator(PatternGenerator):
                         amount="50", currency="USD", recipient="Alice"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.DIGRESSION,
-                        command="transfer_funds",
-                        slots=[],
+                        commands=[
+                            ChitChat(response_hint="branches"),
+                        ],
                         confidence=0.85,
                     ),
                     domain=domain_config.name,

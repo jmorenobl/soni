@@ -11,21 +11,18 @@ from typing import Literal
 
 import dspy
 
+from soni.core.commands import CorrectSlot, DenyConfirmation
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
     ExampleTemplate,
     PatternGenerator,
 )
-from soni.du.models import MessageType, NLUOutput, SlotValue
+from soni.du.models import NLUOutput
 
 
 class ModificationGenerator(PatternGenerator):
     """Generates MODIFICATION pattern examples."""
-
-    @property
-    def message_type(self) -> MessageType:
-        return MessageType.MODIFICATION
 
     def generate_examples(
         self,
@@ -64,10 +61,8 @@ class ModificationGenerator(PatternGenerator):
                         departure_date="tomorrow",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value=CITIES[6], confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="destination", new_value=CITIES[6]),
                         ],
                         confidence=0.95,
                     ),
@@ -88,12 +83,8 @@ class ModificationGenerator(PatternGenerator):
                         departure_date=DATES_RELATIVE[0],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(
-                                name="departure_date", value=DATES_RELATIVE[2], confidence=0.9
-                            ),
+                        commands=[
+                            CorrectSlot(slot_name="departure_date", new_value=DATES_RELATIVE[2]),
                         ],
                         confidence=0.9,
                     ),
@@ -114,9 +105,9 @@ class ModificationGenerator(PatternGenerator):
                         departure_date="2025-12-15",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[],  # No tiene el nuevo valor aún, solo solicita cambio
+                        commands=[
+                            DenyConfirmation(slot_to_change="destination"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -136,9 +127,9 @@ class ModificationGenerator(PatternGenerator):
                         departure_date="2025-12-15",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(slot_to_change="origin"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -158,9 +149,9 @@ class ModificationGenerator(PatternGenerator):
                         departure_date="2025-12-15",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[],
+                        commands=[
+                            DenyConfirmation(slot_to_change="departure_date"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,
@@ -180,10 +171,8 @@ class ModificationGenerator(PatternGenerator):
                         departure_date="2025-12-15",
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_flight",
-                        slots=[
-                            SlotValue(name="destination", value="San Francisco", confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="destination", new_value="San Francisco"),
                         ],
                         confidence=0.95,
                     ),
@@ -211,10 +200,8 @@ class ModificationGenerator(PatternGenerator):
                         expected_slots=["checkin_date"],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_hotel",
-                        slots=[
-                            SlotValue(name="location", value=CITIES[3], confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="location", new_value=CITIES[3]),
                         ],
                         confidence=0.95,
                     ),
@@ -242,10 +229,8 @@ class ModificationGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="book_table",
-                        slots=[
-                            SlotValue(name="party_size", value=str(PARTY_SIZES[2]), confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="party_size", new_value=str(PARTY_SIZES[2])),
                         ],
                         confidence=0.9,
                     ),
@@ -273,10 +258,8 @@ class ModificationGenerator(PatternGenerator):
                         expected_slots=[],
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="search_product",
-                        slots=[
-                            SlotValue(name="size", value=SIZES[2], confidence=0.9),
+                        commands=[
+                            CorrectSlot(slot_name="size", new_value=SIZES[2]),
                         ],
                         confidence=0.9,
                     ),
@@ -302,10 +285,8 @@ class ModificationGenerator(PatternGenerator):
                         amount=str(AMOUNTS[0]), currency="USD", recipient="mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="transfer_funds",
-                        slots=[
-                            SlotValue(name="amount", value=str(AMOUNTS[1]), confidence=0.95),
+                        commands=[
+                            CorrectSlot(slot_name="amount", new_value=str(AMOUNTS[1])),
                         ],
                         confidence=0.95,
                     ),
@@ -324,9 +305,9 @@ class ModificationGenerator(PatternGenerator):
                         amount="100", currency="USD", recipient="mom"
                     ),
                     expected_output=NLUOutput(
-                        message_type=MessageType.MODIFICATION,
-                        command="transfer_funds",
-                        slots=[],  # Intent to change, but no new value provided
+                        commands=[
+                            DenyConfirmation(slot_to_change="currency"),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,

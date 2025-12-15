@@ -14,7 +14,6 @@ from soni.core.state import (
     get_slot_config,
 )
 from soni.dm.node_factory_registry import NodeFactoryRegistry
-from soni.du.models import MessageType, NLUOutput, SlotValue
 from soni.validation.registry import ValidatorRegistry
 
 logger = logging.getLogger(__name__)
@@ -86,338 +85,55 @@ def create_understand_node(
         and returns dict[str, Any] (state updates)
     """
     # Import here to avoid circular imports
-    from soni.dm.routing import activate_flow_by_intent
 
     async def understand_node(state: DialogueState | dict[str, Any]) -> dict[str, Any]:
-        """Understand user message using NLU provider.
+        """Understand user message using NLU provider (v2.0 Command-Based).
 
-        Reads user message from state["user_message"] as per design (05-message-flow.md).
-        The messages[] list is used only for building conversation history.
+        1. Read user_message
+        2. Call NLU (returns Commands)
+        3. Store commands in state for Executor
         """
         try:
             state = _ensure_dialogue_state(state)
-
-            # Read from user_message field (per design: 05-message-flow.md)
             user_message = state.get("user_message", "")
-            if not user_message or not user_message.strip():
-                logger.warning("No user_message in state")
-                return {
-                    "last_response": "I didn't receive any message. Please try again.",
-                }
 
-            # Build dspy.History from messages
-            import dspy
-
+            # Simple context creation (DRY)
             from soni.du.models import DialogueContext
 
-            # dspy.History accepts a list of message dicts directly
-            messages = state.get("messages", [])
-            history_messages = messages[:-1]  # All messages except the last one
-            history = dspy.History(messages=history_messages)
-
-            available_actions = scope_manager.get_available_actions(state)
-            available_flows = scope_manager.get_available_flows(state)
-
-            # Get current flow name
-            from soni.core.state import get_current_flow
-
-            current_flow = get_current_flow(state)
-            if current_flow and current_flow != "none":
-                expected_slots = scope_manager.get_expected_slots(
-                    flow_name=current_flow,
-                    available_actions=available_actions,
-                )
-            else:
-                expected_slots = []
-                logger.debug(
-                    f"No active flow, passing empty expected_slots. "
-                    f"NLU will infer from available_flows: {list(available_flows.keys())}"
-                )
-
-            # Get all current slots
-            current_slots = get_all_slots(state)
-
-            # Get currently prompted slot (if any)
-            current_prompted_slot = state.get("current_prompted_slot")
-
-            # Create DialogueContext
-            dialogue_context = DialogueContext(
-                current_slots=current_slots,
-                available_actions=available_actions,
-                available_flows=available_flows,
-                current_flow=current_flow,
-                expected_slots=expected_slots,
-                current_prompted_slot=current_prompted_slot,
+            context_obj = DialogueContext(
+                current_slots=get_all_slots(state),
+                current_flow=state.get("flow_stack", [{}])[-1].get("flow_name", "none"),
             )
 
-            nlu_result_raw = await nlu_provider.predict(
+            # dspy.History
+            import dspy
+
+            messages = state.get("messages", [])
+            history = dspy.History(messages=messages[:-1])  # simplistic
+
+            # Call NLU
+            nlu_result = await nlu_provider.predict(
                 user_message=user_message,
                 history=history,
-                context=dialogue_context,
+                context=context_obj,
             )
 
-            # Convert to NLUOutput if needed
-            if isinstance(nlu_result_raw, dict):
-                slots_dict = nlu_result_raw.get("extracted_slots", {})
-                if isinstance(slots_dict, dict):
-                    slots_list = [
-                        SlotValue(name=k, value=v, confidence=0.95) for k, v in slots_dict.items()
-                    ]
-                else:
-                    slots_list = []
-                nlu_result = NLUOutput(
-                    message_type=MessageType.SLOT_VALUE,
-                    command=nlu_result_raw.get("structured_command") or None,
-                    slots=slots_list,
-                    confidence=nlu_result_raw.get("confidence", 0.0),
-                )
-            elif isinstance(nlu_result_raw, NLUOutput):
-                nlu_result = nlu_result_raw
-            else:
-                nlu_result = NLUOutput(
-                    message_type=MessageType.SLOT_VALUE,
-                    command=None,
-                    slots=[],
-                    confidence=0.0,
-                )
-
-            # Determine target flow BEFORE slot validation
-            # This ensures we use the correct expected_slots for the flow being activated
-            from soni.core.state import get_current_flow
-
-            current_flow_name = get_current_flow(state)
-            config = context["config"]
-            target_flow = activate_flow_by_intent(
-                command=nlu_result.command,
-                current_flow=current_flow_name,
-                config=config,
-            )
-
-            # Get expected_slots for TARGET flow (may differ from current flow)
-            if target_flow and target_flow != current_flow_name and target_flow != "none":
-                # New flow being activated - use its expected_slots
-                target_expected_slots = scope_manager.get_expected_slots(
-                    flow_name=target_flow,
-                    available_actions=available_actions,
-                )
-                logger.debug(
-                    f"Flow activation detected: {current_flow_name} -> {target_flow}, "
-                    f"using target flow expected_slots: {target_expected_slots}"
-                )
-            else:
-                # Staying in current flow - use current expected_slots
-                target_expected_slots = expected_slots
-
-            # Normalize extracted slots
-            # When we have a current_prompted_slot and the NLU extracts a slot_value,
-            # use the prompted slot name to ensure correct assignment
-            current_prompted_slot = state.get("current_prompted_slot")
-            normalized_slots: dict[str, Any] = {}
-
-            if nlu_result.slots:
-                expected_set = set(target_expected_slots)
-
-                if (
-                    current_prompted_slot
-                    and nlu_result.message_type.value == "slot_value"
-                    and len(nlu_result.slots) == 1
-                ):
-                    # User responded to a direct prompt
-                    extracted_slot = nlu_result.slots[0]
-
-                    # Check if NLU's slot name matches the prompted slot or is unknown
-                    if (
-                        extracted_slot.name == current_prompted_slot
-                        or extracted_slot.name not in expected_set
-                    ):
-                        # Assign to prompted slot
-                        normalized_slots[current_prompted_slot] = extracted_slot.value
-                        logger.debug(
-                            f"Assigned value '{extracted_slot.value}' to prompted slot "
-                            f"'{current_prompted_slot}' (NLU named it '{extracted_slot.name}')"
-                        )
-                    else:
-                        # NLU recognized a DIFFERENT known slot - respect NLU's semantic analysis
-                        # This happens when user provides unexpected info (e.g., date when asked for city)
-                        normalized_slots[extracted_slot.name] = extracted_slot.value
-                        logger.info(
-                            f"NLU extracted '{extracted_slot.name}' but prompted for "
-                            f"'{current_prompted_slot}' - respecting NLU's semantic analysis"
-                        )
-                else:
-                    # Multiple slots or no prompt context - validate against target flow's slots
-                    for slot in nlu_result.slots:
-                        if slot.name in expected_set:
-                            normalized_slots[slot.name] = slot.value
-                        else:
-                            # Log warning for unknown slot names
-                            logger.warning(
-                                f"NLU extracted unknown slot '{slot.name}' "
-                                f"(expected: {target_expected_slots}). Discarding value: {slot.value}"
-                            )
-
-            failed_slots: list[dict[str, Any]] = []
-            if normalized_slots:
-                try:
-                    normalized_dict: dict[str, Any] = {}
-                    for slot_name, slot_value in normalized_slots.items():
-                        try:
-                            slot_config = get_slot_config(context, slot_name)
-                            normalization_config = getattr(slot_config, "normalization", None)
-                            entity_config = {
-                                "name": slot_name,
-                                "type": getattr(slot_config, "type", "string"),
-                                "normalization": (
-                                    normalization_config.model_dump()
-                                    if normalization_config is not None
-                                    else {}
-                                ),
-                            }
-                            try:
-                                normalized_value = await normalizer.normalize(
-                                    slot_value, entity_config
-                                )
-                                normalized_dict[slot_name] = normalized_value
-                            except (ValueError, TypeError, KeyError, AttributeError) as e:
-                                logger.warning(
-                                    f"Normalization failed for slot '{slot_name}': {e}",
-                                    extra={
-                                        "slot_name": slot_name,
-                                        "slot_value": str(slot_value),
-                                        "error": str(e),
-                                    },
-                                )
-                                normalized_dict[slot_name] = slot_value
-                                failed_slots.append(
-                                    {
-                                        "slot_name": slot_name,
-                                        "value": str(slot_value),
-                                        "error": str(e),
-                                    }
-                                )
-                        except KeyError:
-                            normalized_dict[slot_name] = slot_value
-                    normalized_slots = normalized_dict
-                    logger.info(f"Normalized slots: {normalized_slots}")
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected normalization error: {e}",
-                        exc_info=True,
-                        extra={
-                            "slots": list(normalized_slots.keys()) if normalized_slots else [],
-                        },
-                    )
-                    raise
-
-            # Update slots - need to merge with existing slots
-            from soni.core.state import push_flow, set_all_slots
-
-            current_slots = get_all_slots(state)
-            slots_before = current_slots.copy()
-            current_slots.update(normalized_slots)
-            slots_after = current_slots.copy()
-
-            if normalized_slots:
-                logger.info(
-                    f"Extracted slots from user message: {normalized_slots}",
-                    extra={
-                        "user_message": user_message,
-                        "slots_before": slots_before,
-                        "slots_after": slots_after,
-                        "extracted_slots": normalized_slots,
-                    },
-                )
-
-            # Use target_flow determined earlier (before slot validation)
-            new_current_flow = target_flow
-
-            # Build updates dict
-            trace = state.get("trace", [])
-            updates: dict[str, Any] = {
-                "trace": trace
+            # Store commands for the Executor node
+            return {
+                "command_log": nlu_result.commands,
+                "nlu_result": nlu_result,  # Keep raw result if needed
+                "trace": state.get("trace", [])
                 + [
                     {
                         "event": "nlu_result",
-                        "data": {
-                            "command": nlu_result.command,
-                            "slots": nlu_result.slots,
-                            "confidence": nlu_result.confidence,
-                        },
+                        "data": {"commands": [str(c) for c in nlu_result.commands]},
                     }
                 ],
             }
 
-            # If flow changed, update flow_stack and flow_slots
-            if new_current_flow != current_flow_name:
-                if new_current_flow and new_current_flow != "none":
-                    # Push new flow onto stack (also initializes flow_slots for new flow)
-                    push_flow(state, new_current_flow)
-                    updates["flow_stack"] = state.get("flow_stack", [])
-                    # CRITICAL: Include flow_slots in updates to persist slot storage initialization
-                    updates["flow_slots"] = state.get("flow_slots", {})
-
-            # Update slots in state (merge with any previously initialized slots)
-            if normalized_slots:
-                set_all_slots(state, current_slots)
-                updates["flow_slots"] = state.get("flow_slots", {})
-
-            if failed_slots:
-                updates["trace"][-1]["data"]["normalization_failed"] = True
-                updates["trace"][-1]["data"]["failed_slots"] = failed_slots
-                logger.warning(
-                    f"Normalization failed for {len(failed_slots)} slot(s)",
-                    extra={
-                        "failed_count": len(failed_slots),
-                        "failed_slots": [s["slot_name"] for s in failed_slots],
-                    },
-                )
-
-            logger.info(
-                f"NLU result: command={nlu_result.command}, "
-                f"confidence={nlu_result.confidence:.2f}, "
-                f"slots={normalized_slots}"
-            )
-
-            # Clear prompted slot after processing to avoid carrying it to next turn
-            if current_prompted_slot and normalized_slots:
-                updates["current_prompted_slot"] = None
-
-            return updates
-
-        except (ImportError, AttributeError, RuntimeError, TypeError) as e:
-            from soni.core.errors import NLUError
-
-            error_user_message: str | None = (
-                state.get("user_message") if "user_message" in state else None
-            )
-            logger.error(
-                f"NLU processing failed: {e}",
-                exc_info=True,
-                extra={
-                    "user_message": error_user_message,
-                    "error_type": type(e).__name__,
-                },
-            )
-            raise NLUError(
-                f"NLU processing failed: {e}",
-                context={"user_message": error_user_message},
-            ) from e
         except Exception as e:
-            from soni.core.errors import NLUError
-
-            error_user_msg = state.get("user_message") if "user_message" in state else None
-            logger.error(
-                f"Unexpected NLU error: {e}",
-                exc_info=True,
-                extra={
-                    "user_message": error_user_msg,
-                    "error_type": type(e).__name__,
-                },
-            )
-            raise NLUError(
-                f"Unexpected NLU error: {e}",
-                context={"user_message": error_user_msg},
-            ) from e
+            logger.error(f"NLU failed: {e}", exc_info=True)
+            return {"command_log": []}
 
     return understand_node
 

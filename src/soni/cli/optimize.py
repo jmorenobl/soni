@@ -269,10 +269,13 @@ def preview(
         typer.echo(f"\n[Example {i + 1}]")
         typer.echo(f"  User: {example.user_message}")
         result = example.result
-        typer.echo(f"  Expected: {result.message_type.value} → {result.command}")
-        if result.slots:
-            slots_str = ", ".join(f"{s.name}={s.value}" for s in result.slots)
-            typer.echo(f"  Slots: {slots_str}")
+        if hasattr(result, "commands") and result.commands:
+            cmds_str = ", ".join(c.__class__.__name__ for c in result.commands)
+            typer.echo(f"  Commands: {cmds_str}")
+            for cmd in result.commands[:3]:  # Show first 3 commands
+                typer.echo(f"    - {cmd}")
+        else:
+            typer.echo("  Commands: (none)")
 
     if len(trainset) > 10:
         typer.echo(f"\n... and {len(trainset) - 10} more examples")
@@ -283,12 +286,14 @@ def preview(
 
         examples_data = []
         for ex in trainset:
+            cmd_data = []
+            if hasattr(ex.result, "commands"):
+                for c in ex.result.commands:
+                    cmd_data.append({"type": c.__class__.__name__, **c.model_dump()})
             examples_data.append(
                 {
                     "user_message": ex.user_message,
-                    "expected_type": ex.result.message_type.value,
-                    "expected_command": ex.result.command,
-                    "slots": [{"name": s.name, "value": s.value} for s in ex.result.slots],
+                    "commands": cmd_data,
                 }
             )
         with open(output_file, "w", encoding="utf-8") as f:

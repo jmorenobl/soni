@@ -1,8 +1,8 @@
-# NLU Data Structures Reference
+# NLU Data Structures Reference (v2.0 Command-Driven)
 
-This document describes the data structures injected into the DialogueUnderstanding signature.
+This document describes the data structures used by the DialogueUnderstanding signature.
 
-**IMPORTANT**: This documentation is for **DEVELOPER REFERENCE only**. It is **NOT included** in the prompt sent to the LLM. The signature docstring must be self-contained.
+**IMPORTANT**: This documentation is for **DEVELOPER REFERENCE only**. It is **NOT included** in the prompt sent to the LLM.
 
 ## Overview
 
@@ -13,7 +13,7 @@ The NLU module receives the following inputs:
 4. `current_datetime`: Current timestamp (ISO string)
 
 And produces:
-- `result`: NLU analysis output (NLUOutput)
+- `result`: NLU analysis output (NLUOutput with Commands)
 
 ## Input Structures
 
@@ -21,20 +21,16 @@ And produces:
 
 Raw user input message to analyze.
 
-**Type**: `str`
-
 **Examples**:
-- `"I want to book a flight"` (intent initiation)
-- `"Madrid"` (slot value response)
-- `"No, I meant Barcelona"` (correction)
-- `"Yes, that's correct"` (confirmation)
-- `"What destinations are available?"` (digression)
+- `"I want to book a flight"` (intent initiation → StartFlow)
+- `"Madrid"` (slot value response → SetSlot)
+- `"No, I meant Barcelona"` (correction → CorrectSlot)
+- `"Yes, that's correct"` (confirmation → AffirmConfirmation)
+- `"What destinations are available?"` (digression → ChitChat)
 
 ### 2. history: dspy.History
 
 Conversation history as a list of message dictionaries.
-
-**Type**: `dspy.History` (contains list of message dicts)
 
 **Structure**:
 ```python
@@ -45,25 +41,9 @@ History(messages=[
 ])
 ```
 
-**Example** (flight booking):
-```python
-History(messages=[
-    {"role": "user", "content": "I want to book a flight"},
-    {"role": "assistant", "content": "Where would you like to fly to?"},
-    {"role": "user", "content": "Madrid"}
-])
-```
-
-**Notes**:
-- Messages are ordered chronologically (oldest first)
-- Only user/assistant roles are used
-- Content is always a string
-
 ### 3. context: DialogueContext
 
 Current dialogue state providing context for NLU analysis.
-
-**Type**: `DialogueContext` (Pydantic model, see `models.py:84`)
 
 **Fields**:
 - `current_flow` (str): Active flow name (e.g., "book_flight", "none")
@@ -74,184 +54,109 @@ Current dialogue state providing context for NLU analysis.
 - `available_flows` (dict[str, str]): Available flows {name: description}
 - `available_actions` (list[str]): Available action names
 
-**Example** (waiting for destination):
-```python
-DialogueContext(
-    current_flow="book_flight",
-    expected_slots=["destination", "departure_date", "return_date"],
-    current_slots={},
-    current_prompted_slot="destination",
-    conversation_state="waiting_for_slot",
-    available_flows={
-        "book_flight": "Book a flight from origin to destination",
-        "cancel_booking": "Cancel an existing booking"
-    },
-    available_actions=["search_flights", "confirm_booking"]
-)
-```
-
-**Example** (confirming values):
-```python
-DialogueContext(
-    current_flow="book_flight",
-    expected_slots=["destination", "departure_date", "return_date"],
-    current_slots={
-        "destination": "Madrid",
-        "departure_date": "2025-12-15",
-        "return_date": "2025-12-20"
-    },
-    current_prompted_slot=None,
-    conversation_state="confirming",
-    available_flows={
-        "book_flight": "Book a flight from origin to destination",
-        "cancel_booking": "Cancel an existing booking"
-    },
-    available_actions=["search_flights", "confirm_booking"]
-)
-```
-
-**Key Usage Notes**:
-- Use `conversation_state` to determine if user is responding to confirmation
-- Use `current_prompted_slot` to prioritize which slot user is providing
-- Check `current_slots` to detect corrections (new value != existing value)
-- Use `expected_slots` to validate extracted slot names
-- Use `available_flows` descriptions to map user intent to flow name
-
 ### 4. current_datetime: str
 
 Current timestamp in ISO 8601 format for resolving temporal expressions.
 
-**Type**: `str`
-
-**Format**: ISO 8601 (YYYY-MM-DDTHH:MM:SS)
-
-**Examples**:
-- `"2025-12-11T10:30:00"`
-- `"2025-01-15T14:22:15"`
-
-**Usage**:
-Used to resolve relative dates like:
-- "tomorrow" → calculate based on current_datetime
-- "next Monday" → calculate based on current_datetime
-- "in 3 days" → calculate based on current_datetime
-
 ## Output Structure
 
-### NLUOutput
+### NLUOutput (Command-Driven)
 
-Structured NLU analysis result.
-
-**Type**: `NLUOutput` (Pydantic model, see `models.py:53`)
+The NLU produces a list of **Commands** instead of message types.
 
 **Fields**:
-- `message_type` (MessageType): Classification of message intent
-- `command` (str | None): Intent/flow name for intent changes, None for slot values
-- `slots` (list[SlotValue]): Extracted slot values with metadata
+- `commands` (list[Command]): List of executable commands
+- `entities` (list[ExtractedEntity]): Raw extracted entities for debugging
 - `confidence` (float): Overall confidence score (0.0-1.0)
-- `confirmation_value` (bool | None): For CONFIRMATION type only - True=yes, False=no, None=unclear
+- `reasoning` (str): Chain-of-thought reasoning
 
-**Examples by MessageType**:
+### Available Commands
 
-**SLOT_VALUE** (providing slot value):
+| Command | Description | Fields |
+|---------|-------------|--------|
+| `StartFlow` | Start a new flow | `flow_name`, `slots` (optional dict) |
+| `SetSlot` | Provide a slot value | `slot_name`, `value` |
+| `CorrectSlot` | Correct a previous value | `slot_name`, `new_value` |
+| `AffirmConfirmation` | User says "yes" | - |
+| `DenyConfirmation` | User says "no" | `slot_to_change` (optional) |
+| `CancelFlow` | Cancel current flow | `reason` (optional) |
+| `Clarify` | Ask clarification | `topic` |
+| `ChitChat` | Off-topic conversation | `response_hint` |
+| `HumanHandoff` | Request human agent | `reason` |
+| `OutOfScope` | Out of scope query | `topic` |
+
+## Examples by Command Type
+
+### SetSlot (providing slot value)
 ```python
 NLUOutput(
-    message_type=MessageType.SLOT_VALUE,
-    command=None,
-    slots=[
-        SlotValue(
-            name="destination",
-            value="Madrid",
-            confidence=0.95,
-            action=SlotAction.PROVIDE,
-            previous_value=None
-        )
+    commands=[
+        SetSlot(slot_name="destination", value="Madrid")
     ],
-    confidence=0.95,
-    confirmation_value=None
+    confidence=0.95
 )
 ```
 
-**CORRECTION** (fixing previous value):
+### CorrectSlot (fixing previous value)
 ```python
 NLUOutput(
-    message_type=MessageType.CORRECTION,
-    command=None,
-    slots=[
-        SlotValue(
-            name="destination",
-            value="Barcelona",
-            confidence=0.90,
-            action=SlotAction.CORRECT,
-            previous_value="Madrid"
-        )
+    commands=[
+        CorrectSlot(slot_name="destination", new_value="Barcelona")
     ],
-    confidence=0.90,
-    confirmation_value=None
+    confidence=0.90
 )
 ```
 
-**CONFIRMATION** (responding to confirmation prompt):
+### AffirmConfirmation (responding yes)
 ```python
 NLUOutput(
-    message_type=MessageType.CONFIRMATION,
-    command=None,
-    slots=[],
-    confidence=0.95,
-    confirmation_value=True  # User confirmed
+    commands=[
+        AffirmConfirmation()
+    ],
+    confidence=0.95
 )
 ```
 
-**INTERRUPTION** (changing intent):
+### StartFlow (changing intent)
 ```python
 NLUOutput(
-    message_type=MessageType.INTERRUPTION,
-    command="cancel_booking",
-    slots=[],
-    confidence=0.90,
-    confirmation_value=None
+    commands=[
+        StartFlow(flow_name="cancel_booking")
+    ],
+    confidence=0.90
 )
 ```
 
-**DIGRESSION** (asking question):
+### ChitChat (off-topic question)
 ```python
 NLUOutput(
-    message_type=MessageType.DIGRESSION,
-    command=None,
-    slots=[],
-    confidence=0.85,
-    confirmation_value=None
+    commands=[
+        ChitChat(response_hint="destinations")
+    ],
+    confidence=0.85
 )
 ```
 
-### SlotValue
-
-Individual extracted slot with metadata.
-
-**Fields**:
-- `name` (str): Slot name - must be in context.expected_slots
-- `value` (Any): Extracted value
-- `confidence` (float): Extraction confidence (0.0-1.0)
-- `action` (SlotAction): What this slot represents (provide/correct/modify/confirm)
-- `previous_value` (Any | None): Previous value if correction/modification
-
-**See examples above in NLUOutput.**
+### Multiple Commands (slot + start)
+```python
+# "Book a flight to Madrid tomorrow"
+NLUOutput(
+    commands=[
+        StartFlow(flow_name="book_flight"),
+        SetSlot(slot_name="destination", value="Madrid"),
+        SetSlot(slot_name="departure_date", value="2025-12-12")
+    ],
+    confidence=0.92
+)
+```
 
 ## Complete Example Flow
 
 ### Scenario: User booking flight to Madrid
 
-**Initial State**:
-- User has started booking flow
-- System is asking for destination
-
 **Input**:
 ```python
 user_message = "I want to fly to Madrid tomorrow"
-
-history = History(messages=[
-    {"role": "user", "content": "I want to book a flight"},
-    {"role": "assistant", "content": "Where would you like to fly to?"},
-])
 
 context = DialogueContext(
     current_flow="book_flight",
@@ -259,8 +164,6 @@ context = DialogueContext(
     current_slots={},
     current_prompted_slot="destination",
     conversation_state="waiting_for_slot",
-    available_flows={"book_flight": "Book a flight from origin to destination"},
-    available_actions=["search_flights"]
 )
 
 current_datetime = "2025-12-11T10:00:00"
@@ -269,34 +172,15 @@ current_datetime = "2025-12-11T10:00:00"
 **Expected Output**:
 ```python
 NLUOutput(
-    message_type=MessageType.SLOT_VALUE,
-    command=None,
-    slots=[
-        SlotValue(
-            name="destination",
-            value="Madrid",
-            confidence=0.95,
-            action=SlotAction.PROVIDE,
-            previous_value=None
-        ),
-        SlotValue(
-            name="departure_date",
-            value="2025-12-12",  # "tomorrow" resolved
-            confidence=0.90,
-            action=SlotAction.PROVIDE,
-            previous_value=None
-        )
+    commands=[
+        SetSlot(slot_name="destination", value="Madrid"),
+        SetSlot(slot_name="departure_date", value="2025-12-12")  # "tomorrow" resolved
     ],
-    confidence=0.92,
-    confirmation_value=None
+    confidence=0.92
 )
 ```
 
 **Analysis**:
-- Message type: SLOT_VALUE (user providing values, not changing intent)
-- Command: None (not a new intent)
-- Slots: Extracted both destination and departure_date
-  - Destination: "Madrid" (explicit in message)
-  - Departure date: "2025-12-12" (resolved "tomorrow" using current_datetime)
-- Actions: Both PROVIDE (new values, not corrections)
+- Commands: Two SetSlot commands for destination and departure_date
+- Departure date resolved from "tomorrow" using current_datetime
 - Confidence: High (clear extraction)
