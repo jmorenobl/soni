@@ -217,7 +217,7 @@ def execute_transfer(
     source_account: str,
     beneficiary_name: str,
     iban: str,
-    amount: float,
+    amount: float | str,
     transfer_concept: str,
 ) -> dict[str, Any]:
     """
@@ -229,11 +229,20 @@ def execute_transfer(
     3. Submit to payment processor
     4. Return confirmation
     """
+    # Convert amount to float (slots come as strings)
+    try:
+        amount_float = float(amount)
+    except (ValueError, TypeError):
+        return {
+            "transaction_id": "FAILED",
+            "status": "invalid_amount",
+        }
+
     # Simulate balance check
     account = ACCOUNTS.get(source_account.lower(), {})
     current_balance = account.get("balance", 0)
 
-    if amount > current_balance:
+    if amount_float > current_balance:
         return {
             "transaction_id": "FAILED",
             "status": "insufficient_funds",
