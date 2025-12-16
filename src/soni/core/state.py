@@ -16,6 +16,7 @@ def create_empty_dialogue_state() -> DialogueState:
         "commands": [],
         "response": None,
         "action_result": None,
+        "_branch_target": None,
         "turn_count": 0,
         "metadata": {},
     }

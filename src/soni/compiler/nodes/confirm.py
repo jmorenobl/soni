@@ -91,18 +91,26 @@ class ConfirmNodeFactory:
                     await flow_manager.set_slot(state, slot_name, is_affirmed)
                     logger.debug(f"Confirmation slot '{slot_name}' set to {is_affirmed} via NLU")
 
+                    # If denied with slot_to_change, wait for new value
+                    if not is_affirmed and slot_to_change:
+                        logger.debug(f"Modification requested for slot '{slot_to_change}'")
+                        # Clear the confirmation slot so we re-confirm after modification
+                        await flow_manager.set_slot(state, slot_name, None)
+                        # Prompt for the new value
+                        prompt_message = f"What would you like to change {slot_to_change} to?"
+                        return {
+                            "flow_state": "waiting_input",
+                            "waiting_for_slot": slot_to_change,
+                            "messages": [AIMessage(content=prompt_message)],
+                            "last_response": prompt_message,
+                            "flow_slots": state["flow_slots"],
+                        }
+
                     result: dict[str, Any] = {
                         "flow_state": "active",
                         "waiting_for_slot": None,
                         "flow_slots": state["flow_slots"],
                     }
-
-                    # If denied with slot_to_change, store it for flow logic
-                    if not is_affirmed and slot_to_change:
-                        await flow_manager.set_slot(
-                            state, f"__change_slot_{slot_name}", slot_to_change
-                        )
-                        result["flow_slots"] = state["flow_slots"]
 
                     return result
 

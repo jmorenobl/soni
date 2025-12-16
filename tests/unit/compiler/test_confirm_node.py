@@ -204,8 +204,8 @@ class TestConfirmNodeMaxRetries:
         assert "Assuming 'no'" in result["last_response"]
 
     @pytest.mark.asyncio
-    async def test_deny_with_slot_to_change_stores_info(self, factory, step_config):
-        """Deny with slot_to_change should store the slot name."""
+    async def test_deny_with_slot_to_change_waits_for_slot(self, factory, step_config):
+        """Deny with slot_to_change should wait for that slot's new value."""
         mock_fm = MagicMock()
         mock_fm.get_slot.return_value = None
         mock_fm.set_slot = AsyncMock()
@@ -224,6 +224,7 @@ class TestConfirmNodeMaxRetries:
 
         result = await node(state, mock_config)
 
-        assert result["flow_state"] == "active"
-        # Verify set_slot was called twice: once for confirmed, once for change slot
-        assert mock_fm.set_slot.call_count >= 1
+        # New behavior: waits for the slot to be modified
+        assert result["flow_state"] == "waiting_input"
+        assert result["waiting_for_slot"] == "destination"
+        assert "change" in result["last_response"].lower()
