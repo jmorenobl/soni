@@ -4,73 +4,62 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from soni.compiler.nodes.confirm import ConfirmNodeFactory, _parse_confirmation
+from soni.compiler.nodes.confirm import ConfirmNodeFactory, _find_confirmation_command
 from soni.core.config import StepConfig
 from soni.core.state import create_empty_dialogue_state
 
 
-class TestParseConfirmation:
-    """Tests for yes/no parsing logic."""
+class TestFindConfirmationCommand:
+    """Tests for NLU command parsing."""
 
-    @pytest.mark.parametrize(
-        "message,expected",
-        [
-            ("yes", True),
-            ("YES", True),
-            ("Yes", True),
-            ("y", True),
-            ("Y", True),
-            ("si", True),
-            ("sí", True),
-            ("ok", True),
-            ("okay", True),
-            ("sure", True),
-            ("yep", True),
-            ("yeah", True),
-            ("confirm", True),
-            ("correct", True),
-            ("yes please", True),
-            ("yes, that's correct", True),
-        ],
-    )
-    def test_parse_yes_responses(self, message: str, expected: bool):
-        assert _parse_confirmation(message) is expected
+    def test_find_affirm_command_dict(self):
+        """Should find affirm command from dict."""
+        commands = [{"type": "affirm"}]
+        is_affirmed, slot = _find_confirmation_command(commands)
+        assert is_affirmed is True
+        assert slot is None
 
-    @pytest.mark.parametrize(
-        "message,expected",
-        [
-            ("no", False),
-            ("NO", False),
-            ("No", False),
-            ("n", False),
-            ("N", False),
-            ("nope", False),
-            ("nah", False),
-            ("cancel", False),
-            ("deny", False),
-            ("wrong", False),
-            ("incorrect", False),
-            ("no thanks", False),
-            ("no, change it", False),
-        ],
-    )
-    def test_parse_no_responses(self, message: str, expected: bool):
-        assert _parse_confirmation(message) is expected
+    def test_find_deny_command_dict(self):
+        """Should find deny command from dict."""
+        commands = [{"type": "deny"}]
+        is_affirmed, slot = _find_confirmation_command(commands)
+        assert is_affirmed is False
+        assert slot is None
 
-    @pytest.mark.parametrize(
-        "message",
-        [
-            "maybe",
-            "I'm not sure",
-            "what?",
-            "",
-            "   ",
-            "hmm",
-            "let me think",
-        ],
-    )
-    def test_parse_unclear_responses(self, message: str):
-        assert _parse_confirmation(message) is None
+    def test_find_deny_with_slot_to_change(self):
+        """Should extract slot_to_change from deny command."""
+        commands = [{"type": "deny", "slot_to_change": "destination"}]
+        is_affirmed, slot = _find_confirmation_command(commands)
+        assert is_affirmed is False
+        assert slot == "destination"
+
+    def test_no_confirmation_command(self):
+        """Should return None when no affirm/deny found."""
+        commands = [{"type": "set_slot", "slot": "foo"}]
+        is_affirmed, slot = _find_confirmation_command(commands)
+        assert is_affirmed is None
+        assert slot is None
+
+    def test_empty_commands_list(self):
+        """Should return None for empty list."""
+        is_affirmed, slot = _find_confirmation_command([])
+        assert is_affirmed is None
+        assert slot is None
+
+    def test_find_command_with_command_type_key(self):
+        """Should work with command_type key (alternative format)."""
+        commands = [{"command_type": "affirm"}]
+        is_affirmed, slot = _find_confirmation_command(commands)
+        assert is_affirmed is True
+
+    def test_find_command_from_object(self):
+        """Should work with command objects."""
+        cmd = MagicMock()
+        cmd.type = "deny"
+        cmd.slot_to_change = "origin"
+        is_affirmed, slot = _find_confirmation_command([cmd])
+        assert is_affirmed is False
+        assert slot == "origin"
 
 
 class TestConfirmNodeFactory:
@@ -114,12 +103,12 @@ class TestConfirmNodeFactory:
         assert "Do you want to confirm this booking?" in result["last_response"]
 
     @pytest.mark.asyncio
-    async def test_yes_response_sets_slot_to_true(self, factory, step_config, mock_config):
-        """Yes response should set slot to True."""
+    async def test_affirm_command_sets_slot_to_true(self, factory, step_config, mock_config):
+        """Affirm command from NLU should set slot to True."""
         node = factory.create(step_config)
         state = create_empty_dialogue_state()
         state["waiting_for_slot"] = "confirmed"
-        state["user_message"] = "yes"
+        state["commands"] = [{"type": "affirm"}]
 
         result = await node(state, mock_config)
 
@@ -128,12 +117,12 @@ class TestConfirmNodeFactory:
         mock_config["configurable"]["runtime_context"].flow_manager.set_slot.assert_called()
 
     @pytest.mark.asyncio
-    async def test_no_response_sets_slot_to_false(self, factory, step_config, mock_config):
-        """No response should set slot to False."""
+    async def test_deny_command_sets_slot_to_false(self, factory, step_config, mock_config):
+        """Deny command from NLU should set slot to False."""
         node = factory.create(step_config)
         state = create_empty_dialogue_state()
         state["waiting_for_slot"] = "confirmed"
-        state["user_message"] = "no"
+        state["commands"] = [{"type": "deny"}]
 
         result = await node(state, mock_config)
 
@@ -141,17 +130,17 @@ class TestConfirmNodeFactory:
         assert result["waiting_for_slot"] is None
 
     @pytest.mark.asyncio
-    async def test_unclear_response_reasks(self, factory, step_config, mock_config):
-        """Unclear response should re-ask and increment retry counter."""
+    async def test_no_command_reasks(self, factory, step_config, mock_config):
+        """No affirm/deny command should re-ask."""
         node = factory.create(step_config)
         state = create_empty_dialogue_state()
         state["waiting_for_slot"] = "confirmed"
-        state["user_message"] = "maybe"
+        state["commands"] = []  # No confirmation command
 
         result = await node(state, mock_config)
 
         assert result["flow_state"] == "waiting_input"
-        assert "I didn't understand" in result["last_response"]
+        assert "yes or no" in result["last_response"]
 
     @pytest.mark.asyncio
     async def test_already_filled_slot_skips_confirmation(self, factory, step_config, mock_config):
@@ -207,9 +196,34 @@ class TestConfirmNodeMaxRetries:
         node = factory.create(step_config)
         state = create_empty_dialogue_state()
         state["waiting_for_slot"] = "confirmed"
-        state["user_message"] = "unclear response"
+        state["commands"] = []  # No confirmation command
 
         result = await node(state, mock_config)
 
         assert result["flow_state"] == "active"
         assert "Assuming 'no'" in result["last_response"]
+
+    @pytest.mark.asyncio
+    async def test_deny_with_slot_to_change_stores_info(self, factory, step_config):
+        """Deny with slot_to_change should store the slot name."""
+        mock_fm = MagicMock()
+        mock_fm.get_slot.return_value = None
+        mock_fm.set_slot = AsyncMock()
+
+        mock_config = {
+            "configurable": {
+                "runtime_context": MagicMock(flow_manager=mock_fm),
+            }
+        }
+
+        node = factory.create(step_config)
+        state = create_empty_dialogue_state()
+        state["waiting_for_slot"] = "confirmed"
+        state["commands"] = [{"type": "deny", "slot_to_change": "destination"}]
+        state["flow_slots"] = {}
+
+        result = await node(state, mock_config)
+
+        assert result["flow_state"] == "active"
+        # Verify set_slot was called twice: once for confirmed, once for change slot
+        assert mock_fm.set_slot.call_count >= 1

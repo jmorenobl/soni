@@ -1,8 +1,9 @@
 """ConfirmNodeFactory - generates confirmation nodes.
 
-Implements full confirmation flow:
+Implements full confirmation flow using NLU commands:
 1. First visit: Show confirmation prompt, wait for input
-2. Subsequent visits: Parse yes/no, set slot, or re-ask if unclear
+2. Subsequent visits: Check NLU commands for affirm/deny
+3. Re-ask if no clear confirmation command
 """
 
 import logging
@@ -17,37 +18,38 @@ from soni.core.types import DialogueState
 
 logger = logging.getLogger(__name__)
 
-# Canonical yes/no responses
-YES_RESPONSES = frozenset(
-    {"yes", "y", "si", "sí", "ok", "okay", "sure", "yep", "yeah", "confirm", "correct"}
-)
-NO_RESPONSES = frozenset({"no", "n", "nope", "nah", "cancel", "deny", "wrong", "incorrect"})
+# Command types from NLU
+AFFIRM_COMMAND = "affirm"
+DENY_COMMAND = "deny"
 
 
-def _parse_confirmation(user_message: str) -> bool | None:
-    """Parse user message to determine yes, no, or unclear.
+def _find_confirmation_command(commands: list[Any]) -> tuple[bool | None, str | None]:
+    """Find affirm or deny command in NLU output.
+
+    Args:
+        commands: List of command objects or dicts from NLU.
 
     Returns:
-        True for yes, False for no, None for unclear.
+        Tuple of (is_affirmed, slot_to_change).
+        - (True, None) for affirm
+        - (False, slot_name) for deny with optional slot to change
+        - (None, None) if no confirmation command found
     """
-    normalized = user_message.strip().lower()
+    for cmd in commands:
+        # Handle both dict and object forms
+        if isinstance(cmd, dict):
+            cmd_type = cmd.get("type") or cmd.get("command_type")
+            slot_to_change = cmd.get("slot_to_change")
+        else:
+            cmd_type = getattr(cmd, "type", None) or getattr(cmd, "command_type", None)
+            slot_to_change = getattr(cmd, "slot_to_change", None)
 
-    if normalized in YES_RESPONSES:
-        return True
-    if normalized in NO_RESPONSES:
-        return False
+        if cmd_type == AFFIRM_COMMAND:
+            return True, None
+        if cmd_type == DENY_COMMAND:
+            return False, slot_to_change
 
-    # Check for partial matches (e.g., "yes please", "no thanks")
-    words = normalized.split()
-    if words:
-        # Strip punctuation from first word
-        first_word = words[0].rstrip(",.!?;:'\"")
-        if first_word in YES_RESPONSES:
-            return True
-        if first_word in NO_RESPONSES:
-            return False
-
-    return None
+    return None, None
 
 
 class ConfirmNodeFactory:
@@ -55,8 +57,8 @@ class ConfirmNodeFactory:
 
     Creates nodes that:
     1. Prompt for confirmation on first visit
-    2. Parse yes/no responses on subsequent visits
-    3. Re-ask if response is unclear (up to max_retries)
+    2. Check NLU commands for affirm/deny on subsequent visits
+    3. Re-ask if no clear confirmation command (up to max_retries)
     """
 
     def create(self, step: StepConfig) -> NodeFunction:
@@ -83,26 +85,38 @@ class ConfirmNodeFactory:
 
             # Check if we're waiting for this slot (subsequent visit)
             if state.get("waiting_for_slot") == slot_name:
-                user_message = state.get("user_message") or ""
-                parsed = _parse_confirmation(user_message)
+                # Get NLU commands from state
+                commands = state.get("commands", [])
+                is_affirmed, slot_to_change = _find_confirmation_command(commands)
 
-                if parsed is not None:
-                    # Successfully parsed - set slot and continue
-                    await flow_manager.set_slot(state, slot_name, parsed)
-                    logger.debug(f"Confirmation slot '{slot_name}' set to {parsed}")
-                    return {
+                if is_affirmed is not None:
+                    # NLU understood the confirmation
+                    await flow_manager.set_slot(state, slot_name, is_affirmed)
+                    logger.debug(f"Confirmation slot '{slot_name}' set to {is_affirmed} via NLU")
+
+                    result: dict[str, Any] = {
                         "flow_state": "active",
                         "waiting_for_slot": None,
                         "flow_slots": state["flow_slots"],
                     }
 
-                # Unclear response - check retries
+                    # If denied with slot_to_change, store it for flow logic
+                    if not is_affirmed and slot_to_change:
+                        await flow_manager.set_slot(
+                            state, f"__change_slot_{slot_name}", slot_to_change
+                        )
+                        result["flow_slots"] = state["flow_slots"]
+
+                    return result
+
+                # NLU didn't produce affirm/deny - check retries
                 current_retries = flow_manager.get_slot(state, retry_key) or 0
 
                 if current_retries >= max_retries:
-                    # Max retries exceeded - set to False (deny)
+                    # Max retries exceeded - default to deny
                     logger.warning(
-                        f"Max retries ({max_retries}) exceeded for confirmation '{slot_name}'"
+                        f"Max retries ({max_retries}) exceeded for confirmation "
+                        f"'{slot_name}', defaulting to deny"
                     )
                     await flow_manager.set_slot(state, slot_name, False)
                     return {
@@ -115,7 +129,7 @@ class ConfirmNodeFactory:
 
                 # Re-ask
                 await flow_manager.set_slot(state, retry_key, current_retries + 1)
-                retry_prompt = f"I didn't understand. Please answer yes or no: {prompt}"
+                retry_prompt = f"I need a clear yes or no answer. {prompt}"
                 return {
                     "flow_state": "waiting_input",
                     "waiting_for_slot": slot_name,
