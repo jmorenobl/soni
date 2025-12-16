@@ -36,6 +36,21 @@ actions:
       - bank_name
       - is_valid
 
+  check_transfer_limits:
+    description: "Check if transfer amount requires extra authorization"
+    inputs:
+      - amount
+    outputs:
+      - requires_auth
+      - limit_message
+
+  verify_security_code:
+    description: "Verify the 2FA security code"
+    inputs:
+      - security_code
+    outputs:
+      - is_verified
+
   execute_transfer:
     description: "Execute a bank transfer"
     inputs:
@@ -49,8 +64,34 @@ actions:
       - status
 
   # Transactions
+  init_transaction_page:
+    description: "Initialize transaction pagination"
+    inputs: []
+    outputs:
+      - page
+      - continue
+
+  get_transactions_paginated:
+    description: "Fetch transactions with pagination"
+    inputs:
+      - account_type
+      - transaction_period
+      - transaction_page
+    outputs:
+      - transactions_summary
+      - total_income
+      - total_expenses
+      - has_more
+
+  increment_page:
+    description: "Increment the transaction page number"
+    inputs:
+      - transaction_page
+    outputs:
+      - page
+
   get_transactions:
-    description: "Fetch recent transactions"
+    description: "Fetch recent transactions (legacy)"
     inputs:
       - account_type
       - transaction_period

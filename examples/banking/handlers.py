@@ -164,6 +164,54 @@ def lookup_iban(iban: str) -> dict[str, Any]:
     }
 
 
+# High-value transfer limit (EUR)
+TRANSFER_LIMIT = 10_000.0
+
+
+@ActionRegistry.register("check_transfer_limits")
+def check_transfer_limits(amount: float) -> dict[str, Any]:
+    """
+    Check if transfer amount requires extra authorization.
+
+    Transfers > 10,000 EUR require 2FA verification.
+    """
+    try:
+        amount_float = float(amount)
+    except (ValueError, TypeError):
+        amount_float = 0.0
+
+    requires_auth = amount_float > TRANSFER_LIMIT
+
+    if requires_auth:
+        limit_message = (
+            f"This transfer of {amount_float:,.2f} EUR exceeds the {TRANSFER_LIMIT:,.0f} EUR limit "
+            "and requires additional security verification."
+        )
+    else:
+        limit_message = ""
+
+    return {
+        "requires_auth": "yes" if requires_auth else "no",
+        "limit_message": limit_message,
+    }
+
+
+@ActionRegistry.register("verify_security_code")
+def verify_security_code(security_code: str) -> dict[str, Any]:
+    """
+    Verify the 2FA security code.
+
+    In production, this would validate against the OTP service.
+    For demo, accepts any 6-digit code.
+    """
+    # Simple validation: 6 digits
+    is_valid = len(str(security_code).strip()) == 6 and str(security_code).strip().isdigit()
+
+    return {
+        "is_verified": "yes" if is_valid else "no",
+    }
+
+
 @ActionRegistry.register("execute_transfer")
 def execute_transfer(
     source_account: str,
@@ -211,7 +259,7 @@ def execute_transfer(
 @ActionRegistry.register("get_transactions")
 def get_transactions(account_type: str, transaction_period: str) -> dict[str, Any]:
     """
-    Fetch recent transactions for an account.
+    Fetch recent transactions for an account (legacy, non-paginated).
 
     In production, this would query the transaction database.
     """
@@ -243,6 +291,80 @@ def get_transactions(account_type: str, transaction_period: str) -> dict[str, An
         "total_income": f"{total_income:.2f}",
         "total_expenses": f"{total_expenses:.2f}",
     }
+
+
+# Pagination settings
+TRANSACTIONS_PER_PAGE = 3
+
+
+@ActionRegistry.register("init_transaction_page")
+def init_transaction_page() -> dict[str, Any]:
+    """Initialize transaction pagination state."""
+    return {
+        "page": 1,
+        "continue": "yes",  # Start the loop
+    }
+
+
+@ActionRegistry.register("get_transactions_paginated")
+def get_transactions_paginated(
+    account_type: str, transaction_period: str, transaction_page: int = 1
+) -> dict[str, Any]:
+    """
+    Fetch transactions with pagination support.
+
+    Returns a page of transactions and indicates if more are available.
+    """
+    try:
+        page = int(transaction_page)
+    except (ValueError, TypeError):
+        page = 1
+
+    # Calculate offset
+    start_idx = (page - 1) * TRANSACTIONS_PER_PAGE
+    end_idx = start_idx + TRANSACTIONS_PER_PAGE
+
+    # Get transactions for this page
+    transactions = MOCK_TRANSACTIONS[start_idx:end_idx]
+    has_more = end_idx < len(MOCK_TRANSACTIONS)
+
+    if not transactions:
+        return {
+            "transactions_summary": "No more transactions to show.",
+            "total_income": "0.00",
+            "total_expenses": "0.00",
+            "has_more": "no",
+        }
+
+    # Build summary
+    lines = [f"Page {page}:"]
+    for tx in transactions:
+        sign = "+" if tx["amount"] > 0 else ""
+        lines.append(f"  {tx['date']}: {tx['description']} ({sign}{tx['amount']:.2f} EUR)")
+
+    transactions_summary = "\n".join(lines)
+
+    # Calculate totals for this page
+    total_income = sum(tx["amount"] for tx in transactions if tx["amount"] > 0)
+    total_expenses = sum(tx["amount"] for tx in transactions if tx["amount"] < 0)
+
+    return {
+        "transactions_summary": transactions_summary,
+        "total_income": f"{total_income:.2f}",
+        "total_expenses": f"{total_expenses:.2f}",
+        "has_more": "yes" if has_more else "no",
+    }
+
+
+@ActionRegistry.register("increment_page")
+def increment_page(transaction_page: int = 1) -> dict[str, Any]:
+    """Increment the transaction page number."""
+    try:
+        page = int(transaction_page)
+    except (ValueError, TypeError):
+        page = 1
+
+    return {"page": page + 1}
 
 
 # =============================================================================

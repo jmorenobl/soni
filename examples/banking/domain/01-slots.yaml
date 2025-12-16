@@ -44,6 +44,14 @@ slots:
     prompt: "Transfer concept?"
     required: true
 
+  # Security slots (for high-value transfers)
+  security_code:
+    type: string
+    prompt: "Security code?"
+    required: true
+    validator: security_code
+    validation_error_message: "Please enter a valid 6-digit security code."
+
   # Transaction slots
   transaction_period:
     type: string
@@ -51,6 +59,13 @@ slots:
     required: true
     validator: transaction_period
     validation_error_message: "Please choose a valid period: last week, last month, or last 3 months."
+
+  view_more_transactions:
+    type: string
+    prompt: "See more?"
+    required: false
+    validator: yes_no
+    validation_error_message: "Please answer yes or no."
 
   # Card slots
   card_type:

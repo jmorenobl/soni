@@ -225,3 +225,21 @@ def validate_bill_reference(value: Any) -> bool:
     ref = value.strip()
     # At least 6 alphanumeric characters
     return len(ref) >= 6 and ref.replace("-", "").replace("/", "").isalnum()
+
+
+@ValidatorRegistry.register("security_code")
+def validate_security_code(value: Any) -> bool:
+    """Validate 6-digit security/OTP code."""
+    if not isinstance(value, str):
+        value = str(value)
+    code = value.strip()
+    return len(code) == 6 and code.isdigit()
+
+
+@ValidatorRegistry.register("yes_no")
+def validate_yes_no(value: Any) -> bool:
+    """Validate yes/no response."""
+    if not isinstance(value, str):
+        return False
+    normalized = value.lower().strip()
+    return normalized in ["yes", "no", "y", "n", "si", "sí"]

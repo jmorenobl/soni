@@ -1,5 +1,6 @@
 # Soni Banking Assistant - Transfer Flow
-# Money transfer with IBAN validation
+# Money transfer with IBAN validation and security checks
+# Demonstrates: collect, action, branch, confirm, say
 
 flows:
   transfer_funds:
@@ -36,6 +37,37 @@ flows:
         slot: amount
         message: "How much would you like to transfer?"
 
+      # Check if amount requires extra authorization (> 10,000 EUR)
+      - step: check_limits
+        type: action
+        call: check_transfer_limits
+        map_outputs:
+          requires_auth: requires_extra_auth
+          limit_message: limit_message
+
+      # Branch based on whether extra auth is required
+      - step: auth_branch
+        type: branch
+        slot: requires_extra_auth
+        cases:
+          "yes": collect_security_code
+          "no": collect_concept
+
+      # Extra security for high-value transfers
+      - step: collect_security_code
+        type: collect
+        slot: security_code
+        message: |
+          This transfer exceeds 10,000 EUR and requires additional verification.
+          Please enter the 6-digit security code sent to your registered phone.
+
+      - step: verify_security_code
+        type: action
+        call: verify_security_code
+        map_outputs:
+          is_verified: security_verified
+
+      # Continue with normal flow
       - step: collect_concept
         type: collect
         slot: transfer_concept

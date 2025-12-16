@@ -1,5 +1,6 @@
 # Soni Banking Assistant - Account Flows
 # Balance and transaction flows
+# Demonstrates: collect, action, say, while (loop)
 
 flows:
   check_balance:
@@ -60,21 +61,62 @@ flows:
         slot: transaction_period
         message: "For what time period? I can show you the last week, last month, or last 3 months."
 
+      # Initialize pagination
+      - step: init_pagination
+        type: action
+        call: init_transaction_page
+        map_outputs:
+          page: transaction_page
+          continue: view_more_transactions
+
+      # While loop - continue showing transactions while user wants more
+      - step: transactions_loop
+        type: while
+        condition: "view_more_transactions == 'yes'"
+        do:
+          - fetch_transactions
+
       - step: fetch_transactions
         type: action
-        call: get_transactions
+        call: get_transactions_paginated
         map_outputs:
           transactions_summary: transactions_summary
           total_income: total_income
           total_expenses: total_expenses
+          has_more: has_more_transactions
 
       - step: say_transactions
         type: say
         message: |
-          Here are your recent transactions from your {account_type} account ({transaction_period}):
+          Here are your transactions from your {account_type} account ({transaction_period}):
 
           {transactions_summary}
 
           Summary:
           - Total income: +{total_income} EUR
           - Total expenses: {total_expenses} EUR
+
+      # Ask if user wants to see more (only if there are more)
+      - step: check_more_available
+        type: branch
+        slot: has_more_transactions
+        cases:
+          "yes": ask_view_more
+          "no": end_transactions
+
+      - step: ask_view_more
+        type: collect
+        slot: view_more_transactions
+        message: "Would you like to see more transactions? (yes/no)"
+
+      # Loop back handled by while condition
+      - step: next_page
+        type: action
+        call: increment_page
+        map_outputs:
+          page: transaction_page
+        jump_to: transactions_loop
+
+      - step: end_transactions
+        type: say
+        message: "That's all your recent transactions. Is there anything else I can help you with?"
