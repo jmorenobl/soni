@@ -4,6 +4,7 @@ Pure TypedDict structures for LangGraph state management.
 No methods - these are data-only structures.
 Uses Annotated reducers for message aggregation.
 """
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AnyMessage
@@ -58,10 +59,13 @@ class DialogueState(TypedDict):
     metadata: dict[str, Any]
 
 
-class RuntimeContext(TypedDict):
+
+
+@dataclass
+class RuntimeContext:
     """Runtime context with injected dependencies.
 
-    Passed to nodes via LangGraph's configurable pattern.
+    Passed to nodes via LangGraph's context injection.
     """
 
     config: Any  # SoniConfig
