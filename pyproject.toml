@@ -169,6 +169,15 @@ disallow_incomplete_defs = false
 check_untyped_defs = false
 ignore_missing_imports = true
 
+# Relaxed rules for examples
+[[tool.mypy.overrides]]
+module = ["examples.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+ignore_missing_imports = true
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
