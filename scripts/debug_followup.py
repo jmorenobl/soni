@@ -10,9 +10,10 @@ import dspy
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Import handlers
-import examples.banking.handlers
 from soni.core.config import SoniConfig
 from soni.runtime.runtime import RuntimeLoop
+
+import examples.banking.handlers
 
 
 async def debug_followup():
