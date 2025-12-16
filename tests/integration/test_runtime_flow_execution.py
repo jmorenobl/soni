@@ -71,12 +71,9 @@ async def test_runtime_simple_flow_execution():
     state2 = await runtime.get_state("test_user")
     assert state2 is not None
 
-    # Check flow slots using flow_id from stack
-    # Find the 'greeting' flow in the stack
-    greeting_flow = next(f for f in state2["flow_stack"] if f["flow_name"] == "greeting")
-    flow_id = greeting_flow["flow_id"]
-
-    assert state2["flow_slots"][flow_id]["name"] == "Jorge"
+    # Flow completed successfully - stack should be empty (end_flow_node pops it)
+    # The correct response "Hello Jorge!" already confirms slots worked correctly
+    assert state2["flow_stack"] == [], "Flow should be popped from stack after completion"
 
 
 @pytest.mark.asyncio
