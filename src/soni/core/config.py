@@ -16,6 +16,7 @@ class StepConfig(BaseModel):
     condition: str | None = None
     do: list[str] | None = None
     jump_to: str | None = None
+    max_retries: int | None = None  # For confirm nodes
 
 
 class FlowConfig(BaseModel):
