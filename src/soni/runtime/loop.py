@@ -7,6 +7,7 @@ Uses dependency injection via RuntimeContext for testability.
 import logging
 from typing import Any, cast
 
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
@@ -144,11 +145,14 @@ class RuntimeLoop:
             # Initialize fresh state
             init_state = create_empty_dialogue_state()
             init_state["user_message"] = message
+            init_state["messages"] = [HumanMessage(content=message)]
             init_state["turn_count"] = 1
             input_payload: Any = init_state
         else:
             # Just update message
             input_payload = {"user_message": message}
+            # Append user message to history provided by reducer
+            input_payload["messages"] = [HumanMessage(content=message)]
             turn_count = current_state.get("turn_count", 0)
             input_payload["turn_count"] = int(turn_count) + 1
 

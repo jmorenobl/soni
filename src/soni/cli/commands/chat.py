@@ -76,17 +76,48 @@ def run_chat(
     optimized_du: Path | None = typer.Option(
         None, "--optimized-du", "-d", help="Path to optimized NLU module", exists=True
     ),
+    module: str | None = typer.Option(
+        None, "--module", "-m", help="Python module to import (e.g. 'examples.banking.handlers')"
+    ),
 ):
     """Start interactive chat session."""
 
-    # 1. Load Config
+    # 1. Load User Code (Actions)
+    if module:
+        import importlib
+        import sys
+
+        # Ensure cwd is in python path to allow importing local modules
+        cwd = os.getcwd()
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
+
+        try:
+            # If it's a file path, convert to module notation or load by path?
+            # Simpler to assume module notation for now if using -m
+            # But user might pass 'examples/banking/handlers.py'
+            if module.endswith(".py"):
+                # Load via path not implemented yet for simplicity, suggest module syntax
+                typer.echo(
+                    "Warning: Please use python module syntax (e.g. pkg.mod) for --module", err=True
+                )
+
+            importlib.import_module(module)
+            typer.echo(f"Loaded module: {module}")
+        except Exception as e:
+            typer.echo(f"Failed to load module {module}: {e}", err=True)
+            # Don't exit? Or exit? Actions might be critical.
+            # Let's exit to be safe.
+            raise typer.Exit(1)
+
+    # 2. Load Config
     try:
         soni_config = SoniConfig.from_yaml(config)
     except ConfigError as e:
         typer.echo(f"Invalid config: {e}", err=True)
         raise typer.Exit(1)
 
-    # 2. Setup DSPy
+    # 3. Setup DSPy
     nlu_cfg = soni_config.settings.models.nlu
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -104,24 +135,42 @@ def run_chat(
         typer.echo(f"DSPy config failed: {e}", err=True)
         raise typer.Exit(1)
 
-    # 3. Initialize Runtime
-    # RuntimeLoop expects config object, not path
-    # But wait, RuntimeLoop constructor signature in loop.py is:
-    # def __init__(self, config: SoniConfig, checkpointer: BaseCheckpointSaver | None = None, registry: ActionRegistry | None = None):
-    # So we pass the object.
+    # 3. Setup Persistence
+    from soni.runtime.checkpointer import create_checkpointer
 
-    # Wait, the legacy CLI passed config_path.
-    # Let's check loop.py again in previous turn.
-    # Ah, I viewed loop.py. Constructor takes config: SoniConfig.
-    # I will pass the object.
+    persistence_cfg = soni_config.settings.persistence
+    try:
+        if persistence_cfg.backend == "sqlite":
+            checkpointer = create_checkpointer(type="sqlite", db_path=persistence_cfg.path)
+        elif persistence_cfg.backend == "memory":
+            checkpointer = create_checkpointer(type="memory")
+        else:
+            # Fallback or error?
+            # For now fallback to memory if not configured, or error if unknown backend.
+            # checkpointer.py handles unknown types
+            checkpointer = create_checkpointer(
+                type=persistence_cfg.backend,
+                # Pass other kwargs generically if needed, but for now specific mapping is safer
+                # or pass path as db_path/connection_string generically?
+                # create_checkpointer takes kwargs.
+                # sqlite takes db_path. postgres takes connection_string.
+                db_path=persistence_cfg.path,
+                connection_string=persistence_cfg.path,
+            )
+    except Exception as e:
+        typer.echo(f"Persistence init failed: {e}", err=True)
+        # Fallback to memory for CLI chat might be acceptable but let's warn
+        typer.echo("Falling back to in-memory persistence.", err=True)
+        checkpointer = create_checkpointer(type="memory")
 
+    # 4. Initialize Runtime
     try:
         # We need to manually initialize SoniDU with the optimized path if provided.
         # Ideally RuntimeLoop would handle this, or we patch it.
         # RuntimeLoop.initialize() creates a fresh SoniDU().
         # We might need to manually set it after init.
 
-        runtime = RuntimeLoop(config=soni_config)
+        runtime = RuntimeLoop(config=soni_config, checkpointer=checkpointer)
         # Note: We need to run async init.
 
         async def _bootstrap():

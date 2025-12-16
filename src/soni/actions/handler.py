@@ -1,7 +1,8 @@
 """Action handler for executing registered actions."""
 
 import inspect
-from typing import Any
+from collections.abc import Awaitable
+from typing import Any, cast
 
 from soni.actions.registry import ActionRegistry
 from soni.core.errors import ActionError
@@ -46,13 +47,11 @@ class ActionHandler:
 
         # Execute
         try:
-            # We filter inputs or pass kwargs?
-            # If action accepts specific args, passing extra kwargs might fail unless **kwargs allowed.
-            # But python call matching handles keyword args.
-            # If inputs has extra keys not in signature, call will fail unless **kwargs.
-            # To be safe, we might bind? Or let Python raise TypeError which we catch?
-            # We catch Exception, so TypeError will be caught.
-            return await action(**inputs)
+            # Check if async
+            if inspect.iscoroutinefunction(action):
+                return await cast(Awaitable[dict[str, Any]], action(**inputs))
+            else:
+                return cast(dict[str, Any], action(**inputs))
         except Exception as e:
             # Wrap error
             raise ActionError(f"Action execution failed: {e}") from e

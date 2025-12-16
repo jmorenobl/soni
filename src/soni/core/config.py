@@ -22,17 +22,31 @@ class StepConfig(BaseModel):
     max_retries: int | None = None  # For confirm nodes
 
 
+class TriggerConfig(BaseModel):
+    """Trigger configuration for a flow."""
+
+    intents: list[str] = Field(
+        default_factory=list, description="Example phrases that trigger this flow"
+    )
+
+
 class FlowConfig(BaseModel):
     """Configuration for a single flow."""
 
     description: str
     steps: list[StepConfig] = Field(default_factory=list)
     process: list[StepConfig] | None = None  # Keep for backward compatibility if needed
+    trigger: TriggerConfig | None = None  # Trigger examples
 
     @property
     def steps_or_process(self) -> list[StepConfig]:
         """Return steps from either 'steps' or 'process' field (for backward compatibility)."""
         return self.process or self.steps or []
+
+    @property
+    def trigger_intents(self) -> list[str]:
+        """Get trigger intents or empty list."""
+        return self.trigger.intents if self.trigger else []
 
 
 class NLUModelConfig(BaseModel):

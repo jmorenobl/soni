@@ -68,7 +68,7 @@ class TestSoniDU:
         call_kwargs = mock_extractor.acall.call_args.kwargs
         assert call_kwargs["user_message"] == "I want to book a flight"
         assert call_kwargs["context"] == context
-        assert call_kwargs["history"] == []
+        assert call_kwargs["history"].messages == []
 
     @pytest.mark.asyncio
     async def test_extract_set_slot_when_expected(self, mock_extractor):

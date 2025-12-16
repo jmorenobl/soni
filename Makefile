@@ -23,6 +23,7 @@ help:
 	@echo "  make test-ci            - Run unit + integration in parallel (for CI)"
 	@echo ""
 	@echo "Development:"
+	@echo "  make chat               - Run banking example (CLI)"
 	@echo "  make optimize           - Run quick baseline optimization"
 	@echo "  make lint               - Run linting (ruff)"
 	@echo "  make type-check         - Run type checking (mypy)"
@@ -80,6 +81,11 @@ optimize:
 	@echo "Running quick baseline optimization..."
 	# uv run python scripts/quick_optimize.py
 	@echo "Skipping optimization: src/soni/dataset module is missing."
+
+# Run chat CLI with banking example
+chat:
+	@echo "Running Soni Chat (Banking Example)..."
+	uv run soni chat --config examples/banking/soni.yaml --module examples.banking.handlers
 
 # Tests
 # Fast unit tests (parallel, exclude slow/integration)

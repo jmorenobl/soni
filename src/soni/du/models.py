@@ -6,7 +6,7 @@ DSPy uses Pydantic for output validation and type coercion.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from soni.core.commands import Command
 
@@ -80,3 +80,25 @@ class NLUOutput(BaseModel):
 
     commands: list[Command] = Field(description="List of commands to execute in order")
     confidence: float = Field(default=1.0, description="Confidence score")
+
+    @field_validator("commands", mode="before")
+    @classmethod
+    def coerce_commands(cls, v: list) -> list[Command]:
+        """Convert raw dicts or base Commands to proper subclasses."""
+        from soni.core.commands import Command as BaseCommand
+
+        result = []
+        for item in v:
+            if isinstance(item, dict):
+                # Parse using registry
+                result.append(BaseCommand.parse(item))
+            elif isinstance(item, BaseCommand) and type(item) is BaseCommand:
+                # It's a base Command, try to upgrade via registry
+                data = item.model_dump()
+                try:
+                    result.append(BaseCommand.parse(data))
+                except ValueError:
+                    result.append(item)  # Keep as-is if can't parse
+            else:
+                result.append(item)
+        return result

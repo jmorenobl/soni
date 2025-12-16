@@ -5,7 +5,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.core.types import DialogueState, RuntimeContext
-from soni.du.models import CommandInfo, DialogueContext, FlowInfo
+from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
 
 
 def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueContext:
@@ -22,36 +22,56 @@ def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueC
     available_flows = []
     if hasattr(config, "flows"):
         for name, flow_cfg in config.flows.items():
-            # TODO: Add trigger examples to FlowConfig explicitly?
-            # For now use description as trigger info
+            # Use trigger_intents from YAML or fallback to heuristic
+            trigger_intents = flow_cfg.trigger_intents or [f"start {name}", name]
             available_flows.append(
                 FlowInfo(
                     name=name,
                     description=flow_cfg.description,
-                    trigger_intents=[f"start {name}", name],  # heuristic
+                    trigger_intents=trigger_intents,
                 )
             )
 
     # 2. Available commands
-    # Fixed list for now
+    # Include required_fields so LLM knows what to provide
     available_commands = [
-        CommandInfo(command_type="start_flow", description="Start a new flow"),
-        CommandInfo(command_type="set_slot", description="Set a slot value"),
+        CommandInfo(
+            command_type="start_flow",
+            description="Start a new flow. flow_name must match one of available_flows.name",
+            required_fields=["flow_name"],
+            example='{"type": "start_flow", "flow_name": "check_balance"}',
+        ),
+        CommandInfo(
+            command_type="set_slot",
+            description="Set a slot value when user provides information",
+            required_fields=["slot", "value"],
+            example='{"type": "set_slot", "slot": "account_type", "value": "checking"}',
+        ),
     ]
 
-    # 3. Active flow
+    # 3. Active flow and expected slot
     curr_ctx = fm.get_active_context(state)
     active_flow = curr_ctx["flow_name"] if curr_ctx else None
+    expected_slot = state.get("waiting_for_slot")  # Set by collect/confirm nodes
 
-    # 4. Slots
-    slots: list[Any] = []
-    # TODO: add current slots
+    # 4. Current slots - convert from dict to SlotValue list
+    current_slots: list[SlotValue] = []
+    if curr_ctx:
+        flow_id = curr_ctx["flow_id"]
+        slot_dict = state.get("flow_slots", {}).get(flow_id, {})
+        for slot_name, slot_value in slot_dict.items():
+            # Skip internal slots (prefixed with __)
+            if not slot_name.startswith("__"):
+                current_slots.append(
+                    SlotValue(name=slot_name, value=str(slot_value) if slot_value else None)
+                )
 
     return DialogueContext(
         available_flows=available_flows,
         available_commands=available_commands,
         active_flow=active_flow,
-        current_slots=slots,
+        current_slots=current_slots,
+        expected_slot=expected_slot,
         conversation_state="idle" if not active_flow else "collecting",
     )
 

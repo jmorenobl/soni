@@ -4,28 +4,38 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 # Define ActionFunc type
-ActionFunc = Callable[..., Awaitable[dict[str, Any]]]
+ActionFunc = Callable[..., dict[str, Any] | Awaitable[dict[str, Any]]]
 
 
 class ActionRegistry:
     """Registry for action handlers."""
 
-    def __init__(self):
-        self._actions: dict[str, ActionFunc] = {}
+    # Global registry to support decorator syntax
+    _global_actions: dict[str, ActionFunc] = {}
 
-    def register(self, name: str) -> Callable[[ActionFunc], ActionFunc]:
-        """Decorator to register an action."""
+    def __init__(self):
+        # Initialize with global actions
+        self._actions: dict[str, ActionFunc] = self._global_actions.copy()
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[ActionFunc], ActionFunc]:
+        """Decorator to register an action globally."""
 
         def decorator(func: ActionFunc) -> ActionFunc:
-            self._actions[name] = func
+            cls._global_actions[name] = func
             return func
 
         return decorator
 
     def get(self, name: str) -> ActionFunc | None:
-        """Get an action by name."""
-        return self._actions.get(name)
+        """Get action by name."""
+        return self._actions.get(name) or self._global_actions.get(name)
 
     def list(self) -> list[str]:
-        """List all registered actions."""
-        return list(self._actions.keys())
+        """List registered actions."""
+        return list(set(list(self._actions.keys()) + list(self._global_actions.keys())))
+
+    @classmethod
+    def clear(cls) -> None:
+        """Clear global actions (for testing)."""
+        cls._global_actions.clear()

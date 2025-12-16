@@ -8,6 +8,12 @@ from soni.core.errors import ActionError
 
 
 class TestActionRegistry:
+    @pytest.fixture(autouse=True)
+    def clear_registry(self):
+        ActionRegistry.clear()
+        yield
+        ActionRegistry.clear()
+
     def test_register_and_get(self):
         registry = ActionRegistry()
 

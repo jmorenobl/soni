@@ -36,6 +36,10 @@ flows:
         map_outputs:
           message: message
 
+      - step: say_greeting
+        type: say
+        message: "{message}"
+
   # --- Check Balance ---
   check_balance:
     description: "Check how much money you have in your account balance"
@@ -69,6 +73,10 @@ flows:
         map_outputs:
           message: message
 
+      - step: say_result
+        type: say
+        message: "{message}"
+
   # --- Transfer Funds ---
   transfer_funds:
     description: "Transfer money to another person"
@@ -101,6 +109,7 @@ flows:
 
       - step: confirm_transfer
         type: confirm
+        slot: transfer_confirmed
         message: |
           Please confirm the transfer details:
           - To: {recipient}
@@ -115,6 +124,10 @@ flows:
         map_outputs:
           transaction_id: transaction_id
           status: status
+
+      - step: say_transfer_result
+        type: say
+        message: "Transfer {transaction_id} executed with status: {status}"
 
   # --- Block Card ---
   block_card:
@@ -137,6 +150,7 @@ flows:
 
       - step: confirm_block
         type: confirm
+        slot: block_confirmed
         message: |
           WARNING: This will immediately block your {card_type} card ending in {card_last_4}.
           You will not be able to use it for any new transactions.
@@ -148,6 +162,10 @@ flows:
         call: block_card_service
         map_outputs:
           block_reference: block_reference
+
+      - step: say_block_result
+        type: say
+        message: "Card has been blocked. Reference: {block_reference}"
 
 # ------------------------------------------------------------------
 # Slots

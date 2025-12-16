@@ -46,10 +46,12 @@ class SoniDU(dspy.Module):
         """
         # Note: dspy methods typically return Prediction with output fields
         # Our signature output field is 'result' of type NLUOutput.
+        # Wrap history in dspy.History object as expected by signature
+        history_obj = dspy.History(messages=history or [])
         result = await self.extractor.acall(
             user_message=user_message,
             context=context,
-            history=history or [],
+            history=history_obj,
         )
 
         # dspy Prediction object attributes match output fields
@@ -62,9 +64,10 @@ class SoniDU(dspy.Module):
         history: list[dict[str, str]] | None = None,
     ) -> NLUOutput:
         """Sync version (for testing/optimization)."""
+        history_obj = dspy.History(messages=history or [])
         result = self.extractor(
             user_message=user_message,
             context=context,
-            history=history or [],
+            history=history_obj,
         )
         return result.result  # type: ignore
