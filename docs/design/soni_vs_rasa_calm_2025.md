@@ -1,84 +1,259 @@
-# Soni vs Rasa CALM (2025): Auto-Resume Analysis
+# Soni vs Rasa CALM (2025): Competitive Analysis
 
-## 1. Interaction Analysis
+> **Disclaimer**: This analysis is exhaustive, honest, and non-complacent. It focuses on functional parity and differentiation, assuming an "LLM-native" goal.
 
-### The User Scenario
-The user experienced the following interaction flows:
-1.  **Flow A (Transfer Funds)** starts.
-    -   Collect `recipient` -> Done.
-    -   Collect `amount` -> User interrupts: "How much do I have?".
-2.  **Flow B (Check Balance)** starts (Interruption).
-    -   Collect `account_type` -> Done ("savings").
-    -   Action `get_balance` -> Done ("12000").
-    -   Say `result` -> Done ("Your savings balance is...").
-3.  **Flow B Ends**.
-    -   **Current Behavior**: Soni stops. The session waits for user input.
-    -   **Expected Behavior (Rasa CALM style)**: Soni should automatically "pop" Flow B and **resume Flow A**. It should immediately ask: *"Got it. How much do you want to transfer?"* (re-evaluating the last pending step of Flow A).
+## Executive Summary
 
-### The NLU Gap
-User input: "1000€"
--   **Current**: Soni interpreted this as `amount=1000` (likely) but missed `currency=EUR`. It then aks "In which currency?".
--   **Expected**: Entity extraction should identify both value and unit from the symbol.
+**Soni** is an **LLM-Native Dialogue Framework** with recursive flow control and DSPy optimization.
+**Rasa CALM** is the **Market Leader** with a mature ecosystem and hybrid NLU approach.
 
-## 2. Rasa CALM Architecture (Reference)
+Soni has achieved **functional parity** with Rasa CALM's core dialogue management capabilities while offering a **lighter, more modern architecture**. The key differentiators are now in ecosystem maturity (Rasa's advantage) vs. LLM-native design (Soni's advantage).
 
-Rasa CALM (Conversational AI with Language Models) relies on a native **Dialogue Stack**.
--   **Business Logic**: Defined as strict flows.
--   **Dialogue Manager**:
-    1.  Maintains a stack of active flows.
-    2.  When a flow is triggered, it is pushed to the stack.
-    3.  When a flow completes, it is **popped** from the stack.
-    4.  **Auto-Resume**: Immediately after a pop, the manager checks the **new top of the stack**. It re-evaluates the "next step" logic for that flow.
-        -   If the flow was waiting for a slot, it re-issues the prompt.
-        -   This creates a seamless "return to topic" experience without user stored input.
+---
 
-## 3. Soni Current Architecture (The Gap)
+## Feature Comparison
 
-Soni implements a similar stack (`flow_stack` in `DialogueState`), but the **Lifecycle Management** is incomplete in the Orchestrator.
+### 1. Orchestration Loop
 
-### Current Logic
-1.  `RuntimeLoop` triggers `orchestrator` graph.
-2.  `orchestrator` runs until `END`.
-3.  Inside a flow (Subgraph), `__end_flow__` (the implicit end state) returns `END` to the parent graph.
-4.  The parent graph edges route flow completion to `respond_node` -> `END`.
-5.  **Critically**: The `flow_stack` is **NOT popped**. The finished flow remains "active" on top of the stack, but valid steps are exhausted.
-6.  Interpretation stops. `FlowManager` does not have a "Resume" hook.
+| Aspect | Rasa CALM | Soni |
+|--------|-----------|------|
+| **Architecture** | Recursive Dialogue State Machine | Recursive LangGraph with Auto-Resume |
+| **Flow Interruption** | Native stack-based | Native stack-based |
+| **Auto-Resume** | Built-in | Built-in (`ResumeNode` + conditional routing) |
+| **Implementation** | Proprietary engine | LangGraph (open standard) |
 
-## 4. Proposed Solution: Auto-Resume Loop
+**Status**: **Parity**
 
-To match Rasa CALM's fluid conversational capability, we need to implement an **Orchestration Loop** for stack management.
+Soni implements the same recursive loop pattern:
+1. **User Turn**: `RuntimeLoop` processes message through NLU.
+2. **Execution**: Graph runs `understand` -> `execute` -> flow subgraph -> `resume`.
+3. **Auto-Evaluation**: `route_resume()` checks: "Is stack empty? Is system waiting for input?"
+4. **Loop**: If stack has flows and not waiting, routes back to `execute`.
+5. **Stop**: Only when `waiting_input` state or empty stack.
 
-### Implementation Plan
+```python
+# src/soni/dm/builder.py - Auto-Resume Loop
+def route_resume(state: DialogueState) -> str:
+    if state.get("flow_state") == "waiting_input":
+        return "end"
+    if state.get("flow_stack"):
+        return "loop"  # Resume parent flow
+    return "end"
+```
 
-#### Phase 1: Stack Cleanup (The "Pop")
-We need a `cleanup_flow` node in the Orchestrator or logic within `manage_flow_lifecycle`.
--   When a subgraph returns (finishes):
-    -   Call `FlowManager.pop_flow()`.
-    -   This removes the completed specific flow (e.g., `check_balance`).
+**Verified by**: `tests/integration/test_auto_resume.py`
 
-#### Phase 2: Resume Logic (The "Loop")
-After popping, we check `len(state["flow_stack"])`.
--   **Case Empty**: Route to `respond_node` (Wait for user).
--   **Case Non-Empty (Auto-Resume)**:
-    -   Peek at new top flow (e.g., `transfer_funds`).
-    -   Update `active_flow` context.
-    -   **Route back to `execute_node`** (or specific flow entry).
-    -   This re-enters the `transfer_funds` flow.
-    -   The flow logic sees it is at `collect_amount` (still empty).
-    -   It re-generates the prompt: "Got it. How much do you want to transfer?".
+---
 
-### Graph Changes
-**Current**:
-`START` -> `understand` -> `execute` -> `flow_X` -> `respond` -> `END`
+### 2. Conditional Business Logic
 
-**Proposed**:
-`START` -> `understand` -> `execute` -> `flow_X` -> **`resume_logic`**
--   **`resume_logic`**:
-    -   `pop_flow()`
-    -   If stack empty -> `respond` -> `END`
-    -   If stack > 0 -> `execute` (Loop back!)
+| Aspect | Rasa CALM | Soni |
+|--------|-----------|------|
+| **Branching** | `if/else` in YAML | `branch` step with slot-based routing |
+| **Loops** | `while` conditions | `while` step with expression evaluation |
+| **Expression Syntax** | Custom DSL | Python-like (`age > 18 AND status == 'approved'`) |
+| **Visibility** | Declarative YAML | Declarative YAML |
 
-## 5. NLU Enhancement (Currency handling)
-The `1000€` issue is an NLU extraction problem.
--   **Solution**: Update `src/soni/du/signatures.py` or `models.py` (SlotValue definitions) to explicitly mention currency symbol handling in the prompt instructions or few-shot examples for the LLM.
--   Ensure `amount` and `currency` slots can be filled simultaneously from a single utterance.
+**Status**: **Parity**
+
+Soni supports declarative branching in YAML:
+
+```yaml
+# Branch based on slot value
+- branch:
+    slot: account_type
+    cases:
+      gold: vip_service_flow
+      regular: standard_service_flow
+    default: standard_service_flow
+
+# While loop with condition
+- while:
+    condition: "retry_count < 3"
+    do:
+      - action: attempt_transaction
+```
+
+**Implementation**:
+- `BranchNode`: `src/soni/compiler/nodes/branch.py`
+- `WhileNode`: `src/soni/compiler/nodes/while_loop.py`
+- Expression Evaluator: `src/soni/core/expression.py`
+
+**Verified by**: `tests/unit/compiler/test_node_factories.py`
+
+---
+
+### 3. NLU Technology
+
+| Aspect | Rasa CALM | Soni |
+|--------|-----------|------|
+| **Architecture** | Hybrid (Classifier + LLM fallback) | Pure LLM (DSPy) |
+| **Intent Classification** | Trained classifiers | Zero-shot LLM |
+| **Entity Extraction** | Duckling + CRF + LLM | LLM with Pydantic validation |
+| **Optimization** | Manual tuning | **Automatic (DSPy optimizers)** |
+| **Few-shot Learning** | Limited | Native DSPy support |
+
+**Status**: **Soni Advantage** (Modern approach)
+
+Soni's LLM-native NLU offers:
+- **Zero training data required** for new intents
+- **Automatic prompt optimization** via DSPy
+- **Structured output validation** with Pydantic models
+- **Contextual understanding** without feature engineering
+
+```python
+# src/soni/du/modules.py - DSPy-powered NLU
+class SoniDU(dspy.Module):
+    def __init__(self):
+        self.understand = dspy.ChainOfThought(UnderstandSignature)
+
+    def forward(self, context: DialogueContext) -> NLUOutput:
+        return self.understand(context=context)
+```
+
+**Trade-off**: Rasa's Duckling provides robust date/currency extraction out-of-box. Soni relies on LLM capability (adequate for most cases, but less deterministic).
+
+---
+
+### 4. Scope & State Management
+
+| Aspect | Rasa CALM | Soni |
+|--------|-----------|------|
+| **Flow Scope** | Variables die with flow | Variables scoped by `flow_id` |
+| **Conversation Scope** | Persistent slots | `metadata`, `messages` persist |
+| **Data Passing** | Explicit slot mapping | `outputs` dict + slot inheritance |
+| **Isolation** | Built-in | Built-in via `flow_id` namespacing |
+
+**Status**: **Parity**
+
+Soni's scope architecture:
+
+```python
+# Flow-scoped: dies when flow is popped
+state["flow_slots"][flow_id][slot_name] = value
+
+# Conversation-scoped: persists across flows
+state["metadata"]["user_id"] = "12345"
+state["messages"]  # Full conversation history
+```
+
+**Implementation**: `src/soni/flow/manager.py` enforces scope via `flow_id`-based access.
+
+---
+
+### 5. Ecosystem & Tooling
+
+| Aspect | Rasa CALM | Soni |
+|--------|-----------|------|
+| **Maturity** | 7+ years | Early stage |
+| **Community** | Large, established | Growing |
+| **Pre-built Integrations** | Extensive (Slack, Teams, etc.) | Basic (FastAPI server) |
+| **Visual Editor** | Rasa X/Studio | None |
+| **Enterprise Support** | Available | Not available |
+| **Documentation** | Comprehensive | In progress |
+
+**Status**: **Rasa Advantage** (Ecosystem maturity)
+
+This is the primary gap. Rasa's ecosystem includes:
+- Production-grade connectors for major platforms
+- Visual flow editor (Rasa Studio)
+- Enterprise support and SLAs
+- Years of battle-tested deployments
+
+---
+
+## Architectural Comparison
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        RASA CALM                                │
+├─────────────────────────────────────────────────────────────────┤
+│  User Input → NLU Pipeline → Policy Engine → Action Server     │
+│                    ↓              ↓                             │
+│              Classifiers    Proprietary DM                      │
+│              + LLM fallback  (closed source)                    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          SONI                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  User Input → SoniDU (DSPy) → LangGraph Orchestrator → Actions  │
+│                    ↓                  ↓                         │
+│              Pure LLM           Open Standard                   │
+│              + Auto-optimize    (composable nodes)              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Architectural Differences**:
+
+1. **Open vs. Proprietary**: Soni uses LangGraph (open standard), Rasa uses proprietary DM.
+2. **Training vs. Prompting**: Rasa requires training data, Soni uses zero-shot + optimization.
+3. **Monolithic vs. Composable**: Soni's node-based architecture allows custom node injection.
+
+---
+
+## When to Choose Each
+
+### Choose Rasa CALM when:
+- You need enterprise support and SLAs
+- You have existing Rasa infrastructure
+- You require pre-built platform connectors
+- You prefer visual flow editing
+- You have large training datasets
+
+### Choose Soni when:
+- You want LLM-native, zero-training-data approach
+- You need automatic prompt optimization (DSPy)
+- You prefer open standards (LangGraph)
+- You want lightweight, Python-native framework
+- You're building new conversational AI from scratch
+
+---
+
+## Summary Table
+
+| Feature | Rasa CALM | Soni | Winner |
+|---------|-----------|------|--------|
+| **Auto-Resume Loop** | Yes | Yes | Tie |
+| **Conditional Logic** | Yes | Yes | Tie |
+| **NLU Flexibility** | Hybrid | Pure LLM | **Soni** |
+| **Prompt Optimization** | Manual | Automatic (DSPy) | **Soni** |
+| **Entity Extraction** | Duckling + CRF | LLM + Pydantic | **Rasa** |
+| **Scope Management** | Yes | Yes | Tie |
+| **Ecosystem Maturity** | Extensive | Early | **Rasa** |
+| **Open Architecture** | Partial | Full (LangGraph) | **Soni** |
+| **Enterprise Ready** | Yes | Not yet | **Rasa** |
+
+---
+
+## Conclusion
+
+Soni has closed the **functional gaps** that previously made it a "Linear Step Execution Engine." It now implements:
+
+- **Recursive Auto-Resume Loop** (the critical differentiator)
+- **Declarative Conditional Logic** (branch/while nodes)
+- **Proper Scope Management** (flow_id isolation)
+
+The competitive landscape is now:
+
+- **Rasa CALM**: Market leader with ecosystem maturity and enterprise features
+- **Soni**: Modern challenger with LLM-native design and automatic optimization
+
+For teams building new conversational AI systems without legacy Rasa infrastructure, Soni offers a **lighter, more modern alternative** with equivalent dialogue management capabilities and superior NLU flexibility.
+
+---
+
+## Remaining Opportunities
+
+1. **Domain-Specific Extractors**: Add structured extractors for dates, currencies, addresses (or integrate with existing libraries).
+
+2. **Platform Connectors**: Build integrations for Slack, Teams, WhatsApp, etc.
+
+3. **Visual Editor**: Consider a web-based flow editor for non-technical users.
+
+4. **Production Hardening**: Add telemetry, monitoring, and deployment guides.
+
+---
+
+*Last Updated: December 2025*
+*Based on: Soni commit `0413718` and Rasa CALM 3.x documentation*
