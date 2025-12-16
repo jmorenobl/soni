@@ -23,15 +23,18 @@ async def end_flow_node(
     This is automatically added as the final node before END
     in every flow subgraph to ensure proper stack cleanup.
     """
-    context: RuntimeContext = config["configurable"]["runtime_context"]
-    flow_manager = context.flow_manager
+    # context: RuntimeContext = config["configurable"]["runtime_context"]
+    # flow_manager was used for pop, now handled by resume_node
+    # flow_manager = context.flow_manager
 
-    # Pop the current flow with 'completed' status
-    await flow_manager.pop_flow(state, result="completed")
+    # Do NOT pop the flow here.
+    # Stack management is now handled by the Orchestrator's resume_node.
+    # We just mark the state as idle/completed for this level if needed,
+    # or simply return. The Orchestrator will see the subgraph finished.
+    # For now, we return nothing or just metadata update.
 
     return {
-        "flow_stack": state["flow_stack"],
-        "flow_state": "active" if state["flow_stack"] else "idle",
+        # "flow_state": "completed" # optional?
     }
 
 

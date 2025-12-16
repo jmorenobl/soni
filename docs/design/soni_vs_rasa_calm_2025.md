@@ -1,72 +1,84 @@
-# Soni v2.0 vs Rasa CALM (2025 Comparative Analysis)
+# Soni vs Rasa CALM (2025): Auto-Resume Analysis
 
-> **Date**: December 2025
-> **Context**: Soni v2.0 (Command-Driven) vs Rasa CALM (Fall 2025 Release)
+## 1. Interaction Analysis
 
-## Executive Summary
+### The User Scenario
+The user experienced the following interaction flows:
+1.  **Flow A (Transfer Funds)** starts.
+    -   Collect `recipient` -> Done.
+    -   Collect `amount` -> User interrupts: "How much do I have?".
+2.  **Flow B (Check Balance)** starts (Interruption).
+    -   Collect `account_type` -> Done ("savings").
+    -   Action `get_balance` -> Done ("12000").
+    -   Say `result` -> Done ("Your savings balance is...").
+3.  **Flow B Ends**.
+    -   **Current Behavior**: Soni stops. The session waits for user input.
+    -   **Expected Behavior (Rasa CALM style)**: Soni should automatically "pop" Flow B and **resume Flow A**. It should immediately ask: *"Got it. How much do you want to transfer?"* (re-evaluating the last pending step of Flow A).
 
-Soni v2.0 has successfully **bridged the architectural gap** with Rasa CALM. By adopting the **Command-Driven Architecture**, Soni now matches Rasa's core value proposition of separating "Language Understanding" (LLM) from "Business Logic" (Deterministic Flow).
+### The NLU Gap
+User input: "1000€"
+-   **Current**: Soni interpreted this as `amount=1000` (likely) but missed `currency=EUR`. It then aks "In which currency?".
+-   **Expected**: Entity extraction should identify both value and unit from the symbol.
 
-However, Rasa's 2025 roadmap has introduced new differentiators—specifically **Enterprise Voice** and **Autonomous Steps**—which represent the next frontier for Soni.
+## 2. Rasa CALM Architecture (Reference)
 
-## 1. Architectural Alignment (The Gap is Closed)
+Rasa CALM (Conversational AI with Language Models) relies on a native **Dialogue Stack**.
+-   **Business Logic**: Defined as strict flows.
+-   **Dialogue Manager**:
+    1.  Maintains a stack of active flows.
+    2.  When a flow is triggered, it is pushed to the stack.
+    3.  When a flow completes, it is **popped** from the stack.
+    4.  **Auto-Resume**: Immediately after a pop, the manager checks the **new top of the stack**. It re-evaluates the "next step" logic for that flow.
+        -   If the flow was waiting for a slot, it re-issues the prompt.
+        -   This creates a seamless "return to topic" experience without user stored input.
 
-The previous analysis identified critical flaws in Soni v1. With the v2.0 implementation, these have been addressed:
+## 3. Soni Current Architecture (The Gap)
 
-| Feature | Rasa CALM | Soni v2.0 | Status |
-| :--- | :--- | :--- | :--- |
-| **Core Philosophy** | LLM interprets, DM executes deterministically | LLM interprets, DM executes deterministically | ✅ Match |
-| **Interface** | Commands (SetSlot, StartFlow, etc.) | Commands (SetSlot, StartFlow, etc.) | ✅ Match |
-| **Flow Logic** | YAML definitions | YAML definitions (via Compiler) | ✅ Match |
-| **Repair** | Default Patterns (Correction, etc.) | Conversation Pattern Registry | ✅ Match |
-| **State** | Deterministic State Machine | Explicit State Machine + LangGraph | ✅ Match |
+Soni implements a similar stack (`flow_stack` in `DialogueState`), but the **Lifecycle Management** is incomplete in the Orchestrator.
 
-**Conclusion**: Soni is no longer architecturally inferior. It uses the same "best practice" patterns as the market leader.
+### Current Logic
+1.  `RuntimeLoop` triggers `orchestrator` graph.
+2.  `orchestrator` runs until `END`.
+3.  Inside a flow (Subgraph), `__end_flow__` (the implicit end state) returns `END` to the parent graph.
+4.  The parent graph edges route flow completion to `respond_node` -> `END`.
+5.  **Critically**: The `flow_stack` is **NOT popped**. The finished flow remains "active" on top of the stack, but valid steps are exhausted.
+6.  Interpretation stops. `FlowManager` does not have a "Resume" hook.
 
-## 2. New 2025 Differentiators
+## 4. Proposed Solution: Auto-Resume Loop
 
-As of late 2025, Rasa has pushed into new territories where `Soni` currently lags or leads:
+To match Rasa CALM's fluid conversational capability, we need to implement an **Orchestration Loop** for stack management.
 
-### A. Autonomous Steps (Soni Leads 🚀)
-**Rasa (Fall 2025)**: Introduced "Autonomous Steps" (beta) to allow islands of LLM agency within rigid flows.
-**Soni**: Built on **LangGraph**, which is *native* to autonomous agents. Soni's underlying engine is far more capable of complex orchestration, multi-agent collaboration, and cyclic reasoning than Rasa's state machine.
-*   **Verdict**: **Soni Leads**. Rasa is retrofitting agency; Soni is built on it.
+### Implementation Plan
 
-### B. Voice & Multimodal (Rasa Leads 🔴)
-**Rasa (June 2025)**: "Rasa Voice" Architecture. End-to-end latency optimization, handling interruptions, silence detection, and rich voice semantics.
-**Soni**: Currently text-centric. No native handling of ASR/TTS latency, barge-in, or voice-specific patterns.
-*   **Verdict**: **Major Gap**. If voice is a target, Soni needs a dedicated Voice Gateway layer.
+#### Phase 1: Stack Cleanup (The "Pop")
+We need a `cleanup_flow` node in the Orchestrator or logic within `manage_flow_lifecycle`.
+-   When a subgraph returns (finishes):
+    -   Call `FlowManager.pop_flow()`.
+    -   This removes the completed specific flow (e.g., `check_balance`).
 
-### C. Developer Experience (Mixed 🟡)
-**Rasa**: **Rasa Studio** offers a no-code/low-code visual builder for Flows.
-**Soni**: **Code-First**. YAML + Python is powerful for engineers but significantly harder for non-technical users.
-*   **Verdict**: **Trade-off**. Soni appeal is "Control for Engineers"; Rasa appeal is "Accessible Enterprise Tool".
+#### Phase 2: Resume Logic (The "Loop")
+After popping, we check `len(state["flow_stack"])`.
+-   **Case Empty**: Route to `respond_node` (Wait for user).
+-   **Case Non-Empty (Auto-Resume)**:
+    -   Peek at new top flow (e.g., `transfer_funds`).
+    -   Update `active_flow` context.
+    -   **Route back to `execute_node`** (or specific flow entry).
+    -   This re-enters the `transfer_funds` flow.
+    -   The flow logic sees it is at `collect_amount` (still empty).
+    -   It re-generates the prompt: "Got it. How much do you want to transfer?".
 
-## 3. Detailed Comparison
+### Graph Changes
+**Current**:
+`START` -> `understand` -> `execute` -> `flow_X` -> `respond` -> `END`
 
-### Process Calling vs Action Registry
-Rasa emphasizes "Process Calling" to ensure actions are part of a stateful business process. Soni v2.0 achieves this via the **Action Registry** and explicit `action` nodes in the compiled graph.
-*   **Rasa**: Actions are remote (HTTP) or local Python.
-*   **Soni**: Actions are async Python functions or LangChain tools. **Soni has the edge here** due to seamless integration with the massive LangChain ecosystem of tools.
+**Proposed**:
+`START` -> `understand` -> `execute` -> `flow_X` -> **`resume_logic`**
+-   **`resume_logic`**:
+    -   `pop_flow()`
+    -   If stack empty -> `respond` -> `END`
+    -   If stack > 0 -> `execute` (Loop back!)
 
-### Optimization
-*   **Rasa**: Fine-tuning proprietary models (Pro).
-*   **Soni**: **DSPy Optimization**. Soni can optimize *prompts* for any LM, offering model independence. This is a significant strategic advantage, avoiding vendor lock-in.
-
-## 4. Recommendations for Soni v2.1+
-
-Based on the 2025 landscape, Soni should focus on:
-
-1.  **Leverage the "Graph" Advantage**:
-    *   Don't just mimic Rasa's flows. Expose the power of LangGraph for *truly* autonomous sub-tasks (e.g., "Research this topic" step) that Rasa struggles with.
-    *   Market "Structured Flows + Autonomous Agents" as the hybrid sweet spot.
-
-2.  **Voice Gateway Interface**:
-    *   Define a standard interface for Voice (ASR/TTS) aiming for real-time turn-taking logic, even if managing external providers (Deepgram/Cartesia).
-
-3.  **Tool Ecosystem**:
-    *   Highlight the ability to "plug in" any LangChain tool as a Soni Action. Rasa requires custom connectors; Soni has thousands of tools available out of the box.
-
-## Summary
-
-**Soni is now a competitive, modern framework.** It effectively matches Rasa CALM's reliability standards while retaining the flexibility of LangGraph and the optimization power of DSPy. The next battleground is **Agency** (where Soni wins) and **Voice/User Experience** (where Soni needs work).
+## 5. NLU Enhancement (Currency handling)
+The `1000€` issue is an NLU extraction problem.
+-   **Solution**: Update `src/soni/du/signatures.py` or `models.py` (SlotValue definitions) to explicitly mention currency symbol handling in the prompt instructions or few-shot examples for the LLM.
+-   Ensure `amount` and `currency` slots can be filled simultaneously from a single utterance.

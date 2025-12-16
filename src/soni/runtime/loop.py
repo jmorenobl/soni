@@ -141,6 +141,7 @@ class RuntimeLoop:
 
         # Determine input state
         current_state = await self.get_state(user_id)
+
         if not current_state:
             # Initialize fresh state
             init_state = create_empty_dialogue_state()
@@ -164,13 +165,37 @@ class RuntimeLoop:
         result = await graph.ainvoke(input_payload, config=final_config)
 
         # Extract response
-        last_response = result.get("last_response")
-        messages = result.get("messages", [])
+        # We need to return all new AI messages generated in this turn
+        # Identify new messages by comparing with pre-execution count?
+        # A simpler way is to filter messages by the current run? No, persistence keeps all.
 
+        # Strategy: We assume standard AIMessages are appended.
+        # But for now, let's use a simple heuristic:
+        # Collect all messages that are NOT HumanMessage at the end of the list?
+        # No, that might capture old history.
+
+        # Better: Capture start length.
+        start_len = len(input_payload.get("messages", []))
+        # Wait, input_payload messages might be merged?
+        # Actually input_payload["messages"] only had [HumanMessage].
+        # But 'current_state' from get_state had full history.
+
+        # If we loaded history, start_len is len(current_state["messages"]).
+        history = current_state.get("messages", []) if current_state else []
+        start_len = len(history) + 1  # +1 for the human message we just added
+
+        final_messages = result.get("messages", [])
+        new_messages = final_messages[start_len:]
+
+        if new_messages:
+            return "\n\n".join([str(m.content) for m in new_messages if hasattr(m, "content")])
+
+        last_response = result.get("last_response")
         if last_response:
             return str(last_response)
-        if messages and hasattr(messages[-1], "content"):
-            return str(messages[-1].content)
+
+        if final_messages and hasattr(final_messages[-1], "content"):
+            return str(final_messages[-1].content)
 
         return "I don't understand."
 

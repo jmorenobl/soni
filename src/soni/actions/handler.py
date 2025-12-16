@@ -45,13 +45,22 @@ class ActionHandler:
         if missing:
             raise ActionError(f"Action '{action_name}' missing inputs: {missing}")
 
+        # Filter inputs to only pass what's accepted by signature
+        has_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+
+        if has_kwargs:
+            filtered_inputs = inputs
+        else:
+            accepted_params = set(sig.parameters.keys())
+            filtered_inputs = {k: v for k, v in inputs.items() if k in accepted_params}
+
         # Execute
         try:
             # Check if async
             if inspect.iscoroutinefunction(action):
-                return await cast(Awaitable[dict[str, Any]], action(**inputs))
+                return await cast(Awaitable[dict[str, Any]], action(**filtered_inputs))
             else:
-                return cast(dict[str, Any], action(**inputs))
+                return cast(dict[str, Any], action(**filtered_inputs))
         except Exception as e:
             # Wrap error
             raise ActionError(f"Action execution failed: {e}") from e

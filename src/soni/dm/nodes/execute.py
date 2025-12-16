@@ -18,8 +18,8 @@ async def execute_node(
     """
     context: RuntimeContext = config["configurable"]["runtime_context"]
     flow_manager = context.flow_manager
+    # Check if we have an active flow
     active_ctx = flow_manager.get_active_context(state)
-
     if active_ctx:
         # Route to the subgraph node for this flow
         # Node name convention: flow_{flow_name}

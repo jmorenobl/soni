@@ -108,7 +108,10 @@ async def understand_node(
     # Must return keys that changed so LangGraph keeps them
     # FlowManager modifies flow_stack and flow_slots in place
     return {
-        "commands": commands,
-        "flow_stack": state["flow_stack"],
-        "flow_slots": state["flow_slots"],
+        "flow_state": state.get("flow_state"),
+        "waiting_for_slot": state.get("waiting_for_slot"),
+        "flow_slots": state.get("flow_slots"),
+        "flow_stack": state.get("flow_stack"),
+        "commands": [cmd.model_dump() for cmd in commands],
+        "metadata": state.get("metadata", {}),
     }
