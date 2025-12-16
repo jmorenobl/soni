@@ -14,13 +14,10 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
+from soni.core.constants import CommandType
 from soni.core.types import DialogueState
 
 logger = logging.getLogger(__name__)
-
-# Command types from NLU
-AFFIRM_COMMAND = "affirm"
-DENY_COMMAND = "deny"
 
 
 def _find_confirmation_command(commands: list[Any]) -> tuple[bool | None, str | None]:
@@ -44,9 +41,9 @@ def _find_confirmation_command(commands: list[Any]) -> tuple[bool | None, str | 
             cmd_type = getattr(cmd, "type", None) or getattr(cmd, "command_type", None)
             slot_to_change = getattr(cmd, "slot_to_change", None)
 
-        if cmd_type == AFFIRM_COMMAND:
+        if cmd_type == CommandType.AFFIRM:
             return True, None
-        if cmd_type == DENY_COMMAND:
+        if cmd_type == CommandType.DENY:
             return False, slot_to_change
 
     return None, None

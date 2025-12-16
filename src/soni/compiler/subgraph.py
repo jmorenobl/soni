@@ -7,10 +7,11 @@ from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
 from soni.core.config import FlowConfig, StepConfig
+from soni.core.constants import NodeName
 from soni.core.types import DialogueState, RuntimeContext
 
-# Constants for special node names
-END_FLOW_NODE = "__end_flow__"
+# Constant for special node name
+END_FLOW_NODE = NodeName.END_FLOW
 
 
 async def end_flow_node(
