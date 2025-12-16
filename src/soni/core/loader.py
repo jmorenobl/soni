@@ -1,4 +1,5 @@
 """Configuration loader service."""
+
 from pathlib import Path
 
 import yaml
@@ -28,6 +29,7 @@ class ConfigLoader:
         try:
             with open(path) as f:
                 data = yaml.safe_load(f)
-            return SoniConfig.model_validate(data)
+            config: SoniConfig = SoniConfig.model_validate(data)
+            return config
         except Exception as e:
             raise ConfigError(f"Failed to load config: {e}") from e

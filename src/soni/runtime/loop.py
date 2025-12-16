@@ -1,22 +1,37 @@
-"""Runtime loop for dialogue processing."""
+"""Runtime loop for dialogue processing.
 
-from typing import Any
+Implements the main entry point for processing dialogue messages.
+Uses dependency injection via RuntimeContext for testability.
+"""
 
-from langchain_core.runnables import Runnable
+import logging
+from typing import Any, cast
+
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph.state import CompiledStateGraph
 
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
+from soni.core.errors import StateError
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import RuntimeContext
 from soni.dm.builder import build_orchestrator
 from soni.du.modules import SoniDU
 from soni.flow.manager import FlowManager
 
+logger = logging.getLogger(__name__)
+
 
 class RuntimeLoop:
-    """Main runtime for processing dialogue messages."""
+    """Main runtime for processing dialogue messages.
+
+    Provides async-first interface for dialogue processing with:
+    - Lazy initialization of components
+    - Dependency injection via RuntimeContext
+    - Checkpointer integration for state persistence
+    """
 
     def __init__(
         self,
@@ -24,110 +39,161 @@ class RuntimeLoop:
         checkpointer: BaseCheckpointSaver | None = None,
         registry: ActionRegistry | None = None,
     ):
+        """Initialize RuntimeLoop.
+
+        Args:
+            config: Soni configuration with flow definitions.
+            checkpointer: Optional checkpointer for state persistence.
+            registry: Optional action registry. Created if not provided.
+        """
         self.config = config
         self.checkpointer = checkpointer
-
-        # Registry can be passed or created during init
         self._initial_registry = registry
 
-        # Lazy initialization
-        self.flow_manager: FlowManager | None = None
-        self.du: SoniDU | None = None
-        self.action_registry: ActionRegistry | None = None
-        self.action_handler: ActionHandler | None = None
-        self.graph: Runnable | None = None
+        # Lazy initialization - set during initialize()
+        self._flow_manager: FlowManager | None = None
+        self._du: SoniDU | None = None
+        self._action_registry: ActionRegistry | None = None
+        self._action_handler: ActionHandler | None = None
+        self._graph: CompiledStateGraph | None = None
+
+    @property
+    def flow_manager(self) -> FlowManager:
+        """Get FlowManager, raising if not initialized."""
+        if not self._flow_manager:
+            raise StateError("RuntimeLoop not initialized. Call initialize() first.")
+        return self._flow_manager
+
+    @flow_manager.setter
+    def flow_manager(self, value: FlowManager | None) -> None:
+        self._flow_manager = value
+
+    @property
+    def du(self) -> SoniDU:
+        """Get SoniDU, raising if not initialized."""
+        if not self._du:
+            raise StateError("RuntimeLoop not initialized. Call initialize() first.")
+        return self._du
+
+    @du.setter
+    def du(self, value: SoniDU | None) -> None:
+        self._du = value
+
+    @property
+    def action_handler(self) -> ActionHandler:
+        """Get ActionHandler, raising if not initialized."""
+        if not self._action_handler:
+            raise StateError("RuntimeLoop not initialized. Call initialize() first.")
+        return self._action_handler
+
+    @property
+    def graph(self) -> CompiledStateGraph | None:
+        """Get compiled graph."""
+        return self._graph
 
     async def initialize(self) -> None:
-        """Initialize all components."""
-        if self.graph:
+        """Initialize all components.
+
+        Safe to call multiple times - will skip if already initialized.
+        """
+        if self._graph:
             return
 
-        self.flow_manager = FlowManager()
-        self.du = SoniDU(use_cot=True)
-        self.action_registry = self._initial_registry or ActionRegistry()
-        self.action_handler = ActionHandler(self.action_registry)
+        self._flow_manager = FlowManager()
+        self._du = SoniDU(use_cot=True)
+        self._action_registry = self._initial_registry or ActionRegistry()
+        self._action_handler = ActionHandler(self._action_registry)
 
         # Compile graph with checkpointer
-        # Pass checkpointer only if provided
-        self.graph = build_orchestrator(self.config, self.checkpointer)
-
-    async def getattr_du(self):
-        """Helper to expose DU for tests if needed."""
-        return self.du
+        orchestrator = build_orchestrator(self.config, self.checkpointer)
+        self._graph = cast(CompiledStateGraph, orchestrator)
 
     async def process_message(self, message: str, user_id: str = "default") -> str:
-        """Process a user message and return response."""
-        if not self.graph:
+        """Process a user message and return response.
+
+        Args:
+            message: User's input message.
+            user_id: Unique identifier for conversation thread.
+
+        Returns:
+            System's response string.
+
+        Raises:
+            StateError: If initialization failed.
+        """
+        if not self._graph:
             await self.initialize()
 
-        graph = self.graph
+        graph = self._graph
         if not graph:
-            raise RuntimeError("Graph initialization failed")
+            raise StateError("Graph initialization failed")
 
-        # Create runtime context for this request (Dependency Injection)
-        # Note: Type hinting matches dataclass RuntimeContext
-        # Create runtime context for this request (Dependency Injection)
-        # Note: Type hinting matches dataclass RuntimeContext
+        # Create runtime context for dependency injection
         context = RuntimeContext(
-            flow_manager=self.flow_manager,
-            du=self.du,
-            action_handler=self.action_handler,
             config=self.config,
+            flow_manager=self.flow_manager,
+            action_handler=self.action_handler,
+            du=self.du,
         )
 
         run_config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
 
         # Determine input state
-        # input_payload can be DialogueState or dict[str, Any]
-        input_payload: Any
-
         current_state = await self.get_state(user_id)
         if not current_state:
             # Initialize fresh state
             init_state = create_empty_dialogue_state()
             init_state["user_message"] = message
             init_state["turn_count"] = 1
-            input_payload = init_state
+            input_payload: Any = init_state
         else:
             # Just update message
             input_payload = {"user_message": message}
-            # We manually check turn count? Or graph does? graph doesn't auto-increment turn count.
-            # So we should increment it.
-            # But 'current_state' is a snapshot.
-            if "turn_count" in current_state:
-                input_payload["turn_count"] = int(current_state["turn_count"]) + 1
-            else:
-                input_payload["turn_count"] = 1
+            turn_count = current_state.get("turn_count", 0)
+            input_payload["turn_count"] = int(turn_count) + 1
 
-        # Inject context via configurable (robust pattern)
+        # Inject context via configurable
         run_config["configurable"]["runtime_context"] = context
 
-        result = await graph.ainvoke(input_payload, config=run_config)
+        # Execute graph
+        final_config = cast(RunnableConfig, run_config)
+        result = await graph.ainvoke(input_payload, config=final_config)
 
         # Extract response
-        # Result is the final state.
         last_response = result.get("last_response")
         messages = result.get("messages", [])
 
         if last_response:
             return str(last_response)
-        elif messages and hasattr(messages[-1], "content"):
+        if messages and hasattr(messages[-1], "content"):
             return str(messages[-1].content)
 
         return "I don't understand."
 
     async def get_state(self, user_id: str) -> dict[str, Any] | None:
-        """Get current state snapshot."""
-        if not self.graph:
+        """Get current state snapshot for a user.
+
+        Args:
+            user_id: Unique identifier for conversation thread.
+
+        Returns:
+            State dictionary or None if no state exists.
+        """
+        if not self._graph:
             return None
 
-        config = {"configurable": {"thread_id": user_id}}
+        config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
+
         try:
-            # Get state snapshot
-            # graph.get_state(config) returns StateSnapshot
-            snapshot = await self.graph.aget_state(config)
+            state_config = cast(RunnableConfig, config)
+            snapshot = await self._graph.aget_state(state_config)
             if snapshot and snapshot.values:
                 return dict(snapshot.values)
-        except Exception:
+        except StateError:
+            logger.warning(f"Failed to get state for user {user_id}")
             return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting state: {e}", exc_info=True)
+            return None
+
         return None

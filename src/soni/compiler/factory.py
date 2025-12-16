@@ -1,4 +1,5 @@
 """Node factory registry."""
+
 from soni.compiler.nodes.action import ActionNodeFactory
 from soni.compiler.nodes.base import NodeFactory
 from soni.compiler.nodes.branch import BranchNodeFactory
@@ -10,7 +11,7 @@ from soni.compiler.nodes.while_loop import WhileNodeFactory
 
 def get_factory_for_step(step_type: str) -> NodeFactory:
     """Get the appropriate factory for a step type."""
-    factories = {
+    factories: dict[str, NodeFactory] = {
         "collect": CollectNodeFactory(),
         "action": ActionNodeFactory(),
         "say": SayNodeFactory(),

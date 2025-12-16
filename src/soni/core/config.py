@@ -1,4 +1,5 @@
 """Configuration models for Soni."""
+
 from pydantic import BaseModel, Field
 
 
@@ -22,7 +23,7 @@ class FlowConfig(BaseModel):
 
     description: str
     steps: list[StepConfig] = Field(default_factory=list)
-    process: list[StepConfig] | None = None # Keep for backward compatibility if needed
+    process: list[StepConfig] | None = None  # Keep for backward compatibility if needed
 
     @property
     def steps_or_process(self) -> list[StepConfig]:

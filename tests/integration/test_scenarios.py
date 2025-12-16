@@ -139,7 +139,7 @@ async def test_scenario_correction(runtime):
 
     # Ideally, if we change a previous slot, the flow might need to backtrack or just update.
     # Soni behavior: updates slot. If current step depends on it, good. If passed, it just updates state.
-    resp3 = await runtime.process_message("No, London", user_id="user_corr")
+    await runtime.process_message("No, London", user_id="user_corr")
 
     # Verify slot value in state
     state = await runtime.get_state("user_corr")
@@ -184,7 +184,7 @@ async def test_scenario_denial_cancel(runtime):
         )
     )
 
-    resp_deny = await runtime.process_message("No", user_id="user_deny")
+    await runtime.process_message("No", user_id="user_deny")
 
     # Verify flow ended or looped?
     # Requires checking ConfirmNode logic. Assuming it might end flow or ask for correction.

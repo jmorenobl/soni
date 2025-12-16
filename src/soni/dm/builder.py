@@ -1,5 +1,7 @@
 """Graph construction logic."""
+
 from langchain_core.runnables import Runnable
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.subgraph import SubgraphBuilder
@@ -8,9 +10,9 @@ from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes import execute_node, respond_node, understand_node
 
 
-from langgraph.checkpoint.base import BaseCheckpointSaver
-
-def build_orchestrator(config: SoniConfig, checkpointer: BaseCheckpointSaver | None = None) -> Runnable:
+def build_orchestrator(
+    config: SoniConfig, checkpointer: BaseCheckpointSaver | None = None
+) -> Runnable:
     """Compile flows and build the complete orchestrator graph."""
 
     # 1. Compile all flows to subgraphs
@@ -53,5 +55,5 @@ def build_orchestrator(config: SoniConfig, checkpointer: BaseCheckpointSaver | N
     # so no explicit edges from 'execute' are needed if coverage via Command is complete.
     # However,    # If 'execute' returns 'respond', we need that edge or allow Command routing there too.
     # Command(goto="respond") covers it.
-    
+
     return builder.compile(checkpointer=checkpointer)

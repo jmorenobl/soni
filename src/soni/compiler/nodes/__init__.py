@@ -1,4 +1,5 @@
 """Node factories module."""
+
 from soni.compiler.nodes.action import ActionNodeFactory
 from soni.compiler.nodes.base import NodeFactory, NodeFunction
 from soni.compiler.nodes.branch import BranchNodeFactory

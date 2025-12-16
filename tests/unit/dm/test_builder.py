@@ -1,4 +1,5 @@
 """Tests for Orchestrator Builder."""
+
 import pytest
 from langchain_core.runnables import Runnable
 
@@ -15,11 +16,7 @@ class TestOrchestratorBuilder:
         WHEN built
         THEN returns compiled graph with core nodes and flow subgraphs
         """
-        config = SoniConfig(
-            flows={
-                "test_flow": FlowConfig(description="Test", steps=[])
-            }
-        )
+        config = SoniConfig(flows={"test_flow": FlowConfig(description="Test", steps=[])})
 
         graph = build_orchestrator(config)
 

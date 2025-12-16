@@ -50,7 +50,8 @@ class Command(BaseModel):
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         """Serialize command including type field."""
-        return super().model_dump(**kwargs)
+        result: dict[str, Any] = super().model_dump(**kwargs)
+        return result
 
 
 # Flow Control Commands

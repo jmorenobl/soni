@@ -1,12 +1,11 @@
 """Respond node - generates final response."""
+
 from typing import Any
 
-
-
-from soni.core.types import DialogueState, RuntimeContext
-
-
 from langchain_core.runnables import RunnableConfig
+
+from soni.core.types import DialogueState
+
 
 async def respond_node(
     state: DialogueState,

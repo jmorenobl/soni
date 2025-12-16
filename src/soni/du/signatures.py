@@ -3,6 +3,7 @@
 Uses Pydantic types for structured I/O and rich descriptions to guide the LLM.
 Based on the proven pattern from the current codebase.
 """
+
 import dspy
 
 from soni.du.models import DialogueContext, NLUOutput
@@ -33,9 +34,7 @@ class ExtractCommands(dspy.Signature):
     """
 
     # Input fields with rich descriptions and Pydantic types
-    user_message: str = dspy.InputField(
-        desc="User's input message to analyze"
-    )
+    user_message: str = dspy.InputField(desc="User's input message to analyze")
     context: DialogueContext = dspy.InputField(
         desc="Complete dialogue context including available_flows, available_commands, current_slots, expected_slot"
     )
@@ -44,6 +43,4 @@ class ExtractCommands(dspy.Signature):
     )
 
     # Output field with Pydantic type for structured validation
-    result: NLUOutput = dspy.OutputField(
-        desc="Extracted commands and reasoning"
-    )
+    result: NLUOutput = dspy.OutputField(desc="Extracted commands and reasoning")

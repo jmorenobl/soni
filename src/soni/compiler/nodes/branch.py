@@ -1,6 +1,6 @@
 """BranchNodeFactory - generates conditional branching nodes."""
 
-from typing import Any, Literal
+from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -27,7 +27,7 @@ class BranchNodeFactory:
         async def branch_node(
             state: DialogueState,
             config: RunnableConfig,
-        ) -> Command[Literal[tuple(cases.values())]] | dict[str, Any]:  # type: ignore
+        ) -> Command[Any] | dict[str, Any]:
             context = config["configurable"]["runtime_context"]
             flow_manager = context.flow_manager
             value = flow_manager.get_slot(state, slot_name)

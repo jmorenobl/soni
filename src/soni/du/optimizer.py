@@ -4,6 +4,7 @@ Uses DSPy's latest MIPROv2 for prompt optimization.
 """
 
 from collections.abc import Callable
+from typing import cast
 
 from dspy import Example
 from dspy.teleprompt import MIPROv2
@@ -78,4 +79,4 @@ def optimize_du(
         requires_permission_to_run=False,
     )
 
-    return optimized
+    return cast(SoniDU, optimized)

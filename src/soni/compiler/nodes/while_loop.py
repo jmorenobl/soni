@@ -1,6 +1,6 @@
 """WhileNodeFactory - generates loop guard nodes."""
 
-from typing import Any, Literal
+from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -28,7 +28,7 @@ class WhileNodeFactory:
         async def while_node(
             state: DialogueState,
             config: RunnableConfig,
-        ) -> Command[Literal[loop_body_start]] | dict[str, Any]:  # type: ignore
+        ) -> Command[Any] | dict[str, Any]:
             # TODO: Implement actual condition evaluation logic (e.g. using simple eval or expression parser)
             # For now, we assume simple slot truthiness check if condition is just a slot name
             # Or always false to prevent infinite loops in initial implementation if complex

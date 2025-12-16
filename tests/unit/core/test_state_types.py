@@ -1,4 +1,5 @@
 """Unit tests for core types."""
+
 import pytest
 
 from soni.core.state import create_empty_dialogue_state
@@ -38,15 +39,17 @@ class TestDialogueState:
         state = create_empty_dialogue_state()
         # Add some dummy data
         state["user_message"] = "Hello"
-        state["flow_stack"].append({
-            "flow_id": "test-123",
-            "flow_name": "test",
-            "flow_state": "active",
-            "current_step": "start",
-            "step_index": 0,
-            "outputs": {},
-            "started_at": 100.0,
-        })
+        state["flow_stack"].append(
+            {
+                "flow_id": "test-123",
+                "flow_name": "test",
+                "flow_state": "active",
+                "current_step": "start",
+                "step_index": 0,
+                "outputs": {},
+                "started_at": 100.0,
+            }
+        )
 
         # Act
         json_str = json.dumps(state)
@@ -66,8 +69,10 @@ class TestDialogueState:
         state1 = create_empty_dialogue_state()
         state2 = create_empty_dialogue_state()
 
-        # Act
-        state1["flow_stack"].append({"id": 1})
+        # Act - append any dict to test isolation (not a valid FlowContext)
+        from typing import Any, cast
+
+        state1["flow_stack"].append(cast(Any, {"id": 1}))
 
         # Assert
         assert len(state1["flow_stack"]) == 1

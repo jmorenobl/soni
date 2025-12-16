@@ -1,4 +1,5 @@
 """Unit tests for SubgraphBuilder."""
+
 import pytest
 from langgraph.graph import StateGraph
 
@@ -22,7 +23,7 @@ class TestSubgraphBuilder:
             steps=[
                 StepConfig(step="step_a", type="say", message="A"),
                 StepConfig(step="step_b", type="say", message="B"),
-            ]
+            ],
         )
         builder = SubgraphBuilder()
 
@@ -48,7 +49,7 @@ class TestSubgraphBuilder:
                 StepConfig(step="step_a", type="say", message="A", jump_to="step_c"),
                 StepConfig(step="step_b", type="say", message="B"),
                 StepConfig(step="step_c", type="say", message="C"),
-            ]
+            ],
         )
         builder = SubgraphBuilder()
         graph = builder.build(config)

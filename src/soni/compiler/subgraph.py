@@ -1,5 +1,7 @@
 """Subgraph builder - compiles FlowConfig to StateGraph."""
 
+from typing import Any
+
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
@@ -10,10 +12,10 @@ from soni.core.types import DialogueState, RuntimeContext
 class SubgraphBuilder:
     """Builds a StateGraph from a FlowConfig."""
 
-    def build(self, flow_config: FlowConfig) -> StateGraph:
+    def build(self, flow_config: FlowConfig) -> StateGraph[Any, Any]:
         """Build a StateGraph from flow configuration."""
         # Define context schema at graph level for DI
-        builder = StateGraph(DialogueState, context_schema=RuntimeContext)
+        builder: StateGraph[Any, Any] = StateGraph(DialogueState, context_schema=RuntimeContext)
         steps = flow_config.steps_or_process
 
         if not steps:
@@ -34,14 +36,14 @@ class SubgraphBuilder:
 
         return builder
 
-    def _build_empty_graph(self, builder: StateGraph) -> StateGraph:
+    def _build_empty_graph(self, builder: StateGraph[Any, Any]) -> StateGraph[Any, Any]:
         """Handle empty flow case."""
         builder.add_edge(START, END)
         return builder
 
     def _add_edges(
         self,
-        builder: StateGraph,
+        builder: StateGraph[Any, Any],
         steps: list[StepConfig],
         step_names: list[str],
     ) -> None:

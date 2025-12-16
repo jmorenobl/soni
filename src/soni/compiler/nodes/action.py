@@ -36,7 +36,7 @@ class ActionNodeFactory:
             # 3. Update state with results
             if isinstance(result, dict):
                 for key, value in result.items():
-                    fm.set_slot(state, key, value)
+                    await fm.set_slot(state, key, value)
 
             return {"flow_slots": state["flow_slots"]}
 

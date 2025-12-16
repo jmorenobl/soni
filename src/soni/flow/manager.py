@@ -1,17 +1,25 @@
-"""Flow stack management."""
+"""Flow stack management.
+
+Async-first design per project standards.
+All state-mutating methods are async.
+"""
 
 import time
 import uuid
 from typing import Any
 
 from soni.core.errors import FlowStackError
-from soni.core.types import DialogueState, FlowContext
+from soni.core.types import DialogueState, FlowContext, FlowContextState
 
 
 class FlowManager:
-    """Manages the flow stack and slot data."""
+    """Manages the flow stack and slot data.
 
-    def push_flow(
+    Implements FlowManagerProtocol for type-safe DI.
+    All state-mutating methods are async per async-first principle.
+    """
+
+    async def push_flow(
         self,
         state: DialogueState,
         flow_name: str,
@@ -44,16 +52,16 @@ class FlowManager:
 
         return flow_id
 
-    def pop_flow(
+    async def pop_flow(
         self,
         state: DialogueState,
-        result: str = "completed",
+        result: FlowContextState = "completed",
     ) -> FlowContext:
         """Pop the top flow from the stack.
 
         Args:
             state: The dialogue state.
-            result: The final state of the flow (e.g., 'completed', 'cancelled').
+            result: The final state of the flow.
 
         Returns:
             The popped FlowContext.
@@ -75,15 +83,18 @@ class FlowManager:
         new_flow: str,
     ) -> None:
         """Handle intent switch (push new flow)."""
-        self.push_flow(state, new_flow)
+        await self.push_flow(state, new_flow)
 
     def get_active_context(self, state: DialogueState) -> FlowContext | None:
-        """Get the currently active flow context."""
+        """Get the currently active flow context.
+
+        This is a read-only operation, so it remains sync.
+        """
         if not state["flow_stack"]:
             return None
         return state["flow_stack"][-1]
 
-    def set_slot(self, state: DialogueState, slot_name: str, value: Any) -> None:
+    async def set_slot(self, state: DialogueState, slot_name: str, value: Any) -> None:
         """Set a slot value in the active flow context."""
         context = self.get_active_context(state)
         if not context:
@@ -96,7 +107,10 @@ class FlowManager:
         state["flow_slots"][flow_id][slot_name] = value
 
     def get_slot(self, state: DialogueState, slot_name: str) -> Any:
-        """Get a slot value from the active flow context."""
+        """Get a slot value from the active flow context.
+
+        This is a read-only operation, so it remains sync.
+        """
         context = self.get_active_context(state)
         if not context:
             return None
@@ -104,7 +118,7 @@ class FlowManager:
         flow_id = context["flow_id"]
         return state["flow_slots"].get(flow_id, {}).get(slot_name)
 
-    def advance_step(self, state: DialogueState) -> bool:
+    async def advance_step(self, state: DialogueState) -> bool:
         """Advance to next step in current flow.
 
         Returns:
@@ -117,7 +131,10 @@ class FlowManager:
         return True
 
     def get_all_slots(self, state: DialogueState) -> dict[str, Any]:
-        """Get all slots for the active flow."""
+        """Get all slots for the active flow.
+
+        This is a read-only operation, so it remains sync.
+        """
         context = self.get_active_context(state)
         if context:
             return state["flow_slots"].get(context["flow_id"], {})

@@ -1,4 +1,5 @@
 """Unit tests for Command hierarchy."""
+
 import pytest
 
 from soni.core.commands import (
@@ -33,10 +34,7 @@ class TestStartFlowCommand:
         THEN slots are stored correctly
         """
         # Arrange & Act
-        cmd = StartFlow(
-            flow_name="book_flight",
-            slots={"destination": "Paris"}
-        )
+        cmd = StartFlow(flow_name="book_flight", slots={"destination": "Paris"})
 
         # Assert
         assert cmd.slots["destination"] == "Paris"
@@ -103,4 +101,4 @@ class TestParseCommand:
         # This test ensures we only allow specific registered commands
         data = {"type": "base"}
         with pytest.raises(ValueError):
-             parse_command(data)
+            parse_command(data)

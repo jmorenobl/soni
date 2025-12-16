@@ -1,4 +1,5 @@
 """Unit tests for error hierarchy."""
+
 import pytest
 
 from soni.core.errors import (

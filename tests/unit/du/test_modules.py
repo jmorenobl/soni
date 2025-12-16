@@ -1,4 +1,5 @@
 """Tests for SoniDU module."""
+
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -33,7 +34,7 @@ class TestSoniDU:
                 FlowInfo(
                     name="book_flight",
                     description="Book a flight ticket",
-                    trigger_intents=["book flight", "reserve ticket"]
+                    trigger_intents=["book flight", "reserve ticket"],
                 ),
             ],
             conversation_state="idle",

@@ -1,6 +1,7 @@
-"""Unit tests for FlowManager."""
+"""Unit tests for FlowManager.
 
-import time
+All tests are async to match the async-first FlowManager design.
+"""
 
 import pytest
 
@@ -12,7 +13,8 @@ from soni.flow.manager import FlowManager
 class TestFlowManagerPushFlow:
     """Tests for pushing flows onto the stack."""
 
-    def test_push_flow_creates_context_on_empty_stack(self):
+    @pytest.mark.asyncio
+    async def test_push_flow_creates_context_on_empty_stack(self):
         """
         GIVEN an empty stack
         WHEN pushing a flow
@@ -23,7 +25,7 @@ class TestFlowManagerPushFlow:
         manager = FlowManager()
 
         # Act
-        flow_id = manager.push_flow(state, "book_flight")
+        flow_id = await manager.push_flow(state, "book_flight")
 
         # Assert
         assert len(state["flow_stack"]) == 1
@@ -31,7 +33,8 @@ class TestFlowManagerPushFlow:
         assert state["flow_stack"][0]["flow_id"] == flow_id
         assert flow_id in state["flow_slots"]
 
-    def test_push_flow_with_inputs_stores_slots(self):
+    @pytest.mark.asyncio
+    async def test_push_flow_with_inputs_stores_slots(self):
         """
         GIVEN inputs
         WHEN pushing a flow
@@ -42,7 +45,7 @@ class TestFlowManagerPushFlow:
         manager = FlowManager()
 
         # Act
-        flow_id = manager.push_flow(state, "book_flight", inputs={"origin": "NYC"})
+        flow_id = await manager.push_flow(state, "book_flight", inputs={"origin": "NYC"})
 
         # Assert
         assert state["flow_slots"][flow_id]["origin"] == "NYC"
@@ -52,7 +55,8 @@ class TestFlowManagerPushFlow:
 class TestFlowManagerPopFlow:
     """Tests for popping flows from the stack."""
 
-    def test_pop_flow_on_empty_stack_raises_error(self):
+    @pytest.mark.asyncio
+    async def test_pop_flow_on_empty_stack_raises_error(self):
         """
         GIVEN empty stack
         WHEN pop_flow is called
@@ -64,9 +68,10 @@ class TestFlowManagerPopFlow:
 
         # Act & Assert
         with pytest.raises(FlowStackError):
-            manager.pop_flow(state)
+            await manager.pop_flow(state)
 
-    def test_pop_flow_returns_context_and_updates_status(self):
+    @pytest.mark.asyncio
+    async def test_pop_flow_returns_context_and_updates_status(self):
         """
         GIVEN stack with 1 flow
         WHEN pop_flow is called
@@ -75,10 +80,10 @@ class TestFlowManagerPopFlow:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        manager.push_flow(state, "flow1")
+        await manager.push_flow(state, "flow1")
 
         # Act
-        popped = manager.pop_flow(state, result="completed")
+        popped = await manager.pop_flow(state, result="completed")
 
         # Assert
         assert len(state["flow_stack"]) == 0
@@ -89,7 +94,8 @@ class TestFlowManagerPopFlow:
 class TestFlowManagerSlots:
     """Tests for slot management."""
 
-    def test_set_and_get_slot(self):
+    @pytest.mark.asyncio
+    async def test_set_and_get_slot(self):
         """
         GIVEN active flow
         WHEN set_slot is called
@@ -98,20 +104,21 @@ class TestFlowManagerSlots:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        manager.push_flow(state, "flow1")
+        await manager.push_flow(state, "flow1")
 
         # Act
-        manager.set_slot(state, "destination", "Paris")
+        await manager.set_slot(state, "destination", "Paris")
         value = manager.get_slot(state, "destination")
 
         # Assert
         assert value == "Paris"
 
-    def test_get_slot_returns_none_if_not_found(self):
+    @pytest.mark.asyncio
+    async def test_get_slot_returns_none_if_not_found(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        manager.push_flow(state, "flow1")
+        await manager.push_flow(state, "flow1")
 
         # Act
         value = manager.get_slot(state, "non_existent")
@@ -119,13 +126,14 @@ class TestFlowManagerSlots:
         # Assert
         assert value is None
 
-    def test_get_all_slots(self):
+    @pytest.mark.asyncio
+    async def test_get_all_slots(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        manager.push_flow(state, "flow1")
-        manager.set_slot(state, "a", 1)
-        manager.set_slot(state, "b", 2)
+        await manager.push_flow(state, "flow1")
+        await manager.set_slot(state, "a", 1)
+        await manager.set_slot(state, "b", 2)
 
         # Act
         slots = manager.get_all_slots(state)
@@ -137,26 +145,28 @@ class TestFlowManagerSlots:
 class TestFlowManagerStep:
     """Tests for step advancement."""
 
-    def test_advance_step_increments_index(self):
+    @pytest.mark.asyncio
+    async def test_advance_step_increments_index(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        manager.push_flow(state, "flow1")
+        await manager.push_flow(state, "flow1")
 
         # Act
-        success = manager.advance_step(state)
+        success = await manager.advance_step(state)
 
         # Assert
         assert success is True
         assert state["flow_stack"][0]["step_index"] == 1
 
-    def test_advance_step_returns_false_on_empty_stack(self):
+    @pytest.mark.asyncio
+    async def test_advance_step_returns_false_on_empty_stack(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        success = manager.advance_step(state)
+        success = await manager.advance_step(state)
 
         # Assert
         assert success is False
@@ -189,13 +199,14 @@ class TestFlowManagerEdgeCases:
         # Assert
         assert context is None
 
-    def test_set_slot_does_nothing_on_empty_stack(self):
+    @pytest.mark.asyncio
+    async def test_set_slot_does_nothing_on_empty_stack(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        manager.set_slot(state, "key", "value")
+        await manager.set_slot(state, "key", "value")
 
         # Assert
         assert state["flow_slots"] == {}
@@ -211,16 +222,17 @@ class TestFlowManagerEdgeCases:
         # Assert
         assert slots == {}
 
-    def test_set_slot_initializes_slot_dict_if_missing(self):
+    @pytest.mark.asyncio
+    async def test_set_slot_initializes_slot_dict_if_missing(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        flow_id = manager.push_flow(state, "flow1")
+        flow_id = await manager.push_flow(state, "flow1")
         # Manually corrupt state to remove slot dict
         del state["flow_slots"][flow_id]
 
         # Act
-        manager.set_slot(state, "key", "value")
+        await manager.set_slot(state, "key", "value")
 
         # Assert
         assert state["flow_slots"][flow_id]["key"] == "value"

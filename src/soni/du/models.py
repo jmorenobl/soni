@@ -3,6 +3,7 @@
 These models define the structured input/output for the NLU signature.
 DSPy uses Pydantic for output validation and type coercion.
 """
+
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -14,8 +15,7 @@ class FlowInfo(BaseModel):
     name: str = Field(description="Flow identifier")
     description: str = Field(description="What this flow does")
     trigger_intents: list[str] = Field(
-        default_factory=list,
-        description="Example phrases that trigger this flow"
+        default_factory=list, description="Example phrases that trigger this flow"
     )
 
 
@@ -36,12 +36,10 @@ class CommandInfo(BaseModel):
     command_type: str = Field(description="Command identifier (e.g., 'start_flow')")
     description: str = Field(description="What this command does")
     required_fields: list[str] = Field(
-        default_factory=list,
-        description="Fields required when using this command"
+        default_factory=list, description="Fields required when using this command"
     )
     example: str = Field(
-        default="",
-        description="Example user message that would trigger this command"
+        default="", description="Example user message that would trigger this command"
     )
 
 
@@ -58,20 +56,16 @@ class DialogueContext(BaseModel):
         description="Commands the LLM can generate. Each has type, description, required_fields"
     )
     active_flow: str | None = Field(
-        default=None,
-        description="Currently active flow name, or None if idle"
+        default=None, description="Currently active flow name, or None if idle"
     )
     current_slots: list[SlotValue] = Field(
-        default_factory=list,
-        description="Slots already filled in the current flow"
+        default_factory=list, description="Slots already filled in the current flow"
     )
     expected_slot: str | None = Field(
-        default=None,
-        description="Slot the system is currently asking for"
+        default=None, description="Slot the system is currently asking for"
     )
     conversation_state: Literal["idle", "collecting", "confirming", "action_pending"] = Field(
-        default="idle",
-        description="Current conversation phase"
+        default="idle", description="Current conversation phase"
     )
 
 
@@ -87,7 +81,9 @@ class Command(BaseModel):
 
     # Optional fields depending on command type
     flow_name: str | None = Field(default=None, description="For start_flow: which flow to start")
-    slot_name: str | None = Field(default=None, description="For set_slot/correct_slot: target slot")
+    slot_name: str | None = Field(
+        default=None, description="For set_slot/correct_slot: target slot"
+    )
     slot_value: str | None = Field(default=None, description="For set_slot/correct_slot: the value")
     reason: str | None = Field(default=None, description="For cancel_flow/human_handoff: why")
 
@@ -99,6 +95,4 @@ class NLUOutput(BaseModel):
     adds it automatically as a separate field.
     """
 
-    commands: list[Command] = Field(
-        description="List of commands to execute in order"
-    )
+    commands: list[Command] = Field(description="List of commands to execute in order")

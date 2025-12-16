@@ -1,4 +1,5 @@
 """State factory and helper functions."""
+
 from soni.core.types import DialogueState
 
 

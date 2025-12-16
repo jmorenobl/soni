@@ -1,4 +1,5 @@
 """Test factories for creating test objects."""
+
 from typing import Any
 
 
@@ -17,6 +18,7 @@ def make_dialogue_state(**overrides: Any) -> dict:
 def make_flow_context(**overrides: Any) -> dict:
     """Create a FlowContext with defaults, allowing overrides."""
     import uuid
+
     defaults = {
         "flow_id": str(uuid.uuid4()),
         "flow_name": "test_flow",
