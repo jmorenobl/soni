@@ -1,7 +1,11 @@
 """Unit tests for Command hierarchy."""
 import pytest
+
 from soni.core.commands import (
-    Command, StartFlow, SetSlot, CancelFlow,
+    CancelFlow,
+    Command,
+    SetSlot,
+    StartFlow,
     parse_command,
 )
 
@@ -17,7 +21,7 @@ class TestStartFlowCommand:
         """
         # Arrange & Act
         cmd = StartFlow(flow_name="book_flight")
-        
+
         # Assert
         assert cmd.type == "start_flow"
         assert cmd.flow_name == "book_flight"
@@ -33,7 +37,7 @@ class TestStartFlowCommand:
             flow_name="book_flight",
             slots={"destination": "Paris"}
         )
-        
+
         # Assert
         assert cmd.slots["destination"] == "Paris"
 
@@ -45,11 +49,11 @@ class TestStartFlowCommand:
         """
         # Arrange
         cmd = StartFlow(flow_name="book_flight", slots={"origin": "NYC"})
-        
+
         # Act
         data = cmd.model_dump()
         restored = parse_command(data)
-        
+
         # Assert
         assert isinstance(restored, StartFlow)
         assert restored.flow_name == "book_flight"
@@ -66,7 +70,7 @@ class TestSetSlotCommand:
         """
         # Arrange & Act
         cmd = SetSlot(slot="origin", value="Madrid", confidence=0.95)
-        
+
         # Assert
         assert cmd.slot == "origin"
         assert cmd.value == "Madrid"
@@ -84,7 +88,7 @@ class TestParseCommand:
         """
         # Arrange
         data = {"type": "unknown_type", "foo": "bar"}
-        
+
         # Act & Assert
         with pytest.raises(ValueError, match="Unknown command"):
             parse_command(data)
