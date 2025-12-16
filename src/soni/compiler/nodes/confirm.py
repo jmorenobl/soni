@@ -136,11 +136,17 @@ class ConfirmNodeFactory:
                 }
 
             # First visit - ask for confirmation
+            slots = flow_manager.get_all_slots(state)
+            try:
+                formatted_prompt = prompt.format(**slots)
+            except KeyError:
+                formatted_prompt = prompt
+
             return {
                 "flow_state": "waiting_input",
                 "waiting_for_slot": slot_name,
-                "messages": [AIMessage(content=prompt)],
-                "last_response": prompt,
+                "messages": [AIMessage(content=formatted_prompt)],
+                "last_response": formatted_prompt,
             }
 
         confirm_node.__name__ = f"confirm_{step.step}"

@@ -58,7 +58,7 @@ flows:
       - step: collect_account
         type: collect
         slot: account_type
-        prompt: "Which account would you like to check (checking or savings)?"
+        message: "Which account would you like to check? For example, checking or savings."
 
       - step: get_balance_action
         type: action
@@ -90,22 +90,22 @@ flows:
       - step: collect_recipient
         type: collect
         slot: recipient
-        prompt: "Who would you like to send money to?"
+        message: "Who is the recipient for this transfer?"
 
       - step: collect_amount
         type: collect
         slot: amount
-        prompt: "How much would you like to send?"
+        message: "Got it. How much do you want to transfer?"
 
       - step: collect_currency
         type: collect
         slot: currency
-        prompt: "In which currency?"
+        message: "In which currency?"
 
       - step: collect_source_account
         type: collect
         slot: source_account
-        prompt: "From which account?"
+        message: "And from which account should I deduct the funds?"
 
       - step: confirm_transfer
         type: confirm
@@ -141,12 +141,12 @@ flows:
       - step: collect_card_type
         type: collect
         slot: card_type
-        prompt: "Is it a debit or credit card?"
+        message: "Is it a debit or credit card?"
 
       - step: collect_last_4
         type: collect
         slot: card_last_4
-        prompt: "Please provide the last 4 digits of the card."
+        message: "Please provide the last 4 digits of the card."
 
       - step: confirm_block
         type: confirm
