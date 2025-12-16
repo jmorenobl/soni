@@ -1,12 +1,13 @@
 """SayNodeFactory - generates simple response nodes."""
+
 from typing import Any
 
-
-
 from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
+
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState
 
 
 class SayNodeFactory:
@@ -21,11 +22,19 @@ class SayNodeFactory:
 
         async def say_node(
             state: DialogueState,
+            config: RunnableConfig,
         ) -> dict[str, Any]:
-            return {
-                "messages": [AIMessage(content=message)],
-                "last_response": message
-            }
+            context = config["configurable"]["runtime_context"]
+            fm = context.flow_manager
+            slots = fm.get_all_slots(state)
+
+            # Format message with slots
+            try:
+                content = message.format(**slots)
+            except KeyError:
+                content = message  # Fallback
+
+            return {"messages": [AIMessage(content=content)], "last_response": content}
 
         say_node.__name__ = f"say_{step.step}"
         return say_node

@@ -1,9 +1,12 @@
 """Unit tests for FlowManager."""
-import pytest
+
 import time
-from soni.flow.manager import FlowManager
-from soni.core.state import create_empty_dialogue_state
+
+import pytest
+
 from soni.core.errors import FlowStackError
+from soni.core.state import create_empty_dialogue_state
+from soni.flow.manager import FlowManager
 
 
 class TestFlowManagerPushFlow:
@@ -18,10 +21,10 @@ class TestFlowManagerPushFlow:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         flow_id = manager.push_flow(state, "book_flight")
-        
+
         # Assert
         assert len(state["flow_stack"]) == 1
         assert state["flow_stack"][0]["flow_name"] == "book_flight"
@@ -37,10 +40,10 @@ class TestFlowManagerPushFlow:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         flow_id = manager.push_flow(state, "book_flight", inputs={"origin": "NYC"})
-        
+
         # Assert
         assert state["flow_slots"][flow_id]["origin"] == "NYC"
         assert manager.get_slot(state, "origin") == "NYC"
@@ -58,7 +61,7 @@ class TestFlowManagerPopFlow:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act & Assert
         with pytest.raises(FlowStackError):
             manager.pop_flow(state)
@@ -73,10 +76,10 @@ class TestFlowManagerPopFlow:
         state = create_empty_dialogue_state()
         manager = FlowManager()
         manager.push_flow(state, "flow1")
-        
+
         # Act
         popped = manager.pop_flow(state, result="completed")
-        
+
         # Assert
         assert len(state["flow_stack"]) == 0
         assert popped["flow_name"] == "flow1"
@@ -96,11 +99,11 @@ class TestFlowManagerSlots:
         state = create_empty_dialogue_state()
         manager = FlowManager()
         manager.push_flow(state, "flow1")
-        
+
         # Act
         manager.set_slot(state, "destination", "Paris")
         value = manager.get_slot(state, "destination")
-        
+
         # Assert
         assert value == "Paris"
 
@@ -109,10 +112,10 @@ class TestFlowManagerSlots:
         state = create_empty_dialogue_state()
         manager = FlowManager()
         manager.push_flow(state, "flow1")
-        
+
         # Act
         value = manager.get_slot(state, "non_existent")
-        
+
         # Assert
         assert value is None
 
@@ -123,10 +126,10 @@ class TestFlowManagerSlots:
         manager.push_flow(state, "flow1")
         manager.set_slot(state, "a", 1)
         manager.set_slot(state, "b", 2)
-        
+
         # Act
         slots = manager.get_all_slots(state)
-        
+
         # Assert
         assert slots == {"a": 1, "b": 2}
 
@@ -139,10 +142,10 @@ class TestFlowManagerStep:
         state = create_empty_dialogue_state()
         manager = FlowManager()
         manager.push_flow(state, "flow1")
-        
+
         # Act
         success = manager.advance_step(state)
-        
+
         # Assert
         assert success is True
         assert state["flow_stack"][0]["step_index"] == 1
@@ -151,10 +154,10 @@ class TestFlowManagerStep:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         success = manager.advance_step(state)
-        
+
         # Assert
         assert success is False
 
@@ -167,10 +170,10 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         await manager.handle_intent_change(state, "new_flow")
-        
+
         # Assert
         assert len(state["flow_stack"]) == 1
         assert state["flow_stack"][0]["flow_name"] == "new_flow"
@@ -179,10 +182,10 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         context = manager.get_active_context(state)
-        
+
         # Assert
         assert context is None
 
@@ -190,10 +193,10 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         manager.set_slot(state, "key", "value")
-        
+
         # Assert
         assert state["flow_slots"] == {}
 
@@ -201,10 +204,10 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        
+
         # Act
         slots = manager.get_all_slots(state)
-        
+
         # Assert
         assert slots == {}
 
@@ -215,9 +218,9 @@ class TestFlowManagerEdgeCases:
         flow_id = manager.push_flow(state, "flow1")
         # Manually corrupt state to remove slot dict
         del state["flow_slots"][flow_id]
-        
+
         # Act
         manager.set_slot(state, "key", "value")
-        
+
         # Assert
         assert state["flow_slots"][flow_id]["key"] == "value"

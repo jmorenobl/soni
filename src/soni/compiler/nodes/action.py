@@ -1,11 +1,12 @@
 """ActionNodeFactory - generates action execution nodes."""
+
 from typing import Any
 
-from langgraph.runtime import Runtime
+from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState
 
 
 class ActionNodeFactory:
@@ -14,20 +15,30 @@ class ActionNodeFactory:
     def create(self, step: StepConfig) -> NodeFunction:
         """Create a node that executes an action."""
         if not step.call:
-             raise ValueError(f"Step {step.step} of type 'action' missing required field 'call'")
+            raise ValueError(f"Step {step.step} of type 'action' missing required field 'call'")
 
         action_name = step.call
 
         async def action_node(
             state: DialogueState,
-            runtime: Runtime[RuntimeContext],
+            config: RunnableConfig,
         ) -> dict[str, Any]:
+            context = config["configurable"]["runtime_context"]
+            handler = context.action_handler
+            fm = context.flow_manager
 
-            action_handler = runtime.context.action_handler
-            # Note: We might need to pass arguments from slots here
-            result = await action_handler.execute(action_name, state)
+            slots = fm.get_all_slots(state)
 
-            return result or {"flow_state": "active"}
+            # 2. Execute
+            # Pass all slots? Or filtered? Handler validates.
+            result = await handler.execute(action_name, slots)
+
+            # 3. Update state with results
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    fm.set_slot(state, key, value)
+
+            return {"flow_slots": state["flow_slots"]}
 
         action_node.__name__ = f"action_{step.step}"
         return action_node

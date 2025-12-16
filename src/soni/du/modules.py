@@ -2,9 +2,10 @@
 
 Async-first design using native .acall() method.
 """
+
 import dspy
 
-from soni.du.models import DialogueContext, NLUOutpu
+from soni.du.models import DialogueContext, NLUOutput
 from soni.du.signatures import ExtractCommands
 
 
@@ -15,7 +16,7 @@ class SoniDU(dspy.Module):
     - Native async with .acall() (more efficient than asyncify)
     - Optional ChainOfThought reasoning (configurable)
     - Pydantic types for structured I/O
-    - MIPROv2 optimization suppor
+    - MIPROv2 optimization support
     - Save/load for persistence
     """
 
@@ -40,7 +41,7 @@ class SoniDU(dspy.Module):
     ) -> NLUOutput:
         """Extract commands from user message (async).
 
-        Uses native .acall() for async LM calls - more efficien
+        Uses native .acall() for async LM calls - more efficient
         than wrapping with asyncify.
         """
         # Note: dspy methods typically return Prediction with output fields
@@ -66,4 +67,4 @@ class SoniDU(dspy.Module):
             context=context,
             history=history or [],
         )
-        return result.result # type: ignore
+        return result.result  # type: ignore

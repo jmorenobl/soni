@@ -1,10 +1,13 @@
 """Tests for RuntimeLoop."""
-import pytes
+
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
-from soni.core.config import SoniConfig, FlowConfig, StepConfig
+from soni.core.config import FlowConfig, SoniConfig, StepConfig
 from soni.runtime.loop import RuntimeLoop
+
 
 class TestRuntimeLoop:
     """Tests for RuntimeLoop execution."""
@@ -19,14 +22,14 @@ class TestRuntimeLoop:
         # Arrange
         # Minimal config to produce a response
         # We need a flow that says something or default response
-        config = SoniConfig(flows={
-            "greet": FlowConfig(
-                description="Greets user",
-                steps=[
-                    StepConfig(step="say_hello", type="say", message="Hello world")
-                ]
-            )
-        })
+        config = SoniConfig(
+            flows={
+                "greet": FlowConfig(
+                    description="Greets user",
+                    steps=[StepConfig(step="say_hello", type="say", message="Hello world")],
+                )
+            }
+        )
 
         runtime = RuntimeLoop(config)
         # We mock SoniDU to return a command that starts the flow, or rely on defaults?
@@ -38,11 +41,12 @@ class TestRuntimeLoop:
         await runtime.initialize()
 
         # Mock DU to return start_flow('greet') command
-        from soni.du.models import NLUOutput, Command
+        from soni.du.models import Command, NLUOutput
+
         mock_du = Mock()
-        mock_du.aforward = AsyncMock(return_value=NLUOutput(
-            commands=[Command(command_type="start_flow", flow_name="greet")]
-        ))
+        mock_du.aforward = AsyncMock(
+            return_value=NLUOutput(commands=[Command(command_type="start_flow", flow_name="greet")])
+        )
         runtime.du = mock_du
 
         # Ac
@@ -68,7 +72,8 @@ class TestRuntimeLoop:
         await runtime.initialize()
 
         # MOCK DU to avoid dspy error
-        from soni.du.models import NLUOutpu
+        from soni.du.models import NLUOutput
+
         mock_du = Mock()
         mock_du.aforward = AsyncMock(return_value=NLUOutput(commands=[]))
         runtime.du = mock_du

@@ -2,12 +2,13 @@
 
 Uses DSPy's latest MIPROv2 for prompt optimization.
 """
+
 from collections.abc import Callable
 
 from dspy import Example
 from dspy.teleprompt import MIPROv2
 
-from soni.du.models import Command, NLUOutpu
+from soni.du.models import Command, NLUOutput
 from soni.du.modules import SoniDU
 
 
@@ -18,8 +19,9 @@ def create_metric(validate_command_fn: Callable[[Command, Command], bool]) -> Ca
         validate_command_fn: Function to validate if command matches expected
                              (expected_cmd, actual_cmd) -> bool
     """
+
     def metric(example: Example, prediction: NLUOutput, trace=None) -> bool:
-        # prediction is the return value of forward(), which is NLUOutpu
+        # prediction is the return value of forward(), which is NLUOutput
         # But DSPy optimizer sometimes unwraps it or passes Prediction object?
         # In our SoniDU.forward, we return NLUOutput directly.
 
@@ -43,8 +45,8 @@ def optimize_du(
     trainset: list[Example],
     metric: Callable,
     auto: str = "light",  # "light", "medium", "heavy"
-    prompt_model = None,
-    teacher_model = None,
+    prompt_model=None,
+    teacher_model=None,
 ) -> SoniDU:
     """Optimize SoniDU with MIPROv2.
 
@@ -58,7 +60,7 @@ def optimize_du(
     Returns:
         Optimized SoniDU module
     """
-    # Note: MIPROv2 requires prompt_model and teacher settings if not defaul
+    # Note: MIPROv2 requires prompt_model and teacher settings if not default
     teleprompter = MIPROv2(
         metric=metric,
         auto=auto,

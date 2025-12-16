@@ -1,12 +1,13 @@
 """BranchNodeFactory - generates conditional branching nodes."""
+
 from typing import Any, Literal
 
-from langgraph.runtime import Runtime
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState
 
 
 class BranchNodeFactory:
@@ -15,9 +16,9 @@ class BranchNodeFactory:
     def create(self, step: StepConfig) -> NodeFunction:
         """Create a node that branches based on a slot value."""
         if not step.slot:
-             raise ValueError(f"Step {step.step} of type 'branch' missing required field 'slot'")
+            raise ValueError(f"Step {step.step} of type 'branch' missing required field 'slot'")
         if not step.cases:
-             raise ValueError(f"Step {step.step} of type 'branch' missing required field 'cases'")
+            raise ValueError(f"Step {step.step} of type 'branch' missing required field 'cases'")
 
         slot_name = step.slot
         cases = step.cases
@@ -25,10 +26,10 @@ class BranchNodeFactory:
 
         async def branch_node(
             state: DialogueState,
-            runtime: Runtime[RuntimeContext],
-        ) -> Command[Literal[tuple(cases.values())]] | dict[str, Any]: # type: ignore
-
-            flow_manager = runtime.context.flow_manager
+            config: RunnableConfig,
+        ) -> Command[Literal[tuple(cases.values())]] | dict[str, Any]:  # type: ignore
+            context = config["configurable"]["runtime_context"]
+            flow_manager = context.flow_manager
             value = flow_manager.get_slot(state, slot_name)
 
             # Convert value to string for matching cases keys

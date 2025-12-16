@@ -1,4 +1,5 @@
 """Unit tests for Node Factories."""
+
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -12,10 +13,13 @@ from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState, RuntimeContext
 
 
-# Mocking LangGraph Runtime
-@dataclass
-class MockRuntime:
-    context: RuntimeContext
+# Mocking helper
+def create_mock_config(fm=None, ah=None):
+    context = Mock()
+    context.flow_manager = fm or Mock()
+    context.action_handler = ah or Mock()
+    return {"configurable": {"runtime_context": context}}
+
 
 class TestCollectNodeFactory:
     """Tests for CollectNodeFactory."""
@@ -35,8 +39,7 @@ class TestCollectNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = None  # Slot is empty
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         state = create_empty_dialogue_state()
 
@@ -46,8 +49,9 @@ class TestCollectNodeFactory:
 
         # Assert
         assert result["flow_state"] == "waiting_input"
+
         assert result["waiting_for_slot"] == "origin"
-        assert "response" in result
+        assert "last_response" in result
 
     @pytest.mark.asyncio
     async def test_collect_node_continues_when_slot_filled(self):
@@ -64,8 +68,7 @@ class TestCollectNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = "NYC"  # Slot is filled
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         state = create_empty_dialogue_state()
 
@@ -94,8 +97,7 @@ class TestActionNodeFactory:
         factory = ActionNodeFactory()
 
         mock_handler = AsyncMock()
-        runtime = MockRuntime(context=Mock())
-        runtime.context.action_handler = mock_handler
+        runtime = create_mock_config(ah=mock_handler)
 
         state = create_empty_dialogue_state()
 
@@ -124,7 +126,10 @@ class TestSayNodeFactory:
         # Arrange
         step = StepConfig(step="greet", type="say", message="Hello")
         factory = SayNodeFactory()
-        runtime = MockRuntime(context=Mock())
+
+        mock_fm = Mock()
+        mock_fm.get_all_slots.return_value = {}
+        runtime = create_mock_config(fm=mock_fm)
         state = create_empty_dialogue_state()
 
         # Act
@@ -132,7 +137,7 @@ class TestSayNodeFactory:
         result = await node(state, runtime)
 
         # Assert
-        assert result["response"] == "Hello"
+        assert result["last_response"] == "Hello"
 
 
 class TestBranchNodeFactory:
@@ -154,7 +159,7 @@ class TestBranchNodeFactory:
             step="check_user_type",
             type="branch",
             slot="user_type",
-            cases={"gold": "vip_flow", "regular": "standard_flow"}
+            cases={"gold": "vip_flow", "regular": "standard_flow"},
         )
         factory = BranchNodeFactory()
 
@@ -162,8 +167,7 @@ class TestBranchNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = "gold"
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         state = create_empty_dialogue_state()
 
@@ -186,10 +190,7 @@ class TestBranchNodeFactory:
 
         # Arrange
         step = StepConfig(
-            step="check_user_type",
-            type="branch",
-            slot="user_type",
-            cases={"gold": "vip_flow"}
+            step="check_user_type", type="branch", slot="user_type", cases={"gold": "vip_flow"}
         )
         factory = BranchNodeFactory()
 
@@ -197,8 +198,7 @@ class TestBranchNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = "silver"
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         state = create_empty_dialogue_state()
 
@@ -229,8 +229,7 @@ class TestConfirmNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = None
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
@@ -253,8 +252,7 @@ class TestConfirmNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = True
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
@@ -281,10 +279,8 @@ class TestWhileNodeFactory:
         # But 'while' node logic is tricky: it acts as the loop guard.
         # If true -> goto body_start; else -> goto next_step (implicit).
 
-
         step = StepConfig(
-            step="loop_chk", type="while", condition="slot_x == 'value'",
-            do=["step1"]
+            step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"]
         )
         factory = WhileNodeFactory()
 
@@ -292,8 +288,7 @@ class TestWhileNodeFactory:
         mock_fm = Mock()
         mock_fm.get_slot.return_value = "value"
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
@@ -304,17 +299,17 @@ class TestWhileNodeFactory:
     @pytest.mark.asyncio
     async def test_while_node_exits_loop_if_condition_false(self):
         from soni.compiler.nodes.while_loop import WhileNodeFactory
-        step = StepConfig(step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"])
+
+        step = StepConfig(
+            step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"]
+        )
         factory = WhileNodeFactory()
 
         mock_fm = Mock()
         mock_fm.get_slot.return_value = "other"
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        runtime = create_mock_config(fm=mock_fm)
 
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
 
         assert result == {}
-
-

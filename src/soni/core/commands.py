@@ -3,6 +3,7 @@
 Commands represent user intent in a structured form.
 The DM executes these deterministically.
 """
+
 import builtins
 from typing import Any, ClassVar, Literal
 
@@ -11,7 +12,7 @@ from pydantic import BaseModel, Field
 
 class Command(BaseModel):
     """Base command from DU to DM.
-    
+
     All commands must be serializable to dict for state storage.
     Uses registry pattern for automatic parsing.
     """
@@ -20,7 +21,6 @@ class Command(BaseModel):
 
     # Registry for all command subclasses
     _registry: ClassVar[dict[str, builtins.type["Command"]]] = {}
-
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Automatically register subclasses based on type field default."""
@@ -40,11 +40,11 @@ class Command(BaseModel):
         """Parse a dictionary into a typed Command object using the registry."""
         command_type = data.get("type")
         if not command_type:
-             raise ValueError("Command data missing 'type' field")
+            raise ValueError("Command data missing 'type' field")
 
         cmd_class = cls._registry.get(command_type)
         if not cmd_class:
-             raise ValueError(f"Unknown command type: {command_type}")
+            raise ValueError(f"Unknown command type: {command_type}")
 
         return cmd_class(**data)
 
@@ -54,6 +54,7 @@ class Command(BaseModel):
 
 
 # Flow Control Commands
+
 
 class StartFlow(Command):
     """Start a new flow."""
@@ -77,6 +78,7 @@ class CompleteFlow(Command):
 
 
 # Slot Commands
+
 
 class SetSlot(Command):
     """Set a slot value."""
@@ -104,6 +106,7 @@ class ClearSlot(Command):
 
 # Confirmation Commands
 
+
 class AffirmConfirmation(Command):
     """User confirms (yes)."""
 
@@ -118,6 +121,7 @@ class DenyConfirmation(Command):
 
 
 # Conversation Commands
+
 
 class RequestClarification(Command):
     """User requests clarification."""

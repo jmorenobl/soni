@@ -1,21 +1,18 @@
 """Runtime loop for dialogue processing."""
+
 from typing import Any
-from langgraph.checkpoint.base import BaseCheckpointSaver
+
 from langchain_core.runnables import Runnable
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
-
+from soni.actions.handler import ActionHandler
+from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
-from soni.core.types import DialogueState, RuntimeContex
 from soni.core.state import create_empty_dialogue_state
+from soni.core.types import RuntimeContext
 from soni.dm.builder import build_orchestrator
-from soni.flow.manager import FlowManager
 from soni.du.modules import SoniDU
-
-
-class ActionHandler:
-    """Stub action handler."""
-    async def execute(self, action_name: str, **kwargs) -> dict[str, Any]:
-        return {"status": "executed", "action": action_name}
+from soni.flow.manager import FlowManager
 
 
 class RuntimeLoop:
@@ -24,14 +21,19 @@ class RuntimeLoop:
     def __init__(
         self,
         config: SoniConfig,
-        checkpointer: BaseCheckpointSaver | None = None
+        checkpointer: BaseCheckpointSaver | None = None,
+        registry: ActionRegistry | None = None,
     ):
         self.config = config
         self.checkpointer = checkpointer
 
+        # Registry can be passed or created during init
+        self._initial_registry = registry
+
         # Lazy initialization
         self.flow_manager: FlowManager | None = None
         self.du: SoniDU | None = None
+        self.action_registry: ActionRegistry | None = None
         self.action_handler: ActionHandler | None = None
         self.graph: Runnable | None = None
 
@@ -42,7 +44,8 @@ class RuntimeLoop:
 
         self.flow_manager = FlowManager()
         self.du = SoniDU(use_cot=True)
-        self.action_handler = ActionHandler()
+        self.action_registry = self._initial_registry or ActionRegistry()
+        self.action_handler = ActionHandler(self.action_registry)
 
         # Compile graph with checkpointer
         # Pass checkpointer only if provided
@@ -57,37 +60,24 @@ class RuntimeLoop:
         if not self.graph:
             await self.initialize()
 
+        graph = self.graph
+        if not graph:
+            raise RuntimeError("Graph initialization failed")
+
         # Create runtime context for this request (Dependency Injection)
-        # Note: Type hinting matches dataclass RuntimeContex
+        # Note: Type hinting matches dataclass RuntimeContext
         context = RuntimeContext(
-            flow_manager=self.flow_manager,
-            du=self.du,
-            action_handler=self.action_handler,
-            config=self.config
+            flow_manager=self.flow_manager,  # type: ignore
+            du=self.du,  # type: ignore
+            action_handler=self.action_handler,  # type: ignore
+            config=self.config,
         )
 
-        config = {"configurable": {"thread_id": user_id}}
+        run_config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
 
         # Determine input state
-        # If we have a checkpointer, LangGraph handles loading.
-        # But we need to update 'user_message'.
-        # If it's a new conversation, we need initial structure.
-
         input_update: dict[str, Any] = {"user_message": message}
-
-        # If no checkpointer, we must provide full state every time?
-        # Or we rely on graph holding state in memory for the run?
-        # WITHOUT checkpointer, LangGraph is stateless between invokes unless we manage it.
-        # But our RuntimeLoop is designed to be stateful via checkpointer.
-        # If no checkpointer is passed, we assume ephemeral.
-        # However, for 'test_state_persists', we rely on checkpointer.
-
-        # For ephemeral runs (no checkpointer), we might need to recreate state or pass it back.
-        # But LangGraph 'CompiledGraph' is standard.
-
-        # Let's assume for now we just pass partial update and let reducers handle it?
-        # But DialogueState fields need initialization.
-        # We can fetch current state to check if initialized.
+        input_payload: dict[str, Any]
 
         current_state = await self.get_state(user_id)
         if not current_state:
@@ -103,17 +93,14 @@ class RuntimeLoop:
             # So we should increment it.
             # But 'current_state' is a snapshot.
             if "turn_count" in current_state:
-                input_payload["turn_count"] = current_state["turn_count"] + 1
+                input_payload["turn_count"] = int(current_state["turn_count"]) + 1
             else:
                 input_payload["turn_count"] = 1
 
         # Inject context via configurable (robust pattern)
-        config["configurable"]["runtime_context"] = contex
+        run_config["configurable"]["runtime_context"] = context
 
-        result = await self.graph.ainvoke(
-             input_payload,
-             config=config
-        )
+        result = await graph.ainvoke(input_payload, config=run_config)
 
         # Extract response
         # Result is the final state.
@@ -123,7 +110,7 @@ class RuntimeLoop:
         if last_response:
             return last_response
         elif messages and hasattr(messages[-1], "content"):
-            return messages[-1].conten
+            return messages[-1].content
 
         return "I don't understand."
 
@@ -134,11 +121,11 @@ class RuntimeLoop:
 
         config = {"configurable": {"thread_id": user_id}}
         try:
-            # Get state snapsho
-            # graph.get_state(config) returns StateSnapsho
+            # Get state snapshot
+            # graph.get_state(config) returns StateSnapshot
             snapshot = await self.graph.aget_state(config)
             if snapshot and snapshot.values:
-                return snapshot.values
+                return dict(snapshot.values)
         except Exception:
             return None
         return None

@@ -1,4 +1,5 @@
 """Subgraph builder - compiles FlowConfig to StateGraph."""
+
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
@@ -58,19 +59,25 @@ class SubgraphBuilder:
             # Determine next step in sequence
             next_step = step_names[i + 1] if i < len(steps) - 1 else None
 
-            # Handle explicit jump_to (static routing)
-            if step.jump_to:
-                target = step.jump_to
-                # If target is not in this flow, it might be END or error?
-                # For now assume if not in step_set, it's END (or we could raise validation error)
-                if target not in step_set:
-                     target = END
-
-                builder.add_edge(name, target)
-                continue
-
             # Default sequential edge
-            if next_step:
-                builder.add_edge(name, next_step)
-            else:
-                builder.add_edge(name, END)
+            # We must use conditional logic to stop if flow paused (waiting_input)
+
+            def create_router(target_node):
+                def router(state: DialogueState):
+                    # Check if we should pause execution
+                    if state.get("flow_state") == "waiting_input":
+                        return END
+                    return target_node
+
+                return router
+
+            target = next_step if next_step else END
+
+            # If jump_to is present, it overrides next_step
+            if step.jump_to:
+                if step.jump_to in step_set:
+                    target = step.jump_to
+                else:
+                    target = END
+
+            builder.add_conditional_edges(name, create_router(target))

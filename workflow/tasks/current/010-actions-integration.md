@@ -30,21 +30,21 @@ ActionFunc = Callable[..., Awaitable[dict[str, Any]]]
 
 class ActionRegistry:
     """Registry for action handlers."""
-    
+
     def __init__(self):
         self._actions: dict[str, ActionFunc] = {}
-    
+
     def register(self, name: str) -> Callable[[ActionFunc], ActionFunc]:
         """Decorator to register an action."""
         def decorator(func: ActionFunc) -> ActionFunc:
             self._actions[name] = func
             return func
         return decorator
-    
+
     def get(self, name: str) -> ActionFunc | None:
         """Get an action by name."""
         return self._actions.get(name)
-    
+
     def list(self) -> list[str]:
         """List all registered actions."""
         return list(self._actions.keys())
@@ -61,10 +61,10 @@ from soni.core.errors import ActionError
 
 class ActionHandler:
     """Handles action execution."""
-    
+
     def __init__(self, registry: ActionRegistry):
         self.registry = registry
-    
+
     async def execute(self, action_name: str, inputs: dict) -> dict:
         """Execute a registered action with validation."""
         action = self.registry.get(action_name)
@@ -74,11 +74,11 @@ class ActionHandler:
         # Validate arguments using inspection
         sig = inspect.signature(action)
         required = [
-            p.name for p in sig.parameters.values() 
-            if p.default == inspect.Parameter.empty 
+            p.name for p in sig.parameters.values()
+            if p.default == inspect.Parameter.empty
             and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
         ]
-        
+
         missing = [param for param in required if param not in inputs]
         if missing:
              raise ActionError(f"Action '{action_name}' missing inputs: {missing}")
@@ -104,16 +104,16 @@ class TestBookingFlowE2E:
         """
         # Arrange
         from soni import ConversationalFramework
-        
+
         framework = ConversationalFramework()
         framework.load_flows("examples/flight_booking/soni.yaml")
         framework.compile()
-        
+
         # Act
         r1 = await framework.run_async("Book a flight to Paris")
         r2 = await framework.run_async("From Madrid")
         r3 = await framework.run_async("Tomorrow")
-        
+
         # Assert
         assert "Paris" in r3 or "flight" in r3.lower()
 ```
