@@ -146,9 +146,14 @@ def stratified_split(
         random.shuffle(cmd_examples)
         split_idx = int(len(cmd_examples) * train_ratio)
 
-        # Ensure at least 1 in val if we have more than 1 example
-        if len(cmd_examples) > 1 and split_idx == len(cmd_examples):
-            split_idx = len(cmd_examples) - 1
+        # Ensure at least 2 in val if possible for representation
+        min_val = (
+            min(2, len(cmd_examples) - 1)
+            if len(cmd_examples) > 2
+            else (1 if len(cmd_examples) > 1 else 0)
+        )
+        if len(cmd_examples) - split_idx < min_val:
+            split_idx = len(cmd_examples) - min_val
 
         train_split.extend(cmd_examples[:split_idx])
         val_split.extend(cmd_examples[split_idx:])
@@ -242,12 +247,12 @@ uv run python scripts/generate_baseline_optimization.py
     print(f"      README created: {path}")
 
 
-def main(auto: str = "light", examples_per_combination: int = 3) -> int:
+def main(auto: str = "light", examples_per_combination: int = 5) -> int:
     """Generate baseline optimization.
 
     Args:
         auto: MIPROv2 auto setting ("light", "medium", "heavy")
-        examples_per_combination: Examples per (pattern x domain x context)
+        examples_per_combination: Examples per (pattern x domain x context), default 5 for better coverage
 
     Returns:
         Exit code (0 for success, 1 for failure)
