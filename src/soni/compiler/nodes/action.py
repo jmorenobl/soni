@@ -18,6 +18,7 @@ class ActionNodeFactory:
             raise ValueError(f"Step {step.step} of type 'action' missing required field 'call'")
 
         action_name = step.call
+        output_mapping = step.map_outputs or {}
 
         async def action_node(
             state: DialogueState,
@@ -29,14 +30,15 @@ class ActionNodeFactory:
 
             slots = fm.get_all_slots(state)
 
-            # 2. Execute
-            # Pass all slots? Or filtered? Handler validates.
+            # Execute action
             result = await handler.execute(action_name, slots)
 
-            # 3. Update state with results
+            # Update state with results, applying output mapping
             if isinstance(result, dict):
                 for key, value in result.items():
-                    await fm.set_slot(state, key, value)
+                    # Apply mapping if defined, otherwise use original key
+                    slot_name = output_mapping.get(key, key)
+                    await fm.set_slot(state, slot_name, value)
 
             return {"flow_slots": state["flow_slots"]}
 

@@ -20,6 +20,7 @@ class StepConfig(BaseModel):
     do: list[str] | None = None
     jump_to: str | None = None
     max_retries: int | None = None  # For confirm nodes
+    map_outputs: dict[str, str] | None = None  # Map action outputs: {action_key: slot_name}
 
 
 class TriggerConfig(BaseModel):

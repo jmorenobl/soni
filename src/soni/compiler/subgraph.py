@@ -107,16 +107,25 @@ class SubgraphBuilder:
                     # Jump to unknown step means end flow
                     target = END_FLOW_NODE
 
-            def create_router(target_node: str):
+            def create_router(target_node: str, step: StepConfig):
+                """Create router that handles pausing, branching, and normal flow."""
+
                 def router(state: DialogueState) -> str:
                     # Check if we should pause execution
                     if state.get("flow_state") == "waiting_input":
                         return str(END)
+
+                    # For branch steps, check for target override
+                    if step.type == "branch":
+                        branch_target = state.get("_branch_target")
+                        if branch_target:
+                            return str(branch_target)
+
                     return target_node
 
                 return router
 
-            builder.add_conditional_edges(name, create_router(target))
+            builder.add_conditional_edges(name, create_router(target, step))
 
         # __end_flow__ -> END
         builder.add_edge(END_FLOW_NODE, END)

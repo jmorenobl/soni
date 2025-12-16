@@ -62,6 +62,7 @@ class DialogueState(TypedDict):
     # Transient data
     response: str | None
     action_result: dict[str, Any] | None
+    _branch_target: str | None  # Target node for branch routing
 
     # Metadata
     turn_count: int

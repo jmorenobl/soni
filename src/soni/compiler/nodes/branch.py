@@ -3,7 +3,6 @@
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
-from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
@@ -22,12 +21,13 @@ class BranchNodeFactory:
 
         slot_name = step.slot
         cases = step.cases
-        # Note: 'jump_to' could be used as a default fallback if implemented
+        step_name = step.step
 
         async def branch_node(
             state: DialogueState,
             config: RunnableConfig,
-        ) -> Command[Any] | dict[str, Any]:
+        ) -> dict[str, Any]:
+            """Evaluate branch condition and set target for router."""
             context = get_runtime_context(config)
             flow_manager = context.flow_manager
             value = flow_manager.get_slot(state, slot_name)
@@ -37,11 +37,11 @@ class BranchNodeFactory:
 
             if str_value in cases:
                 target = cases[str_value]
-                # Return Command to jump to the target node
-                return Command(goto=target)
+                # Store branch target for the router to use
+                return {"_branch_target": target}
 
-            # If no match, return empty dict to proceed to next node in sequence
-            return {}
+            # No match - clear any previous target to proceed to next node
+            return {"_branch_target": None}
 
-        branch_node.__name__ = f"branch_{step.step}"
+        branch_node.__name__ = f"branch_{step_name}"
         return branch_node
