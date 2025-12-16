@@ -180,7 +180,7 @@ addopts = [
     "--cov=soni",
     "--cov-report=term-missing",
     "--cov-report=html",
-    "--cov-fail-under=0",
+    "--cov-fail-under=80",
 ]
 markers = [
     "design_compliance: Tests that validate design specification compliance",
