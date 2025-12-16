@@ -1,4 +1,4 @@
-.PHONY: help build clean check test lint type-check format publish-testpypi publish-pypi install-testpypi verify docs docs-serve docs-build docs-clean
+.PHONY: help build clean check test lint type-check format publish-testpypi publish-pypi install-testpypi verify docs docs-serve docs-build docs-clean install optimize
 
 # Load environment variables from .env file
 ifneq (,$(wildcard .env))
@@ -9,36 +9,38 @@ endif
 # Default target
 help:
 	@echo "Available targets:"
+	@echo "  make install            - Install dependencies using uv sync"
 	@echo "  make build              - Build the package"
-	@echo "  make clean              - Clean build artifacts"
+	@echo "  make clean              - Clean build artifacts and caches"
 	@echo "  make check              - Run all checks (test, lint, type-check)"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test               - Run fast unit tests (excludes slow/integration/performance)"
-	@echo "  make test-unit          - Run all unit tests including slow ones"
-	@echo "  make test-slow          - Run only slow tests"
-	@echo "  make test-all           - Run all tests in parallel"
-	@echo "  make test-integration   - Run integration tests (sequential)"
-	@echo "  make test-performance   - Run performance tests (sequential)"
+	@echo "  make test               - Run fast unit tests (tests/unit, no slow/integration)"
+	@echo "  make test-unit          - Run all unit tests (tests/unit) including slow"
+	@echo "  make test-integration   - Run integration tests (tests/integration)"
+	@echo "  make test-e2e           - Run E2E tests (tests/e2e)"
+	@echo "  make test-all           - Run all tests (unit + integration + e2e)"
 	@echo "  make test-ci            - Run unit + integration in parallel (for CI)"
-	@echo "  make test-sequential    - Run unit tests sequentially (for debugging)"
 	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint               - Run linting"
-	@echo "  make type-check         - Run type checking"
-	@echo "  make format             - Format code"
+	@echo "Development:"
+	@echo "  make optimize           - Run quick baseline optimization"
+	@echo "  make lint               - Run linting (ruff)"
+	@echo "  make type-check         - Run type checking (mypy)"
+	@echo "  make format             - Format code (ruff)"
 	@echo ""
 	@echo "Publishing:"
 	@echo "  make publish-testpypi   - Publish to TestPyPI"
 	@echo "  make publish-pypi       - Publish to PyPI"
-	@echo "  make install-testpypi   - Install from TestPyPI (for testing)"
 	@echo "  make verify             - Verify package contents"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs               - Build documentation"
-	@echo "  make docs-serve         - Serve documentation locally (dev server)"
-	@echo "  make docs-build         - Build documentation to site/"
-	@echo "  make docs-clean         - Clean documentation build artifacts"
+	@echo "  make docs-serve         - Serve documentation locally"
+
+# Install dependencies
+install:
+	@echo "Installing dependencies..."
+	uv sync
 
 # Build the package
 build:
@@ -49,85 +51,74 @@ build:
 
 # Clean build artifacts
 clean: docs-clean
-	@echo "Cleaning build artifacts..."
+	@echo "Cleaning artifacts..."
 	rm -rf dist/
 	rm -rf build/
 	rm -rf *.egg-info/
+	rm -rf __pycache__
+	rm -rf .pytest_cache
+	rm -rf .mypy_cache
+	rm -rf .ruff_cache
+	find . -type d -name "__pycache__" -exec rm -rf {} +
 	@echo "Clean complete!"
 
 # Documentation targets
 docs: docs-build
-	@echo "Documentation built successfully!"
-
-# Serve documentation locally (development server)
 docs-serve:
-	@echo "Starting MkDocs development server..."
-	@echo "Documentation will be available at http://127.0.0.1:8000"
 	uv run mkdocs serve
-
-# Build documentation to site/
 docs-build:
-	@echo "Building documentation..."
 	uv run mkdocs build
-	@echo "Documentation built in site/"
-
-# Clean documentation build artifacts
 docs-clean:
-	@echo "Cleaning documentation build artifacts..."
 	rm -rf site/
-	@echo "Documentation build artifacts cleaned!"
 
 # Run all checks
 check: test lint type-check
 	@echo "All checks passed!"
 
-# Run tests (fast unit tests only by default)
+# Optimization
+optimize:
+	@echo "Running quick baseline optimization..."
+	# uv run python scripts/quick_optimize.py
+	@echo "Skipping optimization: src/soni/dataset module is missing."
+
+# Tests
+# Fast unit tests (parallel, exclude slow/integration)
 test:
-	@echo "Running fast unit tests in parallel..."
-	uv run pytest -m "not integration and not performance and not slow and not no_parallel" -n auto
+	@echo "Running fast unit tests..."
+	uv run pytest tests/unit -m "not slow" -n auto
 
-# Run all unit tests including slow
+# All unit tests (parallel, include slow)
 test-unit:
-	@echo "Running all unit tests (including slow)..."
-	uv run pytest -m "not integration and not performance" -n auto
+	@echo "Running all unit tests..."
+	uv run pytest tests/unit -n auto
 
-# Run all tests (unit + integration + performance)
-test-all:
-	@echo "Running all tests..."
-	uv run pytest -n auto
-
-# Run integration tests only
+# Integration tests
 test-integration:
 	@echo "Running integration tests..."
-	uv run pytest -m integration
+	uv run pytest tests/integration
 
-# Run performance tests only
-test-performance:
-	@echo "Running performance tests..."
-	uv run pytest -m performance
+# E2E tests
+test-e2e:
+	@echo "Running E2E tests..."
+	uv run pytest tests/e2e
 
-# Run only slow tests
-test-slow:
-	@echo "Running slow tests..."
-	uv run pytest -m slow -n auto
+# All tests
+test-all:
+	@echo "Running all tests..."
+	uv run pytest tests -n auto
 
-# Run unit + integration tests (no performance)
+# CI target
 test-ci:
 	@echo "Running unit and integration tests..."
-	uv run pytest -m "not performance" -n auto
+	uv run pytest tests -n auto
 
-# Run tests without parallelization (useful for debugging)
-test-sequential:
-	@echo "Running unit tests sequentially..."
-	uv run pytest -m "not integration and not performance"
-
-# Run linting
+# Linting
 lint:
 	@echo "Running linting..."
 	uv run ruff check .
 	uv run ruff format --check .
 
-# Run type checking
+# Type checking
 type-check:
 	@echo "Running type checking..."
 	uv run mypy src/soni
@@ -142,43 +133,26 @@ publish-testpypi: check build
 	@echo "Publishing to TestPyPI..."
 	@if [ -z "$(UV_PUBLISH_TESTPYPI_USERNAME)" ] || [ -z "$(UV_PUBLISH_TESTPYPI_PASSWORD)" ]; then \
 		echo "Error: TestPyPI credentials not found in .env file"; \
-		echo "Please copy .env.example to .env and add your credentials"; \
 		exit 1; \
 	fi
 	@bash -c 'export UV_PUBLISH_USERNAME="$(UV_PUBLISH_TESTPYPI_USERNAME)" && \
 		export UV_PUBLISH_PASSWORD="$(UV_PUBLISH_TESTPYPI_PASSWORD)" && \
 		uv publish --publish-url https://test.pypi.org/legacy/ dist/*'
-	@echo "Published to TestPyPI successfully!"
 
 # Publish to PyPI
 publish-pypi: check build
 	@echo "Publishing to PyPI..."
 	@if [ -z "$(UV_PUBLISH_USERNAME)" ] || [ -z "$(UV_PUBLISH_PASSWORD)" ]; then \
 		echo "Error: PyPI credentials not found in .env file"; \
-		echo "Please copy .env.example to .env and add your credentials"; \
 		exit 1; \
 	fi
 	@bash -c 'export UV_PUBLISH_USERNAME="$(UV_PUBLISH_USERNAME)" && \
 		export UV_PUBLISH_PASSWORD="$(UV_PUBLISH_PASSWORD)" && \
 		uv publish dist/*'
-	@echo "Published to PyPI successfully!"
 
-# Install from TestPyPI (for testing)
-install-testpypi:
-	@echo "Installing from TestPyPI..."
-	uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ soni
-	@echo "Installation complete!"
-
-# Verify package contents
+# Verify package
 verify:
 	@echo "Verifying package contents..."
-	@if [ ! -d "dist" ]; then \
-		echo "Error: dist/ directory not found. Run 'make build' first."; \
-		exit 1; \
-	fi
-	@if command -v twine > /dev/null 2>&1 || uv run twine --version > /dev/null 2>&1; then \
-		uv run twine check dist/* || true; \
-	else \
-		echo "Note: twine not installed, skipping twine check"; \
-	fi
+	@if [ ! -d "dist" ]; then echo "Error: dist/ not found"; exit 1; fi
+	uv run twine check dist/*
 	@tar -tzf dist/soni-*.tar.gz | head -20

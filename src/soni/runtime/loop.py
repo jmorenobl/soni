@@ -66,29 +66,31 @@ class RuntimeLoop:
 
         # Create runtime context for this request (Dependency Injection)
         # Note: Type hinting matches dataclass RuntimeContext
+        # Create runtime context for this request (Dependency Injection)
+        # Note: Type hinting matches dataclass RuntimeContext
         context = RuntimeContext(
-            flow_manager=self.flow_manager,  # type: ignore
-            du=self.du,  # type: ignore
-            action_handler=self.action_handler,  # type: ignore
+            flow_manager=self.flow_manager,
+            du=self.du,
+            action_handler=self.action_handler,
             config=self.config,
         )
 
         run_config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
 
         # Determine input state
-        input_update: dict[str, Any] = {"user_message": message}
-        input_payload: dict[str, Any]
+        # input_payload can be DialogueState or dict[str, Any]
+        input_payload: Any
 
         current_state = await self.get_state(user_id)
         if not current_state:
             # Initialize fresh state
             init_state = create_empty_dialogue_state()
-            init_state.update(input_update)
+            init_state["user_message"] = message
             init_state["turn_count"] = 1
             input_payload = init_state
         else:
             # Just update message
-            input_payload = input_update
+            input_payload = {"user_message": message}
             # We manually check turn count? Or graph does? graph doesn't auto-increment turn count.
             # So we should increment it.
             # But 'current_state' is a snapshot.
@@ -108,9 +110,9 @@ class RuntimeLoop:
         messages = result.get("messages", [])
 
         if last_response:
-            return last_response
+            return str(last_response)
         elif messages and hasattr(messages[-1], "content"):
-            return messages[-1].content
+            return str(messages[-1].content)
 
         return "I don't understand."
 
