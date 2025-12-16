@@ -284,9 +284,9 @@ class TestWhileNodeFactory:
         )
         factory = WhileNodeFactory()
 
-        # Mock logic
+        # Mock logic - now uses get_all_slots
         mock_fm = Mock()
-        mock_fm.get_slot.return_value = "value"
+        mock_fm.get_all_slots.return_value = {"slot_x": "value"}
 
         runtime = create_mock_config(fm=mock_fm)
 
@@ -306,7 +306,7 @@ class TestWhileNodeFactory:
         factory = WhileNodeFactory()
 
         mock_fm = Mock()
-        mock_fm.get_slot.return_value = "other"
+        mock_fm.get_all_slots.return_value = {"slot_x": "other"}
         runtime = create_mock_config(fm=mock_fm)
 
         node = factory.create(step)

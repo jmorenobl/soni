@@ -1,4 +1,10 @@
-"""WhileNodeFactory - generates loop guard nodes."""
+"""WhileNodeFactory - generates loop guard nodes.
+
+Uses expression evaluator for complex conditions like:
+- age > 18
+- status == 'approved' AND amount < 5000
+- items (truthiness check)
+"""
 
 from typing import Any
 
@@ -7,6 +13,7 @@ from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
+from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState
 
 
@@ -23,34 +30,19 @@ class WhileNodeFactory:
         condition = step.condition
         loop_body_start = step.do[0]  # The first step in the 'do' block
 
-        # NOTE: This assumes the subgraph builder will wire loop_body_start correctly
-
         async def while_node(
             state: DialogueState,
             config: RunnableConfig,
         ) -> Command[Any] | dict[str, Any]:
-            # TODO: Implement actual condition evaluation logic (e.g. using simple eval or expression parser)
-            # For now, we assume simple slot truthiness check if condition is just a slot name
-            # Or always false to prevent infinite loops in initial implementation if complex
-
-            # Simple condition parser: "slot_name == value" or just "slot_name"
-            # This is a placeholder for real logic
-            is_true = False
-
-            parts = condition.split("==")
-
+            """Evaluate condition and route to loop body or exit."""
             context = config["configurable"]["runtime_context"]
             flow_manager = context.flow_manager
 
-            if len(parts) == 2:
-                slot = parts[0].strip()
-                val = parts[1].strip().strip("'").strip('"')
-                actual = str(flow_manager.get_slot(state, slot))
-                is_true = actual == val
-            else:
-                # Existence check
-                slot = condition.strip()
-                is_true = flow_manager.get_slot(state, slot) is not None
+            # Get all slots for condition evaluation
+            slots = flow_manager.get_all_slots(state)
+
+            # Evaluate condition using expression evaluator
+            is_true = evaluate_condition(condition, slots)
 
             if is_true:
                 return Command(goto=loop_body_start)
