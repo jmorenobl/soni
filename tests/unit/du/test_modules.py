@@ -1,10 +1,11 @@
 """Tests for SoniDU module."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from soni.du.models import Command, DialogueContext, FlowInfo, NLUOutput
+from soni.core.commands import SetSlot, StartFlow
+from soni.du.models import DialogueContext, FlowInfo, NLUOutput
 from soni.du.modules import SoniDU
 
 
@@ -45,10 +46,8 @@ class TestSoniDU:
         # Inject mock
         du.extractor = mock_extractor
 
-        # Setup mock behavior
-        expected_output = NLUOutput(
-            commands=[Command(command_type="start_flow", flow_name="book_flight")]
-        )
+        # Setup mock behavior - use typed StartFlow command
+        expected_output = NLUOutput(commands=[StartFlow(flow_name="book_flight")])
         mock_result = MagicMock()
         mock_result.result = expected_output
         mock_extractor.acall.return_value = mock_result
@@ -61,11 +60,10 @@ class TestSoniDU:
 
         # Assert
         assert len(result.commands) == 1
-        assert result.commands[0].command_type == "start_flow"
+        assert result.commands[0].type == "start_flow"
         assert result.commands[0].flow_name == "book_flight"
 
         # Verify call arguments
-        # acall is called with keyword arguments matches signature inputs
         mock_extractor.acall.assert_called_once()
         call_kwargs = mock_extractor.acall.call_args.kwargs
         assert call_kwargs["user_message"] == "I want to book a flight"
@@ -90,9 +88,8 @@ class TestSoniDU:
         du = SoniDU()
         du.extractor = mock_extractor
 
-        expected_output = NLUOutput(
-            commands=[Command(command_type="set_slot", slot_name="origin", slot_value="Madrid")]
-        )
+        # Setup mock behavior - use typed SetSlot command
+        expected_output = NLUOutput(commands=[SetSlot(slot="origin", value="Madrid")])
         mock_result = MagicMock()
         mock_result.result = expected_output
         mock_extractor.acall.return_value = mock_result
@@ -104,6 +101,6 @@ class TestSoniDU:
         )
 
         # Assert
-        assert result.commands[0].command_type == "set_slot"
-        assert result.commands[0].slot_name == "origin"
-        assert result.commands[0].slot_value == "Madrid"
+        assert result.commands[0].type == "set_slot"
+        assert result.commands[0].slot == "origin"
+        assert result.commands[0].value == "Madrid"

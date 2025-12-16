@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from soni.core.commands import Command
+
 
 class FlowInfo(BaseModel):
     """Information about an available flow."""
@@ -69,25 +71,6 @@ class DialogueContext(BaseModel):
     )
 
 
-class Command(BaseModel):
-    """A command to execute.
-
-    The LLM outputs a list of these to drive the dialogue.
-    """
-
-    command_type: str = Field(
-        description="Type of command (must match one from available_commands)"
-    )
-
-    # Optional fields depending on command type
-    flow_name: str | None = Field(default=None, description="For start_flow: which flow to start")
-    slot_name: str | None = Field(
-        default=None, description="For set_slot/correct_slot: target slot"
-    )
-    slot_value: str | None = Field(default=None, description="For set_slot/correct_slot: the value")
-    reason: str | None = Field(default=None, description="For cancel_flow/human_handoff: why")
-
-
 class NLUOutput(BaseModel):
     """Structured output from NLU.
 
@@ -96,3 +79,4 @@ class NLUOutput(BaseModel):
     """
 
     commands: list[Command] = Field(description="List of commands to execute in order")
+    confidence: float = Field(default=1.0, description="Confidence score")

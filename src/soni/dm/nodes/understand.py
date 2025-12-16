@@ -76,13 +76,13 @@ async def understand_node(
     commands = nlu_out.commands
 
     for cmd in commands:
-        if cmd.command_type == "start_flow" and cmd.flow_name:
+        if cmd.type == "start_flow" and hasattr(cmd, "flow_name"):
             # Check availability logic? For now just push.
             # Handle intent change (pushes flow)
             await fm.handle_intent_change(state, cmd.flow_name)
 
-        elif cmd.command_type == "set_slot" and cmd.slot_name:
-            await fm.set_slot(state, cmd.slot_name, cmd.slot_value)
+        elif cmd.type == "set_slot" and hasattr(cmd, "slot"):
+            await fm.set_slot(state, cmd.slot, cmd.value)
 
     # 4. Return updates
     # Must return keys that changed so LangGraph keeps them

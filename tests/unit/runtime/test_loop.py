@@ -41,11 +41,12 @@ class TestRuntimeLoop:
         await runtime.initialize()
 
         # Mock DU to return start_flow('greet') command
-        from soni.du.models import Command, NLUOutput
+        from soni.core.commands import StartFlow
+        from soni.du.models import NLUOutput
 
         mock_du = Mock()
         mock_du.aforward = AsyncMock(
-            return_value=NLUOutput(commands=[Command(command_type="start_flow", flow_name="greet")])
+            return_value=NLUOutput(commands=[StartFlow(flow_name="greet")])
         )
         runtime.du = mock_du
 
@@ -81,9 +82,11 @@ class TestRuntimeLoop:
         # First turn
         await runtime.process_message("Hi", user_id="user1")
         state1 = await runtime.get_state("user1")
+        assert state1 is not None
         assert state1["turn_count"] == 1
 
         # Second turn
         await runtime.process_message("Second", user_id="user1")
         state2 = await runtime.get_state("user1")
+        assert state2 is not None
         assert state2["turn_count"] == 2
