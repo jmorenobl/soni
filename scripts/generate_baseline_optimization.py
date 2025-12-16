@@ -41,7 +41,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import dspy  # noqa: E402
 
 from soni.dataset import DatasetBuilder, print_dataset_stats, validate_dataset  # noqa: E402
-from soni.du.optimizer import create_metric, optimize_du  # noqa: E402
+from soni.du.metrics import create_granular_metric  # noqa: E402
+from soni.du.optimizer import optimize_du  # noqa: E402
 
 
 def load_environment() -> bool:
@@ -306,7 +307,7 @@ def main(auto: str = "light", examples_per_combination: int = 3) -> int:
     lm = dspy.LM("openai/gpt-4o-mini", temperature=0.0)
     dspy.configure(lm=lm)
 
-    metric = create_metric()  # Uses default_command_validator
+    metric = create_granular_metric()  # Granular scoring with partial credit
 
     start_time = time.time()
 

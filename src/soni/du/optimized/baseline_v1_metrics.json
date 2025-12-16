@@ -1,9 +1,9 @@
 {
   "baseline_accuracy": "N/A",
   "optimized_accuracy": "N/A",
-  "total_time": 168.5,
+  "total_time": 29.5,
   "auto_setting": "light",
   "train_examples": 39,
   "val_examples": 8,
-  "created_at": "2025-12-17T00:42:56.969265"
+  "created_at": "2025-12-17T00:48:37.217998"
 }
