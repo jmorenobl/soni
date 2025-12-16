@@ -5,7 +5,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState, get_runtime_context
 
 
 async def execute_node(
@@ -16,7 +16,7 @@ async def execute_node(
 
     Uses dynamic goto for flow subgraphs.
     """
-    context: RuntimeContext = config["configurable"]["runtime_context"]
+    context = get_runtime_context(config)
     flow_manager = context.flow_manager
     # Check if we have an active flow
     active_ctx = flow_manager.get_active_context(state)

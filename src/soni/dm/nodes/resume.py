@@ -6,7 +6,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.core.errors import FlowStackError
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, get_runtime_context
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def resume_node(
     1. Pops the completed flow from the stack
     2. Determines if there are remaining flows to resume
     """
-    context = config["configurable"]["runtime_context"]
+    context = get_runtime_context(config)
     flow_manager = context.flow_manager
 
     # Check if we are just paused for input

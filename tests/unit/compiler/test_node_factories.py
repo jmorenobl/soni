@@ -223,17 +223,21 @@ class TestConfirmNodeFactory:
         """
         from soni.compiler.nodes.confirm import ConfirmNodeFactory
 
+        # Arrange
         step = StepConfig(step="confirm_booking", type="confirm", slot="confirmed")
         factory = ConfirmNodeFactory()
 
         mock_fm = Mock()
         mock_fm.get_slot.return_value = None
+        mock_fm.get_all_slots.return_value = {}  # Required for prompt formatting
 
         runtime = create_mock_config(fm=mock_fm)
 
+        # Act
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
 
+        # Assert
         assert result["flow_state"] == "waiting_input"
         assert result["waiting_for_slot"] == "confirmed"
 

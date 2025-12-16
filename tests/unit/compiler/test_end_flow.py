@@ -1,6 +1,6 @@
 """Unit tests for SubgraphBuilder and end_flow_node."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -10,22 +10,26 @@ from soni.core.state import create_empty_dialogue_state
 
 
 class TestEndFlowNode:
-    """Tests for end_flow_node function."""
+    """Tests for end_flow_node function.
+
+    Note: Stack management (pop) is handled by resume_node in the orchestrator.
+    end_flow_node just marks the subgraph as complete and returns.
+    """
 
     @pytest.mark.asyncio
-    async def test_pops_flow_from_stack(self):
-        """end_flow_node should pop the completed flow."""
-        mock_fm = MagicMock()
-        mock_fm.pop_flow = AsyncMock()
-
+    async def test_returns_empty_dict(self):
+        """
+        GIVEN a flow completing its execution
+        WHEN end_flow_node is called
+        THEN returns empty dict (stack pop handled by resume_node)
+        """
+        # Arrange
         mock_config = {
             "configurable": {
-                "runtime_context": MagicMock(flow_manager=mock_fm),
+                "runtime_context": MagicMock(),
             }
         }
-
         state = create_empty_dialogue_state()
-        # Simulate a flow on the stack
         state["flow_stack"] = [
             {
                 "flow_id": "test-123",
@@ -38,48 +42,30 @@ class TestEndFlowNode:
             }
         ]
 
+        # Act
         result = await end_flow_node(state, mock_config)
 
-        mock_fm.pop_flow.assert_called_once_with(state, result="completed")
-        assert "flow_stack" in result
+        # Assert
+        assert result == {}
 
     @pytest.mark.asyncio
-    async def test_sets_flow_state_to_idle_when_stack_empty(self):
-        """Should set flow_state to idle when stack becomes empty."""
-        mock_fm = MagicMock()
-        mock_fm.pop_flow = AsyncMock()
-
+    async def test_does_not_modify_state(self):
+        """
+        GIVEN a flow on the stack
+        WHEN end_flow_node is called
+        THEN state is not modified (resume_node handles stack)
+        """
+        # Arrange
         mock_config = {
             "configurable": {
-                "runtime_context": MagicMock(flow_manager=mock_fm),
+                "runtime_context": MagicMock(),
             }
         }
-
         state = create_empty_dialogue_state()
-        state["flow_stack"] = []  # Empty after pop
-
-        result = await end_flow_node(state, mock_config)
-
-        assert result["flow_state"] == "idle"
-
-    @pytest.mark.asyncio
-    async def test_sets_flow_state_to_active_when_stack_has_items(self):
-        """Should set flow_state to active when stack still has items."""
-        mock_fm = MagicMock()
-        mock_fm.pop_flow = AsyncMock()
-
-        mock_config = {
-            "configurable": {
-                "runtime_context": MagicMock(flow_manager=mock_fm),
-            }
-        }
-
-        state = create_empty_dialogue_state()
-        # Simulate multiple flows on stack
         state["flow_stack"] = [
             {
-                "flow_id": "parent-123",
-                "flow_name": "parent_flow",
+                "flow_id": "test-123",
+                "flow_name": "test_flow",
                 "flow_state": "active",
                 "current_step": None,
                 "step_index": 0,
@@ -87,10 +73,13 @@ class TestEndFlowNode:
                 "started_at": 100.0,
             }
         ]
+        original_stack_len = len(state["flow_stack"])
 
-        result = await end_flow_node(state, mock_config)
+        # Act
+        await end_flow_node(state, mock_config)
 
-        assert result["flow_state"] == "active"
+        # Assert
+        assert len(state["flow_stack"]) == original_stack_len
 
 
 class TestSubgraphBuilder:

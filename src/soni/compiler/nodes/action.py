@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, get_runtime_context
 
 
 class ActionNodeFactory:
@@ -23,7 +23,7 @@ class ActionNodeFactory:
             state: DialogueState,
             config: RunnableConfig,
         ) -> dict[str, Any]:
-            context = config["configurable"]["runtime_context"]
+            context = get_runtime_context(config)
             handler = context.action_handler
             fm = context.flow_manager
 

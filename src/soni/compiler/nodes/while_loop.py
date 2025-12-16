@@ -14,7 +14,7 @@ from langgraph.types import Command
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
 from soni.core.expression import evaluate_condition
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, get_runtime_context
 
 
 class WhileNodeFactory:
@@ -35,7 +35,7 @@ class WhileNodeFactory:
             config: RunnableConfig,
         ) -> Command[Any] | dict[str, Any]:
             """Evaluate condition and route to loop body or exit."""
-            context = config["configurable"]["runtime_context"]
+            context = get_runtime_context(config)
             flow_manager = context.flow_manager
 
             # Get all slots for condition evaluation

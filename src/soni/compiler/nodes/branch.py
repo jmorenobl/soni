@@ -7,7 +7,7 @@ from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, get_runtime_context
 
 
 class BranchNodeFactory:
@@ -28,7 +28,7 @@ class BranchNodeFactory:
             state: DialogueState,
             config: RunnableConfig,
         ) -> Command[Any] | dict[str, Any]:
-            context = config["configurable"]["runtime_context"]
+            context = get_runtime_context(config)
             flow_manager = context.flow_manager
             value = flow_manager.get_slot(state, slot_name)
 

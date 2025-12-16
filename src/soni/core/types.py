@@ -175,3 +175,33 @@ class RuntimeContext:
     flow_manager: FlowManagerProtocol
     action_handler: ActionHandlerProtocol
     du: DUProtocol
+
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def get_runtime_context(config: Any) -> RuntimeContext:
+    """Extract RuntimeContext from LangGraph RunnableConfig.
+
+    This helper reduces boilerplate in node implementations by providing
+    a single point of access to the runtime context.
+
+    Args:
+        config: RunnableConfig passed to node functions.
+
+    Returns:
+        RuntimeContext with injected dependencies.
+
+    Raises:
+        KeyError: If runtime_context is not found in config.
+
+    Example:
+        async def my_node(state: DialogueState, config: RunnableConfig) -> dict:
+            context = get_runtime_context(config)
+            fm = context.flow_manager
+            ...
+    """
+    context: RuntimeContext = config["configurable"]["runtime_context"]
+    return context

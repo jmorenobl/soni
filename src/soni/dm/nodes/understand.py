@@ -4,7 +4,7 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState, RuntimeContext, get_runtime_context
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
 
 
@@ -82,7 +82,7 @@ async def understand_node(
 ) -> dict[str, Any]:
     """Process user input via NLU."""
     # 1. Get Context
-    context: RuntimeContext = config["configurable"]["runtime_context"]
+    context = get_runtime_context(config)
     du = context.du  # DUProtocol
     fm = context.flow_manager
 
