@@ -1,6 +1,14 @@
 """Dialogue Understanding module."""
 
-from soni.du.models import Command, CommandInfo, DialogueContext, FlowInfo, NLUOutput, SlotValue
+from soni.core.commands import Command
+from soni.du.models import (
+    CommandInfo,
+    DialogueContext,
+    FlowInfo,
+    NLUOutput,
+    SlotDefinition,
+    SlotValue,
+)
 from soni.du.modules import SoniDU
 from soni.du.optimizer import create_metric, optimize_du
 from soni.du.signatures import ExtractCommands
@@ -15,5 +23,6 @@ __all__ = [
     "ExtractCommands",
     "FlowInfo",
     "SlotValue",
+    "SlotDefinition",
     "CommandInfo",
 ]

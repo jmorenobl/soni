@@ -1,30 +1,58 @@
-# Pre-trained NLU Models
+# Soni Framework - Pre-trained NLU Models
 
 This directory contains pre-trained NLU modules that ship with the Soni framework.
 
-## Generating Baseline Optimization
+## Baseline v1
 
-To generate the baseline optimization:
+**File:** `baseline_v1.json`
+**Created:** 2025-12-17
+**Training examples:** 47
+
+### Optimization Metrics
+
+- **Baseline accuracy:** N/A
+- **Optimized accuracy:** N/A
+- **Optimizer:** MIPROv2 (auto=light)
+- **Training time:** 168.5s
+
+### Dataset Coverage
+
+The baseline optimization covers:
+- **8 conversational patterns**: SLOT_VALUE, CORRECTION, MODIFICATION, INTERRUPTION,
+  DIGRESSION, CLARIFICATION, CANCELLATION, CONFIRMATION
+- **5 business domains**: flight_booking, hotel_booking, restaurant, ecommerce, banking
+- **2 conversation contexts**: cold_start (no history), ongoing (with history)
+
+### Usage
+
+This module is automatically loaded by `SoniDU()` if available:
+
+```python
+from soni.du.modules import SoniDU
+
+# Default - uses baseline if available
+nlu = SoniDU()
+```
+
+To use a custom optimization:
+
+```python
+nlu = SoniDU()
+nlu.load("path/to/custom_optimized.json")
+```
+
+### Regenerating Baseline
+
+To regenerate the baseline optimization:
 
 ```bash
 uv run python scripts/generate_baseline_optimization.py
 ```
 
-This will create:
-- `baseline_v1.json` - The optimized DSPy module
-- `baseline_v1_metrics.json` - Optimization metrics
+**Note:** Requires `OPENAI_API_KEY` environment variable.
 
-## Usage
+## Version History
 
-The optimized module is automatically loaded by `SoniDU()` when available.
-
-```python
-from soni.du.modules import SoniDU
-
-nlu = SoniDU()  # Uses baseline if available
-```
-
-## Requirements
-
-- `OPENAI_API_KEY` environment variable set
-- Run from project root directory
+### v1 (2025-12-17)
+- Initial baseline optimization
+- 47 training examples

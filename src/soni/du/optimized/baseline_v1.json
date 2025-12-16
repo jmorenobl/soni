@@ -1,0 +1,776 @@
+{
+  "extractor.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "user_message": "No, I said phone not laptop",
+        "context": {
+          "available_flows": [
+            {
+              "name": "search_product",
+              "description": "Search for products by name or category",
+              "trigger_intents": [
+                "I'm looking for a",
+                "Show me",
+                "I want to buy a",
+                "Can you help me find a"
+              ]
+            },
+            {
+              "name": "add_to_cart",
+              "description": "Add products to your shopping cart",
+              "trigger_intents": []
+            },
+            {
+              "name": "checkout",
+              "description": "Complete purchase and payment",
+              "trigger_intents": []
+            },
+            {
+              "name": "track_order",
+              "description": "Track the status of an order shipment",
+              "trigger_intents": []
+            },
+            {
+              "name": "return_product",
+              "description": "Return a product and get a refund",
+              "trigger_intents": []
+            }
+          ],
+          "available_commands": [
+            {
+              "command_type": "start_flow",
+              "description": "Start a new flow",
+              "required_fields": [
+                "flow_name"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "set_slot",
+              "description": "Set a slot value",
+              "required_fields": [
+                "slot",
+                "value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "cancel_flow",
+              "description": "Cancel the current flow",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "affirm",
+              "description": "Confirm a pending action (user says yes)",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "deny",
+              "description": "Deny a pending action (user says no)",
+              "required_fields": [
+                "slot_to_change"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "correct_slot",
+              "description": "Correct a previously set slot value",
+              "required_fields": [
+                "slot",
+                "new_value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "clarify",
+              "description": "User requests clarification about something",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "chitchat",
+              "description": "Off-topic conversation or small talk",
+              "required_fields": [],
+              "example": ""
+            }
+          ],
+          "active_flow": "search_product",
+          "flow_slots": [
+            {
+              "name": "product",
+              "slot_type": "string",
+              "description": "What product are you looking for?",
+              "required": true,
+              "examples": [
+                "laptop",
+                "phone",
+                "headphones"
+              ]
+            },
+            {
+              "name": "quantity",
+              "slot_type": "number",
+              "description": "How many would you like to order?",
+              "required": true,
+              "examples": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            {
+              "name": "color",
+              "slot_type": "string",
+              "description": "What color would you prefer?",
+              "required": true,
+              "examples": [
+                "black",
+                "white",
+                "silver"
+              ]
+            },
+            {
+              "name": "size",
+              "slot_type": "string",
+              "description": "What size do you need?",
+              "required": true,
+              "examples": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            {
+              "name": "shipping_address",
+              "slot_type": "address",
+              "description": "What's the shipping address?",
+              "required": true,
+              "examples": [
+                "123 Main St",
+                "456 Oak Ave",
+                "789 Pine Rd"
+              ]
+            }
+          ],
+          "current_slots": [
+            {
+              "name": "product",
+              "value": "laptop",
+              "expected_type": "string"
+            }
+          ],
+          "expected_slot": "quantity",
+          "conversation_state": "idle"
+        },
+        "history": {
+          "messages": [
+            {
+              "user_message": "product: laptop"
+            }
+          ]
+        },
+        "reasoning": "The user is correcting the previously set slot value for the product from \"laptop\" to \"phone\". Since the current slot for \"product\" is set to \"laptop\", we need to generate a command to correct this slot with the new value \"phone\".",
+        "result": {
+          "commands": [
+            {
+              "type": "correct_slot",
+              "slot": "product",
+              "new_value": "phone"
+            }
+          ],
+          "confidence": 0.95
+        }
+      },
+      {
+        "augmented": true,
+        "user_message": "No, I said Barcelona not Madrid",
+        "context": {
+          "available_flows": [
+            {
+              "name": "book_table",
+              "description": "Make restaurant reservations",
+              "trigger_intents": [
+                "I want to make a reservation",
+                "Book a table",
+                "I need a restaurant reservation",
+                "Can you help me book a table"
+              ]
+            },
+            {
+              "name": "search_restaurants",
+              "description": "Search for restaurants by cuisine and location",
+              "trigger_intents": []
+            },
+            {
+              "name": "check_reservation",
+              "description": "Check the status of an existing restaurant reservation",
+              "trigger_intents": []
+            },
+            {
+              "name": "modify_reservation",
+              "description": "Modify an existing restaurant reservation",
+              "trigger_intents": []
+            },
+            {
+              "name": "cancel_reservation",
+              "description": "Cancel a restaurant reservation",
+              "trigger_intents": []
+            }
+          ],
+          "available_commands": [
+            {
+              "command_type": "start_flow",
+              "description": "Start a new flow",
+              "required_fields": [
+                "flow_name"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "set_slot",
+              "description": "Set a slot value",
+              "required_fields": [
+                "slot",
+                "value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "cancel_flow",
+              "description": "Cancel the current flow",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "affirm",
+              "description": "Confirm a pending action (user says yes)",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "deny",
+              "description": "Deny a pending action (user says no)",
+              "required_fields": [
+                "slot_to_change"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "correct_slot",
+              "description": "Correct a previously set slot value",
+              "required_fields": [
+                "slot",
+                "new_value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "clarify",
+              "description": "User requests clarification about something",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "chitchat",
+              "description": "Off-topic conversation or small talk",
+              "required_fields": [],
+              "example": ""
+            }
+          ],
+          "active_flow": "book_table",
+          "flow_slots": [
+            {
+              "name": "location",
+              "slot_type": "city",
+              "description": "Which city are you looking for a restaurant in?",
+              "required": true,
+              "examples": [
+                "Madrid",
+                "Barcelona",
+                "Paris"
+              ]
+            },
+            {
+              "name": "date",
+              "slot_type": "date",
+              "description": "What date would you like to dine?",
+              "required": true,
+              "examples": [
+                "tomorrow",
+                "next Friday",
+                "Saturday"
+              ]
+            },
+            {
+              "name": "time",
+              "slot_type": "time",
+              "description": "What time would you prefer?",
+              "required": true,
+              "examples": [
+                "7:00 PM",
+                "8:00 PM",
+                "7:30 PM"
+              ]
+            },
+            {
+              "name": "party_size",
+              "slot_type": "number",
+              "description": "How many people will be dining?",
+              "required": true,
+              "examples": [
+                "2",
+                "4",
+                "6"
+              ]
+            },
+            {
+              "name": "cuisine",
+              "slot_type": "string",
+              "description": "What type of cuisine would you like?",
+              "required": true,
+              "examples": [
+                "Italian",
+                "Japanese",
+                "Spanish"
+              ]
+            }
+          ],
+          "current_slots": [
+            {
+              "name": "location",
+              "value": "Madrid",
+              "expected_type": "city"
+            }
+          ],
+          "expected_slot": "date",
+          "conversation_state": "idle"
+        },
+        "history": {
+          "messages": [
+            {
+              "user_message": "location: Madrid"
+            }
+          ]
+        },
+        "reasoning": "The user is correcting the previously set slot value for the location from \"Madrid\" to \"Barcelona\". Since the current slot for location is set to \"Madrid\", we need to generate a command to correct this slot.",
+        "result": {
+          "commands": [
+            {
+              "type": "correct_slot",
+              "slot": "location",
+              "new_value": "Barcelona"
+            }
+          ],
+          "confidence": 0.95
+        }
+      },
+      {
+        "user_message": "What are your fees?",
+        "history": [
+          {
+            "user_message": "I want to search_product"
+          }
+        ],
+        "context": {
+          "available_flows": [
+            {
+              "name": "search_product",
+              "description": "Search for products by name or category",
+              "trigger_intents": [
+                "I'm looking for a",
+                "Show me",
+                "I want to buy a",
+                "Can you help me find a"
+              ]
+            },
+            {
+              "name": "add_to_cart",
+              "description": "Add products to your shopping cart",
+              "trigger_intents": []
+            },
+            {
+              "name": "checkout",
+              "description": "Complete purchase and payment",
+              "trigger_intents": []
+            },
+            {
+              "name": "track_order",
+              "description": "Track the status of an order shipment",
+              "trigger_intents": []
+            },
+            {
+              "name": "return_product",
+              "description": "Return a product and get a refund",
+              "trigger_intents": []
+            }
+          ],
+          "available_commands": [
+            {
+              "command_type": "start_flow",
+              "description": "Start a new flow",
+              "required_fields": [
+                "flow_name"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "set_slot",
+              "description": "Set a slot value",
+              "required_fields": [
+                "slot",
+                "value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "cancel_flow",
+              "description": "Cancel the current flow",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "affirm",
+              "description": "Confirm a pending action (user says yes)",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "deny",
+              "description": "Deny a pending action (user says no)",
+              "required_fields": [
+                "slot_to_change"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "correct_slot",
+              "description": "Correct a previously set slot value",
+              "required_fields": [
+                "slot",
+                "new_value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "clarify",
+              "description": "User requests clarification about something",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "chitchat",
+              "description": "Off-topic conversation or small talk",
+              "required_fields": [],
+              "example": ""
+            }
+          ],
+          "active_flow": "search_product",
+          "flow_slots": [
+            {
+              "name": "product",
+              "slot_type": "string",
+              "description": "What product are you looking for?",
+              "required": true,
+              "examples": [
+                "laptop",
+                "phone",
+                "headphones"
+              ]
+            },
+            {
+              "name": "quantity",
+              "slot_type": "number",
+              "description": "How many would you like to order?",
+              "required": true,
+              "examples": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            {
+              "name": "color",
+              "slot_type": "string",
+              "description": "What color would you prefer?",
+              "required": true,
+              "examples": [
+                "black",
+                "white",
+                "silver"
+              ]
+            },
+            {
+              "name": "size",
+              "slot_type": "string",
+              "description": "What size do you need?",
+              "required": true,
+              "examples": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            {
+              "name": "shipping_address",
+              "slot_type": "address",
+              "description": "What's the shipping address?",
+              "required": true,
+              "examples": [
+                "123 Main St",
+                "456 Oak Ave",
+                "789 Pine Rd"
+              ]
+            }
+          ],
+          "current_slots": [],
+          "expected_slot": "product",
+          "conversation_state": "idle"
+        },
+        "result": {
+          "commands": [
+            {
+              "type": "chitchat",
+              "message": "What are your fees?"
+            }
+          ],
+          "confidence": 0.85
+        }
+      },
+      {
+        "user_message": "Change the origin to Barcelona",
+        "history": [
+          {
+            "user_message": "Set origin to Madrid"
+          }
+        ],
+        "context": {
+          "available_flows": [
+            {
+              "name": "book_flight",
+              "description": "Book flights between cities with departure and return dates",
+              "trigger_intents": [
+                "I want to book a flight",
+                "Book a flight",
+                "I need to book a ticket",
+                "Can you help me book a flight",
+                "I'd like to make a flight reservation"
+              ]
+            },
+            {
+              "name": "search_flights",
+              "description": "Search for available flights and compare prices",
+              "trigger_intents": [
+                "Search for flights",
+                "Find flights",
+                "Show me flights",
+                "Can you search for available flights",
+                "I want to see flight options"
+              ]
+            },
+            {
+              "name": "check_booking",
+              "description": "Check the status of an existing booking",
+              "trigger_intents": []
+            },
+            {
+              "name": "modify_booking",
+              "description": "Modify an existing flight booking",
+              "trigger_intents": []
+            },
+            {
+              "name": "cancel_booking",
+              "description": "Cancel a flight booking",
+              "trigger_intents": []
+            }
+          ],
+          "available_commands": [
+            {
+              "command_type": "start_flow",
+              "description": "Start a new flow",
+              "required_fields": [
+                "flow_name"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "set_slot",
+              "description": "Set a slot value",
+              "required_fields": [
+                "slot",
+                "value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "cancel_flow",
+              "description": "Cancel the current flow",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "affirm",
+              "description": "Confirm a pending action (user says yes)",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "deny",
+              "description": "Deny a pending action (user says no)",
+              "required_fields": [
+                "slot_to_change"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "correct_slot",
+              "description": "Correct a previously set slot value",
+              "required_fields": [
+                "slot",
+                "new_value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "clarify",
+              "description": "User requests clarification about something",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "chitchat",
+              "description": "Off-topic conversation or small talk",
+              "required_fields": [],
+              "example": ""
+            }
+          ],
+          "active_flow": "book_flight",
+          "flow_slots": [
+            {
+              "name": "origin",
+              "slot_type": "city",
+              "description": "Which city are you departing from?",
+              "required": true,
+              "examples": [
+                "Madrid",
+                "Barcelona",
+                "Paris"
+              ]
+            },
+            {
+              "name": "destination",
+              "slot_type": "city",
+              "description": "Where would you like to fly to?",
+              "required": true,
+              "examples": [
+                "Madrid",
+                "Barcelona",
+                "Paris"
+              ]
+            },
+            {
+              "name": "departure_date",
+              "slot_type": "date",
+              "description": "When would you like to depart?",
+              "required": true,
+              "examples": [
+                "tomorrow",
+                "Tomorrow",
+                "next Monday"
+              ]
+            },
+            {
+              "name": "return_date",
+              "slot_type": "date",
+              "description": "When would you like to return?",
+              "required": true,
+              "examples": [
+                "tomorrow",
+                "Tomorrow",
+                "next Monday"
+              ]
+            },
+            {
+              "name": "passengers",
+              "slot_type": "number",
+              "description": "How many passengers will be traveling?",
+              "required": true,
+              "examples": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            {
+              "name": "cabin_class",
+              "slot_type": "string",
+              "description": "Which cabin class would you prefer? (economy, business, or first class)",
+              "required": true,
+              "examples": [
+                "economy",
+                "business",
+                "first class"
+              ]
+            }
+          ],
+          "current_slots": [
+            {
+              "name": "origin",
+              "value": "Madrid",
+              "expected_type": "city"
+            }
+          ],
+          "expected_slot": null,
+          "conversation_state": "idle"
+        },
+        "result": {
+          "commands": [
+            {
+              "type": "correct_slot",
+              "slot": "origin",
+              "new_value": "Barcelona"
+            }
+          ],
+          "confidence": 0.95
+        }
+      }
+    ],
+    "signature": {
+      "instructions": "Based on the user's message, analyze the dialogue context and history to generate the precise commands required to match the user's intent. Ensure that all commands are strictly derived from `context.available_commands` and comply with the rules for setting or correcting slot values, starting tasks, and managing confirmations within the conversation context.",
+      "fields": [
+        {
+          "prefix": "User Message:",
+          "description": "User's input message to analyze"
+        },
+        {
+          "prefix": "Context:",
+          "description": "Complete dialogue context including available_flows, available_commands, current_slots, expected_slot"
+        },
+        {
+          "prefix": "History:",
+          "description": "Recent conversation history (list of {role, content} messages)"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Result:",
+          "description": "Extracted commands and reasoning"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.13",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

@@ -187,7 +187,7 @@ class ExampleTemplate(BaseModel):
         Returns:
             dspy.Example ready for training/optimization
         """
-        from soni.du.models import CommandInfo, FlowInfo, SlotValue
+        from soni.du.models import CommandInfo, FlowInfo, SlotDefinition, SlotValue
 
         # Convert available_flows to list[FlowInfo]
         available_flows = [
@@ -199,7 +199,21 @@ class ExampleTemplate(BaseModel):
             for flow in domain_config.available_flows
         ]
 
+        # Generate flow_slots from domain config
+        # This provides the LLM with type information for each slot
+        flow_slots = [
+            SlotDefinition(
+                name=slot_name,
+                slot_type=slot_type,
+                description=domain_config.slot_prompts.get(slot_name, ""),
+                required=True,  # Could be enhanced with domain config
+                examples=domain_config.example_data.slot_values.get(slot_name, [])[:3],
+            )
+            for slot_name, slot_type in domain_config.slots.items()
+        ]
+
         # Generate available_commands based on available actions
+        # NOTE: command_type must match the Literal type in commands.py registry
         available_commands = [
             CommandInfo(
                 command_type="start_flow",
@@ -217,13 +231,28 @@ class ExampleTemplate(BaseModel):
                 required_fields=[],
             ),
             CommandInfo(
-                command_type="affirm_confirmation",
-                description="Confirm a pending action",
+                command_type="affirm",
+                description="Confirm a pending action (user says yes)",
                 required_fields=[],
             ),
             CommandInfo(
-                command_type="deny_confirmation",
-                description="Deny a pending action",
+                command_type="deny",
+                description="Deny a pending action (user says no)",
+                required_fields=["slot_to_change"],
+            ),
+            CommandInfo(
+                command_type="correct_slot",
+                description="Correct a previously set slot value",
+                required_fields=["slot", "new_value"],
+            ),
+            CommandInfo(
+                command_type="clarify",
+                description="User requests clarification about something",
+                required_fields=[],
+            ),
+            CommandInfo(
+                command_type="chitchat",
+                description="Off-topic conversation or small talk",
                 required_fields=[],
             ),
         ]
@@ -263,18 +292,26 @@ class ExampleTemplate(BaseModel):
             active_flow=self.conversation_context.current_flow
             if self.conversation_context.current_flow != "none"
             else None,
+            flow_slots=flow_slots,
             current_slots=current_slots,
             expected_slot=expected_slot,
             conversation_state=conversation_state,
         )
 
+        # Pass history as list[dict], not dspy.History
+        # SoniDU.forward() handles the conversion to dspy.History
+        history_messages = (
+            self.conversation_context.history.messages
+            if hasattr(self.conversation_context.history, "messages")
+            else []
+        )
+
         return dspy.Example(
             user_message=self.user_message,
-            history=self.conversation_context.history,
+            history=history_messages,
             context=dialogue_context,
-            current_datetime=self.current_datetime,
             result=self.expected_output,
-        ).with_inputs("user_message", "history", "context", "current_datetime")
+        ).with_inputs("user_message", "history", "context")
 
 
 class PatternGenerator:

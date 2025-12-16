@@ -4,40 +4,73 @@ Uses DSPy's latest MIPROv2 for prompt optimization.
 """
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 from dspy import Example
 from dspy.teleprompt import MIPROv2
 
-from soni.du.models import Command, NLUOutput
+from soni.core.commands import Command
+from soni.du.models import NLUOutput
 from soni.du.modules import SoniDU
 
 
-def create_metric(validate_command_fn: Callable[[Command, Command], bool]) -> Callable:
+def default_command_validator(expected: Command, actual: Command) -> bool:
+    """Validate that two commands match by type and key fields.
+
+    Compares command type and important fields (slot names, flow names, etc.)
+    but ignores auxiliary fields like confidence scores.
+    """
+    if type(expected) is not type(actual):
+        return False
+
+    # Compare relevant fields based on command type
+    # Using model_dump() to get dict representation
+    expected_data = expected.model_dump(exclude={"confidence"})
+    actual_data = actual.model_dump(exclude={"confidence"})
+
+    return expected_data == actual_data
+
+
+def create_metric(
+    validate_command_fn: Callable[[Command, Command], bool] | None = None,
+) -> Callable[[Example, Any, Any], bool]:
     """Create a metric function for optimization.
 
     Args:
-        validate_command_fn: Function to validate if command matches expected
-                             (expected_cmd, actual_cmd) -> bool
+        validate_command_fn: Function to validate if command matches expected.
+                             Defaults to default_command_validator.
     """
+    validator = validate_command_fn or default_command_validator
 
-    def metric(example: Example, prediction: NLUOutput, trace=None) -> bool:
-        # prediction is the return value of forward(), which is NLUOutput
-        # But DSPy optimizer sometimes unwraps it or passes Prediction object?
-        # In our SoniDU.forward, we return NLUOutput directly.
+    def metric(example: Example, prediction: Any, trace: Any = None) -> bool:
+        """Evaluate if prediction matches expected output."""
+        try:
+            # Get expected commands from example
+            if not hasattr(example, "result") or example.result is None:
+                return False
+            expected_commands: list[Command] = example.result.commands
 
-        # example.expected_commands should be list[Command]
-        expected = example.expected_commands
-        actual = prediction.commands
-
-        if len(expected) != len(actual):
-            return False
-
-        for exp, act in zip(expected, actual, strict=True):
-            if not validate_command_fn(exp, act):
+            # Handle prediction - could be NLUOutput or Prediction wrapper
+            if isinstance(prediction, NLUOutput):
+                actual_commands = prediction.commands
+            elif hasattr(prediction, "result") and isinstance(prediction.result, NLUOutput):
+                actual_commands = prediction.result.commands
+            elif hasattr(prediction, "commands"):
+                actual_commands = prediction.commands
+            else:
                 return False
 
-        return True
+            # Compare command lists
+            if len(expected_commands) != len(actual_commands):
+                return False
+
+            return all(
+                validator(exp, act)
+                for exp, act in zip(expected_commands, actual_commands, strict=True)
+            )
+
+        except (AttributeError, TypeError):
+            return False
 
     return metric
 

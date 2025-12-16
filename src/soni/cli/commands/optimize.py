@@ -8,9 +8,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from soni.core.commands import Command
 from soni.core.config import SoniConfig
 from soni.dataset import DatasetBuilder
-from soni.du.models import Command
 from soni.du.optimizer import create_metric, optimize_du
 
 app = typer.Typer(help="Optimize NLU module")
