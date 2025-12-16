@@ -354,6 +354,9 @@ class MockNLUProvider:
             "stolen": "block_card",
             "new card": "request_card",
             "request a card": "request_card",
+            "need a card": "request_card",
+            "credit card": "request_card",
+            "debit card": "request_card",
             # Bills
             "pay a bill": "pay_bill",
             "pay my": "pay_bill",
@@ -368,7 +371,28 @@ class MockNLUProvider:
 
     def get_response(self, message: str, context: dict[str, Any]) -> Any:
         """Get mock NLU response for a message."""
+        import re
+
         msg_lower = message.lower().strip()
+
+        # Handle modification patterns first ("no, change the X" or "change the X")
+        change_match = re.search(r"change (?:the )?(\w+)", msg_lower)
+        if change_match:
+            slot_hint = change_match.group(1)
+            # Map common words to slot names
+            slot_mapping = {
+                "amount": "amount",
+                "sum": "amount",
+                "beneficiary": "beneficiary_name",
+                "recipient": "beneficiary_name",
+                "name": "beneficiary_name",
+                "iban": "iban",
+                "account": "source_account",
+                "concept": "transfer_concept",
+                "reference": "transfer_concept",
+            }
+            slot_name = slot_mapping.get(slot_hint, slot_hint)
+            return self.NLUOutput(commands=[self.DenyConfirmation(slot_to_change=slot_name)])
 
         # Check for pattern match
         for pattern, commands in self._patterns.items():
