@@ -1,19 +1,22 @@
 """Execute node - routes to active flow."""
 from typing import Any, Literal
 
-from langgraph.runtime import Runtime
+
 from langgraph.types import Command
 
 from soni.core.types import DialogueState, RuntimeContext
 
 
+from langchain_core.runnables import RunnableConfig
+
 async def execute_node(
     state: DialogueState,
-    runtime: Runtime[RuntimeContext],
+    config: RunnableConfig,
 ) -> Command[Literal["respond", "understand"]] | dict[str, Any]: # type: ignore
     """Determine execution path based on stack."""
-
-    flow_manager = runtime.context.flow_manager
+    
+    context: RuntimeContext = config["configurable"]["runtime_context"]
+    flow_manager = context.flow_manager
     active_ctx = flow_manager.get_active_context(state)
 
     if active_ctx:

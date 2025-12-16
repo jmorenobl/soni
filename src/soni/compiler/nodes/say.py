@@ -1,8 +1,9 @@
 """SayNodeFactory - generates simple response nodes."""
 from typing import Any
 
-from langgraph.runtime import Runtime
 
+
+from langchain_core.messages import AIMessage
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
 from soni.core.types import DialogueState, RuntimeContext
@@ -20,9 +21,11 @@ class SayNodeFactory:
 
         async def say_node(
             state: DialogueState,
-            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            return {"response": message}
+            return {
+                "messages": [AIMessage(content=message)],
+                "last_response": message
+            }
 
         say_node.__name__ = f"say_{step.step}"
         return say_node

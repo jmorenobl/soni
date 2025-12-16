@@ -8,7 +8,9 @@ from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes import execute_node, respond_node, understand_node
 
 
-def build_orchestrator(config: SoniConfig) -> Runnable:
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
+def build_orchestrator(config: SoniConfig, checkpointer: BaseCheckpointSaver | None = None) -> Runnable:
     """Compile flows and build the complete orchestrator graph."""
 
     # 1. Compile all flows to subgraphs
@@ -49,7 +51,7 @@ def build_orchestrator(config: SoniConfig) -> Runnable:
 
     # Note: 'execute' node uses Command to route to specific flow_{name},
     # so no explicit edges from 'execute' are needed if coverage via Command is complete.
-    # However, if 'execute' returns 'respond', we need that edge or allow Command routing there too.
+    # However,    # If 'execute' returns 'respond', we need that edge or allow Command routing there too.
     # Command(goto="respond") covers it.
-
-    return builder.compile()
+    
+    return builder.compile(checkpointer=checkpointer)

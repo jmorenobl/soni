@@ -2,16 +2,17 @@
 from dataclasses import dataclass
 from unittest.mock import Mock
 
-import pytest
+import pytes
 from langgraph.types import Command
 
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DialogueState, FlowContext, RuntimeContext
+from soni.core.types import DialogueState, FlowContext, RuntimeContex
 
 
 @dataclass
-class MockRuntime:
-    context: RuntimeContext
+class MockContext:
+    flow_manager: Mock
+
 
 class TestExecuteNode:
     """Tests for execute_node routing."""
@@ -41,13 +42,14 @@ class TestExecuteNode:
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = flow_ctx
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        context = Mock()
+        context.flow_manager = mock_fm
+        config = {"configurable": {"runtime_context": context}}
 
-        # Act
-        result = await execute_node(state, runtime)
+        # Ac
+        result = await execute_node(state, config)
 
-        # Assert
+        # Asser
         assert isinstance(result, Command)
         assert result.goto == "flow_book_flight"
 
@@ -64,10 +66,11 @@ class TestExecuteNode:
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = None
 
-        runtime = MockRuntime(context=Mock())
-        runtime.context.flow_manager = mock_fm
+        context = Mock()
+        context.flow_manager = mock_fm
+        config = {"configurable": {"runtime_context": context}}
 
-        result = await execute_node(state, runtime)
+        result = await execute_node(state, config)
 
         # If no flow, usually we just respond (maybe with fallback)
         # Assuming simple sequential edge or explicit command.
