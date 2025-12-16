@@ -1,0 +1,73 @@
+# Soni Banking Assistant - Transfer Flow
+# Money transfer with IBAN validation
+
+flows:
+  transfer_funds:
+    description: "Transfer money to another account using IBAN"
+    trigger:
+      intents:
+        - "I want to transfer money"
+        - "Send money"
+        - "Make a transfer"
+        - "Transfer funds"
+        - "I need to pay someone"
+        - "Wire transfer"
+        - "Send {amount} to {beneficiary_name}"
+    steps:
+      - step: collect_beneficiary
+        type: collect
+        slot: beneficiary_name
+        message: "Who would you like to send the money to?"
+
+      - step: collect_iban
+        type: collect
+        slot: iban
+        message: "Please provide the recipient's IBAN."
+
+      - step: validate_iban_action
+        type: action
+        call: lookup_iban
+        map_outputs:
+          bank_name: iban_bank_name
+          is_valid: iban_is_valid
+
+      - step: collect_amount
+        type: collect
+        slot: amount
+        message: "How much would you like to transfer?"
+
+      - step: collect_concept
+        type: collect
+        slot: transfer_concept
+        message: "What should I put as the payment reference or concept?"
+
+      - step: collect_source
+        type: collect
+        slot: source_account
+        message: "From which of your accounts should I send this? You have checking, savings, and investment available."
+
+      - step: confirm_transfer
+        type: confirm
+        slot: transfer_confirmed
+        message: |
+          Please review the transfer details:
+
+          To: {beneficiary_name}
+          IBAN: {iban}
+          Bank: {iban_bank_name}
+          Amount: {amount} EUR
+          Concept: {transfer_concept}
+          From: {source_account} account
+
+          Should I proceed with this transfer?
+
+      - step: execute_transfer
+        type: action
+        call: execute_transfer
+        map_outputs:
+          transaction_id: transaction_id
+          status: transfer_status
+
+      - step: say_result
+        type: say
+        message: "Done! Your transfer has been processed. Transaction ID: {transaction_id}. The funds should arrive within 1-2 business days."

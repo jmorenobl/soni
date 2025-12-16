@@ -28,7 +28,7 @@ def mock_du():
 async def test_auto_resume_flow(mock_du):
     """Test that interrupting a flow correctly resumes the parent flow."""
     # 1. Setup
-    config = SoniConfig.from_yaml("examples/banking/soni.yaml")
+    config = SoniConfig.from_yaml("examples/banking/domain")
 
     # Setup context
     fm = FlowManager()
@@ -49,11 +49,11 @@ async def test_auto_resume_flow(mock_du):
     # Setup mock NLU to drive the conversation
     # Trace:
     # 1. "transfer money" -> StartFlow(transfer)
-    # 2. "my mom" -> SetSlot(recipient=my mom)
+    # 2. "my mom" -> SetSlot(beneficiary_name=my mom)
     # 3. "check balance" -> StartFlow(check_balance)
     # 4. "savings" -> SetSlot(account_type=savings)
     # ... Auto-resume ...
-    # 5. "100" -> SetSlot(amount=100) (For the RESUMED flow)
+    # 5. "ES123..." -> SetSlot(iban=...) (For the RESUMED flow)
 
     # We mock aforward responses sequentially
     from soni.core.commands import SetSlot, StartFlow
@@ -63,13 +63,15 @@ async def test_auto_resume_flow(mock_du):
         # Turn 1: transfer money
         type("NLUOutput", (), {"commands": [StartFlow(flow_name="transfer_funds")]}),
         # Turn 2: my mom
-        type("NLUOutput", (), {"commands": [SetSlot(slot="recipient", value="my mom")]}),
+        type("NLUOutput", (), {"commands": [SetSlot(slot="beneficiary_name", value="my mom")]}),
         # Turn 3: check balance (Interruption)
         type("NLUOutput", (), {"commands": [StartFlow(flow_name="check_balance")]}),
         # Turn 4: savings
         type("NLUOutput", (), {"commands": [SetSlot(slot="account_type", value="savings")]}),
-        # Turn 5: 100 (Resumed transfer)
-        type("NLUOutput", (), {"commands": [SetSlot(slot="amount", value="100.00")]}),
+        # Turn 5: IBAN (Resumed transfer)
+        type(
+            "NLUOutput", (), {"commands": [SetSlot(slot="iban", value="ES9121000418450200051332")]}
+        ),
     ]
 
     # Build graph
@@ -88,15 +90,15 @@ async def test_auto_resume_flow(mock_du):
 
     result = await graph.ainvoke(state, config=run_config)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
-    assert "recipient" in result["waiting_for_slot"]  # Asking recipient
+    assert result["waiting_for_slot"] == "beneficiary_name"  # Asking beneficiary
 
     # Turn 2: my mom
     state = result
     state["user_message"] = "my mom"
     result = await graph.ainvoke(state, config=run_config)
-    # Should be asking amount
+    # Should be asking IBAN (next slot in transfer_funds flow)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
-    assert result["waiting_for_slot"] == "amount"
+    assert result["waiting_for_slot"] == "iban"
 
     # Turn 3: check balance (Interrupt)
     state = result
@@ -117,8 +119,8 @@ async def test_auto_resume_flow(mock_du):
     assert len(result["flow_stack"]) == 1
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
 
-    # 2. Should be asking for 'amount' (resumed state)
-    assert result["waiting_for_slot"] == "amount"
+    # 2. Should be asking for 'iban' (resumed state - next slot after beneficiary_name)
+    assert result["waiting_for_slot"] == "iban"
 
     # 3. Should have generated balance message
     # messages list should contain AIMessage with balance

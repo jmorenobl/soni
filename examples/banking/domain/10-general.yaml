@@ -1,0 +1,47 @@
+# Soni Banking Assistant - General Flows
+# Greeting and help flows
+
+flows:
+  greet:
+    description: "Greet the user and offer help"
+    trigger:
+      intents:
+        - "Hi"
+        - "Hello"
+        - "Good morning"
+        - "Good afternoon"
+        - "Hey"
+        - "What can you do?"
+    steps:
+      - step: get_greeting
+        type: action
+        call: get_greeting
+        map_outputs:
+          message: message
+
+      - step: say_greeting
+        type: say
+        message: "{message}"
+
+  help:
+    description: "Provide help and explain available services"
+    trigger:
+      intents:
+        - "Help"
+        - "What can you help me with?"
+        - "I need help"
+        - "What services do you offer?"
+    steps:
+      - step: say_help
+        type: say
+        message: |
+          I can help you with the following banking services:
+
+          - Check your account balance
+          - View recent transactions
+          - Transfer money to other accounts
+          - Block a lost or stolen card
+          - Request a new card
+          - Pay bills and invoices
+
+          Just tell me what you'd like to do!

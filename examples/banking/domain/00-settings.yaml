@@ -1,0 +1,16 @@
+# Soni Banking Assistant - Settings
+# Global configuration and metadata
+
+version: "0.1"
+
+settings:
+  models:
+    nlu:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.1
+  persistence:
+    backend: sqlite
+    path: ./banking_state.db
+  logging:
+    level: INFO

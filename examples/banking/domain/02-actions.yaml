@@ -1,0 +1,100 @@
+# Soni Banking Assistant - Action Definitions
+# All action definitions (handlers defined in handlers.py)
+
+actions:
+  # Greeting
+  get_greeting:
+    description: "Generate a personalized greeting"
+    inputs: []
+    outputs:
+      - message
+
+  # Balance
+  get_balance:
+    description: "Fetch account balance"
+    inputs:
+      - account_type
+    outputs:
+      - balance
+      - currency
+
+  format_balance_message:
+    description: "Format balance for display"
+    inputs:
+      - balance
+      - currency
+      - account_type
+    outputs:
+      - message
+
+  # Transfers
+  lookup_iban:
+    description: "Validate IBAN and lookup bank information"
+    inputs:
+      - iban
+    outputs:
+      - bank_name
+      - is_valid
+
+  execute_transfer:
+    description: "Execute a bank transfer"
+    inputs:
+      - source_account
+      - beneficiary_name
+      - iban
+      - amount
+      - transfer_concept
+    outputs:
+      - transaction_id
+      - status
+
+  # Transactions
+  get_transactions:
+    description: "Fetch recent transactions"
+    inputs:
+      - account_type
+      - transaction_period
+    outputs:
+      - transactions_summary
+      - total_income
+      - total_expenses
+
+  # Cards
+  block_card:
+    description: "Block a card immediately"
+    inputs:
+      - card_type
+      - card_last_4
+    outputs:
+      - block_reference
+      - replacement_info
+
+  request_new_card:
+    description: "Request a new card"
+    inputs:
+      - card_type
+      - delivery_address
+    outputs:
+      - request_id
+      - estimated_arrival
+
+  # Bills
+  lookup_bill:
+    description: "Look up bill details by reference"
+    inputs:
+      - bill_type
+      - bill_reference
+    outputs:
+      - bill_amount
+      - bill_issuer
+      - bill_due_date
+
+  pay_bill:
+    description: "Execute bill payment"
+    inputs:
+      - bill_type
+      - bill_reference
+      - bill_amount
+    outputs:
+      - payment_id
+      - payment_status

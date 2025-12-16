@@ -85,7 +85,7 @@ optimize:
 # Run chat CLI with banking example
 chat:
 	@echo "Running Soni Chat (Banking Example)..."
-	uv run soni chat --config examples/banking/soni.yaml --module examples.banking.handlers
+	uv run soni chat --config examples/banking/domain --module examples.banking.handlers
 
 # Tests
 # Fast unit tests (parallel, exclude slow/integration)

@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
+from soni.core.commands import SetSlot, StartFlow
 from soni.core.config import FlowConfig, SoniConfig, StepConfig
-from soni.du.models import Command, NLUOutput
+from soni.du.models import NLUOutput
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -42,9 +43,7 @@ async def test_runtime_simple_flow_execution():
     runtime.du = mock_du
 
     # Turn 1: User says "Hi" -> NLU starts 'greeting'
-    mock_du.aforward = AsyncMock(
-        return_value=NLUOutput(commands=[Command(command_type="start_flow", flow_name="greeting")])
-    )
+    mock_du.aforward = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greeting")]))
 
     response1 = await runtime.process_message("Hi", user_id="test_user")
 
@@ -57,9 +56,7 @@ async def test_runtime_simple_flow_execution():
 
     # Turn 2: User says "Jorge" -> NLU sets slot 'name'
     mock_du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[Command(command_type="set_slot", slot_name="name", slot_value="Jorge")]
-        )
+        return_value=NLUOutput(commands=[SetSlot(slot="name", value="Jorge")])
     )
 
     response2 = await runtime.process_message("Jorge", user_id="test_user")
@@ -103,7 +100,7 @@ async def test_runtime_flow_persistence():
     await runtime1.initialize()
     runtime1.du = Mock()
     runtime1.du.aforward = AsyncMock(
-        return_value=NLUOutput(commands=[Command(command_type="start_flow", flow_name="status")])
+        return_value=NLUOutput(commands=[StartFlow(flow_name="status")])
     )
 
     await runtime1.process_message("Check status", user_id="user_1")
@@ -116,9 +113,7 @@ async def test_runtime_flow_persistence():
     runtime2.du = Mock()
     # Resume flow: NLU understands slot filling
     runtime2.du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[Command(command_type="set_slot", slot_name="user_id", slot_value="123")]
-        )
+        return_value=NLUOutput(commands=[SetSlot(slot="user_id", value="123")])
     )
 
     response = await runtime2.process_message("123", user_id="user_1")

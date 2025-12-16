@@ -1,0 +1,89 @@
+# Soni Banking Assistant - Card Flows
+# Block card and request new card
+
+flows:
+  block_card:
+    description: "Block a lost, stolen, or compromised card"
+    trigger:
+      intents:
+        - "I lost my card"
+        - "Block my card"
+        - "My card was stolen"
+        - "I think my card is compromised"
+        - "Cancel my card"
+        - "Someone stole my card"
+    steps:
+      - step: collect_card_type
+        type: collect
+        slot: card_type
+        message: "I'm sorry to hear that. Is it your debit or credit card?"
+
+      - step: collect_last_digits
+        type: collect
+        slot: card_last_4
+        message: "To make sure I block the right card, could you tell me the last 4 digits?"
+
+      - step: confirm_block
+        type: confirm
+        slot: block_confirmed
+        message: |
+          I'm about to block your {card_type} card ending in {card_last_4}.
+
+          Important: Once blocked, this card cannot be used for any transactions. You'll need to request a replacement card.
+
+          Do you want me to proceed?
+
+      - step: execute_block
+        type: action
+        call: block_card
+        map_outputs:
+          block_reference: block_reference
+          replacement_info: replacement_info
+
+      - step: say_blocked
+        type: say
+        message: |
+          Your {card_type} card has been blocked immediately. Reference: {block_reference}
+
+          {replacement_info}
+
+  request_card:
+    description: "Request a new debit or credit card"
+    trigger:
+      intents:
+        - "I want a new card"
+        - "Request a card"
+        - "I need a credit card"
+        - "Get me a debit card"
+        - "Apply for a card"
+        - "I want to request a replacement card"
+    steps:
+      - step: collect_card_type
+        type: collect
+        slot: card_type
+        message: "What type of card would you like? I can help you with a debit or credit card."
+
+      - step: collect_delivery_address
+        type: collect
+        slot: delivery_address
+        message: "Where should we send the new card? Please provide your full delivery address."
+
+      - step: confirm_request
+        type: confirm
+        slot: card_request_confirmed
+        message: |
+          I'll request a new {card_type} card to be sent to:
+          {delivery_address}
+
+          The card typically arrives within 5-7 business days. Is this correct?
+
+      - step: submit_request
+        type: action
+        call: request_new_card
+        map_outputs:
+          request_id: card_request_id
+          estimated_arrival: card_eta
+
+      - step: say_confirmation
+        type: say
+        message: "Your {card_type} card has been requested. Request ID: {card_request_id}. Expected delivery: {card_eta}. You'll receive an SMS when it's shipped."

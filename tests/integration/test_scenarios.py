@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
+from soni.core.commands import SetSlot, StartFlow
 from soni.core.config import FlowConfig, SoniConfig, StepConfig
-from soni.du.models import Command, NLUOutput
+from soni.du.models import NLUOutput
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -60,9 +61,7 @@ async def test_scenario_interruption_and_resume(runtime):
 
     # 1. Start Booking
     runtime.du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[Command(command_type="start_flow", flow_name="book_flight")]
-        )
+        return_value=NLUOutput(commands=[StartFlow(flow_name="book_flight")])
     )
     resp1 = await runtime.process_message("I want to book a flight", user_id="user_int")
     assert "Where to?" in resp1
@@ -72,8 +71,8 @@ async def test_scenario_interruption_and_resume(runtime):
     runtime.du.aforward = AsyncMock(
         return_value=NLUOutput(
             commands=[
-                Command(command_type="start_flow", flow_name="check_weather"),
-                Command(command_type="set_slot", slot_name="city", slot_value="London"),
+                StartFlow(flow_name="check_weather"),
+                SetSlot(slot="city", value="London"),
             ]
         )
     )
@@ -111,17 +110,13 @@ async def test_scenario_correction(runtime):
 
     # 1. Start
     runtime.du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[Command(command_type="start_flow", flow_name="book_flight")]
-        )
+        return_value=NLUOutput(commands=[StartFlow(flow_name="book_flight")])
     )
     await runtime.process_message("Book flight", user_id="user_corr")
 
     # 2. Provide Paris
     runtime.du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[Command(command_type="set_slot", slot_name="destination", slot_value="Paris")]
-        )
+        return_value=NLUOutput(commands=[SetSlot(slot="destination", value="Paris")])
     )
     resp2 = await runtime.process_message("Paris", user_id="user_corr")
     assert "When?" in resp2  # Moved to next step
@@ -130,11 +125,7 @@ async def test_scenario_correction(runtime):
     # NLU detects 'correction' or just 'set_slot' again (overwriting)
     # If explicit correction support exists it might use 'correct_slot', but 'set_slot' is standard fallback
     runtime.du.aforward = AsyncMock(
-        return_value=NLUOutput(
-            commands=[
-                Command(command_type="set_slot", slot_name="destination", slot_value="London")
-            ]
-        )
+        return_value=NLUOutput(commands=[SetSlot(slot="destination", value="London")])
     )
 
     # Ideally, if we change a previous slot, the flow might need to backtrack or just update.
@@ -162,9 +153,9 @@ async def test_scenario_denial_cancel(runtime):
     runtime.du.aforward = AsyncMock(
         return_value=NLUOutput(
             commands=[
-                Command(command_type="start_flow", flow_name="book_flight"),
-                Command(command_type="set_slot", slot_name="destination", slot_value="Paris"),
-                Command(command_type="set_slot", slot_name="date", slot_value="Tomorrow"),
+                StartFlow(flow_name="book_flight"),
+                SetSlot(slot="destination", value="Paris"),
+                SetSlot(slot="date", value="Tomorrow"),
             ]
         )
     )

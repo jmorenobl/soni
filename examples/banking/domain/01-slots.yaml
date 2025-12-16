@@ -1,0 +1,90 @@
+# Soni Banking Assistant - Slot Definitions
+# All slot definitions used across flows
+
+slots:
+  # Account slots
+  account_type:
+    type: string
+    prompt: "Which account?"
+    validator: account_type
+    validation_error_message: "I don't recognize that account type. Please choose from: checking, savings, or investment."
+    required: true
+
+  source_account:
+    type: string
+    prompt: "From which account?"
+    validator: account_type
+    validation_error_message: "That's not a valid account. Your available accounts are: checking, savings, and investment."
+    required: true
+
+  # Transfer slots
+  beneficiary_name:
+    type: string
+    prompt: "Recipient name?"
+    required: true
+    validator: person_name
+    validation_error_message: "Please provide a valid name for the recipient."
+
+  iban:
+    type: string
+    prompt: "IBAN?"
+    required: true
+    validator: iban
+    validation_error_message: "That doesn't appear to be a valid IBAN. Please check the number and try again. A valid IBAN starts with a country code (e.g., ES, DE, FR) followed by digits."
+
+  amount:
+    type: float
+    prompt: "Amount?"
+    required: true
+    validator: positive_amount
+    validation_error_message: "Please enter a valid positive amount."
+
+  transfer_concept:
+    type: string
+    prompt: "Transfer concept?"
+    required: true
+
+  # Transaction slots
+  transaction_period:
+    type: string
+    prompt: "Time period?"
+    required: true
+    validator: transaction_period
+    validation_error_message: "Please choose a valid period: last week, last month, or last 3 months."
+
+  # Card slots
+  card_type:
+    type: string
+    prompt: "Card type?"
+    validator: card_type
+    validation_error_message: "Please specify either debit or credit card."
+    required: true
+
+  card_last_4:
+    type: string
+    prompt: "Last 4 digits?"
+    validator: card_digits
+    validation_error_message: "Please provide exactly 4 digits."
+    required: true
+
+  delivery_address:
+    type: string
+    prompt: "Delivery address?"
+    required: true
+    validator: address
+    validation_error_message: "Please provide a complete address including street, city, and postal code."
+
+  # Bill slots
+  bill_type:
+    type: string
+    prompt: "Bill type?"
+    required: true
+    validator: bill_type
+    validation_error_message: "I can help with electricity, water, gas, phone, or internet bills."
+
+  bill_reference:
+    type: string
+    prompt: "Bill reference?"
+    required: true
+    validator: bill_reference
+    validation_error_message: "The reference number should be at least 6 characters. Please check your invoice."

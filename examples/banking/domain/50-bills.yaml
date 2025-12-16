@@ -1,0 +1,55 @@
+# Soni Banking Assistant - Bill Payment Flow
+# Pay utility bills and invoices
+
+flows:
+  pay_bill:
+    description: "Pay a utility bill or invoice"
+    trigger:
+      intents:
+        - "I want to pay a bill"
+        - "Pay my electricity bill"
+        - "Pay invoice"
+        - "I need to pay a utility bill"
+        - "Pay my phone bill"
+    steps:
+      - step: collect_bill_type
+        type: collect
+        slot: bill_type
+        message: "What type of bill would you like to pay? For example: electricity, water, gas, phone, or internet."
+
+      - step: collect_bill_reference
+        type: collect
+        slot: bill_reference
+        message: "Please provide the bill reference number. You can find it on your invoice."
+
+      - step: lookup_bill
+        type: action
+        call: lookup_bill
+        map_outputs:
+          bill_amount: bill_amount
+          bill_issuer: bill_issuer
+          bill_due_date: bill_due_date
+
+      - step: confirm_payment
+        type: confirm
+        slot: bill_payment_confirmed
+        message: |
+          I found the following bill:
+
+          Issuer: {bill_issuer}
+          Type: {bill_type}
+          Amount: {bill_amount} EUR
+          Due date: {bill_due_date}
+
+          Would you like to pay this bill from your checking account?
+
+      - step: execute_payment
+        type: action
+        call: pay_bill
+        map_outputs:
+          payment_id: bill_payment_id
+          payment_status: bill_payment_status
+
+      - step: say_paid
+        type: say
+        message: "Bill paid successfully. Payment ID: {bill_payment_id}. The payment will be reflected in your account within 24 hours."

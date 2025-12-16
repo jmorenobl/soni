@@ -92,32 +92,36 @@ class SoniConfig(BaseModel):
 
 
 class ConfigLoader:
-    """Loader for Soni configuration files."""
+    """Loader for Soni configuration files.
+
+    Supports both single YAML files and directories containing multiple YAML files.
+    When loading from a directory, all .yaml/.yml files are merged in alphabetical order.
+    """
 
     @staticmethod
     def load(path: str | Path) -> SoniConfig:
-        """Load and validate configuration from YAML file.
+        """Load and validate configuration from YAML file or directory.
 
         Args:
-            path: Path to YAML configuration file.
+            path: Path to YAML configuration file or directory containing YAML files.
 
         Returns:
             Validated SoniConfig object.
 
         Raises:
-            ConfigError: If file not found or invalid format.
+            ConfigError: If file/directory not found or invalid format.
         """
         path = Path(path)
         if not path.exists():
-            # Need to import ConfigError locally to avoid circular import if defined in errors.py
-            # which might import config... actually config.py is usually low level dependency.
             from soni.core.errors import ConfigError
 
             raise ConfigError(f"Configuration file not found: {path}")
 
         try:
-            with open(path, encoding="utf-8") as f:
-                data = yaml.safe_load(f)
+            if path.is_dir():
+                data = ConfigLoader._load_directory(path)
+            else:
+                data = ConfigLoader._load_file(path)
 
             return SoniConfig(**data)
         except yaml.YAMLError as e:
@@ -128,3 +132,46 @@ class ConfigLoader:
             from soni.core.errors import ConfigError
 
             raise ConfigError(f"Invalid configuration: {e}") from e
+
+    @staticmethod
+    def _load_file(path: Path) -> dict:
+        """Load a single YAML file."""
+        with open(path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+
+    @staticmethod
+    def _load_directory(directory: Path) -> dict:
+        """Load and merge all YAML files from a directory.
+
+        Files are loaded in alphabetical order. Later files override earlier ones
+        for top-level keys, but nested dicts (flows, slots, actions) are merged.
+        """
+        merged: dict = {}
+        yaml_files = sorted(directory.glob("*.yaml")) + sorted(directory.glob("*.yml"))
+
+        if not yaml_files:
+            from soni.core.errors import ConfigError
+
+            raise ConfigError(f"No YAML files found in directory: {directory}")
+
+        for yaml_file in yaml_files:
+            file_data = ConfigLoader._load_file(yaml_file)
+            merged = ConfigLoader._deep_merge(merged, file_data)
+
+        return merged
+
+    @staticmethod
+    def _deep_merge(base: dict, override: dict) -> dict:
+        """Deep merge two dictionaries.
+
+        For dict values, recursively merge. For other types, override replaces base.
+        """
+        result = base.copy()
+
+        for key, value in override.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = ConfigLoader._deep_merge(result[key], value)
+            else:
+                result[key] = value
+
+        return result
