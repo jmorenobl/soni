@@ -9,19 +9,37 @@ from soni.compiler.nodes.say import SayNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
 
 
+class NodeFactoryRegistry:
+    """Registry for node factories."""
+
+    _factories: dict[str, NodeFactory] = {}
+
+    @classmethod
+    def register(cls, step_type: str, factory: NodeFactory) -> None:
+        """Register a new node factory."""
+        cls._factories[step_type] = factory
+
+    @classmethod
+    def get(cls, step_type: str) -> NodeFactory:
+        """Get factory for step type."""
+        factory = cls._factories.get(step_type)
+        if not factory:
+            raise ValueError(f"Unknown step type: {step_type}")
+        return factory
+
+
+# Initialize default factories
+NodeFactoryRegistry.register("collect", CollectNodeFactory())
+NodeFactoryRegistry.register("action", ActionNodeFactory())
+NodeFactoryRegistry.register("say", SayNodeFactory())
+NodeFactoryRegistry.register("branch", BranchNodeFactory())
+NodeFactoryRegistry.register("confirm", ConfirmNodeFactory())
+NodeFactoryRegistry.register("while", WhileNodeFactory())
+
+
 def get_factory_for_step(step_type: str) -> NodeFactory:
-    """Get the appropriate factory for a step type."""
-    factories: dict[str, NodeFactory] = {
-        "collect": CollectNodeFactory(),
-        "action": ActionNodeFactory(),
-        "say": SayNodeFactory(),
-        "branch": BranchNodeFactory(),
-        "confirm": ConfirmNodeFactory(),
-        "while": WhileNodeFactory(),
-    }
+    """Get the appropriate factory for a step type.
 
-    factory = factories.get(step_type)
-    if not factory:
-        raise ValueError(f"Unknown step type: {step_type}")
-
-    return factory
+    Delegates to registry.
+    """
+    return NodeFactoryRegistry.get(step_type)

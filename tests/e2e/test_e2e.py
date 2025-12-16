@@ -59,22 +59,15 @@ class TestE2E:
 
         from unittest.mock import AsyncMock, Mock
 
-        from soni.du.models import Command, NLUOutput
+        from soni.core.commands import SetSlot, StartFlow
+        from soni.du.models import NLUOutput
 
         # Turn 1: "Book flight" -> start_flow(book_flight)
         mock_du = Mock()
         mock_du.aforward = AsyncMock(
             side_effect=[
-                NLUOutput(
-                    commands=[Command(command_type="start_flow", flow_name="book_flight")]
-                ),  # Turn 1
-                NLUOutput(
-                    commands=[
-                        Command(
-                            command_type="set_slot", slot_name="destination", slot_value="Paris"
-                        )
-                    ]
-                ),  # Turn 2
+                NLUOutput(commands=[StartFlow(flow_name="book_flight")]),  # Turn 1
+                NLUOutput(commands=[SetSlot(slot="destination", value="Paris")]),  # Turn 2
             ]
         )
         runtime.du = mock_du
@@ -99,8 +92,8 @@ class TestE2E:
         # Let's assume for now SayNode outputs static str.
         # "Price is {price} {currency}"
         # If templating not implemented, it returns literal.
-        if "{price}" in response2:
-            print("WARNING: Templating not implemented in SayNode")
-            assert "Price is {price} {currency}" in response2
-        else:
-            assert "200" in response2
+        # "Price is {price} {currency}"
+        # Templating is implemented in SayNode, so it should return formatted string.
+        assert "200" in response2
+        assert "EUR" in response2
+        assert "Price is 200 EUR" in response2
