@@ -101,7 +101,10 @@ class RuntimeLoop:
             return
 
         self._flow_manager = FlowManager()
-        self._du = SoniDU(use_cot=True)
+
+        # Use factory to auto-load best optimized model
+        self._du = SoniDU.create_with_best_model(use_cot=True)
+
         self._action_registry = self._initial_registry or ActionRegistry()
         self._action_handler = ActionHandler(self._action_registry)
 

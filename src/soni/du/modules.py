@@ -3,10 +3,15 @@
 Async-first design using native .acall() method.
 """
 
+import logging
+from pathlib import Path
+
 import dspy
 
 from soni.du.models import DialogueContext, NLUOutput
 from soni.du.signatures import ExtractCommands
+
+logger = logging.getLogger(__name__)
 
 
 class SoniDU(dspy.Module):
@@ -32,6 +37,43 @@ class SoniDU(dspy.Module):
             self.extractor = dspy.ChainOfThought(ExtractCommands)
         else:
             self.extractor = dspy.Predict(ExtractCommands)
+
+    @classmethod
+    def create_with_best_model(cls, use_cot: bool = True) -> "SoniDU":
+        """Create SoniDU instance with the best available optimized model.
+
+        Automatically searches for optimization files in `src/soni/du/optimized`
+        with the following priority:
+        1. GEPA (Most advanced)
+        2. MIPROv2 (Stable fallback)
+        3. Baseline (Legacy)
+
+        If none found, returns a standard zero-shot instance.
+        """
+        instance = cls(use_cot=use_cot)
+
+        base_path = Path(__file__).parent / "optimized"
+        optimized_files = [
+            "baseline_v1_gepa.json",
+            "baseline_v1_miprov2.json",
+            "baseline_v1.json",
+        ]
+
+        for filename in optimized_files:
+            file_path = base_path / filename
+            if file_path.exists():
+                logger.info(f"Loading optimized NLU module from {file_path}")
+                try:
+                    instance.load(str(file_path))
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load optimized module {filename}: {e}")
+            else:
+                logger.debug(f"Optimized module not found: {filename}")
+        else:
+            logger.info("No optimized NLU module found, using default zero-shot.")
+
+        return instance
 
     async def aforward(
         self,
