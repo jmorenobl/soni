@@ -1,7 +1,6 @@
-"""Action handler for executing registered actions."""
-
+import asyncio
 import inspect
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
 from soni.actions.registry import ActionRegistry
@@ -60,7 +59,9 @@ class ActionHandler:
             if inspect.iscoroutinefunction(action):
                 return await cast(Awaitable[dict[str, Any]], action(**filtered_inputs))
             else:
-                return cast(dict[str, Any], action(**filtered_inputs))
+                # Run sync actions in thread pool to avoid blocking loop
+                sync_action = cast(Callable[..., dict[str, Any]], action)
+                return await asyncio.to_thread(sync_action, **filtered_inputs)
         except Exception as e:
             # Wrap error
             raise ActionError(f"Action execution failed: {e}") from e

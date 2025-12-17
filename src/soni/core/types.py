@@ -9,16 +9,15 @@ maintaining full type safety for RuntimeContext dependencies.
 """
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Protocol, TypedDict, runtime_checkable
+from typing import Annotated, Any, Protocol, TypedDict, runtime_checkable
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
+from soni.core.constants import FlowContextState, FlowState
+
 # Forward reference for Protocol definitions
 # (Actual SoniConfig imported at runtime if needed)
-
-FlowState = Literal["idle", "active", "waiting_input", "done", "error"]
-FlowContextState = Literal["active", "completed", "cancelled"]
 
 
 class FlowContext(TypedDict):
@@ -90,7 +89,7 @@ class FlowManagerProtocol(Protocol):
     async def pop_flow(
         self,
         state: DialogueState,
-        result: FlowContextState = "completed",
+        result: FlowContextState = FlowContextState.COMPLETED,
     ) -> FlowContext:
         """Pop the top flow from the stack."""
         ...

@@ -46,13 +46,7 @@ class FlowConfig(BaseModel):
 
     description: str
     steps: list[StepConfig] = Field(default_factory=list)
-    process: list[StepConfig] | None = None  # Keep for backward compatibility if needed
     trigger: TriggerConfig | None = None  # Trigger examples
-
-    @property
-    def steps_or_process(self) -> list[StepConfig]:
-        """Return steps from either 'steps' or 'process' field (for backward compatibility)."""
-        return self.process or self.steps or []
 
     @property
     def trigger_intents(self) -> list[str]:

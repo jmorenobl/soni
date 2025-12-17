@@ -97,31 +97,40 @@ def _evaluate_comparison(
     # Parse right value (literal or slot reference)
     right_val = _parse_value(right_expr, slots)
 
-    # Type coercion for comparison
+    # 1. Handle Equality (None-safe)
+    if op_str in ("==", "!="):
+        # Allow None comparison and mixed types
+        return bool(op_func(left_val, right_val))
+
+    # 2. For ordering operators (<, >, <=, >=), missing slot means False
     if left_val is None:
         return False
 
-    try:
-        # Try numeric comparison if both are numbers
-        if isinstance(left_val, (int, float)) or (
-            isinstance(left_val, str) and left_val.replace(".", "").replace("-", "").isdigit()
-        ):
-            left_num = float(left_val) if isinstance(left_val, str) else left_val
-            right_num = (
-                float(right_val)
-                if isinstance(right_val, str)
-                and right_val.replace(".", "").replace("-", "").isdigit()
-                else right_val
-            )
-            if isinstance(right_num, (int, float)):
-                return bool(op_func(left_num, right_num))
+    # 3. Try numeric comparison
+    is_left_num, left_num = _to_number(left_val)
+    is_right_num, right_num = _to_number(right_val)
 
-        # String comparison
-        return bool(op_func(str(left_val), str(right_val)))
+    if is_left_num and is_right_num:
+        return bool(op_func(left_num, right_num))
 
-    except (ValueError, TypeError) as e:
-        logger.debug(f"Comparison failed for {condition}: {e}")
-        return False
+    # 4. Fallback: String comparison ONLY if both are strings
+    if isinstance(left_val, str) and isinstance(right_val, str):
+        return bool(op_func(left_val, right_val))
+
+    # 5. Mismatched types for ordering -> False (e.g. "abc" > 10)
+    return False
+
+
+def _to_number(val: Any) -> tuple[bool, float | int | None]:
+    """Try to convert value to number. Returns (success, value)."""
+    if isinstance(val, (int, float)):
+        return True, val
+    if isinstance(val, str) and val.replace(".", "").replace("-", "").isdigit():
+        try:
+            return True, float(val) if "." in val else int(val)
+        except ValueError:
+            return False, None
+    return False, None
 
 
 def _parse_value(expr: str, slots: dict[str, Any]) -> Any:

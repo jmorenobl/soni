@@ -22,19 +22,11 @@ class TestConfigModels:
         assert step.slot is None
         assert step.call is None
 
-    def test_flow_config_steps_property(self):
-        """
-        GIVEN FlowConfig with 'process' (legacy) or 'steps'
-        WHEN steps_or_process is accessed
-        THEN returns the non-empty list
-        """
+    def test_steps_or_process_property(self):
+        """Test steps_or_process returns correct list."""
         # Case 1: steps
-        fc1 = FlowConfig(description="desc", steps=[StepConfig(step="s1", type="a")])
-        assert len(fc1.steps_or_process) == 1
-
-        # Case 2: process (legacy)
-        fc2 = FlowConfig(description="desc", process=[StepConfig(step="s1", type="a")])
-        assert len(fc2.steps_or_process) == 1
+        fc1 = FlowConfig(description="desc", steps=[StepConfig(step="s1", type="action")])
+        assert len(fc1.steps) == 1
 
 
 class TestConfigLoader:

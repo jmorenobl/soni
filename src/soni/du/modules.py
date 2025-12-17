@@ -89,14 +89,20 @@ class SoniDU(dspy.Module):
         # Note: dspy methods typically return Prediction with output fields
         # Our signature output field is 'result' of type NLUOutput.
         history_obj = dspy.History(messages=history or [])
-        result = await self.extractor.acall(
-            user_message=user_message,
-            context=context,
-            history=history_obj,
-        )
 
-        # dspy Prediction object attributes match output fields
-        return result.result  # type: ignore
+        try:
+            result = await self.extractor.acall(
+                user_message=user_message,
+                context=context,
+                history=history_obj,
+            )
+            # dspy Prediction object attributes match output fields
+            return result.result  # type: ignore
+
+        except Exception as e:
+            logger.error(f"NLU extraction failed: {e}", exc_info=True)
+            # Return safe fallback - no commands, zero confidence
+            return NLUOutput(commands=[], confidence=0.0)
 
     def forward(
         self,

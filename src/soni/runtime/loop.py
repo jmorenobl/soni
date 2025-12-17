@@ -17,7 +17,7 @@ from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
 from soni.core.errors import StateError
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import RuntimeContext
+from soni.core.types import DUProtocol, RuntimeContext
 from soni.dm.builder import build_orchestrator
 from soni.du.modules import SoniDU
 from soni.flow.manager import FlowManager
@@ -39,6 +39,7 @@ class RuntimeLoop:
         config: SoniConfig,
         checkpointer: BaseCheckpointSaver | None = None,
         registry: ActionRegistry | None = None,
+        du: DUProtocol | None = None,
     ):
         """Initialize RuntimeLoop.
 
@@ -46,14 +47,16 @@ class RuntimeLoop:
             config: Soni configuration with flow definitions.
             checkpointer: Optional checkpointer for state persistence.
             registry: Optional action registry. Created if not provided.
+            du: Optional Dialogue Understanding module (dependency injection).
         """
         self.config = config
         self.checkpointer = checkpointer
         self._initial_registry = registry
+        self._custom_du = du
 
         # Lazy initialization - set during initialize()
         self._flow_manager: FlowManager | None = None
-        self._du: SoniDU | None = None
+        self._du: DUProtocol | None = None
         self._action_registry: ActionRegistry | None = None
         self._action_handler: ActionHandler | None = None
         self._graph: CompiledStateGraph | None = None
@@ -70,14 +73,14 @@ class RuntimeLoop:
         self._flow_manager = value
 
     @property
-    def du(self) -> SoniDU:
-        """Get SoniDU, raising if not initialized."""
+    def du(self) -> DUProtocol:
+        """Get DU module, raising if not initialized."""
         if not self._du:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
         return self._du
 
     @du.setter
-    def du(self, value: SoniDU | None) -> None:
+    def du(self, value: DUProtocol | None) -> None:
         self._du = value
 
     @property
@@ -102,8 +105,12 @@ class RuntimeLoop:
 
         self._flow_manager = FlowManager()
 
-        # Use factory to auto-load best optimized model
-        self._du = SoniDU.create_with_best_model(use_cot=True)
+        # Use injected DU or create default factory
+        if self._custom_du:
+            self._du = self._custom_du
+        else:
+            # Use factory to auto-load best optimized model
+            self._du = SoniDU.create_with_best_model(use_cot=True)
 
         self._action_registry = self._initial_registry or ActionRegistry()
         self._action_handler = ActionHandler(self._action_registry)

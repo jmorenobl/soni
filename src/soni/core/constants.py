@@ -47,3 +47,17 @@ class NodeName(StrEnum):
     EXECUTE = "execute"
     RESPOND = "respond"
     END_FLOW = "__end_flow__"
+
+
+def get_flow_node_name(flow_name: str) -> str:
+    """Generate LangGraph node name for a flow.
+
+    Centralizes the naming convention to avoid magic strings.
+
+    Args:
+        flow_name: Name of the flow (e.g., "book_flight")
+
+    Returns:
+        Node name for LangGraph (e.g., "flow_book_flight")
+    """
+    return f"flow_{flow_name}"

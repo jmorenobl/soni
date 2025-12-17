@@ -1,6 +1,0 @@
-{
-  "streaming_works": true,
-  "order_correct": true,
-  "latency_ok": true,
-  "sse_compatible": true
-}

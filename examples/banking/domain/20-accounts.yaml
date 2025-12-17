@@ -35,7 +35,7 @@ flows:
       - transaction_period:
           type: string
           ask: "For what time period? I can show you the last week, last month, or last 3 months."
-    process:
+    steps:
       # Collect required information
       - step: collect_account
         type: collect
@@ -115,7 +115,7 @@ flows:
   review_security_alerts:
     description: "Review pending security alerts automatically"
     intent: review_security_alerts
-    process:
+    steps:
       # Initialize alert review
       - step: init_alerts
         type: action

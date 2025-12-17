@@ -110,13 +110,17 @@ User: "Book a flight to Paris"
 - **Observable**: Commands logged for debugging and auditing
 """
 
+import logging
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
 from soni.core.commands import AffirmConfirmation, DenyConfirmation, SetSlot, StartFlow
+from soni.core.constants import FlowState
 from soni.core.types import DialogueState, RuntimeContext, get_runtime_context
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
+
+logger = logging.getLogger(__name__)
 
 
 def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueContext:
@@ -250,6 +254,8 @@ async def understand_node(
 
         # NOTE: Other command types (clarify, chitchat, etc.) are handled
         # by routing logic in subsequent nodes, not here
+        else:
+            logger.warning(f"Unhandled command type in understand_node: {cmd.type}")
 
     # 4. Reset flow state if we received relevant input
     # This allows the subgraph to continue executing instead of immediately returning
@@ -257,7 +263,7 @@ async def understand_node(
     new_waiting_for_slot = state.get("waiting_for_slot")
 
     if should_reset_flow_state:
-        new_flow_state = "active"
+        new_flow_state = FlowState.ACTIVE
         # Only clear waiting_for_slot for SetSlot commands
         # Confirmation commands need waiting_for_slot to identify which slot to update
         has_confirmation_cmd = any(

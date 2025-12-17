@@ -40,7 +40,7 @@ class FlowManager:
         context: FlowContext = {
             "flow_id": flow_id,
             "flow_name": flow_name,
-            "flow_state": "active",
+            "flow_state": FlowContextState.ACTIVE,
             "current_step": None,
             "step_index": 0,
             "outputs": {},
@@ -55,7 +55,7 @@ class FlowManager:
     async def pop_flow(
         self,
         state: DialogueState,
-        result: FlowContextState = "completed",
+        result: FlowContextState = FlowContextState.COMPLETED,
     ) -> FlowContext:
         """Pop the top flow from the stack.
 

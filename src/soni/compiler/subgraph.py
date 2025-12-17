@@ -15,6 +15,7 @@ from langgraph.graph import END, START, StateGraph
 from soni.compiler.factory import get_factory_for_step
 from soni.core.config import FlowConfig, StepConfig
 from soni.core.constants import NodeName
+from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
 
 # Constant for special node name
@@ -44,7 +45,7 @@ class SubgraphBuilder:
     def build(self, flow_config: FlowConfig) -> StateGraph[Any, Any]:
         """Build a StateGraph from flow configuration."""
         builder: StateGraph[Any, Any] = StateGraph(DialogueState, context_schema=RuntimeContext)
-        steps = flow_config.steps_or_process
+        steps = flow_config.steps
 
         if not steps:
             return self._build_empty_graph(builder)
@@ -214,7 +215,7 @@ class SubgraphBuilder:
 
         def router(state: DialogueState) -> str:
             # Check if we should pause execution
-            if state.get("flow_state") == "waiting_input":
+            if is_waiting_input(state):
                 return str(END)
 
             # For branch steps, check for target override
