@@ -75,7 +75,7 @@ class SoniDU(dspy.Module):
 
         return instance
 
-    async def aforward(
+    async def acall(
         self,
         user_message: str,
         context: DialogueContext,
@@ -83,6 +83,7 @@ class SoniDU(dspy.Module):
     ) -> NLUOutput:
         """Extract commands from user message (async).
 
+        Primary async interface matching DUProtocol.
         Uses native .acall() for async LM calls - more efficient
         than wrapping with asyncify.
         """
@@ -103,6 +104,9 @@ class SoniDU(dspy.Module):
             logger.error(f"NLU extraction failed: {e}", exc_info=True)
             # Return safe fallback - no commands, zero confidence
             return NLUOutput(commands=[], confidence=0.0)
+
+    # Alias for backwards compatibility
+    aforward = acall
 
     def forward(
         self,

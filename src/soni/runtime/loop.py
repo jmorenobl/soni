@@ -17,9 +17,10 @@ from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
 from soni.core.errors import StateError
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DUProtocol, RuntimeContext
+from soni.core.types import DUProtocol, RuntimeContext, SlotExtractorProtocol
 from soni.dm.builder import build_orchestrator
 from soni.du.modules import SoniDU
+from soni.du.slot_extractor import SlotExtractor
 from soni.flow.manager import FlowManager
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class RuntimeLoop:
         # Lazy initialization - set during initialize()
         self._flow_manager: FlowManager | None = None
         self._du: DUProtocol | None = None
+        self._slot_extractor: SlotExtractorProtocol | None = None
         self._action_registry: ActionRegistry | None = None
         self._action_handler: ActionHandler | None = None
         self._graph: CompiledStateGraph | None = None
@@ -112,6 +114,9 @@ class RuntimeLoop:
             # Use factory to auto-load best optimized model
             self._du = SoniDU.create_with_best_model(use_cot=True)
 
+        # Initialize slot extractor for Pass 2 of two-pass NLU
+        self._slot_extractor = SlotExtractor(use_cot=False)  # Simpler extraction
+
         self._action_registry = self._initial_registry or ActionRegistry()
         self._action_handler = ActionHandler(self._action_registry)
 
@@ -145,6 +150,7 @@ class RuntimeLoop:
             flow_manager=self.flow_manager,
             action_handler=self.action_handler,
             du=self.du,
+            slot_extractor=self._slot_extractor,
         )
 
         run_config: dict[str, Any] = {"configurable": {"thread_id": user_id}}

@@ -27,7 +27,7 @@ async def test_log_unhandled_cancel_flow(caplog):
 
     # Mock NLU output with CancelFlow
     mock_du = MagicMock()
-    mock_du.aforward = AsyncMock(return_value=MagicMock(commands=[CancelFlow(type="cancel_flow")]))
+    mock_du.acall = AsyncMock(return_value=MagicMock(commands=[CancelFlow(type="cancel_flow")]))
 
     mock_fm = MagicMock()
     mock_fm.get_active_context.return_value = None

@@ -136,7 +136,7 @@ class ActionHandlerProtocol(Protocol):
 class DUProtocol(Protocol):
     """Protocol for Dialogue Understanding (NLU) module."""
 
-    async def aforward(
+    async def acall(
         self,
         user_message: str,
         context: Any,  # DialogueContext from du.models
@@ -147,12 +147,30 @@ class DUProtocol(Protocol):
 
 
 @runtime_checkable
+class SlotExtractorProtocol(Protocol):
+    """Protocol for slot extraction (Pass 2 of two-pass NLU)."""
+
+    async def acall(
+        self,
+        user_message: str,
+        slot_definitions: list[Any],  # SlotExtractionInput from du.slot_extractor
+    ) -> list[Any]:
+        """Extract slot values from user message given slot definitions."""
+        ...
+
+
+@runtime_checkable
 class ConfigProtocol(Protocol):
     """Protocol for SoniConfig."""
 
     @property
     def flows(self) -> dict[str, Any]:
         """Access flow configurations."""
+        ...
+
+    @property
+    def slots(self) -> dict[str, Any]:
+        """Access global slot definitions."""
         ...
 
 
@@ -175,6 +193,7 @@ class RuntimeContext:
     flow_manager: FlowManagerProtocol
     action_handler: ActionHandlerProtocol
     du: DUProtocol
+    slot_extractor: SlotExtractorProtocol | None = None  # Optional for backwards compat
 
 
 # =============================================================================

@@ -45,9 +45,7 @@ class TestRuntimeLoop:
         from soni.du.models import NLUOutput
 
         mock_du = Mock()
-        mock_du.aforward = AsyncMock(
-            return_value=NLUOutput(commands=[StartFlow(flow_name="greet")])
-        )
+        mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greet")]))
         runtime.du = mock_du
 
         # Ac
@@ -76,7 +74,7 @@ class TestRuntimeLoop:
         from soni.du.models import NLUOutput
 
         mock_du = Mock()
-        mock_du.aforward = AsyncMock(return_value=NLUOutput(commands=[]))
+        mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[]))
         runtime.du = mock_du
 
         # First turn

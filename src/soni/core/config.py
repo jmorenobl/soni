@@ -41,6 +41,25 @@ class TriggerConfig(BaseModel):
     )
 
 
+class SlotConfig(BaseModel):
+    """Slot definition from YAML.
+
+    Provides metadata for slot validation and NLU extraction.
+    """
+
+    type: str = Field(default="string", description="Data type: string, float, date, etc.")
+    prompt: str = Field(default="", description="Prompt to ask user for this slot")
+    validator: str | None = Field(default=None, description="Validator function name")
+    validation_error_message: str | None = Field(
+        default=None, description="Message shown when validation fails"
+    )
+    required: bool = Field(default=True, description="Whether this slot must be filled")
+    description: str = Field(default="", description="Human-readable description for NLU")
+    examples: list[str] = Field(
+        default_factory=list, description="Example valid values for NLU extraction"
+    )
+
+
 class FlowConfig(BaseModel):
     """Configuration for a single flow."""
 
@@ -88,6 +107,7 @@ class SoniConfig(BaseModel):
 
     version: str = "1.0"
     settings: SettingsConfig = Field(default_factory=SettingsConfig)
+    slots: dict[str, SlotConfig] = Field(default_factory=dict)
     flows: dict[str, FlowConfig] = Field(default_factory=dict)
 
     @classmethod
