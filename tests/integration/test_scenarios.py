@@ -60,7 +60,7 @@ async def test_scenario_interruption_and_resume(runtime):
     await runtime.initialize()
 
     # 1. Start Booking
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(commands=[StartFlow(flow_name="book_flight")])
     )
     resp1 = await runtime.process_message("I want to book a flight", user_id="user_int")
@@ -68,7 +68,7 @@ async def test_scenario_interruption_and_resume(runtime):
 
     # 2. Interrupt with Weather (Slot filling + Flow switch)
     # The NLU detects: Start 'check_weather' AND set slot 'city'='London'
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(
             commands=[
                 StartFlow(flow_name="check_weather"),
@@ -109,13 +109,13 @@ async def test_scenario_correction(runtime):
     await runtime.initialize()
 
     # 1. Start
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(commands=[StartFlow(flow_name="book_flight")])
     )
     await runtime.process_message("Book flight", user_id="user_corr")
 
     # 2. Provide Paris
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(commands=[SetSlot(slot="destination", value="Paris")])
     )
     resp2 = await runtime.process_message("Paris", user_id="user_corr")
@@ -124,7 +124,7 @@ async def test_scenario_correction(runtime):
     # 3. Correct to London
     # NLU detects 'correction' or just 'set_slot' again (overwriting)
     # If explicit correction support exists it might use 'correct_slot', but 'set_slot' is standard fallback
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(commands=[SetSlot(slot="destination", value="London")])
     )
 
@@ -150,7 +150,7 @@ async def test_scenario_denial_cancel(runtime):
     await runtime.initialize()
 
     # Pre-fill state to reach confirmation
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(
             commands=[
                 StartFlow(flow_name="book_flight"),
@@ -169,7 +169,7 @@ async def test_scenario_denial_cancel(runtime):
     # Usually ConfirmNode checks raw message for yes/no if NLU doesn't provide specific 'confirmation' intent.
 
     # Let's assume standard "No" message.
-    runtime.du.aforward = AsyncMock(
+    runtime.du.acall = AsyncMock(
         return_value=NLUOutput(
             commands=[]  # No specific command, just text
         )

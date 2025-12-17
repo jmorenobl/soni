@@ -64,7 +64,7 @@ class TestE2E:
 
         # Turn 1: "Book flight" -> start_flow(book_flight)
         mock_du = Mock()
-        mock_du.aforward = AsyncMock(
+        mock_du.acall = AsyncMock(
             side_effect=[
                 NLUOutput(commands=[StartFlow(flow_name="book_flight")]),  # Turn 1
                 NLUOutput(commands=[SetSlot(slot="destination", value="Paris")]),  # Turn 2

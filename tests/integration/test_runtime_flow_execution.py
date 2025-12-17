@@ -43,7 +43,7 @@ async def test_runtime_simple_flow_execution():
     runtime.du = mock_du
 
     # Turn 1: User says "Hi" -> NLU starts 'greeting'
-    mock_du.aforward = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greeting")]))
+    mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greeting")]))
 
     response1 = await runtime.process_message("Hi", user_id="test_user")
 
@@ -55,7 +55,7 @@ async def test_runtime_simple_flow_execution():
     # But public API is better. 'response1' correctness is the main contract.
 
     # Turn 2: User says "Jorge" -> NLU sets slot 'name'
-    mock_du.aforward = AsyncMock(
+    mock_du.acall = AsyncMock(
         return_value=NLUOutput(commands=[SetSlot(slot="name", value="Jorge")])
     )
 
@@ -99,9 +99,7 @@ async def test_runtime_flow_persistence():
     runtime1 = RuntimeLoop(config, checkpointer=checkpointer)
     await runtime1.initialize()
     runtime1.du = Mock()
-    runtime1.du.aforward = AsyncMock(
-        return_value=NLUOutput(commands=[StartFlow(flow_name="status")])
-    )
+    runtime1.du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="status")]))
 
     await runtime1.process_message("Check status", user_id="user_1")
     # State is now: Active flow 'status', waiting for 'user_id'
@@ -112,7 +110,7 @@ async def test_runtime_flow_persistence():
     await runtime2.initialize()
     runtime2.du = Mock()
     # Resume flow: NLU understands slot filling
-    runtime2.du.aforward = AsyncMock(
+    runtime2.du.acall = AsyncMock(
         return_value=NLUOutput(commands=[SetSlot(slot="user_id", value="123")])
     )
 

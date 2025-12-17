@@ -20,7 +20,7 @@ def mock_du():
 
     mock = AsyncMock(spec=SoniDU)
     # Default response structure
-    mock.aforward.return_value = type("NLUOutput", (), {"commands": []})
+    mock.acall.return_value = type("NLUOutput", (), {"commands": []})
     return mock
 
 
@@ -59,7 +59,7 @@ async def test_auto_resume_flow(mock_du):
     from soni.core.commands import SetSlot, StartFlow
 
     # Response 1: Start Transfer
-    mock_du.aforward.side_effect = [
+    mock_du.acall.side_effect = [
         # Turn 1: transfer money
         type("NLUOutput", (), {"commands": [StartFlow(flow_name="transfer_funds")]}),
         # Turn 2: my mom
