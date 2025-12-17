@@ -439,6 +439,14 @@ class FlowTestRunner:
 
         # Note: validators not imported since soni.validation module doesn't exist yet
 
+        if self.use_real_nlu:
+            import dspy
+
+            # Configure default LM for real NLU
+            lm = dspy.LM("openai/gpt-4o-mini", temperature=0.0)
+            dspy.configure(lm=lm)
+            self.console.print(f"[dim]Configured DSPy with {lm.model}[/]")
+
         config = SoniConfig.from_yaml(self.config_path)
         checkpointer = MemorySaver()
 
