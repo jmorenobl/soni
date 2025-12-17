@@ -30,6 +30,55 @@ _EXAMPLE_DATA = DomainExampleData(
     confirmation_positive=["Yes", "Correct", "That's right", "Confirmed", "Yeah", "Perfect"],
     confirmation_negative=["No", "That's wrong", "Incorrect", "Nope"],
     confirmation_unclear=["hmm, I'm not sure", "maybe", "I don't know", "Let me think", "um..."],
+    # Multi-slot extraction examples for SlotExtractor optimization
+    slot_extraction_cases=[
+        # Product + Quantity
+        (
+            "I want 2 laptops",
+            [
+                {"slot": "quantity", "value": "2"},
+                {"slot": "product", "value": "laptops"},
+            ],
+        ),
+        (
+            "3 black headphones",
+            [
+                {"slot": "quantity", "value": "3"},
+                {"slot": "color", "value": "black"},
+                {"slot": "product", "value": "headphones"},
+            ],
+        ),
+        # Product + Color + Size
+        (
+            "Blue phone in large size",
+            [
+                {"slot": "color", "value": "blue"},
+                {"slot": "product", "value": "phone"},
+                {"slot": "size", "value": "large"},
+            ],
+        ),
+        (
+            "Silver tablet, medium",
+            [
+                {"slot": "color", "value": "silver"},
+                {"slot": "product", "value": "tablet"},
+                {"slot": "size", "value": "medium"},
+            ],
+        ),
+        # Full order
+        (
+            "Order 2 white cameras to 123 Main St",
+            [
+                {"slot": "quantity", "value": "2"},
+                {"slot": "color", "value": "white"},
+                {"slot": "product", "value": "cameras"},
+                {"slot": "shipping_address", "value": "123 Main St"},
+            ],
+        ),
+        # Negative examples
+        ("I'm looking for something", []),
+        ("Show me products", []),
+    ],
 )
 
 # Domain configuration

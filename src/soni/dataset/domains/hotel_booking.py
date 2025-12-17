@@ -29,6 +29,45 @@ _EXAMPLE_DATA = DomainExampleData(
     confirmation_positive=["Yes", "Correct", "That's right", "Confirmed", "Yeah", "Perfect"],
     confirmation_negative=["No", "That's wrong", "No, that's not right", "Incorrect", "Nope"],
     confirmation_unclear=["hmm, I'm not sure", "maybe", "I don't know", "Let me think", "um..."],
+    # Multi-slot extraction examples for SlotExtractor optimization
+    slot_extraction_cases=[
+        # Location + Dates
+        (
+            "Hotel in Paris from December 15th to December 20th",
+            [
+                {"slot": "location", "value": "Paris"},
+                {"slot": "checkin_date", "value": "December 15th"},
+                {"slot": "checkout_date", "value": "December 20th"},
+            ],
+        ),
+        (
+            "Book a room in London tomorrow",
+            [
+                {"slot": "location", "value": "London"},
+                {"slot": "checkin_date", "value": "tomorrow"},
+            ],
+        ),
+        # Location + Room Type + Guests
+        (
+            "Suite for 2 guests in Tokyo",
+            [
+                {"slot": "room_type", "value": "suite"},
+                {"slot": "guests", "value": "2"},
+                {"slot": "location", "value": "Tokyo"},
+            ],
+        ),
+        (
+            "Double room in Barcelona next Monday",
+            [
+                {"slot": "room_type", "value": "double"},
+                {"slot": "location", "value": "Barcelona"},
+                {"slot": "checkin_date", "value": "next Monday"},
+            ],
+        ),
+        # Negative examples
+        ("I need a hotel reservation", []),
+        ("Show me available hotels", []),
+    ],
 )
 
 # Domain configuration

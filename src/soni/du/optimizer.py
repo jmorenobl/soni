@@ -14,6 +14,7 @@ from soni.core.commands import Command
 from soni.du.metrics import adapt_metric_for_gepa
 from soni.du.models import NLUOutput
 from soni.du.modules import SoniDU
+from soni.du.slot_extractor import SlotExtractor
 
 
 def default_command_validator(expected: Command, actual: Command) -> bool:
@@ -195,3 +196,76 @@ def optimize_du(
     optimized = teleprompter.compile(**compile_kwargs)
 
     return cast(SoniDU, optimized)
+
+
+def optimize_slot_extractor(
+    trainset: list[Example],
+    metric: Callable,
+    valset: list[Example] | None = None,
+    auto: str = "light",  # Extraction is simpler, light usually sufficient
+    prompt_model=None,
+    teacher_model=None,
+    max_bootstrapped_demos: int = 4,
+    max_labeled_demos: int = 4,
+    num_threads: int = 6,
+    init_temperature: float = 0.8,
+    verbose: bool = True,
+    optimizer_type: str = "miprov2",
+) -> SlotExtractor:
+    """Optimize SlotExtractor with chosen optimizer strategy.
+
+    Args:
+        trainset: Training examples
+        metric: Evaluation metric function
+        valset: Validation examples
+        auto: Optimization intensity
+        prompt_model: LLM for prompts
+        teacher_model: LLM for teacher
+        optimizer_type: "miprov2" or "gepa"
+
+    Returns:
+        Optimized SlotExtractor module
+    """
+    from soni.du.slot_extractor import SlotExtractor
+
+    if optimizer_type.lower() == "gepa":
+        teleprompter = _create_gepa_optimizer(
+            metric=metric,
+            auto=auto,
+            reflection_lm=teacher_model,
+            num_threads=num_threads,
+            verbose=verbose,
+        )
+    else:
+        teleprompter = _create_miprov2_optimizer(
+            metric=metric,
+            auto=auto,
+            prompt_model=prompt_model,
+            teacher_model=teacher_model,
+            max_bootstrapped_demos=max_bootstrapped_demos,
+            max_labeled_demos=max_labeled_demos,
+            num_threads=num_threads,
+            init_temperature=init_temperature,
+            verbose=verbose,
+        )
+
+    # SlotExtractor usually works well without COT for simpler flows,
+    # but optimizer can tune COT if useful.
+    # We initialize student without COT to start simple.
+    program = SlotExtractor(use_cot=False)
+
+    # Compile optimizations
+    compile_kwargs = {
+        "student": program.deepcopy(),  # Start fresh
+        "trainset": trainset,
+    }
+
+    if valset:
+        compile_kwargs["valset"] = valset
+
+    if optimizer_type.lower() != "gepa":
+        compile_kwargs["requires_permission_to_run"] = False
+
+    optimized = teleprompter.compile(**compile_kwargs)
+
+    return cast(SlotExtractor, optimized)

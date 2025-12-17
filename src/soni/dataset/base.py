@@ -53,6 +53,13 @@ class DomainExampleData(BaseModel):
         description="Unclear/ambiguous confirmation phrases",
     )
 
+    # Multi-slot extraction examples for SlotExtractor training
+    # Each tuple: (user_message, list of {slot, value} dicts)
+    slot_extraction_cases: list[tuple[str, list[dict[str, str]]]] = Field(
+        default_factory=list,
+        description="(message, expected_slots) pairs for slot extraction optimization",
+    )
+
     def get_slot_values(self, slot_name: str) -> list[str]:
         """Get example values for a slot, with fallback defaults."""
         return self.slot_values.get(slot_name, ["value1", "value2", "value3"])

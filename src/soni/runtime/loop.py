@@ -115,7 +115,7 @@ class RuntimeLoop:
             self._du = SoniDU.create_with_best_model(use_cot=True)
 
         # Initialize slot extractor for Pass 2 of two-pass NLU
-        self._slot_extractor = SlotExtractor(use_cot=False)  # Simpler extraction
+        self._slot_extractor = SlotExtractor.create_with_best_model(use_cot=False)
 
         self._action_registry = self._initial_registry or ActionRegistry()
         self._action_handler = ActionHandler(self._action_registry)

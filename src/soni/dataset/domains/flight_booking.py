@@ -117,6 +117,54 @@ _EXAMPLE_DATA = DomainExampleData(
         "uh...",
         "well...",
     ],
+    # Multi-slot extraction examples for SlotExtractor optimization
+    slot_extraction_cases=[
+        # Origin + Destination
+        (
+            "From Madrid to Paris",
+            [
+                {"slot": "origin", "value": "Madrid"},
+                {"slot": "destination", "value": "Paris"},
+            ],
+        ),
+        (
+            "New York to London",
+            [
+                {"slot": "origin", "value": "New York"},
+                {"slot": "destination", "value": "London"},
+            ],
+        ),
+        # Origin + Destination + Date
+        (
+            "Fly from Barcelona to Rome tomorrow",
+            [
+                {"slot": "origin", "value": "Barcelona"},
+                {"slot": "destination", "value": "Rome"},
+                {"slot": "departure_date", "value": "tomorrow"},
+            ],
+        ),
+        (
+            "Book a flight to Tokyo on December 15th",
+            [
+                {"slot": "destination", "value": "Tokyo"},
+                {"slot": "departure_date", "value": "December 15th"},
+            ],
+        ),
+        # Origin + Destination + Passengers + Class
+        (
+            "2 business class tickets from Berlin to Amsterdam",
+            [
+                {"slot": "passengers", "value": "2"},
+                {"slot": "cabin_class", "value": "business"},
+                {"slot": "origin", "value": "Berlin"},
+                {"slot": "destination", "value": "Amsterdam"},
+            ],
+        ),
+        # Negative examples
+        ("I want to book a flight", []),
+        ("Search for flights", []),
+        ("What are the options?", []),
+    ],
 )
 
 # Domain configuration

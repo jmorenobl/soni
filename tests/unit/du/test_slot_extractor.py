@@ -138,5 +138,7 @@ class TestSlotExtractor:
 
         result = extractor.forward("Transfer 100", slot_defs)
 
-        assert len(result) == 1
-        assert result[0].slot == "amount"
+        result = extractor.forward("Transfer 100", slot_defs)
+
+        assert len(result.extracted_slots) == 1
+        assert result.extracted_slots[0]["slot"] == "amount"

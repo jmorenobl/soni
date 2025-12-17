@@ -340,6 +340,14 @@ def main(
 
         total_time = time.time() - start_time
 
+        # Step 4b: Optimize Slot Extractor
+        generate_and_optimize_slots(
+            auto=auto,
+            output_dir=Path("src/soni/du/optimized"),
+            optimizer=optimizer,
+            teacher_model=teacher_model,
+        )
+
         # Step 5: Save results
         print("\n[5/5] Saving optimized module...")
         output_dir = Path("src/soni/du/optimized")
@@ -387,6 +395,78 @@ def main(
 
         traceback.print_exc()
         return 1
+
+
+def generate_and_optimize_slots(
+    auto: str,
+    output_dir: Path,
+    optimizer: str,
+    teacher_model: dspy.LM,
+) -> None:
+    """Run SlotExtractor optimization pipeline."""
+    from soni.dataset.domains import ALL_DOMAINS
+    from soni.dataset.slot_extraction import SlotExtractionDatasetBuilder
+    from soni.du.metrics import create_slot_extraction_metric
+    from soni.du.optimizer import optimize_slot_extractor
+
+    print("\n[6/5] Optimizing SlotExtractor...")
+
+    # 1. Generate Datasets
+    builder = SlotExtractionDatasetBuilder()
+    all_examples = []
+
+    print("      Generating slot extraction examples...")
+    for domain_name, domain_config in ALL_DOMAINS.items():
+        templates = builder.build(domain_config)
+        examples = [t.to_dspy_example() for t in templates]
+        all_examples.extend(examples)
+        print(f"        {domain_name}: {len(examples)} examples")
+
+    print(f"      Total slot examples: {len(all_examples)}")
+
+    if not all_examples:
+        print("      No slot examples generated. Skipping slot optimization.")
+        return
+
+    # 2. Split (Simple random split as stratified is harder with slots)
+    random.shuffle(all_examples)
+    split_idx = int(len(all_examples) * 0.9)
+    train_split = all_examples[:split_idx]
+    val_split = all_examples[split_idx:]
+
+    print(f"      Training set: {len(train_split)}")
+    print(f"      Validation set: {len(val_split)}")
+
+    # 3. Optimize
+    # Use "light" auto setting by default for extraction as it's simpler
+    # unless heavy is requested
+    slot_auto = "light" if auto == "light" else "medium"
+
+    print(f"      Optimizing with {optimizer.upper()} (auto={slot_auto})...")
+
+    try:
+        optimized = optimize_slot_extractor(
+            trainset=train_split,
+            valset=val_split,
+            metric=create_slot_extraction_metric(),
+            auto=slot_auto,
+            optimizer_type=optimizer,
+            teacher_model=teacher_model,
+        )
+
+        # 4. Save
+        output_path = output_dir / f"baseline_v1_slots_{optimizer}.json"
+        # SlotExtractor needs save method to be explicit? It inherits from dspy.Module so save() works.
+        optimized.save(str(output_path))
+        print(f"      Optimized SlotExtractor saved to: {output_path}")
+
+        # Save dataset too
+        dataset_path = Path("src/soni/du/datasets/baseline_v1_slots.json")
+        save_dataset(all_examples, dataset_path)
+
+    except Exception as e:
+        print(f"      Slot optimization failed: {e}")
+        # Don't fail the whole script for this optional component
 
 
 if __name__ == "__main__":

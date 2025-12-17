@@ -7,7 +7,8 @@ This module is called ONLY when Pass 1 (SoniDU) detects a StartFlow command.
 """
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import dspy
 from pydantic import BaseModel, Field
@@ -73,6 +74,7 @@ class SlotExtractor(dspy.Module):
     - Focused extraction using flow-specific slot definitions
     - Lightweight compared to full NLU (no intent detection)
     - Returns SetSlot commands ready to merge with Pass 1 results
+    - Support for optimization and persistence
     """
 
     def __init__(self, use_cot: bool = False):
@@ -87,6 +89,40 @@ class SlotExtractor(dspy.Module):
             self.extractor = dspy.ChainOfThought(ExtractSlots)
         else:
             self.extractor = dspy.Predict(ExtractSlots)
+
+    @classmethod
+    def create_with_best_model(cls, use_cot: bool = False) -> "SlotExtractor":
+        """Create SlotExtractor instance with the best available optimized model.
+
+        Automatically searches for optimization files in `src/soni/du/optimized`.
+        """
+        instance = cls(use_cot=use_cot)
+
+        base_path = Path(__file__).parent / "optimized"
+        # Search order: GEPA first (usually best), then MIPROv2, then baseline
+        optimized_files = [
+            "slot_extractor_gepa.json",
+            "slot_extractor_miprov2.json",
+            "baseline_v1_slots_gepa.json",  # Script output format
+            "baseline_v1_slots_miprov2.json",  # Script output format
+            "optimized_slot_extractor.json",  # CLI output format
+        ]
+
+        for filename in optimized_files:
+            file_path = base_path / filename
+            if file_path.exists():
+                logger.info(f"Loading optimized SlotExtractor from {file_path}")
+                try:
+                    instance.load(str(file_path))
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to load optimized module {filename}: {e}")
+            else:
+                logger.debug(f"Optimized module not found: {filename}")
+        else:
+            logger.info("No optimized SlotExtractor found, using default zero-shot.")
+
+        return instance
 
     async def acall(
         self,
@@ -138,24 +174,18 @@ class SlotExtractor(dspy.Module):
         self,
         user_message: str,
         slot_definitions: list[SlotExtractionInput],
-    ) -> list[SetSlot]:
-        """Sync version (for testing/optimization)."""
+    ) -> SlotExtractionResult:
+        """Sync version (for testing/optimization).
+
+        Note: Optimization uses raw Signature output (SlotExtractionResult),
+        not SetSlot commands directly, because Metrics need structured I/O.
+        """
         if not slot_definitions:
-            return []
+            return SlotExtractionResult(extracted_slots=[])
 
         result = self.extractor(
             user_message=user_message,
             slot_definitions=slot_definitions,
         )
 
-        extracted: list[SetSlot] = []
-        for slot_data in result.result.extracted_slots:
-            slot_name = slot_data.get("slot")
-            slot_value = slot_data.get("value")
-
-            if slot_name and slot_value is not None:
-                valid_names = {s.name for s in slot_definitions}
-                if slot_name in valid_names:
-                    extracted.append(SetSlot(slot=slot_name, value=slot_value))
-
-        return extracted
+        return cast(SlotExtractionResult, result.result)

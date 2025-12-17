@@ -30,6 +30,46 @@ _EXAMPLE_DATA = DomainExampleData(
     confirmation_positive=["Yes", "Correct", "That's right", "Confirmed", "Yeah", "Perfect"],
     confirmation_negative=["No", "That's wrong", "Incorrect", "Nope"],
     confirmation_unclear=["hmm, I'm not sure", "maybe", "I don't know", "Let me think", "um..."],
+    # Multi-slot extraction examples for SlotExtractor optimization
+    slot_extraction_cases=[
+        # Location + Date + Time
+        (
+            "Table in Madrid tomorrow at 8:00 PM",
+            [
+                {"slot": "location", "value": "Madrid"},
+                {"slot": "date", "value": "tomorrow"},
+                {"slot": "time", "value": "8:00 PM"},
+            ],
+        ),
+        (
+            "Reservation for Saturday night at 7:30 PM",
+            [
+                {"slot": "date", "value": "Saturday"},
+                {"slot": "time", "value": "7:30 PM"},
+            ],
+        ),
+        # Location + Party Size + Cuisine
+        (
+            "Italian restaurant for 4 people in Paris",
+            [
+                {"slot": "cuisine", "value": "Italian"},
+                {"slot": "party_size", "value": "4"},
+                {"slot": "location", "value": "Paris"},
+            ],
+        ),
+        (
+            "Japanese dinner for 2 in Tokyo at 9:00 PM",
+            [
+                {"slot": "cuisine", "value": "Japanese"},
+                {"slot": "party_size", "value": "2"},
+                {"slot": "location", "value": "Tokyo"},
+                {"slot": "time", "value": "9:00 PM"},
+            ],
+        ),
+        # Negative examples
+        ("I want to make a reservation", []),
+        ("Find me a restaurant", []),
+    ],
 )
 
 # Domain configuration

@@ -33,6 +33,9 @@ def run(
     dataset: Path | None = typer.Option(None, "--trainset", "-t", help="Generated dataset path"),
     output: Path = typer.Option(Path("models"), "--output", "-o", help="Output directory"),
     trials: int = typer.Option(10, "--trials", "-n", help="Optimization trials"),
+    include_slots: bool = typer.Option(
+        False, "--include-slots", help="Optimize slot extraction too"
+    ),
 ):
     """Run optimization pipeline."""
 
@@ -73,18 +76,61 @@ def run(
     # 4. Optimize
     console.print(f"Starting optimization (trials={trials})...")
 
+    output.mkdir(parents=True, exist_ok=True)
+
     try:
         optimized = optimize_du(trainset=examples, metric=_get_metric(), auto="light")
 
-        output.mkdir(parents=True, exist_ok=True)
         save_path = output / "optimized_nlu.json"
         optimized.save(str(save_path))
 
-        console.print(f"[green]Optimization complete![/] Saved to {save_path}")
+        console.print(f"[green]SoniDU Optimization complete![/] Saved to {save_path}")
 
     except Exception as e:
-        console.print(f"[red]Optimization failed: {e}[/]")
-        raise typer.Exit(1)
+        console.print(f"[red]SoniDU Optimization failed: {e}[/]")
+        # Do not raise immediately if we want to try slots
+        if not include_slots:
+            raise typer.Exit(1)
+
+    # 5. Optimize Slots
+    if include_slots:
+        try:
+            console.print("Starting SlotExtractor optimization...")
+            from soni.dataset.domains import ALL_DOMAINS
+            from soni.dataset.slot_extraction import SlotExtractionDatasetBuilder
+            from soni.du.metrics import create_slot_extraction_metric
+            from soni.du.optimizer import optimize_slot_extractor
+
+            # Use ALL_DOMAINS for comprehensive training
+            # This leverages the slot_extraction_cases defined in each domain
+            slot_builder = SlotExtractionDatasetBuilder()
+            all_slot_examples = []
+
+            for domain_name, domain_config in ALL_DOMAINS.items():
+                templates = slot_builder.build(domain_config)
+                examples = [t.to_dspy_example() for t in templates]
+                all_slot_examples.extend(examples)
+                console.print(f"  [dim]{domain_name}: {len(examples)} examples[/]")
+
+            console.print(f"Generated {len(all_slot_examples)} total slot examples.")
+
+            if not all_slot_examples:
+                console.print("[yellow]No slot examples generated. Skipping.[/]")
+            else:
+                optimized_slots = optimize_slot_extractor(
+                    trainset=all_slot_examples, metric=create_slot_extraction_metric(), auto="light"
+                )
+
+                slot_save_path = output / "optimized_slot_extractor.json"
+                optimized_slots.save(str(slot_save_path))
+
+                console.print(
+                    f"[green]SlotExtractor Optimization complete![/] Saved to {slot_save_path}"
+                )
+
+        except Exception as e:
+            console.print(f"[red]SlotExtractor Optimization failed: {e}[/]")
+            raise typer.Exit(1)
 
 
 @app.command()

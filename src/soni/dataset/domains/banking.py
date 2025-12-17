@@ -39,6 +39,53 @@ _EXAMPLE_DATA = DomainExampleData(
     confirmation_positive=["Yes", "Sure", "Confirm", "That's right", "Go ahead"],
     confirmation_negative=["No", "Cancel", "That's wrong", "Stop", "Don't do it"],
     confirmation_unclear=["Maybe", "I don't know", "Later", "What?"],
+    # Multi-slot extraction examples for SlotExtractor optimization
+    slot_extraction_cases=[
+        # Amount + Currency
+        (
+            "Send 100 USD",
+            [{"slot": "amount", "value": "100"}, {"slot": "currency", "value": "USD"}],
+        ),
+        (
+            "Transfer 50 euros",
+            [{"slot": "amount", "value": "50"}, {"slot": "currency", "value": "euros"}],
+        ),
+        (
+            "I need 200 dollars",
+            [{"slot": "amount", "value": "200"}, {"slot": "currency", "value": "dollars"}],
+        ),
+        # Amount + Recipient
+        (
+            "Pay mom 500",
+            [{"slot": "recipient", "value": "mom"}, {"slot": "amount", "value": "500"}],
+        ),
+        (
+            "Transfer to Alice 20",
+            [{"slot": "recipient", "value": "Alice"}, {"slot": "amount", "value": "20"}],
+        ),
+        ("Send Bob 75", [{"slot": "recipient", "value": "Bob"}, {"slot": "amount", "value": "75"}]),
+        # Amount + Currency + Account
+        (
+            "From savings send 1000 EUR",
+            [
+                {"slot": "account_type", "value": "savings"},
+                {"slot": "amount", "value": "1000"},
+                {"slot": "currency", "value": "EUR"},
+            ],
+        ),
+        (
+            "Transfer 250 GBP from checking",
+            [
+                {"slot": "amount", "value": "250"},
+                {"slot": "currency", "value": "GBP"},
+                {"slot": "account_type", "value": "checking"},
+            ],
+        ),
+        # Negative examples (no slots)
+        ("Check my balance", []),
+        ("I want to transfer", []),
+        ("What's my account status?", []),
+    ],
 )
 
 # Domain configuration
