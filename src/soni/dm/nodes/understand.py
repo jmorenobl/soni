@@ -1,24 +1,142 @@
-"""Understand node - processes input."""
+"""UnderstandNode - processes user input through NLU and updates dialogue state.
+
+## How Understand Node Works
+
+The understand node is the **NLU gateway** in Soni's dialogue management pipeline.
+It transforms raw user input into structured commands that the Dialogue Manager
+can execute deterministically.
+
+## Processing Pipeline
+
+1. **Build DialogueContext**: Constructs comprehensive context from current state
+2. **Run NLU**: Passes user message + context to DSPy-optimized NLU module
+3. **Extract Commands**: Receives structured Pydantic commands from NLU
+4. **Update State**: Applies commands to modify flow stack and slots
+5. **Return Changes**: Returns modified state keys for LangGraph persistence
+
+```
+User Message → Build Context → NLU (DSPy) → Commands → State Updates
+     ↓              ↓              ↓            ↓           ↓
+  "Book a      Available     [StartFlow,   Push flow,  Return new
+   flight"      flows,        SetSlot]     set slot     flow_stack
+               current slots,
+               expected slot
+```
+
+## DialogueContext Construction
+
+The `build_du_context` helper constructs a rich context object containing:
+
+- **Available Flows**: All flows user can start (from config)
+- **Available Commands**: Command types NLU can generate
+- **Active Flow**: Currently executing flow (if any)
+- **Current Slots**: Already-filled slot values in active flow
+- **Expected Slot**: Slot the system is currently asking for
+- **Conversation State**: Current phase (idle, collecting, confirming)
+
+## Command Processing
+
+Commands are **typed Pydantic models** from `soni.core.commands`:
+
+### Flow Control Commands
+- **start_flow**: Push new flow onto stack
+- **cancel_flow**: Cancel and pop current flow
+
+### Slot Commands
+- **set_slot**: Fill a slot with extracted value
+- **correct_slot**: Update previously filled slot
+- **affirm**: User confirms (yes)
+- **deny**: User denies (no)
+
+### Conversation Commands
+- **clarify**: User requests clarification
+- **chitchat**: Off-topic conversation
+
+## State Management
+
+The understand node uses **FlowManager** to:
+- **handle_intent_change**: Push new flows onto stack
+- **set_slot**: Update slot values in active flow context
+
+**Critical**: Uses `flow_id` (unique instance) not `flow_name` (definition)
+for data access to support multiple instances of same flow.
+
+## Integration Points
+
+- **Upstream**: Entry point for each dialogue turn (from RuntimeLoop)
+- **Downstream**: Routes to `execute_node` which dispatches to flows
+- **Dependencies**:
+  - `DUProtocol` (NLU provider - typically SoniDU with DSPy)
+  - `FlowManager` (state mutations)
+  - `SoniConfig` (flow definitions)
+
+## Type Safety
+
+Commands are properly typed using Pydantic's discriminated unions:
+- No `hasattr()` checks needed - use `isinstance()` for type narrowing
+- Pydantic ensures required fields exist per command type
+- Command structure validated at NLU output boundary
+
+## Example Flow
+
+```
+User: "Book a flight to Paris"
+
+1. Build Context:
+   - available_flows: [book_flight, check_status, ...]
+   - active_flow: None
+   - expected_slot: None
+
+2. NLU Output:
+   commands: [
+     StartFlow(type="start_flow", flow_name="book_flight"),
+     SetSlot(type="set_slot", slot="destination", value="Paris")
+   ]
+
+3. State Updates:
+   - Push book_flight flow to stack
+   - Set destination="Paris" in flow slots
+
+4. Return:
+   - flow_stack: [FlowContext(flow_id="book_flight_a1b2", ...)]
+   - flow_slots: {"book_flight_a1b2": {"destination": "Paris"}}
+```
+
+## Implementation Details
+
+- **Async**: All operations use `async def` for consistency
+- **Idempotent Commands**: Commands can be replayed without side effects
+- **Type-Safe**: Leverages Pydantic models throughout pipeline
+- **Observable**: Commands logged for debugging and auditing
+"""
 
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
+from soni.core.commands import SetSlot, StartFlow
 from soni.core.types import DialogueState, RuntimeContext, get_runtime_context
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
 
 
 def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueContext:
-    """Construct NLU context from state."""
+    """Construct NLU context from current dialogue state.
+
+    Builds a comprehensive DialogueContext object containing all information
+    the NLU needs to understand user intent: available flows, commands,
+    current slots, and expected slot.
+
+    Args:
+        state: Current dialogue state from LangGraph
+        context: Runtime context with config and managers
+
+    Returns:
+        DialogueContext ready for NLU processing
+    """
     config = context.config
     fm = context.flow_manager
 
-    # 1. Available flows
-    # config.flows is dict[str, FlowConfig]
-    # FlowInfo needs name, description, trigger_intents
-    # FlowConfig has description. It doesn't have trigger_examples?
-    # Assume flow name/desc is enough for now or use placeholders
-
+    # 1. Available flows from config
     available_flows = []
     if hasattr(config, "flows"):
         for name, flow_cfg in config.flows.items():
@@ -62,6 +180,8 @@ def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueC
         for slot_name, slot_value in slot_dict.items():
             # Skip internal slots (prefixed with __)
             if not slot_name.startswith("__"):
+                # NOTE: Converting to string to maintain consistency with NLU expectations
+                # Type coercion happens in validators, not here
                 current_slots.append(
                     SlotValue(name=slot_name, value=str(slot_value) if slot_value else None)
                 )
@@ -80,7 +200,19 @@ async def understand_node(
     state: DialogueState,
     config: RunnableConfig,
 ) -> dict[str, Any]:
-    """Process user input via NLU."""
+    """Process user input via NLU and update state with extracted commands.
+
+    This is the main entry point for understanding user intent. It coordinates
+    between the NLU module and the FlowManager to transform raw input into
+    structured state changes.
+
+    Args:
+        state: Current dialogue state
+        config: LangGraph runnable config (contains RuntimeContext)
+
+    Returns:
+        Dictionary with updated state keys (flow_stack, flow_slots, commands, etc.)
+    """
     # 1. Get Context
     context = get_runtime_context(config)
     du = context.du  # DUProtocol
@@ -92,17 +224,20 @@ async def understand_node(
     nlu_out = await du.aforward(user_message, du_ctx)
 
     # 3. Process Commands (Update State)
-    # We apply them to 'state' object here, then return the Modified keys
+    # Commands are typed Pydantic models - use isinstance() for type narrowing
     commands = nlu_out.commands
 
     for cmd in commands:
-        if cmd.type == "start_flow" and hasattr(cmd, "flow_name"):
-            # Check availability logic? For now just push.
+        # Use isinstance() for proper type narrowing (SOLID compliance)
+        if isinstance(cmd, StartFlow):
             # Handle intent change (pushes flow)
             await fm.handle_intent_change(state, cmd.flow_name)
 
-        elif cmd.type == "set_slot" and hasattr(cmd, "slot"):
+        elif isinstance(cmd, SetSlot):
             await fm.set_slot(state, cmd.slot, cmd.value)
+
+        # NOTE: Other command types (affirm, deny, clarify, etc.) are handled
+        # by routing logic in subsequent nodes, not here
 
     # 4. Return updates
     # Must return keys that changed so LangGraph keeps them

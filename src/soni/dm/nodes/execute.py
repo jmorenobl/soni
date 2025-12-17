@@ -1,4 +1,52 @@
-"""Execute node - routes to active flow."""
+"""ExecuteNode - main routing hub for dialogue execution.
+
+## How Execute Node Works
+
+The execute node is the **central dispatcher** in Soni's dialogue management system.
+It acts as the main entry point after the understand node processes user input, and
+determines where execution should flow next based on the current flow stack state.
+
+## Execution Flow
+
+1. **Check Flow Stack**: Examines the `flow_stack` to determine if there's an active flow
+2. **Route to Subgraph**: If active flow exists → jumps to that flow's subgraph node
+3. **Route to Respond**: If no active flow → jumps to respond node (idle state)
+
+```
+User Input → Understand → Execute → ?
+                                    ├─ flow_booking (active flow detected)
+                                    ├─ flow_transfer (active flow detected)
+                                    └─ respond (no active flow, idle state)
+```
+
+## Flow Subgraph Naming Convention
+
+Each compiled flow creates a dedicated subgraph node following this pattern:
+
+- **Convention**: `flow_{flow_name}`
+- **Example**: Flow "book_flight" → Node "flow_booking"
+- **Dynamic Routing**: Uses LangGraph's `Command(goto=target)` for runtime dispatch
+
+## State Management
+
+The execute node relies on `FlowManager` to:
+- **Get Active Context**: Retrieves current flow information from stack
+- **Determine Routing**: Uses flow name to construct target subgraph identifier
+
+## Integration Points
+
+- **Upstream**: Receives control from `understand_node` after NLU processing
+- **Downstream**:
+  - Flow subgraphs (for active flows)
+  - `respond_node` (for idle state)
+- **Resume Flow**: After a flow completes, `resume_node` may loop back to execute
+
+## Implementation Details
+
+- **No State Mutation**: This node is read-only, it only routes based on current state
+- **Fallback Behavior**: If no active flow, defaults to respond node
+- **Dynamic Dispatch**: Uses LangGraph Command API for runtime routing decisions
+"""
 
 from typing import Any
 
