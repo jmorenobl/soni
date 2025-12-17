@@ -14,10 +14,21 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
-from soni.core.constants import CommandType
+from soni.core.constants import CommandType, SlotWaitType
 from soni.core.types import DialogueState, get_runtime_context
 
 logger = logging.getLogger(__name__)
+
+
+def _format_prompt(prompt: str, slots: dict[str, Any]) -> str:
+    """Format a prompt template with slot values.
+
+    Safely handles missing keys by returning the original prompt.
+    """
+    try:
+        return prompt.format(**slots)
+    except KeyError:
+        return prompt
 
 
 def _find_confirmation_command(commands: list[Any]) -> tuple[bool | None, str | None]:
@@ -89,6 +100,7 @@ class ConfirmNodeFactory:
             if state.get("waiting_for_slot") == slot_name:
                 # Get NLU commands from state
                 commands = state.get("commands", [])
+
                 is_affirmed, slot_to_change = _find_confirmation_command(commands)
 
                 if is_affirmed is not None:
@@ -96,20 +108,40 @@ class ConfirmNodeFactory:
                     await flow_manager.set_slot(state, slot_name, is_affirmed)
                     logger.debug(f"Confirmation slot '{slot_name}' set to {is_affirmed} via NLU")
 
-                    # If denied with slot_to_change, wait for new value
-                    if not is_affirmed and slot_to_change:
-                        logger.debug(f"Modification requested for slot '{slot_to_change}'")
-                        # Clear the confirmation slot so we re-confirm after modification
-                        await flow_manager.set_slot(state, slot_name, None)
-                        # Prompt for the new value
-                        prompt_message = f"What would you like to change {slot_to_change} to?"
-                        return {
-                            "flow_state": "waiting_input",
-                            "waiting_for_slot": slot_to_change,
-                            "messages": [AIMessage(content=prompt_message)],
-                            "last_response": prompt_message,
-                            "flow_slots": state["flow_slots"],
-                        }
+                    if not is_affirmed:
+                        # User denied - check if they also provided a new value via SetSlot
+                        has_set_slot = any(c.get("type") == "set_slot" for c in commands)
+
+                        if has_set_slot:
+                            # Value already set by SetSlot (processed by understand_node)
+                            # Just re-prompt confirmation with new values
+                            logger.debug("Denial with SetSlot - re-prompting confirmation")
+                            await flow_manager.set_slot(state, slot_name, None)
+                            slots = flow_manager.get_all_slots(state)
+                            formatted_prompt = _format_prompt(prompt, slots)
+
+                            return {
+                                "flow_state": "waiting_input",
+                                "waiting_for_slot": slot_name,
+                                "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+                                "last_response": formatted_prompt,
+                                "messages": [AIMessage(content=formatted_prompt)],
+                                "flow_slots": state["flow_slots"],
+                            }
+
+                        elif slot_to_change:
+                            # User wants to change but didn't provide value - ask for it
+                            logger.debug(f"Modification requested for slot '{slot_to_change}'")
+                            await flow_manager.set_slot(state, slot_name, None)
+                            prompt_message = f"What would you like to change {slot_to_change} to?"
+                            return {
+                                "flow_state": "waiting_input",
+                                "waiting_for_slot": slot_to_change,
+                                "waiting_for_slot_type": SlotWaitType.COLLECTION,
+                                "messages": [AIMessage(content=prompt_message)],
+                                "last_response": prompt_message,
+                                "flow_slots": state["flow_slots"],
+                            }
 
                     result: dict[str, Any] = {
                         "flow_state": "active",
@@ -139,10 +171,16 @@ class ConfirmNodeFactory:
 
                 # Re-ask
                 await flow_manager.set_slot(state, retry_key, current_retries + 1)
-                retry_prompt = f"I need a clear yes or no answer. {prompt}"
+
+                # Format prompt with current slot values for retry
+                slots = flow_manager.get_all_slots(state)
+                formatted_prompt = _format_prompt(prompt, slots)
+                retry_prompt = f"I need a clear yes or no answer. {formatted_prompt}"
+
                 return {
                     "flow_state": "waiting_input",
                     "waiting_for_slot": slot_name,
+                    "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
                     "last_response": retry_prompt,
                     "messages": [AIMessage(content=retry_prompt)],
                     "flow_slots": state["flow_slots"],
@@ -150,14 +188,12 @@ class ConfirmNodeFactory:
 
             # First visit - ask for confirmation
             slots = flow_manager.get_all_slots(state)
-            try:
-                formatted_prompt = prompt.format(**slots)
-            except KeyError:
-                formatted_prompt = prompt
+            formatted_prompt = _format_prompt(prompt, slots)
 
             return {
                 "flow_state": "waiting_input",
                 "waiting_for_slot": slot_name,
+                "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
                 "messages": [AIMessage(content=formatted_prompt)],
                 "last_response": formatted_prompt,
             }

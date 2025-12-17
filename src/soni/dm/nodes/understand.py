@@ -52,7 +52,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.core.commands import AffirmConfirmation, DenyConfirmation, SetSlot, StartFlow
-from soni.core.constants import FlowState
+from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import (
     ConfigProtocol,
     DialogueState,
@@ -191,13 +191,23 @@ def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueC
                     SlotValue(name=slot_name, value=str(slot_value) if slot_value else None)
                 )
 
+    # Determine conversation state
+    waiting_for_slot_type = state.get("waiting_for_slot_type")
+
+    # Detect conversation state using explicit slot type
+    # Replaces the previous suffix-based heuristic (waiting_for_slot.endswith("_confirmed"))
+    is_confirming = waiting_for_slot_type == SlotWaitType.CONFIRMATION
+    conversation_state = (
+        "idle" if not active_flow else "confirming" if is_confirming else "collecting"
+    )
+
     return DialogueContext(
         available_flows=available_flows,
         available_commands=available_commands,
         active_flow=active_flow,
         current_slots=current_slots,
-        expected_slot=expected_slot,
-        conversation_state="idle" if not active_flow else "collecting",
+        expected_slot=expected_slot,  # Keeping original variable name for compatibility
+        conversation_state=conversation_state,
     )
 
 

@@ -40,6 +40,16 @@ class CommandType(StrEnum):
     HANDOFF = "handoff"
 
 
+class SlotWaitType(StrEnum):
+    """Type of input the system is waiting for.
+
+    Used to determine conversation state without relying on slot naming conventions.
+    """
+
+    CONFIRMATION = "confirmation"  # Waiting for yes/no confirmation
+    COLLECTION = "collection"  # Waiting for a slot value
+
+
 class NodeName(StrEnum):
     """Special node names in the graph."""
 

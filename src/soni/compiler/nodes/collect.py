@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
+from soni.core.constants import SlotWaitType
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -42,6 +43,7 @@ class CollectNodeFactory:
             return {
                 "flow_state": "waiting_input",
                 "waiting_for_slot": slot_name,
+                "waiting_for_slot_type": SlotWaitType.COLLECTION,
                 "messages": [AIMessage(content=prompt)],
                 "last_response": prompt,
             }

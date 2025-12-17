@@ -13,7 +13,7 @@ from typing import Literal
 
 import dspy
 
-from soni.core.commands import CorrectSlot, DenyConfirmation
+from soni.core.commands import CorrectSlot, DenyConfirmation, SetSlot
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,
@@ -124,6 +124,32 @@ class ModificationGenerator(PatternGenerator):
                     ),
                     expected_output=NLUOutput(
                         commands=[DenyConfirmation(slot_to_change=slot_name)],
+                        confidence=0.9,
+                    ),
+                    domain=domain_config.name,
+                    pattern="modification",
+                    context_type="ongoing",
+                    current_datetime=DEFAULT_EXAMPLE_DATETIME,
+                )
+            )
+
+            # Example 4: Direct value modification during confirmation (e.g. "let's make 200")
+            examples.append(
+                ExampleTemplate(
+                    user_message=f"actually make it {new_value}",
+                    conversation_context=ConversationContext(
+                        history=dspy.History(
+                            messages=[{"user_message": f"Confirm {slot_name}: {old_value}?"}]
+                        ),
+                        current_slots={slot_name: old_value},
+                        current_flow=primary_flow,
+                        expected_slots=[],
+                        conversation_state="confirming",
+                    ),
+                    expected_output=NLUOutput(
+                        commands=[
+                            SetSlot(slot=slot_name, value=new_value),
+                        ],
                         confidence=0.9,
                     ),
                     domain=domain_config.name,

@@ -14,6 +14,7 @@ def create_empty_dialogue_state() -> DialogueState:
         "flow_slots": {},
         "flow_state": FlowState.IDLE,
         "waiting_for_slot": None,
+        "waiting_for_slot_type": None,
         "commands": [],
         "response": None,
         "action_result": None,

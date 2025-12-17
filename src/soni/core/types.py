@@ -14,7 +14,7 @@ from typing import Annotated, Any, Protocol, TypedDict, runtime_checkable
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
-from soni.core.constants import FlowContextState, FlowState
+from soni.core.constants import FlowContextState, FlowState, SlotWaitType
 
 # Forward reference for Protocol definitions
 # (Actual SoniConfig imported at runtime if needed)
@@ -54,6 +54,7 @@ class DialogueState(TypedDict):
     # State tracking
     flow_state: FlowState
     waiting_for_slot: str | None
+    waiting_for_slot_type: SlotWaitType | None  # CONFIRMATION | COLLECTION
 
     # Commands from NLU (replaced each turn, no reducer)
     commands: list[dict[str, Any]]  # Serialized commands

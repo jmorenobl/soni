@@ -414,6 +414,26 @@ class MockNLUProvider:
         # Default: treat as slot value
         waiting_for = context.get("waiting_for_slot")
         if waiting_for:
+            # ELEGANT SOLUTION: When user modifies a slot during confirmation,
+            # NLU generates BOTH DenyConfirmation and SetSlot.
+            # This uses the existing confirm_node flow naturally.
+            if waiting_for.endswith("_confirmed"):
+                if "200" in message:
+                    # User is modifying amount during confirmation
+                    return self.NLUOutput(
+                        commands=[
+                            self.DenyConfirmation(),  # "No, I don't confirm"
+                            self.SetSlot(slot="amount", value="200"),  # "The new value is 200"
+                        ]
+                    )
+                if "mom" in message:
+                    return self.NLUOutput(
+                        commands=[
+                            self.DenyConfirmation(),
+                            self.SetSlot(slot="beneficiary_name", value="my mom"),
+                        ]
+                    )
+
             return self.NLUOutput(commands=[self.SetSlot(slot=waiting_for, value=message)])
 
         # Fallback
@@ -577,7 +597,7 @@ class FlowTestRunner:
         from unittest.mock import AsyncMock, Mock
 
         mock_du = Mock()
-        mock_du.aforward = AsyncMock(return_value=nlu_response)
+        mock_du.acall = AsyncMock(return_value=nlu_response)  # Fixed: acall not aforward
 
         # Temporarily replace DU
         original_du = self._runtime.du

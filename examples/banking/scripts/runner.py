@@ -28,6 +28,7 @@ from examples.banking.scripts.scenarios import (
     bills,
     cards,
     complex,
+    confirmation,
     initialization,
     security,
     transfer,
@@ -50,6 +51,7 @@ def _collect_all_scenarios() -> dict[str, Scenario]:
         **{s.name: s for s in cards.SCENARIOS},
         **{s.name: s for s in bills.SCENARIOS},
         **{s.name: s for s in complex.SCENARIOS},
+        **{s.name: s for s in confirmation.SCENARIOS},
         **{s.name: s for s in initialization.SCENARIOS},
         **{s.name: s for s in security.SCENARIOS},
     }
