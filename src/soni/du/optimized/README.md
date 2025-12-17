@@ -13,7 +13,7 @@ This directory contains pre-trained NLU modules that ship with the Soni framewor
 - **Baseline accuracy:** N/A
 - **Optimized accuracy:** N/A
 - **Optimizer:** MIPROv2 (auto=light)
-- **Training time:** 298.4s
+- **Training time:** 292.3s
 
 ### Dataset Coverage
 

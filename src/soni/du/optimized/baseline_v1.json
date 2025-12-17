@@ -5,7 +5,7 @@
     "demos": [
       {
         "augmented": true,
-        "user_message": "No, change the amount",
+        "user_message": "Yes",
         "context": {
           "available_flows": [
             {
@@ -171,6 +171,16 @@
               "name": "amount",
               "value": "10",
               "expected_type": "number"
+            },
+            {
+              "name": "currency",
+              "value": "USD",
+              "expected_type": "string"
+            },
+            {
+              "name": "recipient",
+              "value": "mom",
+              "expected_type": "string"
             }
           ],
           "expected_slot": null,
@@ -179,58 +189,53 @@
         "history": {
           "messages": [
             {
-              "user_message": "Confirm amount: 10?"
+              "user_message": "Confirm: {'amount': '10', 'currency': 'USD', 'recipient': 'mom'}?"
             }
           ]
         },
-        "reasoning": "The user has denied the confirmation for the amount of 10 and requested to change it. Since the current slot for the amount is set to 10, I will generate a command to deny the confirmation and indicate that the amount needs to be changed.",
+        "reasoning": "The user has confirmed the action to transfer funds with the specified amount, currency, and recipient. Since the conversation state is \"confirming\" and the user responded with \"Yes,\" we will generate an affirm command to proceed with the transfer.",
         "result": {
           "commands": [
             {
-              "type": "deny",
-              "slot_to_change": "amount"
+              "type": "affirm"
             }
           ],
-          "confidence": 0.95
+          "confidence": 1.0
         }
       },
       {
-        "user_message": "How long will this take?",
-        "history": [
-          {
-            "user_message": "I want to search_product"
-          }
-        ],
+        "user_message": "I need a hotel reservation",
+        "history": [],
         "context": {
           "available_flows": [
             {
-              "name": "search_product",
-              "description": "Search for products by name or category",
+              "name": "book_hotel",
+              "description": "Book hotel rooms in different cities",
               "trigger_intents": [
-                "I'm looking for a",
-                "Show me",
-                "I want to buy a",
-                "Can you help me find a"
+                "I want to book a hotel",
+                "Book a hotel room",
+                "I need a hotel reservation",
+                "Can you help me book a hotel"
               ]
             },
             {
-              "name": "add_to_cart",
-              "description": "Add products to your shopping cart",
+              "name": "search_hotels",
+              "description": "Search for available hotels and compare options",
               "trigger_intents": []
             },
             {
-              "name": "checkout",
-              "description": "Complete purchase and payment",
+              "name": "check_reservation",
+              "description": "Check the status of an existing reservation",
               "trigger_intents": []
             },
             {
-              "name": "track_order",
-              "description": "Track the status of an order shipment",
+              "name": "modify_reservation",
+              "description": "Modify an existing hotel reservation",
               "trigger_intents": []
             },
             {
-              "name": "return_product",
-              "description": "Return a product and get a refund",
+              "name": "cancel_reservation",
+              "description": "Cancel a hotel reservation",
               "trigger_intents": []
             }
           ],
@@ -294,23 +299,45 @@
               "example": ""
             }
           ],
-          "active_flow": "search_product",
+          "active_flow": null,
           "flow_slots": [
             {
-              "name": "product",
-              "slot_type": "string",
-              "description": "What product are you looking for?",
+              "name": "location",
+              "slot_type": "city",
+              "description": "Which city would you like to stay in?",
               "required": true,
               "examples": [
-                "laptop",
-                "phone",
-                "headphones"
+                "Madrid",
+                "Barcelona",
+                "Paris"
               ]
             },
             {
-              "name": "quantity",
+              "name": "checkin_date",
+              "slot_type": "date",
+              "description": "When would you like to check in?",
+              "required": true,
+              "examples": [
+                "tomorrow",
+                "next Monday",
+                "December 15th"
+              ]
+            },
+            {
+              "name": "checkout_date",
+              "slot_type": "date",
+              "description": "When would you like to check out?",
+              "required": true,
+              "examples": [
+                "next Friday",
+                "December 20th",
+                "in a week"
+              ]
+            },
+            {
+              "name": "guests",
               "slot_type": "number",
-              "description": "How many would you like to order?",
+              "description": "How many guests will be staying?",
               "required": true,
               "examples": [
                 "1",
@@ -319,57 +346,218 @@
               ]
             },
             {
-              "name": "color",
+              "name": "room_type",
               "slot_type": "string",
-              "description": "What color would you prefer?",
+              "description": "What type of room would you prefer? (single, double, suite)",
               "required": true,
               "examples": [
-                "black",
-                "white",
-                "silver"
-              ]
-            },
-            {
-              "name": "size",
-              "slot_type": "string",
-              "description": "What size do you need?",
-              "required": true,
-              "examples": [
-                "small",
-                "medium",
-                "large"
-              ]
-            },
-            {
-              "name": "shipping_address",
-              "slot_type": "address",
-              "description": "What's the shipping address?",
-              "required": true,
-              "examples": [
-                "123 Main St",
-                "456 Oak Ave",
-                "789 Pine Rd"
+                "single",
+                "double",
+                "suite"
               ]
             }
           ],
-          "current_slots": [
-            {
-              "name": "product",
-              "value": "laptop",
-              "expected_type": "string"
-            }
-          ],
-          "expected_slot": "quantity",
+          "current_slots": [],
+          "expected_slot": null,
           "conversation_state": "idle"
         },
         "result": {
           "commands": [
             {
-              "type": "chitchat",
-              "message": "How long will this take?"
+              "type": "start_flow",
+              "flow_name": "book_hotel",
+              "slots": {}
             }
           ],
-          "confidence": 0.85
+          "confidence": 0.9
+        }
+      },
+      {
+        "user_message": "No",
+        "history": [
+          {
+            "user_message": "Confirm: {'location': 'Madrid', 'date': 'tomorrow', 'time': '7:00 PM'}?"
+          }
+        ],
+        "context": {
+          "available_flows": [
+            {
+              "name": "book_table",
+              "description": "Make restaurant reservations",
+              "trigger_intents": [
+                "I want to make a reservation",
+                "Book a table",
+                "I need a restaurant reservation",
+                "Can you help me book a table"
+              ]
+            },
+            {
+              "name": "search_restaurants",
+              "description": "Search for restaurants by cuisine and location",
+              "trigger_intents": []
+            },
+            {
+              "name": "check_reservation",
+              "description": "Check the status of an existing restaurant reservation",
+              "trigger_intents": []
+            },
+            {
+              "name": "modify_reservation",
+              "description": "Modify an existing restaurant reservation",
+              "trigger_intents": []
+            },
+            {
+              "name": "cancel_reservation",
+              "description": "Cancel a restaurant reservation",
+              "trigger_intents": []
+            }
+          ],
+          "available_commands": [
+            {
+              "command_type": "start_flow",
+              "description": "Start a new flow",
+              "required_fields": [
+                "flow_name"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "set_slot",
+              "description": "Set a slot value",
+              "required_fields": [
+                "slot",
+                "value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "cancel_flow",
+              "description": "Cancel the current flow",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "affirm",
+              "description": "Confirm a pending action (user says yes)",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "deny",
+              "description": "Deny a pending action (user says no)",
+              "required_fields": [
+                "slot_to_change"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "correct_slot",
+              "description": "Correct a previously set slot value",
+              "required_fields": [
+                "slot",
+                "new_value"
+              ],
+              "example": ""
+            },
+            {
+              "command_type": "clarify",
+              "description": "User requests clarification about something",
+              "required_fields": [],
+              "example": ""
+            },
+            {
+              "command_type": "chitchat",
+              "description": "Off-topic conversation or small talk",
+              "required_fields": [],
+              "example": ""
+            }
+          ],
+          "active_flow": "book_table",
+          "flow_slots": [
+            {
+              "name": "location",
+              "slot_type": "city",
+              "description": "Which city are you looking for a restaurant in?",
+              "required": true,
+              "examples": [
+                "Madrid",
+                "Barcelona",
+                "Paris"
+              ]
+            },
+            {
+              "name": "date",
+              "slot_type": "date",
+              "description": "What date would you like to dine?",
+              "required": true,
+              "examples": [
+                "tomorrow",
+                "next Friday",
+                "Saturday"
+              ]
+            },
+            {
+              "name": "time",
+              "slot_type": "time",
+              "description": "What time would you prefer?",
+              "required": true,
+              "examples": [
+                "7:00 PM",
+                "8:00 PM",
+                "7:30 PM"
+              ]
+            },
+            {
+              "name": "party_size",
+              "slot_type": "number",
+              "description": "How many people will be dining?",
+              "required": true,
+              "examples": [
+                "2",
+                "4",
+                "6"
+              ]
+            },
+            {
+              "name": "cuisine",
+              "slot_type": "string",
+              "description": "What type of cuisine would you like?",
+              "required": true,
+              "examples": [
+                "Italian",
+                "Japanese",
+                "Spanish"
+              ]
+            }
+          ],
+          "current_slots": [
+            {
+              "name": "location",
+              "value": "Madrid",
+              "expected_type": "city"
+            },
+            {
+              "name": "date",
+              "value": "tomorrow",
+              "expected_type": "date"
+            },
+            {
+              "name": "time",
+              "value": "7:00 PM",
+              "expected_type": "time"
+            }
+          ],
+          "expected_slot": null,
+          "conversation_state": "confirming"
+        },
+        "result": {
+          "commands": [
+            {
+              "type": "deny",
+              "slot_to_change": null
+            }
+          ],
+          "confidence": 0.95
         }
       },
       {
@@ -538,7 +726,7 @@
             }
           ],
           "expected_slot": null,
-          "conversation_state": "idle"
+          "conversation_state": "collecting"
         },
         "result": {
           "commands": [
@@ -549,188 +737,10 @@
           ],
           "confidence": 0.9
         }
-      },
-      {
-        "user_message": "Forget it",
-        "history": [
-          {
-            "user_message": "I want to book_table"
-          }
-        ],
-        "context": {
-          "available_flows": [
-            {
-              "name": "book_table",
-              "description": "Make restaurant reservations",
-              "trigger_intents": [
-                "I want to make a reservation",
-                "Book a table",
-                "I need a restaurant reservation",
-                "Can you help me book a table"
-              ]
-            },
-            {
-              "name": "search_restaurants",
-              "description": "Search for restaurants by cuisine and location",
-              "trigger_intents": []
-            },
-            {
-              "name": "check_reservation",
-              "description": "Check the status of an existing restaurant reservation",
-              "trigger_intents": []
-            },
-            {
-              "name": "modify_reservation",
-              "description": "Modify an existing restaurant reservation",
-              "trigger_intents": []
-            },
-            {
-              "name": "cancel_reservation",
-              "description": "Cancel a restaurant reservation",
-              "trigger_intents": []
-            }
-          ],
-          "available_commands": [
-            {
-              "command_type": "start_flow",
-              "description": "Start a new flow",
-              "required_fields": [
-                "flow_name"
-              ],
-              "example": ""
-            },
-            {
-              "command_type": "set_slot",
-              "description": "Set a slot value",
-              "required_fields": [
-                "slot",
-                "value"
-              ],
-              "example": ""
-            },
-            {
-              "command_type": "cancel_flow",
-              "description": "Cancel the current flow",
-              "required_fields": [],
-              "example": ""
-            },
-            {
-              "command_type": "affirm",
-              "description": "Confirm a pending action (user says yes)",
-              "required_fields": [],
-              "example": ""
-            },
-            {
-              "command_type": "deny",
-              "description": "Deny a pending action (user says no)",
-              "required_fields": [
-                "slot_to_change"
-              ],
-              "example": ""
-            },
-            {
-              "command_type": "correct_slot",
-              "description": "Correct a previously set slot value",
-              "required_fields": [
-                "slot",
-                "new_value"
-              ],
-              "example": ""
-            },
-            {
-              "command_type": "clarify",
-              "description": "User requests clarification about something",
-              "required_fields": [],
-              "example": ""
-            },
-            {
-              "command_type": "chitchat",
-              "description": "Off-topic conversation or small talk",
-              "required_fields": [],
-              "example": ""
-            }
-          ],
-          "active_flow": "book_table",
-          "flow_slots": [
-            {
-              "name": "location",
-              "slot_type": "city",
-              "description": "Which city are you looking for a restaurant in?",
-              "required": true,
-              "examples": [
-                "Madrid",
-                "Barcelona",
-                "Paris"
-              ]
-            },
-            {
-              "name": "date",
-              "slot_type": "date",
-              "description": "What date would you like to dine?",
-              "required": true,
-              "examples": [
-                "tomorrow",
-                "next Friday",
-                "Saturday"
-              ]
-            },
-            {
-              "name": "time",
-              "slot_type": "time",
-              "description": "What time would you prefer?",
-              "required": true,
-              "examples": [
-                "7:00 PM",
-                "8:00 PM",
-                "7:30 PM"
-              ]
-            },
-            {
-              "name": "party_size",
-              "slot_type": "number",
-              "description": "How many people will be dining?",
-              "required": true,
-              "examples": [
-                "2",
-                "4",
-                "6"
-              ]
-            },
-            {
-              "name": "cuisine",
-              "slot_type": "string",
-              "description": "What type of cuisine would you like?",
-              "required": true,
-              "examples": [
-                "Italian",
-                "Japanese",
-                "Spanish"
-              ]
-            }
-          ],
-          "current_slots": [
-            {
-              "name": "location",
-              "value": "Madrid",
-              "expected_type": "city"
-            }
-          ],
-          "expected_slot": "date",
-          "conversation_state": "idle"
-        },
-        "result": {
-          "commands": [
-            {
-              "type": "cancel_flow",
-              "reason": "User cancelled"
-            }
-          ],
-          "confidence": 0.9
-        }
       }
     ],
     "signature": {
-      "instructions": "You are the \"Understanding Layer\" of a deterministic dialogue system. Analyze the user's message in the provided dialogue context, considering the conversation history, and generate the appropriate commands based on the available commands in `context.available_commands`. Your task is to translate the user's intent into a list of executable commands. Adhere to the following rules:\n\n1. ONLY use commands specified in `context.available_commands`.\n2. If the user provides a value and the `expected_slot` is populated, generate a `set_slot` command.\n3. If the user corrects a value, verify against the `current_slots` and generate a `correct_slot` command.\n4. If the user requests to start a task, check against the `available_flows` to initiate it.\n5. In the state of confirming a conversation:\n   - Respond to \"Yes/Correct\" with an `affirm` command.\n   - Respond to \"No/Wrong\" with a `deny` command if they specify what to change.\n6. Be explicit in your output and generate the necessary commands without omitting any details.",
+      "instructions": "Translate the User's Message into a structured list of Commands by analyzing it within the provided dialogue context. Your role is to understand user intents and leverage available commands specified in `context.available_commands`. Follow these guidelines:\n\n1. Use only commands from `context.available_commands`.\n2. If the user provides a value and there is an 'expected_slot', generate a `set_slot` command.\n3. If the user corrects a value, check 'current_slots' and issue a `correct_slot` command.\n4. If the user initiates a task, determine the appropriate flow from 'available_flows' and use `start_flow`.\n5. If the conversation state is 'confirming', use:\n   - \"Yes/Correct\" to generate an `affirm` command.\n   - \"No/Wrong\" to generate a `deny` command, including any specified slot name for changes.\n6. Be explicit and ensure you generate only the necessary commands.\n\nKeep your analysis clear, aligning with the context and history to produce accurate command outputs for effective dialogue handling.",
       "fields": [
         {
           "prefix": "User Message:",

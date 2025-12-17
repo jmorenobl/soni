@@ -268,18 +268,33 @@ class ExampleTemplate(BaseModel):
         ]
 
         # Map conversation_state to valid Literal values
+        # Auto-infer state if not explicitly set
         ConversationStateLiteral = Literal["idle", "collecting", "confirming", "action_pending"]
+
+        raw_state = self.conversation_context.conversation_state
+
+        # Auto-infer state based on context if not explicitly set
+        if raw_state is None or raw_state == "":
+            if (
+                self.conversation_context.current_flow != "none"
+                and self.conversation_context.expected_slots
+            ):
+                # Active flow with expected slots = collecting
+                raw_state = "collecting"
+            elif self.conversation_context.current_flow != "none":
+                # Active flow, no expected slots = could be confirming or action pending
+                raw_state = "collecting"  # Default to collecting, explicit confirming should be set
+            else:
+                raw_state = "idle"
+
         state_mapping: dict[str | None, ConversationStateLiteral] = {
             "idle": "idle",
             "none": "idle",
-            "": "idle",
-            None: "idle",
             "collecting": "collecting",
             "waiting_for_slot": "collecting",
             "confirming": "confirming",
             "action_pending": "action_pending",
         }
-        raw_state = self.conversation_context.conversation_state
         conversation_state: ConversationStateLiteral = state_mapping.get(raw_state, "collecting")
 
         # Get first expected slot (new schema uses single slot, not list)

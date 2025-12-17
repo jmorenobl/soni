@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "created_at": "2025-12-17T00:51:28.822925",
+  "created_at": "2025-12-17T01:03:44.542380",
   "total_examples": 137,
   "examples": [
     {
@@ -782,7 +782,7 @@
         ],
         "current_slots": [],
         "expected_slot": "origin",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -978,7 +978,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -1179,7 +1179,7 @@
           }
         ],
         "expected_slot": "departure_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -1900,7 +1900,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -2078,7 +2078,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -2261,7 +2261,7 @@
           }
         ],
         "expected_slot": "checkout_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -2982,7 +2982,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -3160,7 +3160,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -3343,7 +3343,7 @@
           }
         ],
         "expected_slot": "time",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -4064,7 +4064,7 @@
         ],
         "current_slots": [],
         "expected_slot": "product",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -4242,7 +4242,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -4425,7 +4425,7 @@
           }
         ],
         "expected_slot": "color",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -5182,7 +5182,7 @@
         ],
         "current_slots": [],
         "expected_slot": "amount",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -5369,7 +5369,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -5561,7 +5561,7 @@
           }
         ],
         "expected_slot": "recipient",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -5757,7 +5757,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -5952,7 +5952,7 @@
           }
         ],
         "expected_slot": "departure_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -6147,7 +6147,7 @@
           }
         ],
         "expected_slot": "return_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -6324,7 +6324,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -6501,7 +6501,7 @@
           }
         ],
         "expected_slot": "checkout_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -6678,7 +6678,7 @@
           }
         ],
         "expected_slot": "guests",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -6855,7 +6855,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7032,7 +7032,7 @@
           }
         ],
         "expected_slot": "time",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7209,7 +7209,7 @@
           }
         ],
         "expected_slot": "party_size",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7386,7 +7386,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7563,7 +7563,7 @@
           }
         ],
         "expected_slot": "color",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7740,7 +7740,7 @@
           }
         ],
         "expected_slot": "size",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -7926,7 +7926,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -8112,7 +8112,7 @@
           }
         ],
         "expected_slot": "recipient",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -8298,7 +8298,7 @@
           }
         ],
         "expected_slot": "account_type",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -8493,7 +8493,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -8688,7 +8688,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -9058,7 +9058,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -9235,7 +9235,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -9587,7 +9587,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -9764,7 +9764,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -10116,7 +10116,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -10293,7 +10293,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -10654,7 +10654,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -10840,7 +10840,7 @@
           }
         ],
         "expected_slot": null,
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -11786,7 +11786,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14051,7 +14051,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14240,7 +14240,7 @@
         ],
         "current_slots": [],
         "expected_slot": "origin",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14434,7 +14434,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14628,7 +14628,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14798,7 +14798,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -14974,7 +14974,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -15150,7 +15150,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -15320,7 +15320,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -15496,7 +15496,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -15672,7 +15672,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -15842,7 +15842,7 @@
         ],
         "current_slots": [],
         "expected_slot": "product",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16018,7 +16018,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16194,7 +16194,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16373,7 +16373,7 @@
         ],
         "current_slots": [],
         "expected_slot": "amount",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16558,7 +16558,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16743,7 +16743,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -16931,7 +16931,7 @@
         ],
         "current_slots": [],
         "expected_slot": "origin",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -17125,7 +17125,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -17319,7 +17319,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -17489,7 +17489,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -17665,7 +17665,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -17841,7 +17841,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18011,7 +18011,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18187,7 +18187,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18363,7 +18363,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18533,7 +18533,7 @@
         ],
         "current_slots": [],
         "expected_slot": "product",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18709,7 +18709,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -18885,7 +18885,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -19064,7 +19064,7 @@
         ],
         "current_slots": [],
         "expected_slot": "amount",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -19249,7 +19249,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -19434,7 +19434,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -19622,7 +19622,7 @@
         ],
         "current_slots": [],
         "expected_slot": "origin",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -19810,7 +19810,7 @@
         ],
         "current_slots": [],
         "expected_slot": "origin",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20004,7 +20004,7 @@
           }
         ],
         "expected_slot": "destination",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20174,7 +20174,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20344,7 +20344,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20520,7 +20520,7 @@
           }
         ],
         "expected_slot": "checkin_date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20690,7 +20690,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -20860,7 +20860,7 @@
         ],
         "current_slots": [],
         "expected_slot": "location",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21036,7 +21036,7 @@
           }
         ],
         "expected_slot": "date",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21206,7 +21206,7 @@
         ],
         "current_slots": [],
         "expected_slot": "product",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21376,7 +21376,7 @@
         ],
         "current_slots": [],
         "expected_slot": "product",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21552,7 +21552,7 @@
           }
         ],
         "expected_slot": "quantity",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21731,7 +21731,7 @@
         ],
         "current_slots": [],
         "expected_slot": "amount",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -21910,7 +21910,7 @@
         ],
         "current_slots": [],
         "expected_slot": "amount",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
@@ -22095,7 +22095,7 @@
           }
         ],
         "expected_slot": "currency",
-        "conversation_state": "idle"
+        "conversation_state": "collecting"
       },
       "result": {
         "commands": [
