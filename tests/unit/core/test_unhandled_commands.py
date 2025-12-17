@@ -36,8 +36,10 @@ async def test_log_unhandled_cancel_flow(caplog):
         config=MagicMock(), flow_manager=mock_fm, du=mock_du, action_handler=MagicMock()
     )
 
+    from langchain_core.runnables import RunnableConfig
+
     # Use real dict for config since get_runtime_context uses item access
-    config = {"configurable": {"runtime_context": context}}
+    config: RunnableConfig = {"configurable": {"runtime_context": context}}
 
     # Act
     await understand_node(state, config)
