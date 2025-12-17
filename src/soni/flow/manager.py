@@ -82,7 +82,18 @@ class FlowManager:
         state: DialogueState,
         new_flow: str,
     ) -> None:
-        """Handle intent switch (push new flow)."""
+        """Handle intent switch (push new flow, or no-op if same flow active).
+
+        If the same flow is already active on the stack, we skip pushing
+        a new instance to preserve existing slot values. This handles the
+        case where the user "restarts" a flow after a digression.
+        """
+        active_ctx = self.get_active_context(state)
+
+        # If the same flow is already active, don't push a duplicate
+        if active_ctx and active_ctx["flow_name"] == new_flow:
+            return  # Continue with existing flow instance
+
         await self.push_flow(state, new_flow)
 
     def get_active_context(self, state: DialogueState) -> FlowContext | None:

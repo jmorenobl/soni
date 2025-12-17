@@ -7,6 +7,7 @@ import pytest
 
 from soni.core.errors import FlowStackError
 from soni.core.state import create_empty_dialogue_state
+from soni.core.types import FlowContextState
 from soni.flow.manager import FlowManager
 
 
@@ -83,7 +84,7 @@ class TestFlowManagerPopFlow:
         await manager.push_flow(state, "flow1")
 
         # Act
-        popped = await manager.pop_flow(state, result="completed")
+        popped = await manager.pop_flow(state, result=FlowContextState.COMPLETED)
 
         # Assert
         assert len(state["flow_stack"]) == 0
@@ -187,6 +188,49 @@ class TestFlowManagerEdgeCases:
         # Assert
         assert len(state["flow_stack"]) == 1
         assert state["flow_stack"][0]["flow_name"] == "new_flow"
+
+    @pytest.mark.asyncio
+    async def test_handle_intent_change_skips_push_when_same_flow_active(self):
+        """
+        GIVEN a flow already active on the stack
+        WHEN handle_intent_change is called with the same flow name
+        THEN the flow is NOT pushed again (preserves existing slots)
+
+        This prevents slot loss after digressions when user "restarts" same flow.
+        """
+        # Arrange
+        state = create_empty_dialogue_state()
+        manager = FlowManager()
+        original_flow_id = await manager.push_flow(state, "transfer_funds")
+        await manager.set_slot(state, "iban", "ES123456789")  # Existing slot
+
+        # Act - Try to start same flow again (simulates NLU detecting StartFlow)
+        await manager.handle_intent_change(state, "transfer_funds")
+
+        # Assert - Should still have only 1 flow with preserved slots
+        assert len(state["flow_stack"]) == 1
+        assert state["flow_stack"][0]["flow_id"] == original_flow_id
+        assert manager.get_slot(state, "iban") == "ES123456789"
+
+    @pytest.mark.asyncio
+    async def test_handle_intent_change_pushes_different_flow(self):
+        """
+        GIVEN a flow already active on the stack
+        WHEN handle_intent_change is called with a DIFFERENT flow name
+        THEN the new flow IS pushed (true intent switch)
+        """
+        # Arrange
+        state = create_empty_dialogue_state()
+        manager = FlowManager()
+        await manager.push_flow(state, "transfer_funds")
+
+        # Act - Switch to different flow
+        await manager.handle_intent_change(state, "check_balance")
+
+        # Assert - Should have 2 flows on stack
+        assert len(state["flow_stack"]) == 2
+        assert state["flow_stack"][0]["flow_name"] == "transfer_funds"
+        assert state["flow_stack"][1]["flow_name"] == "check_balance"
 
     def test_get_active_context_returns_none_on_empty_stack(self):
         # Arrange

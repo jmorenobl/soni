@@ -293,7 +293,7 @@ async def understand_node(
         # NOTE: Other command types (clarify, chitchat, etc.) are handled
         # by routing logic in subsequent nodes, not here
         else:
-            logger.warning(f"Unhandled command type in understand_node: {cmd.type}")
+            logger.debug(f"Command type handled by routing: {cmd.type}")
 
     # 5. Reset flow state if we received relevant input
     # This allows the subgraph to continue executing instead of immediately returning
