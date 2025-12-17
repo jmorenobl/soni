@@ -2,12 +2,17 @@ flows:
   # Account Balance
   check_balance:
     description: "Check current balance of a bank account"
-    intent: check_balance
-    slots:
-      - account_type:
-          type: string
-          ask: "Which account would you like to check? (checking/savings)"
-    process:
+    trigger:
+      intents:
+        - "What's my balance?"
+        - "Check my balance"
+        - "How much money do I have?"
+    steps:
+      - step: collect_account_type
+        type: collect
+        slot: account_type
+        message: "Which account would you like to check? (checking/savings)"
+
       - step: get_balance
         type: action
         call: get_balance

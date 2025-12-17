@@ -6,6 +6,7 @@ from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
+from soni.compiler.nodes.set import SetNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "CollectNodeFactory",
     "ActionNodeFactory",
     "SayNodeFactory",
+    "SetNodeFactory",
     "BranchNodeFactory",
     "ConfirmNodeFactory",
     "WhileNodeFactory",

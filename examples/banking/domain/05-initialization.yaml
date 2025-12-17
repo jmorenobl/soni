@@ -1,0 +1,113 @@
+# Soni Banking Assistant - Session Initialization
+# Demonstrates the SET node for declarative slot assignment
+
+flows:
+  # Demo: Initialize user session with set node
+  # This flow shows how to set multiple slots declaratively
+  initialize_session:
+    description: "Initialize user session with account data"
+    trigger:
+      intents:
+        - "Start session"
+        - "Initialize my account"
+        - "Set up my profile"
+    steps:
+      # Step 1: Set user context (simulating auth data)
+      - step: set_user_data
+        type: set
+        slots:
+          user_id: "USR_12345"
+          user_name: "Alice Johnson"
+          preferred_language: "en"
+          account_tier: "premium"
+          authenticated: true
+
+      # Step 2: Set premium features conditionally
+      - step: set_premium_features
+        type: set
+        condition: "account_tier == 'premium'"
+        slots:
+          daily_transfer_limit: 50000
+          fee_waived: true
+          priority_support: true
+
+      # Step 3: Set greeting using template substitution
+      - step: set_greeting_message
+        type: set
+        slots:
+          welcome_message: "Welcome back, {{user_name}}! You have a {{account_tier}} account."
+
+      # Step 4: Display the greeting
+      - step: say_welcome
+        type: say
+        message: "{welcome_message}"
+
+  # Demo: Transfer with default values
+  # Shows how to set defaults before collecting user input
+  quick_transfer:
+    description: "Quick transfer with default settings"
+    trigger:
+      intents:
+        - "Quick transfer"
+        - "Fast transfer"
+        - "Simple transfer"
+    steps:
+      # Set default values
+      - step: set_transfer_defaults
+        type: set
+        slots:
+          currency: "EUR"
+          transfer_fee: 0
+          is_urgent: false
+          source_account: "checking"
+          transfer_concept: "Quick transfer"
+
+      # Collect required info
+      - step: ask_amount
+        type: collect
+        slot: amount
+        message: "How much would you like to transfer?"
+
+      - step: ask_recipient
+        type: collect
+        slot: beneficiary_name
+        message: "Who is the recipient?"
+
+      - step: ask_iban
+        type: collect
+        slot: iban
+        message: "What is the recipient's IBAN?"
+        validator: iban
+
+      # Show summary with defaults applied
+      - step: show_summary
+        type: say
+        message: |
+          Transfer summary:
+          - From: {source_account} account
+          - To: {beneficiary_name}
+          - Amount: {amount} {currency}
+          - Fee: {transfer_fee} {currency}
+
+      # Confirm and execute
+      - step: confirm_transfer
+        type: confirm
+        slot: transfer_confirmed
+        message: "Do you want to proceed with this transfer?"
+        on_deny: cancel_transfer
+
+      - step: execute_transfer
+        type: action
+        call: execute_transfer
+        map_outputs:
+          transaction_id: transaction_id
+          status: status
+
+      - step: say_success
+        type: say
+        message: "Transfer completed! Transaction ID: {transaction_id}"
+        jump_to: __end_flow__
+
+      - step: cancel_transfer
+        type: say
+        message: "Transfer cancelled."

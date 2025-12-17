@@ -114,7 +114,7 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
-from soni.core.commands import SetSlot, StartFlow
+from soni.core.commands import AffirmConfirmation, DenyConfirmation, SetSlot, StartFlow
 from soni.core.types import DialogueState, RuntimeContext, get_runtime_context
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
 
@@ -227,6 +227,10 @@ async def understand_node(
     # Commands are typed Pydantic models - use isinstance() for type narrowing
     commands = nlu_out.commands
 
+    # Track if we should reset flow state to allow continuation
+    expected_slot = state.get("waiting_for_slot")
+    should_reset_flow_state = False
+
     for cmd in commands:
         # Use isinstance() for proper type narrowing (SOLID compliance)
         if isinstance(cmd, StartFlow):
@@ -235,16 +239,39 @@ async def understand_node(
 
         elif isinstance(cmd, SetSlot):
             await fm.set_slot(state, cmd.slot, cmd.value)
+            # Check if this is the slot we were waiting for
+            if cmd.slot == expected_slot:
+                should_reset_flow_state = True
 
-        # NOTE: Other command types (affirm, deny, clarify, etc.) are handled
+        elif isinstance(cmd, (AffirmConfirmation, DenyConfirmation)):
+            # Confirmation commands should also allow flow to continue
+            # The confirm node will process the actual affirm/deny logic
+            should_reset_flow_state = True
+
+        # NOTE: Other command types (clarify, chitchat, etc.) are handled
         # by routing logic in subsequent nodes, not here
 
-    # 4. Return updates
+    # 4. Reset flow state if we received relevant input
+    # This allows the subgraph to continue executing instead of immediately returning
+    new_flow_state = state.get("flow_state")
+    new_waiting_for_slot = state.get("waiting_for_slot")
+
+    if should_reset_flow_state:
+        new_flow_state = "active"
+        # Only clear waiting_for_slot for SetSlot commands
+        # Confirmation commands need waiting_for_slot to identify which slot to update
+        has_confirmation_cmd = any(
+            isinstance(cmd, (AffirmConfirmation, DenyConfirmation)) for cmd in commands
+        )
+        if not has_confirmation_cmd:
+            new_waiting_for_slot = None
+
+    # 5. Return updates
     # Must return keys that changed so LangGraph keeps them
     # FlowManager modifies flow_stack and flow_slots in place
     return {
-        "flow_state": state.get("flow_state"),
-        "waiting_for_slot": state.get("waiting_for_slot"),
+        "flow_state": new_flow_state,
+        "waiting_for_slot": new_waiting_for_slot,
         "flow_slots": state.get("flow_slots"),
         "flow_stack": state.get("flow_stack"),
         "commands": [cmd.model_dump() for cmd in commands],

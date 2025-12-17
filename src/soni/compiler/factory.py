@@ -6,6 +6,7 @@ from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
+from soni.compiler.nodes.set import SetNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
 
 
@@ -32,6 +33,7 @@ class NodeFactoryRegistry:
 NodeFactoryRegistry.register("collect", CollectNodeFactory())
 NodeFactoryRegistry.register("action", ActionNodeFactory())
 NodeFactoryRegistry.register("say", SayNodeFactory())
+NodeFactoryRegistry.register("set", SetNodeFactory())
 NodeFactoryRegistry.register("branch", BranchNodeFactory())
 NodeFactoryRegistry.register("confirm", ConfirmNodeFactory())
 NodeFactoryRegistry.register("while", WhileNodeFactory())

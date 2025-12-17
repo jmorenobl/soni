@@ -5,8 +5,9 @@ from examples.banking.scripts.scenarios import (
     bills,
     cards,
     complex,
+    initialization,
     security,
     transfer,
 )
 
-__all__ = ["account", "bills", "cards", "complex", "security", "transfer"]
+__all__ = ["account", "bills", "cards", "complex", "initialization", "security", "transfer"]

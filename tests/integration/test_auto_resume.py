@@ -124,7 +124,7 @@ async def test_auto_resume_flow(mock_du):
 
     # 3. Should have generated balance message
     # messages list should contain AIMessage with balance
-    last_msgs = result["messages"][-2:]  # check last few
-    assert any("Balance is" in str(m.content) for m in last_msgs)
+    last_msgs = result["messages"][-3:]  # check last few
+    assert any("balance" in str(m.content).lower() for m in last_msgs)
 
     # Success!

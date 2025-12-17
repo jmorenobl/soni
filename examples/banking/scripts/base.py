@@ -336,6 +336,13 @@ class MockNLUProvider:
         """Setup default pattern responses."""
         # Intent patterns
         intent_patterns = {
+            # Initialization (set node demos)
+            "start session": "initialize_session",
+            "initialize my account": "initialize_session",
+            "set up my profile": "initialize_session",
+            "quick transfer": "quick_transfer",
+            "fast transfer": "quick_transfer",
+            "simple transfer": "quick_transfer",
             # Balance
             "balance": "check_balance",
             "how much": "check_balance",

@@ -1,6 +1,7 @@
 """Configuration models for Soni."""
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -13,7 +14,7 @@ class StepConfig(BaseModel):
     type: str
     slot: str | None = None
     message: str | None = None
-    slots: list[str] | None = None
+    slots: list[str] | dict[str, Any] | None = None  # For collect (list) or set (dict)
     call: str | None = None
     condition: str | None = None
     evaluate: str | None = None  # For branch: expression to evaluate (alternative to slot)
