@@ -247,12 +247,15 @@ uv run python scripts/generate_baseline_optimization.py
     print(f"      README created: {path}")
 
 
-def main(auto: str = "light", examples_per_combination: int = 5) -> int:
+def main(
+    auto: str = "medium", examples_per_combination: int = 5, optimizer: str = "miprov2"
+) -> int:
     """Generate baseline optimization.
 
     Args:
-        auto: MIPROv2 auto setting ("light", "medium", "heavy")
-        examples_per_combination: Examples per (pattern x domain x context), default 5 for better coverage
+        auto: Optimization intensity ("light", "medium", "heavy")
+        examples_per_combination: Examples per (pattern x domain x context), default 5
+        optimizer: Optimization algorithm ("miprov2", "gepa")
 
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -306,11 +309,20 @@ def main(auto: str = "light", examples_per_combination: int = 5) -> int:
     # Step 4: Configure DSPy and optimize
     print("\n[4/5] Configuring DSPy and running optimization...")
     print("      Model: openai/gpt-4o-mini")
+    print(f"      Optimizer: {optimizer.upper()}")
     print(f"      Auto setting: {auto}")
     print("      This may take several minutes...")
 
     lm = dspy.LM("openai/gpt-4o-mini", temperature=0.0)
     dspy.configure(lm=lm)
+
+    # Configure teacher/reflection model
+    if optimizer == "gepa":
+        print("      Using openai/gpt-4o for reflection (GEPA)")
+        # Higher temperature for creative reflection
+        teacher_model = dspy.LM("openai/gpt-4o", temperature=0.7)
+    else:
+        teacher_model = lm
 
     metric = create_granular_metric()  # Granular scoring with partial credit
 
@@ -319,8 +331,11 @@ def main(auto: str = "light", examples_per_combination: int = 5) -> int:
     try:
         optimized = optimize_du(
             trainset=train_split,
+            valset=val_split,
             metric=metric,
             auto=auto,
+            optimizer_type=optimizer,
+            teacher_model=teacher_model,
         )
 
         total_time = time.time() - start_time
@@ -330,7 +345,7 @@ def main(auto: str = "light", examples_per_combination: int = 5) -> int:
         output_dir = Path("src/soni/du/optimized")
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        output_path = output_dir / "baseline_v1.json"
+        output_path = output_dir / f"baseline_v1_{optimizer}.json"
         optimized.save(str(output_path))
         print(f"      Optimized module saved to: {output_path}")
 
@@ -338,8 +353,9 @@ def main(auto: str = "light", examples_per_combination: int = 5) -> int:
         metrics = {
             "baseline_accuracy": "N/A",  # Would need evaluation to compute
             "optimized_accuracy": "N/A",
-            "total_time": round(total_time, 1),
+            "optimizer": optimizer,
             "auto_setting": auto,
+            "total_time": round(total_time, 1),
             "train_examples": len(train_split),
             "val_examples": len(val_split),
             "created_at": datetime.now().isoformat(),
@@ -383,15 +399,22 @@ if __name__ == "__main__":
         "--auto",
         type=str,
         choices=["light", "medium", "heavy"],
-        default="light",
-        help="MIPROv2 auto setting (default: light)",
+        default="medium",
+        help="MIPROv2 auto setting (default: medium)",
     )
     parser.add_argument(
         "--examples",
         type=int,
-        default=3,
-        help="Examples per combination (default: 3)",
+        default=5,
+        help="Examples per combination (default: 5)",
+    )
+    parser.add_argument(
+        "--optimizer",
+        type=str.lower,
+        choices=["miprov2", "gepa"],
+        default="miprov2",
+        help="Optimization algorithm (default: miprov2)",
     )
     args = parser.parse_args()
 
-    sys.exit(main(auto=args.auto, examples_per_combination=args.examples))
+    sys.exit(main(auto=args.auto, examples_per_combination=args.examples, optimizer=args.optimizer))

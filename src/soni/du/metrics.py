@@ -244,3 +244,28 @@ def create_strict_metric() -> Callable[[Any, Any, Any], bool]:
 
 # Default metric for optimization
 default_metric = create_granular_metric()
+
+
+def adapt_metric_for_gepa(metric_fn: Callable) -> Callable:
+    """Adapt a standard (example, pred, trace) metric for GEPA.
+
+    GEPA requires a metric with the signature:
+    (gold, pred, trace, pred_name, pred_trace)
+
+    Args:
+        metric_fn: Standard metric function returning a float
+
+    Returns:
+        Wrapped metric function compatible with GEPA
+    """
+
+    def gepa_wrapper(
+        gold: Any,
+        pred: Any,
+        trace: Any = None,
+        pred_name: str | None = None,
+        pred_trace: Any | None = None,
+    ) -> float:
+        return float(metric_fn(gold, pred, trace))
+
+    return gepa_wrapper
