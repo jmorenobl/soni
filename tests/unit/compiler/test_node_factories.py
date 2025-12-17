@@ -148,10 +148,8 @@ class TestBranchNodeFactory:
         """
         GIVEN a branch step with cases
         WHEN node is executed (and slot matches case)
-        THEN returns Command to jump
+        THEN returns _branch_target in state for router
         """
-        from langgraph.types import Command
-
         from soni.compiler.nodes.branch import BranchNodeFactory
 
         # Arrange
@@ -175,16 +173,15 @@ class TestBranchNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert
-        assert isinstance(result, Command)
-        assert result.goto == "vip_flow"
+        # Assert - branch now uses state-based routing, not Command
+        assert result == {"_branch_target": "vip_flow"}
 
     @pytest.mark.asyncio
     async def test_branch_node_uses_default_if_no_match(self):
         """
         GIVEN a branch step
         WHEN slot does not match any case
-        THEN proceeds (returns empty dict or default jump if implemented)
+        THEN returns _branch_target = None to proceed to next step
         """
         from soni.compiler.nodes.branch import BranchNodeFactory
 
@@ -206,9 +203,8 @@ class TestBranchNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert
-        # Should just return empty dict to proceed to next step in sequence
-        assert result == {}
+        # Assert - _branch_target = None means proceed to next step
+        assert result == {"_branch_target": None}
 
 
 class TestConfirmNodeFactory:

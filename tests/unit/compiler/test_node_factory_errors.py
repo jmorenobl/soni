@@ -26,8 +26,8 @@ class TestActionNodeFactoryErrors:
 class TestBranchNodeFactoryErrors:
     """Error tests for BranchNodeFactory."""
 
-    def test_missing_slot_raises_error(self):
-        """Should raise ValueError when 'slot' is missing."""
+    def test_missing_slot_or_evaluate_raises_error(self):
+        """Should raise ValueError when neither 'slot' nor 'evaluate' is provided."""
         step = StepConfig(
             step="bad_branch",
             type="branch",
@@ -35,7 +35,7 @@ class TestBranchNodeFactoryErrors:
         )
         factory = BranchNodeFactory()
 
-        with pytest.raises(ValueError, match="missing required field 'slot'"):
+        with pytest.raises(ValueError, match="must specify either 'slot' or 'evaluate'"):
             factory.create(step)
 
     def test_missing_cases_raises_error(self):

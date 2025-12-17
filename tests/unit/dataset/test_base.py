@@ -228,7 +228,7 @@ class TestExampleTemplate:
         assert dspy_example.context.active_flow == "test_flow"
         assert dspy_example.context.expected_slot == "slot1"
         assert len(dspy_example.context.available_flows) == 1
-        assert len(dspy_example.context.available_commands) == 5
+        assert len(dspy_example.context.available_commands) == 8
         assert len(dspy_example.context.current_slots) == 1
 
     def test_to_dspy_example_idle_state(self, sample_domain):
@@ -264,4 +264,4 @@ class TestPatternGenerator:
         """Test that base generate_examples raises NotImplementedError."""
         gen = PatternGenerator()
         with pytest.raises(NotImplementedError):
-            gen.generate_examples(None, "ongoing", 3)  # type: ignore
+            gen.generate_examples(None, "ongoing", 3)
