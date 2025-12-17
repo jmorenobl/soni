@@ -13,26 +13,33 @@ from soni.core.types import DialogueState, get_runtime_context
 class SayNodeFactory:
     """Factory for say step nodes."""
 
-    def create(self, step: StepConfig) -> NodeFunction:
+    def create(
+        self,
+        step: StepConfig,
+        all_steps: list[StepConfig] | None = None,
+        step_index: int | None = None,
+    ) -> NodeFunction:
         """Create a node that returns a static response."""
         if not step.message:
             raise ValueError(f"Step {step.step} of type 'say' missing required field 'message'")
 
-        message = step.message
+        message_template = step.message
 
         async def say_node(
             state: DialogueState,
             config: RunnableConfig,
         ) -> dict[str, Any]:
+            """Execute the say step."""
+
             context = get_runtime_context(config)
             fm = context.flow_manager
             slots = fm.get_all_slots(state)
 
             # Format message with slots
             try:
-                content = message.format(**slots)
+                content = message_template.format(**slots)
             except KeyError:
-                content = message  # Fallback
+                content = message_template  # Fallback
 
             return {"messages": [AIMessage(content=content)], "last_response": content}
 

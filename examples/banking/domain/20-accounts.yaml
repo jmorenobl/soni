@@ -1,60 +1,41 @@
-# Soni Banking Assistant - Account Flows
-# Balance and transaction flows
-# Demonstrates: collect, action, say, while (loop)
-
 flows:
+  # Account Balance
   check_balance:
-    description: "Check the balance of a bank account"
-    trigger:
-      intents:
-        - "What is my balance?"
-        - "How much money do I have?"
-        - "Check my balance"
-        - "Balance please"
-        - "What's in my account?"
-        - "Show me my balance"
-        - "How much is in my {account_type}?"
-        - "What about my {account_type}?"
-        - "And my {account_type}?"
-    steps:
-      - step: collect_account
-        type: collect
-        slot: account_type
-        message: "Which account would you like to check? I can show you your checking, savings, or investment account."
-
-      - step: fetch_balance
+    description: "Check current balance of a bank account"
+    intent: check_balance
+    slots:
+      - account_type:
+          type: string
+          ask: "Which account would you like to check? (checking/savings)"
+    process:
+      - step: get_balance
         type: action
         call: get_balance
         map_outputs:
-          balance: balance
-          currency: currency
+          balance: current_balance
+          currency: currency_code
 
-      - step: format_response
-        type: action
-        call: format_balance_message
-        map_outputs:
-          message: message
-
-      - step: say_balance
+      - step: respond
         type: say
-        message: "{message}"
+        message: "Your {account_type} account balance is {current_balance} {currency_code}."
 
+  # Transaction History with pagination (branch + jump_to pattern)
   check_transactions:
-    description: "View recent account transactions and movements"
-    trigger:
-      intents:
-        - "Show me my transactions"
-        - "Recent movements"
-        - "What have I spent?"
-        - "Show my last transactions"
-        - "Transaction history"
-        - "What charges do I have?"
-        - "Show me my spending"
-    steps:
+    description: "View paginated transaction history"
+    intent: check_transactions
+    slots:
+      - account_type:
+          type: string
+          ask: "Which account would you like to check transactions for? (checking/savings)"
+      - transaction_period:
+          type: string
+          ask: "For what time period? I can show you the last week, last month, or last 3 months."
+    process:
+      # Collect required information
       - step: collect_account
         type: collect
         slot: account_type
-        message: "Which account would you like to see transactions for?"
+        message: "Which account would you like to check transactions for? (checking/savings)"
 
       - step: collect_period
         type: collect
@@ -64,18 +45,12 @@ flows:
       # Initialize pagination
       - step: init_pagination
         type: action
-        call: init_transaction_page
+        call: start_browsing
         map_outputs:
           page: transaction_page
-          continue: view_more_transactions
+          continue: continue_browsing
 
-      # While loop - continue showing transactions while user wants more
-      - step: transactions_loop
-        type: while
-        condition: "view_more_transactions == 'yes'"
-        do:
-          - fetch_transactions
-
+      # Fetch and display page
       - step: fetch_transactions
         type: action
         call: get_transactions_paginated
@@ -96,27 +71,95 @@ flows:
           - Total income: +{total_income} EUR
           - Total expenses: {total_expenses} EUR
 
-      # Ask if user wants to see more (only if there are more)
-      - step: check_more_available
+      # Check if more available
+      - step: check_more
         type: branch
         slot: has_more_transactions
         cases:
-          "yes": ask_view_more
+          "yes": ask_continue
           "no": end_transactions
 
-      - step: ask_view_more
+      # Ask user if they want more (interactive - uses branch + jump_to pattern)
+      - step: ask_continue
         type: collect
         slot: view_more_transactions
         message: "Would you like to see more transactions? (yes/no)"
 
-      # Loop back handled by while condition
+      - step: handle_response
+        type: branch
+        slot: view_more_transactions
+        cases:
+          "yes": next_page
+          "no": end_transactions
+
+      # Prepare next page and loop back
       - step: next_page
         type: action
         call: increment_page
         map_outputs:
           page: transaction_page
-        jump_to: transactions_loop
+        jump_to: fetch_transactions  # Loop back via jump_to
 
+      # End of transactions
       - step: end_transactions
         type: say
         message: "That's all your recent transactions. Is there anything else I can help you with?"
+
+  # Security Alerts Review - DEMONSTRATES WHILE LOOP
+  # This is a perfect while loop use case: automatic iteration without user input
+  review_security_alerts:
+    description: "Review pending security alerts automatically"
+    intent: review_security_alerts
+    process:
+      # Initialize alert review
+      - step: init_alerts
+        type: action
+        call: initialize_alerts
+        map_outputs:
+          total: total_alerts
+          current: alert_index
+
+      # While loop - iterate through all alerts automatically
+      - step: alerts_loop
+        type: while
+        condition: "alert_index < total_alerts"
+        do:
+          - get_alert
+          - show_alert
+          - mark_reviewed
+          - next_alert
+
+      # Get current alert
+      - step: get_alert
+        type: action
+        call: get_next_alert
+        map_outputs:
+          alert_type: current_alert_type
+          alert_message: current_alert_message
+          alert_date: current_alert_date
+
+      # Display alert
+      - step: show_alert
+        type: say
+        message: |
+          Security Alert #{alert_index}:
+          Type: {current_alert_type}
+          Date: {current_alert_date}
+          Message: {current_alert_message}
+
+      # Mark as reviewed
+      - step: mark_reviewed
+        type: action
+        call: mark_alert_reviewed
+
+      # Move to next alert
+      - step: next_alert
+        type: action
+        call: increment_alert_index
+        map_outputs:
+          index: alert_index
+
+      # After all alerts reviewed
+      - step: alerts_complete
+        type: say
+        message: "All {total_alerts} security alerts have been reviewed. Your account is up to date."

@@ -1,5 +1,12 @@
 """Scenario modules for flow testing."""
 
-from examples.banking.scripts.scenarios import account, bills, cards, complex, transfer
+from examples.banking.scripts.scenarios import (
+    account,
+    bills,
+    cards,
+    complex,
+    security,
+    transfer,
+)
 
-__all__ = ["account", "bills", "cards", "complex", "transfer"]
+__all__ = ["account", "bills", "cards", "complex", "security", "transfer"]

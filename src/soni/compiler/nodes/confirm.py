@@ -58,7 +58,12 @@ class ConfirmNodeFactory:
     3. Re-ask if no clear confirmation command (up to max_retries)
     """
 
-    def create(self, step: StepConfig) -> NodeFunction:
+    def create(
+        self,
+        step: StepConfig,
+        all_steps: list[StepConfig] | None = None,
+        step_index: int | None = None,
+    ) -> NodeFunction:
         """Create a node that requests and processes confirmation."""
         if not step.slot:
             raise ValueError(f"Step {step.step} of type 'confirm' missing required field 'slot'")

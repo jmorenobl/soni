@@ -7,19 +7,28 @@ from pydantic import BaseModel, Field
 
 
 class StepConfig(BaseModel):
-    """Configuration for a flow step."""
+    """Configuration for a single step in a flow."""
 
     step: str
-    type: str  # collect, action, branch, confirm, say, while
+    type: str
     slot: str | None = None
-    call: str | None = None
     message: str | None = None
-    input: str | None = None
-    cases: dict[str, str] | None = None
+    slots: list[str] | None = None
+    call: str | None = None
     condition: str | None = None
+    evaluate: str | None = None  # For branch: expression to evaluate (alternative to slot)
     do: list[str] | None = None
+    cases: dict[str, str] | None = None
+    on_confirm: str | None = None
+    on_deny: str | None = None
     jump_to: str | None = None
-    max_retries: int | None = None  # For confirm nodes
+    exit_to: str | None = None  # For while loops: explicit exit target
+    max_retries: int | None = None
+
+    # While loop metadata (set by WhileNodeFactory)
+    loop_body_start: str | None = None
+    loop_body_end: str | None = None
+    calculated_exit_target: str | None = None
     map_outputs: dict[str, str] | None = None  # Map action outputs: {action_key: slot_name}
 
 

@@ -376,6 +376,84 @@ def increment_page(transaction_page: int = 1) -> dict[str, Any]:
     return {"page": page + 1}
 
 
+@ActionRegistry.register("stop_pagination_action")
+def stop_pagination_action(transaction_page: int = 1) -> dict[str, Any]:
+    """Force exit from pagination while loop by setting page beyond limit."""
+    return {"page": 999}  # Exceeds while condition (transaction_page < 10)
+
+
+@ActionRegistry.register("start_browsing")
+def start_browsing() -> dict[str, Any]:
+    """Initialize browsing session."""
+    return {"page": 1, "continue": "yes"}
+
+
+@ActionRegistry.register("mark_browsing_done")
+def mark_browsing_done() -> dict[str, Any]:
+    """Mark browsing as complete to exit while loop."""
+    return {"continue": "no"}
+
+
+# =============================================================================
+# Security Alerts Handlers (WHILE LOOP DEMO)
+# =============================================================================
+
+# Mock security alerts data
+MOCK_ALERTS = [
+    {
+        "type": "Login from new device",
+        "message": "Someone logged into your account from a new iPhone in Madrid, Spain.",
+        "date": "2024-12-15 14:32:15",
+    },
+    {
+        "type": "Large transaction detected",
+        "message": "A transaction of 2,500 EUR was processed from your checking account.",
+        "date": "2024-12-16 09:15:42",
+    },
+    {
+        "type": "Password change attempt",
+        "message": "An unsuccessful password change attempt was detected from IP 192.168.1.1.",
+        "date": "2024-12-16 18:45:30",
+    },
+]
+
+
+@ActionRegistry.register("initialize_alerts")
+def initialize_alerts() -> dict[str, Any]:
+    """Initialize security alerts review session."""
+    return {
+        "total": len(MOCK_ALERTS),
+        "current": 0,  # Start at index 0
+    }
+
+
+@ActionRegistry.register("get_next_alert")
+def get_next_alert(alert_index: int = 0) -> dict[str, Any]:
+    """Get the next security alert to review."""
+    if alert_index < len(MOCK_ALERTS):
+        alert = MOCK_ALERTS[alert_index]
+        return {
+            "alert_type": alert["type"],
+            "alert_message": alert["message"],
+            "alert_date": alert["date"],
+        }
+    return {"alert_type": "None", "alert_message": "No more alerts", "alert_date": ""}
+
+
+@ActionRegistry.register("mark_alert_reviewed")
+def mark_alert_reviewed(alert_index: int = 0) -> dict[str, Any]:
+    """Mark current alert as reviewed."""
+    # In a real system, this would update a database
+    # For demo, we just return empty dict (no state change needed)
+    return {}
+
+
+@ActionRegistry.register("increment_alert_index")
+def increment_alert_index(alert_index: int = 0) -> dict[str, Any]:
+    """Move to next alert."""
+    return {"index": alert_index + 1}
+
+
 # =============================================================================
 # Card Handlers
 # =============================================================================

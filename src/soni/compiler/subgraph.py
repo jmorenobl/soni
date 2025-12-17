@@ -1,4 +1,11 @@
-"""Subgraph builder - compiles FlowConfig to StateGraph."""
+"""Subgraph builder - compiles FlowConfig to StateGraph.
+
+Handles:
+- Sequential step execution with conditional routing
+- While loop back-edges and exit handling
+- Branch routing with _branch_target
+- Flow state management (waiting_input, etc.)
+"""
 
 from typing import Any
 
@@ -18,71 +25,161 @@ async def end_flow_node(
     state: DialogueState,
     config: RunnableConfig,
 ) -> dict[str, Any]:
-    """Node that pops the completed flow from the stack.
+    """Node that marks flow completion.
 
-    This is automatically added as the final node before END
-    in every flow subgraph to ensure proper stack cleanup.
+    Stack management is handled by the Orchestrator's resume_node.
     """
-    # context: RuntimeContext = config["configurable"]["runtime_context"]
-    # flow_manager was used for pop, now handled by resume_node
-    # flow_manager = context.flow_manager
-
-    # Do NOT pop the flow here.
-    # Stack management is now handled by the Orchestrator's resume_node.
-    # We just mark the state as idle/completed for this level if needed,
-    # or simply return. The Orchestrator will see the subgraph finished.
-    # For now, we return nothing or just metadata update.
-
-    return {
-        # "flow_state": "completed" # optional?
-    }
+    return {}
 
 
 class SubgraphBuilder:
-    """Builds a StateGraph from a FlowConfig."""
+    """Builds a StateGraph from a FlowConfig.
+
+    Key features:
+    - Creates nodes for each step
+    - Handles while loop semantics (back-edges, exit handling)
+    - Supports __exit_loop__ special target for mid-loop exits
+    """
 
     def build(self, flow_config: FlowConfig) -> StateGraph[Any, Any]:
         """Build a StateGraph from flow configuration."""
-        # Define context schema at graph level for DI
         builder: StateGraph[Any, Any] = StateGraph(DialogueState, context_schema=RuntimeContext)
         steps = flow_config.steps_or_process
 
         if not steps:
             return self._build_empty_graph(builder)
 
-        # Create nodes for each step
+        # TRANSFORMATION: Convert while loops to branch + jump_to before building nodes
+        steps, name_mappings = self._transform_while_loops(steps)
+
+        # Translate jump_to references using name mappings (from while transformation)
+        if name_mappings:
+            self._translate_jumps(steps, name_mappings)
+
+        # Create nodes for all steps (now no while nodes, they're transformed to branch)
         step_names = []
-        for step in steps:
+        for i, step in enumerate(steps):
             name = step.step
             step_names.append(name)
 
             factory = get_factory_for_step(step.type)
-            node_fn = factory.create(step)
+            node_fn = factory.create(step, all_steps=steps, step_index=i)
             builder.add_node(name, node_fn)
 
         # Add the __end_flow__ node for proper stack cleanup
         builder.add_node(END_FLOW_NODE, end_flow_node)
 
-        # Create edges
-        self._add_edges(builder, steps, step_names)
+        # Create simple sequential edges (no while loop special handling needed)
+        self._add_simple_edges(builder, steps, step_names)
 
         return builder
 
     def _build_empty_graph(self, builder: StateGraph[Any, Any]) -> StateGraph[Any, Any]:
         """Handle empty flow case."""
-        # Even empty flows need end_flow_node to pop from stack
         builder.add_node(END_FLOW_NODE, end_flow_node)
         builder.add_edge(START, END_FLOW_NODE)
         builder.add_edge(END_FLOW_NODE, END)
         return builder
 
-    def _add_edges(
+    def _transform_while_loops(
+        self, steps: list[StepConfig]
+    ) -> tuple[list[StepConfig], dict[str, str]]:
+        """Transform while loops into branch + jump_to pattern.
+
+        Returns:
+            - Transformed steps (while replaced with branch guard)
+            - Name mappings (original_name -> guard_name)
+        """
+        transformed_steps = []
+        name_mappings = {}
+
+        for step in steps:
+            if step.type == "while":
+                # Transform while to branch guard
+                guard_step, mapping = self._compile_while(step, steps)
+                transformed_steps.append(guard_step)
+                name_mappings.update(mapping)
+            else:
+                transformed_steps.append(step)
+
+        return transformed_steps, name_mappings
+
+    def _compile_while(
+        self, step: StepConfig, all_steps: list[StepConfig]
+    ) -> tuple[StepConfig, dict[str, str]]:
+        """Compile a while step into a branch guard step.
+
+        Returns:
+            - Guard step (branch that evaluates condition)
+            - Name mapping {original_name: guard_name}
+        """
+        original_name = step.step
+        guard_name = f"{original_name}_guard"
+
+        if not step.condition:
+            raise ValueError(f"While step '{original_name}' missing condition")
+        if not step.do or len(step.do) == 0:
+            raise ValueError(f"While step '{original_name}' missing do block")
+
+        # Find exit target
+        exit_target = step.exit_to
+        if not exit_target:
+            # Auto-calculate: first step after all do: steps
+            do_step_names = set(step.do)
+            step_index = next(i for i, s in enumerate(all_steps) if s.step == original_name)
+
+            for i in range(step_index + 1, len(all_steps)):
+                if all_steps[i].step not in do_step_names:
+                    exit_target = all_steps[i].step
+                    break
+
+            if not exit_target:
+                exit_target = END_FLOW_NODE
+
+        # Create branch guard step
+        guard_step = StepConfig(
+            step=guard_name,
+            type="branch",
+            evaluate=step.condition,  # Use evaluate for expression-based branching
+            cases={
+                "true": step.do[0],  # First step in loop body
+                "false": exit_target,  # Exit when condition is false
+            },
+        )
+
+        # Auto-add jump_to on last step of do: block
+        last_step_name = step.do[-1]
+        last_step = next(s for s in all_steps if s.step == last_step_name)
+        if not last_step.jump_to:
+            last_step.jump_to = guard_name
+
+        return guard_step, {original_name: guard_name}
+
+    def _translate_jumps(self, steps: list[StepConfig], name_mappings: dict[str, str]) -> None:
+        """Translate jump_to and branch cases using name mappings.
+
+        This ensures:
+        - jump_to: my_loop -> jump_to: my_loop_guard
+        - User doesn't need to know about _guard suffix
+        """
+        for step in steps:
+            # Translate jump_to
+            if step.jump_to and step.jump_to in name_mappings:
+                step.jump_to = name_mappings[step.jump_to]
+
+            # Translate branch cases
+            if step.type == "branch" and step.cases:
+                step.cases = {
+                    key: name_mappings.get(target, target) for key, target in step.cases.items()
+                }
+
+    def _add_simple_edges(
         self,
         builder: StateGraph[Any, Any],
         steps: list[StepConfig],
         step_names: list[str],
     ) -> None:
-        """Add edges between nodes."""
+        """Add simple sequential edges without special while handling."""
         step_set = set(step_names)
 
         if not step_names:
@@ -93,39 +190,39 @@ class SubgraphBuilder:
 
         for i, step in enumerate(steps):
             name = step_names[i]
-            # Determine next step in sequence
             next_step = step_names[i + 1] if i < len(steps) - 1 else None
 
-            # Default: go to next step, or to __end_flow__ if last step
-            target = next_step if next_step else END_FLOW_NODE
-
-            # If jump_to is present, it overrides next_step
+            # Determine target
             if step.jump_to:
-                if step.jump_to in step_set:
-                    target = step.jump_to
-                else:
-                    # Jump to unknown step means end flow
-                    target = END_FLOW_NODE
+                target = step.jump_to if step.jump_to in step_set else END_FLOW_NODE
+            else:
+                target = next_step if next_step else END_FLOW_NODE
 
-            def create_router(target_node: str, step: StepConfig):
-                """Create router that handles pausing, branching, and normal flow."""
-
-                def router(state: DialogueState) -> str:
-                    # Check if we should pause execution
-                    if state.get("flow_state") == "waiting_input":
-                        return str(END)
-
-                    # For branch steps, check for target override
-                    if step.type == "branch":
-                        branch_target = state.get("_branch_target")
-                        if branch_target:
-                            return str(branch_target)
-
-                    return target_node
-
-                return router
-
-            builder.add_conditional_edges(name, create_router(target, step))
+            # Create router for conditional edges
+            router = self._create_simple_router(target, step)
+            builder.add_conditional_edges(name, router)
 
         # __end_flow__ -> END
         builder.add_edge(END_FLOW_NODE, END)
+
+    def _create_simple_router(
+        self,
+        target_node: str,
+        step: StepConfig,
+    ):
+        """Create router that handles pausing and branching (no while loop complexity)."""
+
+        def router(state: DialogueState) -> str:
+            # Check if we should pause execution
+            if state.get("flow_state") == "waiting_input":
+                return str(END)
+
+            # For branch steps, check for target override
+            if step.type == "branch":
+                branch_target = state.get("_branch_target")
+                if branch_target:
+                    return str(branch_target)
+
+            return target_node
+
+        return router

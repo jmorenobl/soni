@@ -27,13 +27,14 @@ SCENARIOS = [
     ),
     Scenario(
         name="transactions_basic",
-        description="View transactions without pagination",
+        description="View transactions with single page",
         turns=[
             Turn("Show my transactions"),
             Turn("checking"),
             Turn("last week"),
+            Turn("no"),  # Decline to view more
         ],
-        expected_final=["transactions"],
+        expected_final=["anything else"],  # Final message after loop exit
         tags=["account", "transactions"],
     ),
     Scenario(
@@ -46,7 +47,7 @@ SCENARIOS = [
             Turn("yes"),  # View more
             Turn("no"),  # Stop
         ],
-        expected_final=["transactions"],
+        expected_final=["anything else"],  # Final message after loop exit
         tags=["account", "transactions", "loop"],
     ),
 ]

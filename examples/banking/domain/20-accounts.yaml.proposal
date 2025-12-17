@@ -1,0 +1,104 @@
+flows:
+  # Account Balance
+  check_balance:
+    intent: check_balance
+    slots:
+      - account_type:
+          type: string
+          ask: "Which account would you like to check? (checking/savings)"
+    process:
+      - step: get_balance
+        type: action
+        call: get_balance
+        map_outputs:
+          balance: current_balance
+          currency: currency_code
+
+      - step: respond
+        type: say
+        message: "Your {account_type} account balance is {current_balance} {currency_code}."
+
+  # Transaction History with ELEGANT while loop
+  check_transactions:
+    intent: check_transactions
+    slots:
+      - account_type:
+          type: string
+          ask: "Which account would you like to check transactions for? (checking/savings)"
+      - transaction_period:
+          type: string
+          ask: "For what time period? I can show you the last week, last month, or last 3 months."
+      # Control slots for the while loop
+      - continue_browsing:
+          type: string
+          default: "yes"
+      - transaction_page:
+          type: integer
+          default: 1
+    process:
+      # While loop - elegant condition based on user intent
+      - step: transactions_loop
+        type: while
+        condition: "continue_browsing == 'yes'"
+        do:
+          - fetch_transactions
+          - say_transactions
+          - handle_pagination
+
+      # Fetch current page
+      - step: fetch_transactions
+        type: action
+        call: get_transactions_paginated
+        map_outputs:
+          transactions_summary: transactions_summary
+          total_income: total_income
+          total_expenses: total_expenses
+          has_more: has_more_transactions
+
+      # Display transactions
+      - step: say_transactions
+        type: say
+        message: |
+          Here are your transactions from your {account_type} account ({transaction_period}):
+
+          {transactions_summary}
+
+          Summary:
+          - Total income: +{total_income} EUR
+          - Total expenses: {total_expenses} EUR
+
+      # Handle pagination: if more exist, ask; otherwise stop
+      - step: handle_pagination
+        type: branch
+        slot: has_more_transactions
+        cases:
+          "yes": ask_continue
+          "no": stop_browsing
+
+      # Ask user if they want to continue
+      - step: ask_continue
+        type: collect
+        slot: continue_browsing
+        message: "Would you like to see more transactions? (yes/no)"
+        jump_to: prepare_next_page
+
+      # User said yes - prepare next page
+      - step: prepare_next_page
+        type: action
+        call: increment_page
+        map_outputs:
+          page: transaction_page
+        # End of do: block - loop re-evaluates
+
+      # No more transactions or user declined - exit loop
+      - step: stop_browsing
+        type: action
+        call: set_stop_browsing
+        map_outputs:
+          continue: continue_browsing
+        # continue_browsing = "no" → condition false → exit loop
+
+      # After loop exits
+      - step: end_transactions
+        type: say
+        message: "That's all your recent transactions. Is there anything else I can help you with?"

@@ -360,6 +360,11 @@ class MockNLUProvider:
             # Bills
             "pay a bill": "pay_bill",
             "pay my": "pay_bill",
+            # Security
+            "security alert": "review_security_alerts",
+            "review alert": "review_security_alerts",
+            "check alert": "review_security_alerts",
+            "alerts": "review_security_alerts",
         }
 
         for pattern, flow in intent_patterns.items():
@@ -436,8 +441,7 @@ class FlowTestRunner:
         # Load banking handlers to register actions
         # This is done by importing the module which triggers @ActionRegistry.register decorators
         import examples.banking.handlers  # noqa: F401
-
-        # Note: validators not imported since soni.validation module doesn't exist yet
+        # import examples.banking.validators  # noqa: F401  # TODO: soni.validation module doesn't exist yet
 
         if self.use_real_nlu:
             import dspy

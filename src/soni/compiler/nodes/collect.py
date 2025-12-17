@@ -13,7 +13,12 @@ from soni.core.types import DialogueState, get_runtime_context
 class CollectNodeFactory:
     """Factory for collect step nodes."""
 
-    def create(self, step: StepConfig) -> NodeFunction:
+    def create(
+        self,
+        step: StepConfig,
+        all_steps: list[StepConfig] | None = None,
+        step_index: int | None = None,
+    ) -> NodeFunction:
         """Create a node that collects a slot value."""
         # Validate config
         if not step.slot:

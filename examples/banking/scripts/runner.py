@@ -23,7 +23,7 @@ from rich.table import Table
 from examples.banking.scripts.base import FlowTestRunner, LogLevel, Scenario
 
 # Import all scenarios
-from examples.banking.scripts.scenarios import account, bills, cards, complex, transfer
+from examples.banking.scripts.scenarios import account, bills, cards, complex, security, transfer
 
 app = typer.Typer(
     name="flow-runner",
@@ -36,12 +36,14 @@ console = Console()
 
 def _collect_all_scenarios() -> dict[str, Scenario]:
     """Collect all scenarios from all modules."""
-    all_scenarios: dict[str, Scenario] = {}
-
-    for module in [account, transfer, cards, bills, complex]:
-        for scenario in module.SCENARIOS:
-            all_scenarios[scenario.name] = scenario
-
+    all_scenarios: dict[str, Scenario] = {
+        **{s.name: s for s in account.SCENARIOS},
+        **{s.name: s for s in transfer.SCENARIOS},
+        **{s.name: s for s in cards.SCENARIOS},
+        **{s.name: s for s in bills.SCENARIOS},
+        **{s.name: s for s in complex.SCENARIOS},
+        **{s.name: s for s in security.SCENARIOS},
+    }
     return all_scenarios
 
 

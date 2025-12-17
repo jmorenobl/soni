@@ -12,7 +12,12 @@ from soni.core.types import DialogueState, get_runtime_context
 class ActionNodeFactory:
     """Factory for action step nodes."""
 
-    def create(self, step: StepConfig) -> NodeFunction:
+    def create(
+        self,
+        step: StepConfig,
+        all_steps: list[StepConfig] | None = None,
+        step_index: int | None = None,
+    ) -> NodeFunction:
         """Create a node that executes an action."""
         if not step.call:
             raise ValueError(f"Step {step.step} of type 'action' missing required field 'call'")
@@ -24,21 +29,22 @@ class ActionNodeFactory:
             state: DialogueState,
             config: RunnableConfig,
         ) -> dict[str, Any]:
+            """Execute the action."""
             context = get_runtime_context(config)
-            handler = context.action_handler
-            fm = context.flow_manager
+            action_handler = context.action_handler
+            flow_manager = context.flow_manager
 
-            slots = fm.get_all_slots(state)
+            slots = flow_manager.get_all_slots(state)
 
             # Execute action
-            result = await handler.execute(action_name, slots)
+            result = await action_handler.execute(action_name, slots)
 
             # Update state with results, applying output mapping
             if isinstance(result, dict):
                 for key, value in result.items():
                     # Apply mapping if defined, otherwise use original key
                     slot_name = output_mapping.get(key, key)
-                    await fm.set_slot(state, slot_name, value)
+                    await flow_manager.set_slot(state, slot_name, value)
 
             return {"flow_slots": state["flow_slots"]}
 
