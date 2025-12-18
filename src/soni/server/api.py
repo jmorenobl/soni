@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 
+from soni import __version__, get_version_info
 from soni.config import SoniConfig
 from soni.config.loader import ConfigLoader
 from soni.core.errors import StateError
@@ -24,6 +25,7 @@ from soni.server.models import (
     MessageResponse,
     ResetResponse,
     StateResponse,
+    VersionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Soni Dialogue System",
     description="A conversational AI framework using LangGraph and DSPy",
-    version="0.8.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -88,7 +90,7 @@ async def health_check(request: Request) -> HealthResponse:
 
     return HealthResponse(
         status="healthy" if runtime is not None else "starting",
-        version="0.8.0",
+        version=__version__,
         initialized=runtime is not None,
     )
 
@@ -226,6 +228,21 @@ async def reset_conversation(
             user_id=user_id,
             endpoint="/reset",
         ) from e
+
+
+@app.get("/version", response_model=VersionResponse)
+async def get_version() -> VersionResponse:
+    """Get detailed version information.
+
+    Returns version in semantic versioning format with components.
+    """
+    info = get_version_info()
+    return VersionResponse(
+        version=info["full"],
+        major=info["major"],
+        minor=info["minor"],
+        patch=info["patch"],
+    )
 
 
 def create_app(config: SoniConfig | None = None) -> FastAPI:

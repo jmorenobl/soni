@@ -3,6 +3,7 @@
 import typer
 from dotenv import load_dotenv
 
+from soni import __version__
 from soni.cli.commands import chat, optimize, server
 
 cli = typer.Typer(
@@ -15,7 +16,7 @@ cli = typer.Typer(
 
 def version_callback(value: bool):
     if value:
-        typer.echo("Soni Framework v2.0.0")
+        typer.echo(f"Soni Framework v{__version__}")
         raise typer.Exit()
 
 

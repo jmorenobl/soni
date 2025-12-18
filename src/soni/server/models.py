@@ -50,3 +50,12 @@ class ResetResponse(BaseModel):
 
     success: bool
     message: str
+
+
+class VersionResponse(BaseModel):
+    """Response model for version endpoint."""
+
+    version: str = Field(description="Full version string")
+    major: int = Field(description="Major version number")
+    minor: int = Field(description="Minor version number")
+    patch: str = Field(description="Patch version (may include suffix)")
