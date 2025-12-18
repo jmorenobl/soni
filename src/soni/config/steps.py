@@ -4,6 +4,59 @@ Type-safe step configurations using Pydantic discriminated unions.
 Each step type has its own class with only the relevant fields.
 
 For backwards compatibility, GenericStepConfig is also provided.
+
+# TODO(tech-debt): Eliminate GenericStepConfig in favor of pure discriminated unions
+#
+# CONTEXT:
+# GenericStepConfig exists as a "catch-all" type that accepts all possible step fields.
+# This provides flexibility but sacrifices type safety. Ideally, StepConfig should be
+# purely the discriminated union (TypedStepConfig) with proper type narrowing throughout.
+#
+# ATTEMPTED: 2024-12-18
+# RESULT: 226 mypy errors, reverted to maintain functionality.
+#
+# MIGRATION REQUIREMENTS:
+#
+# 1. TYPE NARROWING: Code that processes steps generically must narrow types explicitly:
+#    ```python
+#    # BEFORE (with GenericStepConfig):
+#    if step.type == "while":
+#        body = step.do  # Works - all fields exist
+#
+#    # AFTER (with discriminated union):
+#    if step.type == "while":
+#        assert isinstance(step, WhileStepConfig)  # or use cast()
+#        body = step.do  # Now mypy knows step has 'do'
+#    ```
+#
+# 2. FILES REQUIRING CHANGES (~15 files, 2-4 hours estimated):
+#    - src/soni/compiler/subgraph.py (while loop transformation)
+#    - src/soni/compiler/factory.py (factory selection)
+#    - src/soni/compiler/nodes/*.py (each factory's create method)
+#    - src/soni/dm/nodes/understand.py (get_flow_slot_definitions)
+#    - Tests using StepConfig() constructor
+#
+# 3. TEST UPDATES:
+#    - Tests that construct StepConfig(step=..., type=..., ...) must use:
+#      a) Specific type: SayStepConfig(step=..., message=...)
+#      b) Factory function: step_config(step=..., type=..., ...)
+#    - Error tests must expect ValidationError from Pydantic, not ValueError
+#
+# 4. STEP-BY-STEP MIGRATION:
+#    a) Create step_config() factory function for convenient step creation
+#    b) Update all test files to use step_config() or specific types
+#    c) Update production code with proper type narrowing (isinstance/cast)
+#    d) Remove GenericStepConfig and set StepConfig = TypedStepConfig
+#    e) Run mypy and fix remaining errors
+#    f) Verify all 319 tests pass
+#
+# 5. BENEFITS OF COMPLETION:
+#    - Compile-time validation of step field access
+#    - Better IDE autocompletion per step type
+#    - Pydantic validates required fields at parse time
+#    - Self-documenting code via explicit types
+#
+# REFERENCE: See git log for the attempted implementation details.
 """
 
 from typing import Annotated, Any, Literal
