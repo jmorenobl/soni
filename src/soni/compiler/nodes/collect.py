@@ -6,9 +6,9 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
+from soni.compiler.nodes.utils import require_field
 from soni.config.steps import CollectStepConfig, StepConfig
 from soni.core.constants import SlotWaitType
-from soni.core.errors import ValidationError
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -25,12 +25,7 @@ class CollectNodeFactory:
         if not isinstance(step, CollectStepConfig):
             raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
 
-        if not step.slot:
-            raise ValidationError(
-                f"Step '{step.step}' of type 'collect' is missing required field 'slot'"
-            )
-
-        slot_name = step.slot
+        slot_name = require_field(step, "slot", str)
         prompt = step.message or f"Please provide {slot_name}"
 
         async def collect_node(

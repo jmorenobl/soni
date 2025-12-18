@@ -306,7 +306,7 @@ class TestSetNodeFactory:
             slots={},
         )
 
-        with pytest.raises(SoniValidationError, match="requires at least one slot"):
+        with pytest.raises(SoniValidationError, match="cannot be empty"):
             factory.create(step)
 
     @pytest.mark.asyncio

@@ -19,4 +19,15 @@ __all__ = [
     "BranchNodeFactory",
     "ConfirmNodeFactory",
     "WhileNodeFactory",
+    "require_field",
+    "require_fields",
+    "validate_non_empty",
+    "get_optional_field",
 ]
+
+from soni.compiler.nodes.utils import (
+    get_optional_field,
+    require_field,
+    require_fields,
+    validate_non_empty,
+)

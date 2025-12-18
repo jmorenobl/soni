@@ -5,8 +5,8 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
+from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ActionStepConfig, StepConfig
-from soni.core.errors import ValidationError
 from soni.core.types import DialogueState, get_runtime_context
 from soni.flow.manager import merge_delta
 
@@ -24,12 +24,7 @@ class ActionNodeFactory:
         if not isinstance(step, ActionStepConfig):
             raise ValueError(f"ActionNodeFactory received wrong step type: {type(step).__name__}")
 
-        if not step.call:
-            raise ValidationError(
-                f"Step '{step.step}' of type 'action' is missing required field 'call'"
-            )
-
-        action_name = step.call
+        action_name = require_field(step, "call", str)
         output_mapping = step.map_outputs or {}
 
         async def action_node(

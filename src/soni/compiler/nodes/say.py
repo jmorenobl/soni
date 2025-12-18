@@ -6,8 +6,8 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
+from soni.compiler.nodes.utils import require_field
 from soni.config.steps import SayStepConfig, StepConfig
-from soni.core.errors import ValidationError
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -24,12 +24,7 @@ class SayNodeFactory:
         if not isinstance(step, SayStepConfig):
             raise ValueError(f"SayNodeFactory received wrong step type: {type(step).__name__}")
 
-        if not step.message:
-            raise ValidationError(
-                f"Step '{step.step}' of type 'say' is missing required field 'message'"
-            )
-
-        message_template = step.message
+        message_template = require_field(step, "message", str)
 
         async def say_node(
             state: DialogueState,

@@ -14,8 +14,8 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
+from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ConfirmStepConfig, StepConfig
-from soni.core.errors import ValidationError
 from soni.core.types import DialogueState, get_runtime_context
 from soni.dm.patterns.base import get_pattern_config
 
@@ -96,12 +96,7 @@ class ConfirmNodeFactory:
         if not isinstance(step, ConfirmStepConfig):
             raise ValueError(f"ConfirmNodeFactory received wrong step type: {type(step).__name__}")
 
-        if not step.slot:
-            raise ValidationError(
-                f"Step '{step.step}' of type 'confirm' is missing required field 'slot'"
-            )
-
-        slot_name = step.slot
+        slot_name = require_field(step, "slot", str)
         prompt = step.message or f"Please confirm {slot_name} (yes/no)"
         retry_key = f"__confirm_retries_{slot_name}"
         max_retries = step.max_retries

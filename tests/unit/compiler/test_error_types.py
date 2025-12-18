@@ -100,10 +100,8 @@ class TestNodeFactoryErrorTypes:
         from soni.compiler.nodes.say import SayNodeFactory
         from soni.config.steps import SayStepConfig
 
-        # Construct via direct instantiation or bypassing validation if possible?
-        # If strict Pydantic, SayStepConfig requires message.
-        # BUT if message is empty string?
-        step = SayStepConfig(step="greet", message="")
+        # Use model_construct to bypass Pydantic validation
+        step = SayStepConfig.model_construct(step="greet", type="say")
         factory = SayNodeFactory()
 
         with pytest.raises(ValidationError) as exc_info:
@@ -116,7 +114,7 @@ class TestNodeFactoryErrorTypes:
         from soni.compiler.nodes.collect import CollectNodeFactory
         from soni.config.steps import CollectStepConfig
 
-        step = CollectStepConfig(step="get_name", slot="", message="hi")
+        step = CollectStepConfig.model_construct(step="get_name", type="collect", message="hi")
         factory = CollectNodeFactory()
 
         with pytest.raises(ValidationError) as exc_info:
@@ -129,7 +127,7 @@ class TestNodeFactoryErrorTypes:
         from soni.compiler.nodes.action import ActionNodeFactory
         from soni.config.steps import ActionStepConfig
 
-        step = ActionStepConfig(step="do_something", call="")
+        step = ActionStepConfig.model_construct(step="do_something", type="action")
         factory = ActionNodeFactory()
 
         with pytest.raises(ValidationError) as exc_info:
@@ -142,8 +140,7 @@ class TestNodeFactoryErrorTypes:
         from soni.compiler.nodes.branch import BranchNodeFactory
         from soni.config.steps import BranchStepConfig
 
-        # Branch requires 'cases' dict.
-        step = BranchStepConfig(step="check", evaluate="slots.value", cases={})
+        step = BranchStepConfig.model_construct(step="check", type="branch", evaluate="slots.value")
         factory = BranchNodeFactory()
 
         with pytest.raises(ValidationError) as exc_info:
