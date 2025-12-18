@@ -5,7 +5,6 @@ import os
 import uuid
 from pathlib import Path
 
-import dspy
 import typer
 from rich.console import Console
 
@@ -117,20 +116,13 @@ def run_chat(
         typer.echo(f"Invalid config: {e}", err=True)
         raise typer.Exit(1)
 
-    # 3. Setup DSPy
-    nlu_cfg = soni_config.settings.models.nlu
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        typer.echo("Error: OPENAI_API_KEY not found.", err=True)
-        raise typer.Exit(1)
+    # 3. Setup DSPy using centralized bootstrapper
+    from soni.core.dspy_service import DSPyBootstrapper
 
     try:
-        lm = dspy.LM(
-            f"{nlu_cfg.provider}/{nlu_cfg.model}",
-            api_key=api_key,
-            temperature=nlu_cfg.temperature,
-        )
-        dspy.configure(lm=lm)
+        bootstrapper = DSPyBootstrapper(soni_config)
+        dspy_result = bootstrapper.configure()
+        typer.echo(f"DSPy configured: {dspy_result.provider}/{dspy_result.model}")
     except Exception as e:
         typer.echo(f"DSPy config failed: {e}", err=True)
         raise typer.Exit(1)

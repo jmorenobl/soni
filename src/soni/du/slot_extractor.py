@@ -7,13 +7,13 @@ This module is called ONLY when Pass 1 (SoniDU) detects a StartFlow command.
 """
 
 import logging
-from pathlib import Path
 from typing import Any, cast
 
 import dspy
 from pydantic import BaseModel, Field
 
 from soni.core.commands import SetSlot
+from soni.du.base import OptimizableDSPyModule
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class ExtractSlots(dspy.Signature):
     result: SlotExtractionResult = dspy.OutputField(desc="Extracted slots matching the definitions")
 
 
-class SlotExtractor(dspy.Module):
+class SlotExtractor(OptimizableDSPyModule):
     """Slot extraction module for Pass 2 of two-pass NLU.
 
     Features:
@@ -77,52 +77,23 @@ class SlotExtractor(dspy.Module):
     - Support for optimization and persistence
     """
 
-    def __init__(self, use_cot: bool = False):
-        """Initialize SlotExtractor.
+    # Priority-ordered optimization files
+    optimized_files = [
+        "slot_extractor_gepa.json",
+        "slot_extractor_miprov2.json",
+        "baseline_v1_slots_gepa.json",
+        "baseline_v1_slots_miprov2.json",
+        "optimized_slot_extractor.json",
+    ]
 
-        Args:
-            use_cot: If True, use ChainOfThought for reasoning.
-                     Default False since extraction is simpler than intent detection.
-        """
-        super().__init__()
+    # Default: no ChainOfThought (extraction is simpler)
+    default_use_cot = False
+
+    def _create_extractor(self, use_cot: bool) -> dspy.Module:
+        """Create the slot extractor predictor."""
         if use_cot:
-            self.extractor = dspy.ChainOfThought(ExtractSlots)
-        else:
-            self.extractor = dspy.Predict(ExtractSlots)
-
-    @classmethod
-    def create_with_best_model(cls, use_cot: bool = False) -> "SlotExtractor":
-        """Create SlotExtractor instance with the best available optimized model.
-
-        Automatically searches for optimization files in `src/soni/du/optimized`.
-        """
-        instance = cls(use_cot=use_cot)
-
-        base_path = Path(__file__).parent / "optimized"
-        # Search order: GEPA first (usually best), then MIPROv2, then baseline
-        optimized_files = [
-            "slot_extractor_gepa.json",
-            "slot_extractor_miprov2.json",
-            "baseline_v1_slots_gepa.json",  # Script output format
-            "baseline_v1_slots_miprov2.json",  # Script output format
-            "optimized_slot_extractor.json",  # CLI output format
-        ]
-
-        for filename in optimized_files:
-            file_path = base_path / filename
-            if file_path.exists():
-                logger.info(f"Loading optimized SlotExtractor from {file_path}")
-                try:
-                    instance.load(str(file_path))
-                    break
-                except Exception as e:
-                    logger.warning(f"Failed to load optimized module {filename}: {e}")
-            else:
-                logger.debug(f"Optimized module not found: {filename}")
-        else:
-            logger.info("No optimized SlotExtractor found, using default zero-shot.")
-
-        return instance
+            return dspy.ChainOfThought(ExtractSlots)
+        return dspy.Predict(ExtractSlots)
 
     async def acall(
         self,

@@ -71,15 +71,40 @@ class DialogueState(TypedDict):
 
 # =============================================================================
 # PROTOCOLS - Structural typing for dependency injection
+#
+# Following Interface Segregation Principle (ISP), FlowManager capabilities
+# are split into focused protocols. Components can depend only on what they need.
 # =============================================================================
 
 
 @runtime_checkable
-class FlowManagerProtocol(Protocol):
-    """Protocol for FlowManager - enables DI without circular imports.
+class SlotProvider(Protocol):
+    """Protocol for slot read/write operations.
 
-    All mutation methods return FlowDelta objects instead of modifying
-    state in-place. This ensures LangGraph properly tracks changes.
+    Use when component only needs to read or modify slot values,
+    not manage flow stack or control flow execution.
+    """
+
+    def set_slot(
+        self, state: DialogueState, slot_name: str, value: Any
+    ) -> Any | None:  # Returns FlowDelta or None
+        """Set a slot value in the active flow context."""
+        ...
+
+    def get_slot(self, state: DialogueState, slot_name: str) -> Any:
+        """Get a slot value from the active flow context."""
+        ...
+
+    def get_all_slots(self, state: DialogueState) -> dict[str, Any]:
+        """Get all slots for the active flow."""
+        ...
+
+
+@runtime_checkable
+class FlowStackProvider(Protocol):
+    """Protocol for flow stack operations.
+
+    Use when component needs to push/pop flows or handle intent changes.
     """
 
     def push_flow(
@@ -107,27 +132,35 @@ class FlowManagerProtocol(Protocol):
         """Handle intent switch (push new flow)."""
         ...
 
+
+@runtime_checkable
+class FlowContextProvider(Protocol):
+    """Protocol for flow context read and step advancement.
+
+    Use when component needs to inspect or advance flow execution.
+    """
+
     def get_active_context(self, state: DialogueState) -> FlowContext | None:
         """Get the currently active flow context."""
-        ...
-
-    def set_slot(
-        self, state: DialogueState, slot_name: str, value: Any
-    ) -> Any | None:  # Returns FlowDelta or None
-        """Set a slot value in the active flow context."""
-        ...
-
-    def get_slot(self, state: DialogueState, slot_name: str) -> Any:
-        """Get a slot value from the active flow context."""
-        ...
-
-    def get_all_slots(self, state: DialogueState) -> dict[str, Any]:
-        """Get all slots for the active flow."""
         ...
 
     def advance_step(self, state: DialogueState) -> Any | None:  # Returns FlowDelta or None
         """Advance to next step in current flow."""
         ...
+
+
+@runtime_checkable
+class FlowManagerProtocol(SlotProvider, FlowStackProvider, FlowContextProvider, Protocol):
+    """Full FlowManager protocol - combines all capabilities.
+
+    For backwards compatibility and cases where full access is needed.
+    Prefer using specific protocols (SlotProvider, etc.) when possible.
+
+    All mutation methods return FlowDelta objects instead of modifying
+    state in-place. This ensures LangGraph properly tracks changes.
+    """
+
+    pass  # All methods inherited from parent protocols
 
 
 @runtime_checkable

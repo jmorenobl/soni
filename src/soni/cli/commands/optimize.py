@@ -42,13 +42,12 @@ def run(
     # 1. Load Config
     soni_config = SoniConfig.from_yaml(config)
 
-    # 2. Config DSPy
-    nlu = soni_config.settings.models.nlu
-    import os
+    # 2. Config DSPy using centralized bootstrapper
+    from soni.core.dspy_service import DSPyBootstrapper
 
     try:
-        lm = dspy.LM(f"{nlu.provider}/{nlu.model}", api_key=os.getenv("OPENAI_API_KEY"))
-        dspy.configure(lm=lm)
+        bootstrapper = DSPyBootstrapper(soni_config)
+        bootstrapper.configure()
     except Exception as e:
         console.print(f"[red]DSPy init failed: {e}[/]")
         raise typer.Exit(1)
