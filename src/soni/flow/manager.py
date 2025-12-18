@@ -4,6 +4,7 @@ Immutable-style operations that return state deltas for LangGraph tracking.
 All state-mutating methods return dict updates that callers must merge.
 """
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -11,6 +12,8 @@ from typing import Any, cast
 
 from soni.core.errors import FlowStackError
 from soni.core.types import DialogueState, FlowContext, FlowContextState
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -117,6 +120,7 @@ class FlowManager:
 
         # If the same flow is already active, don't push a duplicate
         if active_ctx and active_ctx["flow_name"] == new_flow:
+            logger.debug(f"Intent change skipped: flow '{new_flow}' already active")
             return None  # No changes needed
 
         _, delta = self.push_flow(state, new_flow)
@@ -144,6 +148,7 @@ class FlowManager:
         """
         context = self.get_active_context(state)
         if not context:
+            logger.debug(f"set_slot('{slot_name}') skipped: no active flow context")
             return None
 
         flow_id = context["flow_id"]
@@ -162,6 +167,7 @@ class FlowManager:
         """
         context = self.get_active_context(state)
         if not context:
+            logger.debug(f"get_slot('{slot_name}') returning None: no active flow context")
             return None
 
         flow_id = context["flow_id"]
@@ -175,6 +181,7 @@ class FlowManager:
         """
         context = self.get_active_context(state)
         if not context:
+            logger.debug("advance_step skipped: no active flow context")
             return None
 
         # Create new context with incremented step

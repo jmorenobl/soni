@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from soni.core.errors import ConfigError
+
 if TYPE_CHECKING:
     from soni.config.main import SoniConfig
 
@@ -34,7 +36,6 @@ class ConfigLoader:
         """
         # Import here to avoid circular dependency
         from soni.config.main import SoniConfig
-        from soni.core.errors import ConfigError
 
         path = Path(path)
         if not path.exists():
@@ -65,8 +66,6 @@ class ConfigLoader:
         Files are loaded in alphabetical order. Later files override earlier ones
         for top-level keys, but nested dicts (flows, slots, actions) are merged.
         """
-        from soni.core.errors import ConfigError
-
         merged: dict = {}
         yaml_files = sorted(directory.glob("*.yaml")) + sorted(directory.glob("*.yml"))
 

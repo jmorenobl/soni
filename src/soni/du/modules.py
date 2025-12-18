@@ -4,6 +4,7 @@ Async-first design using native .acall() method.
 """
 
 import logging
+from typing import cast
 
 import dspy
 
@@ -61,7 +62,8 @@ class SoniDU(OptimizableDSPyModule):
                 context=context,
                 history=history_obj,
             )
-            return result.result  # type: ignore
+            # DSPy Prediction object has dynamic 'result' attribute matching our signature
+            return cast(NLUOutput, result.result)
 
         except Exception as e:
             logger.error(f"NLU extraction failed: {e}", exc_info=True)
@@ -83,4 +85,5 @@ class SoniDU(OptimizableDSPyModule):
             context=context,
             history=history_obj,
         )
-        return result.result  # type: ignore
+        # DSPy Prediction object has dynamic 'result' attribute matching our signature
+        return cast(NLUOutput, result.result)
