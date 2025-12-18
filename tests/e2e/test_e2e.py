@@ -4,7 +4,8 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
 from soni.actions.registry import ActionRegistry
-from soni.core.config import FlowConfig, SoniConfig, StepConfig
+from soni.config.steps import ActionStepConfig, CollectStepConfig, SayStepConfig
+from soni.core.config import FlowConfig, SoniConfig
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -31,13 +32,9 @@ class TestE2E:
                 "book_flight": FlowConfig(
                     description="Book a flight",
                     steps=[
-                        StepConfig(
-                            step="ask_dest", type="collect", slot="destination", message="Where to?"
-                        ),
-                        StepConfig(step="get_price", type="action", call="check_price"),
-                        StepConfig(
-                            step="show_price", type="say", message="Price is {price} {currency}"
-                        ),
+                        CollectStepConfig(step="ask_dest", slot="destination", message="Where to?"),
+                        ActionStepConfig(step="get_price", call="check_price"),
+                        SayStepConfig(step="show_price", message="Price is {price} {currency}"),
                     ],
                 )
             }
