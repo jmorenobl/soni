@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from soni.compiler.nodes.set import SetNodeFactory
 from soni.core.config import SetStepConfig
 from soni.core.constants import FlowContextState, FlowState
+from soni.core.errors import ValidationError as SoniValidationError
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import FlowManager
 
@@ -297,7 +298,7 @@ class TestSetNodeFactory:
         config_with_context,
         flow_manager,
     ):
-        """Test that empty slots dict doesn't error (no-op)."""
+        """Test that empty slots dict raises ValidationError."""
         factory = SetNodeFactory()
         step = SetStepConfig(
             step="set_empty",
@@ -305,12 +306,8 @@ class TestSetNodeFactory:
             slots={},
         )
 
-        # Should not raise
-        node = factory.create(step)
-        result = await node(dialogue_state_with_flow, config_with_context)
-
-        # State should be unchanged
-        assert result == {"flow_slots": dialogue_state_with_flow["flow_slots"]}
+        with pytest.raises(SoniValidationError, match="requires at least one slot"):
+            factory.create(step)
 
     @pytest.mark.asyncio
     async def test_overwrite_existing_slot(

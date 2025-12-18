@@ -165,6 +165,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.config.steps import SetStepConfig, StepConfig
+from soni.core.errors import ValidationError
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, get_runtime_context
 from soni.flow.manager import merge_delta
@@ -195,10 +196,15 @@ class SetNodeFactory:
             Async node function that sets slots
 
         Raises:
-            ValueError: If slots field is missing or wrong type
+            ValidationError: If slots field is missing
         """
         if not isinstance(step, SetStepConfig):
             raise ValueError(f"SetNodeFactory received wrong step type: {type(step).__name__}")
+
+        if not step.slots:
+            raise ValidationError(
+                f"Step '{step.step}' of type 'set' requires at least one slot in 'slots' map"
+            )
 
         # Pydantic validates slots is a dict
         slots_to_set = step.slots

@@ -8,6 +8,7 @@ from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
 from soni.compiler.nodes.set import SetNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
+from soni.core.errors import GraphBuildError
 
 
 class NodeFactoryRegistry:
@@ -25,7 +26,9 @@ class NodeFactoryRegistry:
         """Get factory for step type."""
         factory = cls._factories.get(step_type)
         if not factory:
-            raise ValueError(f"Unknown step type: {step_type}")
+            raise GraphBuildError(
+                f"Unknown step type: '{step_type}'. Available types: {list(cls._factories.keys())}"
+            )
         return factory
 
 

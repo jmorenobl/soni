@@ -102,6 +102,7 @@ from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.config.steps import StepConfig, WhileStepConfig
+from soni.core.errors import ValidationError
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, get_runtime_context
 
@@ -141,7 +142,7 @@ class WhileNodeFactory:
         condition = step.condition
         # do is list[str], must check if empty? Pydantic validates list[str], but not length > 0
         if not step.do:
-            raise ValueError(f"Step {step.step} of type 'while' missing required field 'do'")
+            raise ValidationError(f"Step {step.step} of type 'while' missing required field 'do'")
 
         loop_body_start = step.do[0]  # First step in do: block
         # loop_body_end = step.do[-1]  # Last step - unused here but concept applies

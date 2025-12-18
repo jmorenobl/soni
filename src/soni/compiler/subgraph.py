@@ -16,6 +16,7 @@ from soni.compiler.factory import get_factory_for_step
 from soni.config.models import FlowConfig
 from soni.config.steps import BranchStepConfig, StepConfig, WhileStepConfig
 from soni.core.constants import NodeName
+from soni.core.errors import GraphBuildError
 from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
 
@@ -121,7 +122,16 @@ class SubgraphBuilder:
         # Pydantic already validates that condition and do are present
         # but check for empty list
         if not step.do:
-            raise ValueError(f"While step '{original_name}' missing do block")
+            raise GraphBuildError(
+                f"While step '{original_name}' missing required field 'do'. "
+                f"While loops must have a 'do' block with steps to execute."
+            )
+
+        if not step.condition:
+            raise GraphBuildError(
+                f"While step '{original_name}' missing required field 'condition'. "
+                f"While loops must have a condition to evaluate."
+            )
 
         # Find exit target
         exit_target = step.exit_to
@@ -131,7 +141,7 @@ class SubgraphBuilder:
             try:
                 step_index = next(i for i, s in enumerate(all_steps) if s.step == original_name)
             except StopIteration as err:
-                raise ValueError(f"Step {original_name} not found in step list") from err
+                raise GraphBuildError(f"Step {original_name} not found in step list") from err
 
             for i in range(step_index + 1, len(all_steps)):
                 if all_steps[i].step not in do_step_names:

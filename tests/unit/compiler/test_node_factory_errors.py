@@ -17,6 +17,7 @@ from soni.core.config import (
     SayStepConfig,
     WhileStepConfig,
 )
+from soni.core.errors import ValidationError as SoniValidationError
 
 
 class TestActionNodeFactoryErrors:
@@ -43,7 +44,7 @@ class TestBranchNodeFactoryErrors:
         )
         factory = BranchNodeFactory()
 
-        with pytest.raises(ValueError, match="must specify either 'slot' or 'evaluate'"):
+        with pytest.raises(SoniValidationError, match="must specify either 'slot' or 'evaluate'"):
             factory.create(step)
 
     def test_missing_cases_raises_error(self):

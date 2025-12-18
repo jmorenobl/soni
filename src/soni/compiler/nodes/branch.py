@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.config.steps import BranchStepConfig, StepConfig
+from soni.core.errors import ValidationError
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -23,13 +24,18 @@ class BranchNodeFactory:
             raise ValueError(f"BranchNodeFactory received wrong step type: {type(step).__name__}")
 
         # Pydantic validates cases is present
+        if not step.cases:
+            raise ValidationError(
+                f"Step '{step.step}' of type 'branch' requires at least one case in 'cases' map"
+            )
+
         # Manually validate slot vs evaluate XOR logic
         if not step.slot and not step.evaluate:
-            raise ValueError(
+            raise ValidationError(
                 f"Step {step.step} of type 'branch' must specify either 'slot' or 'evaluate'"
             )
         if step.slot and step.evaluate:
-            raise ValueError(
+            raise ValidationError(
                 f"Step {step.step} of type 'branch' cannot specify both 'slot' and 'evaluate'"
             )
 
