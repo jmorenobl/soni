@@ -6,8 +6,9 @@ from unittest.mock import Mock
 import pytest
 from langgraph.types import Command
 
+from soni.core.constants import NodeName
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DialogueState, FlowContext, RuntimeContext
+from soni.core.types import DialogueState, FlowContext, FlowContextState, RuntimeContext
 
 
 @dataclass
@@ -32,7 +33,7 @@ class TestExecuteNode:
         flow_ctx: FlowContext = {
             "flow_id": "123",
             "flow_name": "book_flight",
-            "flow_state": "active",
+            "flow_state": FlowContextState.ACTIVE,
             "current_step": None,
             "step_index": 0,
             "outputs": {},
@@ -43,9 +44,11 @@ class TestExecuteNode:
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = flow_ctx
 
+        from langchain_core.runnables import RunnableConfig
+
         context = Mock()
         context.flow_manager = mock_fm
-        config = {"configurable": {"runtime_context": context}}
+        config = RunnableConfig(configurable={"runtime_context": context})
 
         # Ac
         result = await execute_node(state, config)
@@ -67,9 +70,11 @@ class TestExecuteNode:
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = None
 
+        from langchain_core.runnables import RunnableConfig
+
         context = Mock()
         context.flow_manager = mock_fm
-        config = {"configurable": {"runtime_context": context}}
+        config = RunnableConfig(configurable={"runtime_context": context})
 
         result = await execute_node(state, config)
 
@@ -77,4 +82,4 @@ class TestExecuteNode:
         # Assuming simple sequential edge or explicit command.
         # Actually execute_node is the router. If nothing to execute, go to respond.
         assert isinstance(result, Command)
-        assert result.goto == "respond"
+        assert result.goto == NodeName.RESPOND

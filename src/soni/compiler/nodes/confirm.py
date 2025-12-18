@@ -16,7 +16,7 @@ from langgraph.types import Command
 
 from soni.core.config import StepConfig
 from soni.core.types import DialogueState, get_runtime_context
-from soni.dm.patterns import get_pattern_config
+from soni.dm.patterns.base import get_pattern_config
 
 from .base import NodeFunction
 from .confirm_handlers import (

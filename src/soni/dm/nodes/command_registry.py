@@ -25,6 +25,7 @@ from soni.core.commands import (
     StartFlow,
 )
 from soni.core.types import DialogueState, FlowContextState, RuntimeContext
+from soni.core.validation import validate_slot_value
 from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
@@ -106,7 +107,22 @@ class SetSlotHandler:
         fm = context.flow_manager
         result = CommandResult()
 
-        delta = fm.set_slot(state, cmd.slot, cmd.value)
+        # Validate and coerce value if slot is defined in config
+        final_value = cmd.value
+        if hasattr(context.config, "slots"):
+            slot_config = context.config.slots.get(cmd.slot)
+            if slot_config:
+                try:
+                    final_value = validate_slot_value(cmd.value, slot_config)
+                except ValueError as e:
+                    logger.warning(
+                        f"Validation failed for slot '{cmd.slot}' with value '{cmd.value}': {e}"
+                    )
+                    # For now, we reject the update (or could set to None/invalid)
+                    # We'll just return without updating
+                    return result
+
+        delta = fm.set_slot(state, cmd.slot, final_value)
         merge_delta(result.updates, delta)
         result.applied_delta = delta is not None
 

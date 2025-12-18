@@ -48,6 +48,7 @@ class TestCollectNodeFactory:
         result = await node(state, runtime)
 
         # Assert
+        assert isinstance(result, dict)
         assert result["flow_state"] == "waiting_input"
 
         assert result["waiting_for_slot"] == "origin"
@@ -77,6 +78,8 @@ class TestCollectNodeFactory:
         result = await node(state, runtime)
 
         # Assert
+        assert isinstance(result, dict)
+        assert isinstance(result, dict)
         assert result["flow_state"] == "active"
 
 
@@ -137,6 +140,7 @@ class TestSayNodeFactory:
         result = await node(state, runtime)
 
         # Assert
+        assert isinstance(result, dict)
         assert result["last_response"] == "Hello"
 
 
@@ -234,6 +238,7 @@ class TestConfirmNodeFactory:
         result = await node(create_empty_dialogue_state(), runtime)
 
         # Assert
+        assert isinstance(result, dict)
         assert result["flow_state"] == "waiting_input"
         assert result["waiting_for_slot"] == "confirmed"
 
@@ -257,6 +262,8 @@ class TestConfirmNodeFactory:
         node = factory.create(step)
         result = await node(create_empty_dialogue_state(), runtime)
 
+        assert isinstance(result, dict)
+        assert isinstance(result, dict)
         assert result["flow_state"] == "active"
 
 

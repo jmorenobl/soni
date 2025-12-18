@@ -99,6 +99,7 @@ class TestCreateErrorResponse:
         """Response should include error reference."""
         exc = ValueError("secret info")
         response = create_error_response(exc)
+        assert isinstance(response.detail, dict)
         assert "reference" in response.detail
         assert response.detail["reference"].startswith("ERR-")
 

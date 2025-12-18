@@ -262,6 +262,8 @@ class TestPatternGenerator:
 
     def test_generate_examples_not_implemented(self):
         """Test that base generate_examples raises NotImplementedError."""
+        from unittest.mock import Mock
+
         gen = PatternGenerator()
         with pytest.raises(NotImplementedError):
-            gen.generate_examples(None, "ongoing", 3)
+            gen.generate_examples(Mock(), "ongoing", 3)

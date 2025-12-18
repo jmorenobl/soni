@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.set import SetNodeFactory
 from soni.core.config import StepConfig
+from soni.core.constants import FlowContextState, FlowState
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import FlowManager
 
@@ -48,7 +49,7 @@ def dialogue_state_with_flow(flow_manager):
             {
                 "flow_name": "test_flow",
                 "flow_id": "test_flow_123",
-                "flow_state": "active",
+                "flow_state": FlowContextState.ACTIVE,
                 "current_step": None,
                 "step_index": 0,
                 "outputs": {},
@@ -56,8 +57,9 @@ def dialogue_state_with_flow(flow_manager):
             }
         ],
         "flow_slots": {"test_flow_123": {}},
-        "flow_state": "active",
+        "flow_state": FlowState.ACTIVE,
         "waiting_for_slot": None,
+        "waiting_for_slot_type": None,
         "commands": [],
         "response": None,
         "action_result": None,

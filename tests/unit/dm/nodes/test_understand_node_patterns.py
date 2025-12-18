@@ -89,9 +89,7 @@ async def test_understand_node_handles_correction(mock_runtime_context, run_conf
 
     # Mock NLU output
     initial_cmd = CorrectSlot(slot="name", new_value="Jim")
-    mock_runtime_context.du.acall.return_value = NLUOutput(
-        intent="correction", commands=[initial_cmd], confidence=1.0
-    )
+    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[initial_cmd], confidence=1.0)
 
     result = await understand_node(state, run_config)
 
@@ -125,9 +123,7 @@ async def test_understand_node_handles_cancellation(mock_runtime_context, run_co
         "metadata": {},
     }
 
-    mock_runtime_context.du.acall.return_value = NLUOutput(
-        intent="cancel", commands=[CancelFlow()], confidence=1.0
-    )
+    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[CancelFlow()], confidence=1.0)
 
     result = await understand_node(state, run_config)
 
@@ -161,9 +157,7 @@ async def test_understand_node_handles_clarification(mock_runtime_context, run_c
 
     # Request clarification for "cvv" (implicit via topic=None or explicit)
     cmd = RequestClarification(topic="cvv")
-    mock_runtime_context.du.acall.return_value = NLUOutput(
-        intent="clarify", commands=[cmd], confidence=1.0
-    )
+    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[cmd], confidence=1.0)
 
     result = await understand_node(state, run_config)
 
@@ -193,7 +187,7 @@ async def test_understand_node_handles_handoff(mock_runtime_context, run_config)
     }
 
     mock_runtime_context.du.acall.return_value = NLUOutput(
-        intent="handoff", commands=[HumanHandoff()], confidence=1.0
+        commands=[HumanHandoff()], confidence=1.0
     )
 
     result = await understand_node(state, run_config)

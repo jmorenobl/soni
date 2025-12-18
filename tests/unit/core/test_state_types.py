@@ -2,6 +2,7 @@
 
 import pytest
 
+from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState
 
@@ -43,7 +44,7 @@ class TestDialogueState:
             {
                 "flow_id": "test-123",
                 "flow_name": "test",
-                "flow_state": "active",
+                "flow_state": FlowContextState.ACTIVE,
                 "current_step": "start",
                 "step_index": 0,
                 "outputs": {},

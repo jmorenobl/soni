@@ -67,6 +67,9 @@ class NodeName(StrEnum):
     UNDERSTAND = "understand"
     EXECUTE = "execute"
     RESPOND = "respond"
+    RESUME = "resume"
+    LOOP = "loop"
+    END = "end"
     END_FLOW = "__end_flow__"
 
 

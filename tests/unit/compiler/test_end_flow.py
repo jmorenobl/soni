@@ -3,9 +3,11 @@
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.subgraph import END_FLOW_NODE, SubgraphBuilder, end_flow_node
 from soni.core.config import FlowConfig, StepConfig
+from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state
 
 
@@ -24,17 +26,13 @@ class TestEndFlowNode:
         THEN returns empty dict (stack pop handled by resume_node)
         """
         # Arrange
-        mock_config = {
-            "configurable": {
-                "runtime_context": MagicMock(),
-            }
-        }
+        # Arrange
         state = create_empty_dialogue_state()
         state["flow_stack"] = [
             {
                 "flow_id": "test-123",
                 "flow_name": "test_flow",
-                "flow_state": "active",
+                "flow_state": FlowContextState.ACTIVE,
                 "current_step": None,
                 "step_index": 0,
                 "outputs": {},
@@ -43,7 +41,9 @@ class TestEndFlowNode:
         ]
 
         # Act
-        result = await end_flow_node(state, mock_config)
+        result = await end_flow_node(
+            state, RunnableConfig(configurable={"runtime_context": MagicMock()})
+        )
 
         # Assert
         assert result == {}
@@ -56,17 +56,13 @@ class TestEndFlowNode:
         THEN state is not modified (resume_node handles stack)
         """
         # Arrange
-        mock_config = {
-            "configurable": {
-                "runtime_context": MagicMock(),
-            }
-        }
+        # Arrange
         state = create_empty_dialogue_state()
         state["flow_stack"] = [
             {
                 "flow_id": "test-123",
                 "flow_name": "test_flow",
-                "flow_state": "active",
+                "flow_state": FlowContextState.ACTIVE,
                 "current_step": None,
                 "step_index": 0,
                 "outputs": {},
@@ -76,7 +72,7 @@ class TestEndFlowNode:
         original_stack_len = len(state["flow_stack"])
 
         # Act
-        await end_flow_node(state, mock_config)
+        await end_flow_node(state, RunnableConfig(configurable={"runtime_context": MagicMock()}))
 
         # Assert
         assert len(state["flow_stack"]) == original_stack_len

@@ -13,7 +13,7 @@ from soni.runtime.loop import RuntimeLoop
 @pytest.fixture
 def minimal_config():
     """Create minimal SoniConfig for testing."""
-    return SoniConfig(description="Test config", flows={})
+    return SoniConfig(flows={})
 
 
 class TestRuntimeLoopDI:

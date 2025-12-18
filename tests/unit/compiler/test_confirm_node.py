@@ -85,6 +85,7 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context,
 
     result = await confirm_node(state, run_config)
 
+    assert isinstance(result, dict)
     assert result["waiting_for_slot"] == "transfer_confirmed"
     assert result["waiting_for_slot_type"] == SlotWaitType.CONFIRMATION
     assert "200" in result["last_response"]
@@ -126,6 +127,7 @@ async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_co
 
     result = await confirm_node(state, run_config)
 
+    assert isinstance(result, dict)
     msg = result["messages"][0].content
     assert "I need a clear yes or no answer" in msg
     assert "Confirm amount 100?" in msg
@@ -178,6 +180,7 @@ async def test_confirm_node_modification_updates_and_reprompts(mock_runtime_cont
     )
 
     # Should stay in confirmation with natural prompt
+    assert isinstance(result, dict)
     assert result["waiting_for_slot"] == "transfer_confirmed"
     msg = result["messages"][0].content
     assert "Updated." in msg

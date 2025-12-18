@@ -53,7 +53,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from soni.core.constants import get_flow_node_name
+from soni.core.constants import NodeName, get_flow_node_name
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -76,4 +76,4 @@ async def execute_node(
         return Command(goto=target)
 
     # If no active flow, go to respond (or handle idle state)
-    return Command(goto="respond")
+    return Command(goto=NodeName.RESPOND)
