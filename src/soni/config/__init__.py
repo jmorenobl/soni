@@ -1,40 +1,49 @@
-"""Configuration models for Soni.
+"""Soni Configuration Package.
 
-This module re-exports from soni.config for backwards compatibility.
-All configuration classes have been moved to the soni.config package.
+Provides configuration models and loading utilities.
+All exports are backwards-compatible with the original core/config.py.
 """
 
-# Re-export everything from the new config package for backwards compatibility
-from soni.config import (
-    # Step types
+# Models
+from soni.config.loader import ConfigLoader
+from soni.config.main import SoniConfig
+from soni.config.models import (
+    FlowConfig,
+    SlotConfig,
+    TriggerConfig,
+)
+
+# Patterns
+from soni.config.patterns import (
+    CancellationPatternConfig,
+    ClarificationPatternConfig,
+    ConfirmationPatternConfig,
+    CorrectionPatternConfig,
+    HumanHandoffPatternConfig,
+    PatternBehaviorsConfig,
+)
+
+# Settings
+from soni.config.settings import (
+    ModelsConfig,
+    NLUModelConfig,
+    PersistenceConfig,
+    SettingsConfig,
+)
+
+# Step types (discriminated unions)
+from soni.config.steps import (
     ActionStepConfig,
     AnyStepConfig,
     BaseStepConfig,
     BranchStepConfig,
-    # Patterns
-    CancellationPatternConfig,
-    ClarificationPatternConfig,
     CollectStepConfig,
-    ConfigLoader,
-    ConfirmationPatternConfig,
     ConfirmStepConfig,
-    CorrectionPatternConfig,
-    # Models
-    FlowConfig,
-    HumanHandoffPatternConfig,
-    # Settings
-    ModelsConfig,
-    NLUModelConfig,
-    PatternBehaviorsConfig,
-    PersistenceConfig,
+    GenericStepConfig,
     SayStepConfig,
     SetStepConfig,
-    SettingsConfig,
-    SlotConfig,
-    # Main
-    SoniConfig,
     StepConfig,
-    TriggerConfig,
+    TypedStepConfig,
     WhileStepConfig,
 )
 
@@ -54,6 +63,8 @@ __all__ = [
     "ConfirmStepConfig",
     "WhileStepConfig",
     "SetStepConfig",
+    "GenericStepConfig",
+    "TypedStepConfig",
     # Patterns
     "ConfirmationPatternConfig",
     "CorrectionPatternConfig",
