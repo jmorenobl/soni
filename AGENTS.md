@@ -23,8 +23,15 @@ Dedicated class for flow stack management (push/pop/get/set slots).
 
 **Critical**: Use `flow_id` (unique instance) not `flow_name` (definition) for data access.
 
-### DigressionHandler (Coordinator)
-Coordinates question/help handling. **Does NOT modify flow stack**.
+### ChitChat Pattern (Digression Handling)
+Digressions (questions outside flow, chitchat) are handled via the `ChitChat` command in `dm/nodes/command_registry.py`.
+
+**Pattern**:
+1. NLU detects out-of-flow intent → emits `ChitChat` command
+2. `ChitChatHandler` generates response without modifying flow stack
+3. Conversation continues in the active flow
+
+**Critical**: Digressions do NOT modify the flow stack.
 
 ### SoniDU (DSPy Module)
 NLU module with structured types (NLUOutput, DialogueContext, SlotValue).
@@ -91,27 +98,57 @@ async def understand_node(
     nlu_provider = context.nlu_provider
 ```
 
+## Key Implementation Patterns
+
+### FlowDelta Pattern (Immutable State Updates)
+All state mutations in FlowManager return `FlowDelta` objects instead of mutating state:
+
+```python
+@dataclass
+class FlowDelta:
+    flow_stack: list[FlowContext] | None = None
+    flow_slots: dict[str, dict[str, Any]] | None = None
+
+# Usage
+delta = flow_manager.push_flow(state, "book_flight")
+merge_delta(updates, delta)  # Merge into node return dict
+return updates  # LangGraph applies changes
+```
+
+### Two-Pass NLU Architecture
+1. **Pass 1 (SoniDU):** Intent detection without slot definitions (avoids context overload)
+2. **Pass 2 (SlotExtractor):** Slot value extraction, only if StartFlow detected
+
+```python
+# In understand_node:
+nlu_result = await du.acall(user_message, context)  # Pass 1
+
+if any(isinstance(cmd, StartFlow) for cmd in nlu_result.commands):
+    slot_commands = await slot_extractor.acall(user_message, slot_defs)  # Pass 2
+    commands.extend(slot_commands)
+```
+
 ## Project Structure
 
 ```
 src/soni/
-├── core/          # Interfaces, state, errors, types, config
-├── du/            # Dialogue Understanding (DSPy modules)
-├── dm/            # Dialogue Management (LangGraph)
-│   └── nodes/     # LangGraph node implementations (package)
-├── compiler/      # YAML to Graph compilation
-├── actions/       # Action Registry
-├── validation/    # Validator Registry
-├── server/        # FastAPI
-├── cli/           # CLI commands
-├── config/        # Configuration package
-├── flow/          # FlowManager
-├── observability/ # Logging
-├── runtime/       # RuntimeLoop and managers
-└── utils/         # Utilities
+├── core/              # Core abstractions (types, state, errors, commands)
+├── du/                # Dialogue Understanding (DSPy-based NLU)
+├── dm/                # Dialogue Management (LangGraph)
+│   ├── nodes/         # LangGraph node implementations
+│   └── patterns/      # Pattern handlers (correction, cancellation, etc.)
+├── compiler/          # YAML → LangGraph compilation
+├── config/            # Configuration loading
+├── actions/           # Action system
+├── flow/              # Flow state management (FlowManager)
+├── runtime/           # Runtime orchestration (Loop, Hydrator, Extractor)
+├── server/            # FastAPI server
+├── cli/               # Typer CLI
+├── dataset/           # Training data generation
+└── utils/             # Utilities
 ```
 
-## Detailed Guidelines
+## Detailed Guidelines (Obsolete - Not Updated - Do Not Follow)
 
 For comprehensive implementation details, see:
 
@@ -124,7 +161,7 @@ For comprehensive implementation details, see:
 - **YAML DSL**: `.cursor/rules/007-yaml-dsl.mdc`
 - **Deployment & Tools**: `.cursor/rules/008-deployment.mdc`
 
-## Design Documentation
+## Design Documentation (Obsolete - Not Updated - Do Not Follow)
 
 Complete architectural details:
 - **Index**: `docs/design/README.md`
@@ -146,19 +183,24 @@ uv sync
 uv run pre-commit install
 
 # Development
-uv run pytest                    # Run tests
-uv run ruff check . && ruff format .  # Lint & format
-uv run mypy src/soni            # Type check
-
-# Validation
-uv run python scripts/validate_config.py examples/flight_booking/soni.yaml
-uv run python scripts/validate_runtime.py
+uv run pytest                           # Run all tests
+uv run pytest tests/unit/ -v            # Unit tests only
+uv run pytest tests/integration/ -v     # Integration tests
+uv run ruff check . && ruff format .    # Lint & format
+uv run mypy src/soni                    # Type check
 
 # Server
-uv run soni server --config examples/flight_booking/soni.yaml
+uv run soni server --config examples/banking/domain
+
+# Interactive Chat
+uv run soni chat --config examples/banking/domain \
+    --module examples.banking.handlers
 
 # Optimization
-uv run soni optimize --config examples/flight_booking/soni.yaml
+uv run soni optimize run --config examples/banking/domain
+
+# Validation
+uv run python scripts/validate_flows.py examples/banking/
 ```
 
 ## Important Reminders
