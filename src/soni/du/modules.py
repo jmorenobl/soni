@@ -41,7 +41,7 @@ class SoniDU(OptimizableDSPyModule):
             return dspy.ChainOfThought(ExtractCommands)
         return dspy.Predict(ExtractCommands)
 
-    async def acall(
+    async def aforward(
         self,
         user_message: str,
         context: DialogueContext,
@@ -72,9 +72,6 @@ class SoniDU(OptimizableDSPyModule):
         except Exception as e:
             logger.error(f"NLU extraction failed: {e}", exc_info=True)
             return NLUOutput(commands=[], confidence=0.0)
-
-    # Alias for backwards compatibility
-    aforward = acall
 
     def forward(
         self,

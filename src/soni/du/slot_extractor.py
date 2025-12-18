@@ -95,7 +95,7 @@ class SlotExtractor(OptimizableDSPyModule):
             return dspy.ChainOfThought(ExtractSlots)
         return dspy.Predict(ExtractSlots)
 
-    async def acall(
+    async def aforward(
         self,
         user_message: str,
         slot_definitions: list[SlotExtractionInput],

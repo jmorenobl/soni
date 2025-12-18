@@ -94,12 +94,12 @@ class OptimizableDSPyModule(dspy.Module):
     Features:
     - Automatic loading of best available optimized model
     - Configurable ChainOfThought vs Predict
-    - Standard async (.acall) and sync (.forward) interfaces
+    - Standard async (.acall) and sync (__call__) interfaces
 
     Subclasses should:
     1. Set `optimized_files` class variable with priority-ordered filenames
     2. Override `_create_extractor()` to define the signature
-    3. Implement `acall()` and `forward()` with appropriate I/O types
+    3. Implement `aforward()` and `forward()` with appropriate I/O types
     """
 
     # Override in subclass with priority-ordered optimization filenames
