@@ -167,6 +167,7 @@ from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, get_runtime_context
+from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,9 @@ class SetNodeFactory:
             # Get current slots for template substitution
             current_slots = fm.get_all_slots(state)
 
+            # Build updates dict
+            updates: dict[str, Any] = {}
+
             # Set each slot
             for slot_name, slot_value in slots_to_set.items():
                 # Handle template substitution for strings
@@ -250,11 +254,19 @@ class SetNodeFactory:
                         # Use original value as fallback
                         final_value = slot_value
 
-                # Set the slot
-                await fm.set_slot(state, slot_name, final_value)
+                # Set the slot and get delta
+                delta = fm.set_slot(state, slot_name, final_value)
+                merge_delta(updates, delta)
+                # Apply to state for subsequent iterations
+                if delta and delta.flow_slots is not None:
+                    state["flow_slots"] = delta.flow_slots
                 logger.debug(f"Set slot '{slot_name}' = {final_value}")
 
-            return {"flow_slots": state["flow_slots"]}
+            # Ensure flow_slots in updates
+            if "flow_slots" not in updates:
+                updates["flow_slots"] = state.get("flow_slots")
+
+            return updates
 
         set_node.__name__ = f"set_{step.step}"
         return set_node

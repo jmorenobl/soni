@@ -178,8 +178,14 @@ def run_chat(
             if optimized_du:
                 # Load optimization
                 # runtime.du is accessible as property
-                runtime.du.load(str(optimized_du))
-                typer.echo(f"Loaded optimized NLU from {optimized_du}")
+                if hasattr(runtime.du, "load"):
+                    runtime.du.load(str(optimized_du))
+                    typer.echo(f"Loaded optimized NLU from {optimized_du}")
+                else:
+                    typer.echo(
+                        "Warning: Current NLU provider does not support loading optimization.",
+                        err=True,
+                    )
 
             chat = SoniChatCLI(runtime, user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}")
             await chat.start()

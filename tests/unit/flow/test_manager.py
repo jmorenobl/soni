@@ -1,32 +1,45 @@
 """Unit tests for FlowManager.
 
-All tests are async to match the async-first FlowManager design.
+Tests for the immutable FlowManager that returns FlowDelta objects.
+All mutation methods are now synchronous and return deltas.
 """
+
+from typing import Any
 
 import pytest
 
 from soni.core.errors import FlowStackError
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import FlowContextState
-from soni.flow.manager import FlowManager
+from soni.flow.manager import FlowDelta, FlowManager, merge_delta
+
+
+def apply_delta(state, delta):
+    """Helper to apply delta to state for testing."""
+    if delta is None:
+        return
+    if delta.flow_stack is not None:
+        state["flow_stack"] = delta.flow_stack
+    if delta.flow_slots is not None:
+        state["flow_slots"] = delta.flow_slots
 
 
 class TestFlowManagerPushFlow:
     """Tests for pushing flows onto the stack."""
 
-    @pytest.mark.asyncio
-    async def test_push_flow_creates_context_on_empty_stack(self):
+    def test_push_flow_creates_context_on_empty_stack(self):
         """
         GIVEN an empty stack
         WHEN pushing a flow
-        THEN stack has 1 item and slots are initialized
+        THEN returns flow_id and delta with updated stack
         """
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        flow_id = await manager.push_flow(state, "book_flight")
+        flow_id, delta = manager.push_flow(state, "book_flight")
+        apply_delta(state, delta)
 
         # Assert
         assert len(state["flow_stack"]) == 1
@@ -34,8 +47,7 @@ class TestFlowManagerPushFlow:
         assert state["flow_stack"][0]["flow_id"] == flow_id
         assert flow_id in state["flow_slots"]
 
-    @pytest.mark.asyncio
-    async def test_push_flow_with_inputs_stores_slots(self):
+    def test_push_flow_with_inputs_stores_slots(self):
         """
         GIVEN inputs
         WHEN pushing a flow
@@ -46,18 +58,38 @@ class TestFlowManagerPushFlow:
         manager = FlowManager()
 
         # Act
-        flow_id = await manager.push_flow(state, "book_flight", inputs={"origin": "NYC"})
+        flow_id, delta = manager.push_flow(state, "book_flight", inputs={"origin": "NYC"})
+        apply_delta(state, delta)
 
         # Assert
         assert state["flow_slots"][flow_id]["origin"] == "NYC"
         assert manager.get_slot(state, "origin") == "NYC"
 
+    def test_push_flow_returns_flow_delta(self):
+        """
+        GIVEN empty state
+        WHEN pushing a flow
+        THEN returns FlowDelta with flow_stack and flow_slots
+        """
+        # Arrange
+        state = create_empty_dialogue_state()
+        manager = FlowManager()
+
+        # Act
+        flow_id, delta = manager.push_flow(state, "test_flow")
+
+        # Assert
+        assert isinstance(delta, FlowDelta)
+        assert delta.flow_stack is not None
+        assert delta.flow_slots is not None
+        assert len(delta.flow_stack) == 1
+        assert flow_id in delta.flow_slots
+
 
 class TestFlowManagerPopFlow:
     """Tests for popping flows from the stack."""
 
-    @pytest.mark.asyncio
-    async def test_pop_flow_on_empty_stack_raises_error(self):
+    def test_pop_flow_on_empty_stack_raises_error(self):
         """
         GIVEN empty stack
         WHEN pop_flow is called
@@ -69,34 +101,35 @@ class TestFlowManagerPopFlow:
 
         # Act & Assert
         with pytest.raises(FlowStackError):
-            await manager.pop_flow(state)
+            manager.pop_flow(state)
 
-    @pytest.mark.asyncio
-    async def test_pop_flow_returns_context_and_updates_status(self):
+    def test_pop_flow_returns_context_and_delta(self):
         """
         GIVEN stack with 1 flow
         WHEN pop_flow is called
-        THEN returns context with 'completed' status
+        THEN returns (popped_context, delta)
         """
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "flow1")
+        _, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
 
         # Act
-        popped = await manager.pop_flow(state, result=FlowContextState.COMPLETED)
+        popped, delta = manager.pop_flow(state, result=FlowContextState.COMPLETED)
+        apply_delta(state, delta)
 
         # Assert
         assert len(state["flow_stack"]) == 0
         assert popped["flow_name"] == "flow1"
         assert popped["flow_state"] == "completed"
+        assert isinstance(delta, FlowDelta)
 
 
 class TestFlowManagerSlots:
     """Tests for slot management."""
 
-    @pytest.mark.asyncio
-    async def test_set_and_get_slot(self):
+    def test_set_and_get_slot(self):
         """
         GIVEN active flow
         WHEN set_slot is called
@@ -105,21 +138,43 @@ class TestFlowManagerSlots:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "flow1")
+        _, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
 
         # Act
-        await manager.set_slot(state, "destination", "Paris")
+        delta = manager.set_slot(state, "destination", "Paris")
+        apply_delta(state, delta)
         value = manager.get_slot(state, "destination")
 
         # Assert
         assert value == "Paris"
 
-    @pytest.mark.asyncio
-    async def test_get_slot_returns_none_if_not_found(self):
+    def test_set_slot_returns_flow_delta(self):
+        """
+        GIVEN active flow
+        WHEN set_slot is called
+        THEN returns FlowDelta with updated flow_slots
+        """
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "flow1")
+        flow_id, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
+
+        # Act
+        delta = manager.set_slot(state, "key", "value")
+
+        # Assert
+        assert isinstance(delta, FlowDelta)
+        assert delta.flow_slots is not None
+        assert delta.flow_slots[flow_id]["key"] == "value"
+
+    def test_get_slot_returns_none_if_not_found(self):
+        # Arrange
+        state = create_empty_dialogue_state()
+        manager = FlowManager()
+        _, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
 
         # Act
         value = manager.get_slot(state, "non_existent")
@@ -127,14 +182,17 @@ class TestFlowManagerSlots:
         # Assert
         assert value is None
 
-    @pytest.mark.asyncio
-    async def test_get_all_slots(self):
+    def test_get_all_slots(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "flow1")
-        await manager.set_slot(state, "a", 1)
-        await manager.set_slot(state, "b", 2)
+        _, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
+
+        delta1 = manager.set_slot(state, "a", 1)
+        apply_delta(state, delta1)
+        delta2 = manager.set_slot(state, "b", 2)
+        apply_delta(state, delta2)
 
         # Act
         slots = manager.get_all_slots(state)
@@ -146,51 +204,50 @@ class TestFlowManagerSlots:
 class TestFlowManagerStep:
     """Tests for step advancement."""
 
-    @pytest.mark.asyncio
-    async def test_advance_step_increments_index(self):
+    def test_advance_step_returns_delta(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "flow1")
+        _, push_delta = manager.push_flow(state, "flow1")
+        apply_delta(state, push_delta)
 
         # Act
-        success = await manager.advance_step(state)
+        delta = manager.advance_step(state)
+        apply_delta(state, delta)
 
         # Assert
-        assert success is True
+        assert isinstance(delta, FlowDelta)
         assert state["flow_stack"][0]["step_index"] == 1
 
-    @pytest.mark.asyncio
-    async def test_advance_step_returns_false_on_empty_stack(self):
+    def test_advance_step_returns_none_on_empty_stack(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        success = await manager.advance_step(state)
+        delta = manager.advance_step(state)
 
         # Assert
-        assert success is False
+        assert delta is None
 
 
 class TestFlowManagerEdgeCases:
     """Tests for edge cases and optional methods."""
 
-    @pytest.mark.asyncio
-    async def test_handle_intent_change_pushes_new_flow(self):
+    def test_handle_intent_change_pushes_new_flow(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        await manager.handle_intent_change(state, "new_flow")
+        delta = manager.handle_intent_change(state, "new_flow")
+        apply_delta(state, delta)
 
         # Assert
         assert len(state["flow_stack"]) == 1
         assert state["flow_stack"][0]["flow_name"] == "new_flow"
 
-    @pytest.mark.asyncio
-    async def test_handle_intent_change_skips_push_when_same_flow_active(self):
+    def test_handle_intent_change_skips_push_when_same_flow_active(self):
         """
         GIVEN a flow already active on the stack
         WHEN handle_intent_change is called with the same flow name
@@ -201,19 +258,21 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        original_flow_id = await manager.push_flow(state, "transfer_funds")
-        await manager.set_slot(state, "iban", "ES123456789")  # Existing slot
+        original_flow_id, push_delta = manager.push_flow(state, "transfer_funds")
+        apply_delta(state, push_delta)
+        slot_delta = manager.set_slot(state, "iban", "ES123456789")
+        apply_delta(state, slot_delta)
 
         # Act - Try to start same flow again (simulates NLU detecting StartFlow)
-        await manager.handle_intent_change(state, "transfer_funds")
+        delta = manager.handle_intent_change(state, "transfer_funds")
 
-        # Assert - Should still have only 1 flow with preserved slots
+        # Assert - Should return None (no changes) and preserve slots
+        assert delta is None
         assert len(state["flow_stack"]) == 1
         assert state["flow_stack"][0]["flow_id"] == original_flow_id
         assert manager.get_slot(state, "iban") == "ES123456789"
 
-    @pytest.mark.asyncio
-    async def test_handle_intent_change_pushes_different_flow(self):
+    def test_handle_intent_change_pushes_different_flow(self):
         """
         GIVEN a flow already active on the stack
         WHEN handle_intent_change is called with a DIFFERENT flow name
@@ -222,10 +281,12 @@ class TestFlowManagerEdgeCases:
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
-        await manager.push_flow(state, "transfer_funds")
+        _, push_delta = manager.push_flow(state, "transfer_funds")
+        apply_delta(state, push_delta)
 
         # Act - Switch to different flow
-        await manager.handle_intent_change(state, "check_balance")
+        delta = manager.handle_intent_change(state, "check_balance")
+        apply_delta(state, delta)
 
         # Assert - Should have 2 flows on stack
         assert len(state["flow_stack"]) == 2
@@ -243,16 +304,16 @@ class TestFlowManagerEdgeCases:
         # Assert
         assert context is None
 
-    @pytest.mark.asyncio
-    async def test_set_slot_does_nothing_on_empty_stack(self):
+    def test_set_slot_returns_none_on_empty_stack(self):
         # Arrange
         state = create_empty_dialogue_state()
         manager = FlowManager()
 
         # Act
-        await manager.set_slot(state, "key", "value")
+        delta = manager.set_slot(state, "key", "value")
 
         # Assert
+        assert delta is None
         assert state["flow_slots"] == {}
 
     def test_get_all_slots_returns_empty_dict_on_empty_stack(self):
@@ -266,17 +327,56 @@ class TestFlowManagerEdgeCases:
         # Assert
         assert slots == {}
 
-    @pytest.mark.asyncio
-    async def test_set_slot_initializes_slot_dict_if_missing(self):
+
+class TestMergeDelta:
+    """Tests for merge_delta helper function."""
+
+    def test_merge_delta_with_none(self):
         # Arrange
-        state = create_empty_dialogue_state()
-        manager = FlowManager()
-        flow_id = await manager.push_flow(state, "flow1")
-        # Manually corrupt state to remove slot dict
-        del state["flow_slots"][flow_id]
+        updates = {"key": "value"}
 
         # Act
-        await manager.set_slot(state, "key", "value")
+        merge_delta(updates, None)
 
         # Assert
-        assert state["flow_slots"][flow_id]["key"] == "value"
+        assert updates == {"key": "value"}
+
+    def test_merge_delta_with_flow_stack(self):
+        # Arrange
+        updates: dict[str, Any] = {}
+        # Use cast or create full context to satisfy mypy
+        dummy_context: Any = {"flow_id": "123"}
+        delta = FlowDelta(flow_stack=[dummy_context], flow_slots=None)
+
+        # Act
+        merge_delta(updates, delta)
+
+        # Assert
+        assert updates["flow_stack"] == [{"flow_id": "123"}]
+        assert "flow_slots" not in updates
+
+    def test_merge_delta_with_flow_slots(self):
+        # Arrange
+        updates: dict[str, Any] = {}
+        delta = FlowDelta(flow_stack=None, flow_slots={"id1": {"key": "val"}})
+
+        # Act
+        merge_delta(updates, delta)
+
+        # Assert
+        assert updates["flow_slots"] == {"id1": {"key": "val"}}
+        assert "flow_stack" not in updates
+
+    def test_merge_delta_with_both(self):
+        # Arrange
+        updates: dict[str, Any] = {"existing": True}
+        dummy_context: Any = {"flow_id": "123"}
+        delta = FlowDelta(flow_stack=[dummy_context], flow_slots={"id1": {"key": "val"}})
+
+        # Act
+        merge_delta(updates, delta)
+
+        # Assert
+        assert updates["existing"] is True
+        assert updates["flow_stack"] == [{"flow_id": "123"}]
+        assert updates["flow_slots"] == {"id1": {"key": "val"}}

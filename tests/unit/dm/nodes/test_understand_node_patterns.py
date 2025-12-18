@@ -33,9 +33,10 @@ def mock_runtime_context():
     ctx.du.acall = AsyncMock()
 
     ctx.flow_manager = Mock()
-    ctx.flow_manager.set_slot = AsyncMock()
-    ctx.flow_manager.pop_flow = AsyncMock()
-    ctx.flow_manager.handle_intent_change = AsyncMock()
+    # Now synchronous - returns None (no delta) for mocking simplicity
+    ctx.flow_manager.set_slot = Mock(return_value=None)
+    ctx.flow_manager.pop_flow = Mock(return_value=({"flow_name": "test"}, None))
+    ctx.flow_manager.handle_intent_change = Mock(return_value=None)
     ctx.flow_manager.get_active_context.return_value = {"flow_id": "test_flow", "flow_name": "test"}
 
     ctx.slot_extractor = Mock()

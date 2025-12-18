@@ -1,13 +1,16 @@
 """Runtime loop for dialogue processing.
 
-Implements the main entry point for processing dialogue messages.
-Uses dependency injection via RuntimeContext for testability.
+Orchestrates dialogue processing using specialized components:
+- RuntimeInitializer: Component creation and wiring
+- StateHydrator: State preparation for graph execution
+- ResponseExtractor: Response extraction from graph output
+
+This follows SRP by delegating specific responsibilities to dedicated classes.
 """
 
 import logging
 from typing import Any, cast
 
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
@@ -16,12 +19,11 @@ from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
 from soni.core.config import SoniConfig
 from soni.core.errors import StateError
-from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DUProtocol, RuntimeContext, SlotExtractorProtocol
-from soni.dm.builder import build_orchestrator
-from soni.du.modules import SoniDU
-from soni.du.slot_extractor import SlotExtractor
 from soni.flow.manager import FlowManager
+from soni.runtime.extractor import ResponseExtractor
+from soni.runtime.hydrator import StateHydrator
+from soni.runtime.initializer import RuntimeComponents, RuntimeInitializer
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +31,9 @@ logger = logging.getLogger(__name__)
 class RuntimeLoop:
     """Main runtime for processing dialogue messages.
 
-    Provides async-first interface for dialogue processing with:
-    - Lazy initialization of components
-    - Dependency injection via RuntimeContext
-    - Checkpointer integration for state persistence
+    Provides async-first interface for dialogue processing.
+    Delegates component creation, state preparation, and response
+    extraction to specialized classes following SRP.
     """
 
     def __init__(
@@ -51,78 +52,64 @@ class RuntimeLoop:
             du: Optional Dialogue Understanding module (dependency injection).
         """
         self.config = config
-        self.checkpointer = checkpointer
-        self._initial_registry = registry
-        self._custom_du = du
+        self._initializer = RuntimeInitializer(config, checkpointer, registry, du)
+        self._hydrator = StateHydrator()
+        self._extractor = ResponseExtractor()
 
-        # Lazy initialization - set during initialize()
-        self._flow_manager: FlowManager | None = None
-        self._du: DUProtocol | None = None
-        self._slot_extractor: SlotExtractorProtocol | None = None
-        self._action_registry: ActionRegistry | None = None
-        self._action_handler: ActionHandler | None = None
-        self._graph: CompiledStateGraph | None = None
+        # Components set during initialization
+        self._components: RuntimeComponents | None = None
 
+    # Property accessors for backwards compatibility
     @property
     def flow_manager(self) -> FlowManager:
         """Get FlowManager, raising if not initialized."""
-        if not self._flow_manager:
+        if not self._components:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
-        return self._flow_manager
+        return self._components.flow_manager
 
     @flow_manager.setter
     def flow_manager(self, value: FlowManager | None) -> None:
-        self._flow_manager = value
+        if self._components:
+            self._components.flow_manager = value  # type: ignore
 
     @property
     def du(self) -> DUProtocol:
         """Get DU module, raising if not initialized."""
-        if not self._du:
+        if not self._components:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
-        return self._du
+        return self._components.du
 
     @du.setter
     def du(self, value: DUProtocol | None) -> None:
-        self._du = value
+        if self._components:
+            self._components.du = value  # type: ignore
 
     @property
     def action_handler(self) -> ActionHandler:
         """Get ActionHandler, raising if not initialized."""
-        if not self._action_handler:
+        if not self._components:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
-        return self._action_handler
+        return self._components.action_handler
+
+    @property
+    def slot_extractor(self) -> SlotExtractorProtocol | None:
+        """Get SlotExtractor if initialized."""
+        return self._components.slot_extractor if self._components else None
 
     @property
     def graph(self) -> CompiledStateGraph | None:
         """Get compiled graph."""
-        return self._graph
+        return self._components.graph if self._components else None
 
     async def initialize(self) -> None:
         """Initialize all components.
 
         Safe to call multiple times - will skip if already initialized.
         """
-        if self._graph:
+        if self._components:
             return
 
-        self._flow_manager = FlowManager()
-
-        # Use injected DU or create default factory
-        if self._custom_du:
-            self._du = self._custom_du
-        else:
-            # Use factory to auto-load best optimized model
-            self._du = SoniDU.create_with_best_model(use_cot=True)
-
-        # Initialize slot extractor for Pass 2 of two-pass NLU
-        self._slot_extractor = SlotExtractor.create_with_best_model(use_cot=False)
-
-        self._action_registry = self._initial_registry or ActionRegistry()
-        self._action_handler = ActionHandler(self._action_registry)
-
-        # Compile graph with checkpointer
-        orchestrator = build_orchestrator(self.config, self.checkpointer)
-        self._graph = cast(CompiledStateGraph, orchestrator)
+        self._components = await self._initializer.initialize()
 
     async def process_message(self, message: str, user_id: str = "default") -> str:
         """Process a user message and return response.
@@ -137,12 +124,13 @@ class RuntimeLoop:
         Raises:
             StateError: If initialization failed.
         """
-        if not self._graph:
+        if not self._components:
             await self.initialize()
 
-        graph = self._graph
-        if not graph:
+        if not self._components or not self._components.graph:
             raise StateError("Graph initialization failed")
+
+        graph = self._components.graph
 
         # Create runtime context for dependency injection
         context = RuntimeContext(
@@ -150,70 +138,28 @@ class RuntimeLoop:
             flow_manager=self.flow_manager,
             action_handler=self.action_handler,
             du=self.du,
-            slot_extractor=self._slot_extractor,
+            slot_extractor=self.slot_extractor,
         )
 
-        run_config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
-
-        # Determine input state
+        # Get current state and prepare input
         current_state = await self.get_state(user_id)
+        input_payload = self._hydrator.prepare_input(message, current_state)
+        history = current_state.get("messages", []) if current_state else []
 
-        if not current_state:
-            # Initialize fresh state
-            init_state = create_empty_dialogue_state()
-            init_state["user_message"] = message
-            init_state["messages"] = [HumanMessage(content=message)]
-            init_state["turn_count"] = 1
-            input_payload: Any = init_state
-        else:
-            # Just update message
-            input_payload = {"user_message": message}
-            # Append user message to history provided by reducer
-            input_payload["messages"] = [HumanMessage(content=message)]
-            turn_count = current_state.get("turn_count", 0)
-            input_payload["turn_count"] = int(turn_count) + 1
-
-        # Inject context via configurable
-        run_config["configurable"]["runtime_context"] = context
+        # Build config with thread and context
+        run_config: dict[str, Any] = {
+            "configurable": {
+                "thread_id": user_id,
+                "runtime_context": context,
+            }
+        }
 
         # Execute graph
         final_config = cast(RunnableConfig, run_config)
         result = await graph.ainvoke(input_payload, config=final_config)
 
-        # Extract response
-        # We need to return all new AI messages generated in this turn
-        # Identify new messages by comparing with pre-execution count?
-        # A simpler way is to filter messages by the current run? No, persistence keeps all.
-
-        # Strategy: We assume standard AIMessages are appended.
-        # But for now, let's use a simple heuristic:
-        # Collect all messages that are NOT HumanMessage at the end of the list?
-        # No, that might capture old history.
-
-        # Better: Capture start length.
-        start_len = len(input_payload.get("messages", []))
-        # Wait, input_payload messages might be merged?
-        # Actually input_payload["messages"] only had [HumanMessage].
-        # But 'current_state' from get_state had full history.
-
-        # If we loaded history, start_len is len(current_state["messages"]).
-        history = current_state.get("messages", []) if current_state else []
-        start_len = len(history) + 1  # +1 for the human message we just added
-
-        final_messages = result.get("messages", [])
-        new_messages = final_messages[start_len:]
-
-        if new_messages:
-            return "\n\n".join([str(m.content) for m in new_messages if hasattr(m, "content")])
-
-        last_response = result.get("last_response")
-        if last_response:
-            return str(last_response)
-
-        if final_messages and hasattr(final_messages[-1], "content"):
-            return str(final_messages[-1].content)
-
-        return "I don't understand."
+        # Extract and return response
+        return self._extractor.extract(result, input_payload, history)
 
     async def get_state(self, user_id: str) -> dict[str, Any] | None:
         """Get current state snapshot for a user.
@@ -224,14 +170,14 @@ class RuntimeLoop:
         Returns:
             State dictionary or None if no state exists.
         """
-        if not self._graph:
+        if not self._components or not self._components.graph:
             return None
 
         config: dict[str, Any] = {"configurable": {"thread_id": user_id}}
 
         try:
             state_config = cast(RunnableConfig, config)
-            snapshot = await self._graph.aget_state(state_config)
+            snapshot = await self._components.graph.aget_state(state_config)
             if snapshot and snapshot.values:
                 return dict(snapshot.values)
         except StateError:

@@ -89,6 +89,7 @@ from soni.core.constants import FlowContextState
 from soni.core.errors import FlowStackError
 from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, get_runtime_context
+from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
 
@@ -114,9 +115,16 @@ async def resume_node(
         logger.debug("Flow waiting for input - skipping pop")
         return {"flow_stack": state.get("flow_stack")}
 
+    # Build updates dict
+    updates: dict[str, Any] = {}
+
     # 1. Pop the completed flow
     try:
-        completed_flow = await flow_manager.pop_flow(state, result=FlowContextState.COMPLETED)
+        completed_flow, delta = flow_manager.pop_flow(state, result=FlowContextState.COMPLETED)
+        merge_delta(updates, delta)
+        # Apply to state for subsequent reads
+        if delta.flow_stack is not None:
+            state["flow_stack"] = delta.flow_stack
         logger.debug(f"Popped completed flow: {completed_flow['flow_name']}")
     except FlowStackError:
         logger.warning("Attempted to pop flow from empty stack in resume_node")
@@ -129,6 +137,8 @@ async def resume_node(
     else:
         logger.debug("Stack empty after pop - ending turn")
 
-    return {
-        "flow_stack": state["flow_stack"],
-    }
+    # Ensure flow_stack in updates
+    if "flow_stack" not in updates:
+        updates["flow_stack"] = state.get("flow_stack")
+
+    return updates

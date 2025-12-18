@@ -16,6 +16,7 @@ from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
 from soni.core.constants import CommandType, SlotWaitType
 from soni.core.types import DialogueState, get_runtime_context
+from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,13 @@ def _find_confirmation_command(commands: list[Any]) -> tuple[bool | None, str | 
     return None, None
 
 
+def _apply_delta(state: DialogueState, updates: dict[str, Any], delta: Any) -> None:
+    """Helper to merge delta and apply to state for subsequent operations."""
+    merge_delta(updates, delta)
+    if delta and delta.flow_slots is not None:
+        state["flow_slots"] = delta.flow_slots
+
+
 class ConfirmNodeFactory:
     """Factory for confirm step nodes.
 
@@ -90,6 +98,9 @@ class ConfirmNodeFactory:
             context = get_runtime_context(config)
             flow_manager = context.flow_manager
 
+            # Build updates dict for merging deltas
+            updates: dict[str, Any] = {}
+
             # Check if confirmation slot is already filled
             value = flow_manager.get_slot(state, slot_name)
             if value is not None:
@@ -104,7 +115,8 @@ class ConfirmNodeFactory:
 
                 if is_affirmed is not None:
                     # NLU understood the confirmation
-                    await flow_manager.set_slot(state, slot_name, is_affirmed)
+                    delta = flow_manager.set_slot(state, slot_name, is_affirmed)
+                    _apply_delta(state, updates, delta)
                     logger.debug(f"Confirmation slot '{slot_name}' set to {is_affirmed} via NLU")
 
                     if not is_affirmed:
@@ -115,40 +127,46 @@ class ConfirmNodeFactory:
                             # Value already set by SetSlot (processed by understand_node)
                             # Just re-prompt confirmation with new values
                             logger.debug("Denial with SetSlot - re-prompting confirmation")
-                            await flow_manager.set_slot(state, slot_name, None)
+                            delta = flow_manager.set_slot(state, slot_name, None)
+                            _apply_delta(state, updates, delta)
                             slots = flow_manager.get_all_slots(state)
                             formatted_prompt = _format_prompt(prompt, slots)
 
-                            return {
-                                "flow_state": "waiting_input",
-                                "waiting_for_slot": slot_name,
-                                "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
-                                "last_response": formatted_prompt,
-                                "messages": [AIMessage(content=formatted_prompt)],
-                                "flow_slots": state["flow_slots"],
-                            }
+                            updates.update(
+                                {
+                                    "flow_state": "waiting_input",
+                                    "waiting_for_slot": slot_name,
+                                    "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+                                    "last_response": formatted_prompt,
+                                    "messages": [AIMessage(content=formatted_prompt)],
+                                }
+                            )
+                            return updates
 
                         elif slot_to_change:
                             # User wants to change but didn't provide value - ask for it
                             logger.debug(f"Modification requested for slot '{slot_to_change}'")
-                            await flow_manager.set_slot(state, slot_name, None)
+                            delta = flow_manager.set_slot(state, slot_name, None)
+                            _apply_delta(state, updates, delta)
                             prompt_message = f"What would you like to change {slot_to_change} to?"
-                            return {
-                                "flow_state": "waiting_input",
-                                "waiting_for_slot": slot_to_change,
-                                "waiting_for_slot_type": SlotWaitType.COLLECTION,
-                                "messages": [AIMessage(content=prompt_message)],
-                                "last_response": prompt_message,
-                                "flow_slots": state["flow_slots"],
-                            }
+                            updates.update(
+                                {
+                                    "flow_state": "waiting_input",
+                                    "waiting_for_slot": slot_to_change,
+                                    "waiting_for_slot_type": SlotWaitType.COLLECTION,
+                                    "messages": [AIMessage(content=prompt_message)],
+                                    "last_response": prompt_message,
+                                }
+                            )
+                            return updates
 
-                    result: dict[str, Any] = {
-                        "flow_state": "active",
-                        "waiting_for_slot": None,
-                        "flow_slots": state["flow_slots"],
-                    }
-
-                    return result
+                    updates.update(
+                        {
+                            "flow_state": "active",
+                            "waiting_for_slot": None,
+                        }
+                    )
+                    return updates
 
                 # NLU didn't produce affirm/deny - check retries
 
@@ -177,12 +195,15 @@ class ConfirmNodeFactory:
                     logger.info(f"Slot modification detected. Behavior: {behavior}")
 
                     if behavior == "update_and_confirm":
-                        await flow_manager.set_slot(state, slot_name, True)
-                        return {
-                            "flow_state": "active",
-                            "waiting_for_slot": None,
-                            "flow_slots": state["flow_slots"],
-                        }
+                        delta = flow_manager.set_slot(state, slot_name, True)
+                        _apply_delta(state, updates, delta)
+                        updates.update(
+                            {
+                                "flow_state": "active",
+                                "waiting_for_slot": None,
+                            }
+                        )
+                        return updates
                     else:
                         # "update_and_reprompt" (Default)
                         slots = flow_manager.get_all_slots(state)
@@ -190,16 +211,19 @@ class ConfirmNodeFactory:
                         natural_reprompt = f"{acknowledgment} {formatted_prompt}"
 
                         # Reset retries
-                        await flow_manager.set_slot(state, retry_key, 0)
+                        delta = flow_manager.set_slot(state, retry_key, 0)
+                        _apply_delta(state, updates, delta)
 
-                        return {
-                            "flow_state": "waiting_input",
-                            "waiting_for_slot": slot_name,
-                            "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
-                            "messages": [AIMessage(content=natural_reprompt)],
-                            "last_response": natural_reprompt,
-                            "flow_slots": state["flow_slots"],
-                        }
+                        updates.update(
+                            {
+                                "flow_state": "waiting_input",
+                                "waiting_for_slot": slot_name,
+                                "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+                                "messages": [AIMessage(content=natural_reprompt)],
+                                "last_response": natural_reprompt,
+                            }
+                        )
+                        return updates
 
                 # -------------------------------------------------------------
                 # Standard Retry Logic (Only if no modification occurred)
@@ -221,17 +245,21 @@ class ConfirmNodeFactory:
                         f"Max retries ({effective_max}) exceeded for confirmation "
                         f"'{slot_name}', defaulting to deny"
                     )
-                    await flow_manager.set_slot(state, slot_name, False)
-                    return {
-                        "flow_state": "active",
-                        "waiting_for_slot": None,
-                        "flow_slots": state["flow_slots"],
-                        "last_response": "I didn't understand. Assuming 'no'.",
-                        "messages": [AIMessage(content="I didn't understand. Assuming 'no'.")],
-                    }
+                    delta = flow_manager.set_slot(state, slot_name, False)
+                    _apply_delta(state, updates, delta)
+                    updates.update(
+                        {
+                            "flow_state": "active",
+                            "waiting_for_slot": None,
+                            "last_response": "I didn't understand. Assuming 'no'.",
+                            "messages": [AIMessage(content="I didn't understand. Assuming 'no'.")],
+                        }
+                    )
+                    return updates
 
                 # Re-ask
-                await flow_manager.set_slot(state, retry_key, current_retries + 1)
+                delta = flow_manager.set_slot(state, retry_key, current_retries + 1)
+                _apply_delta(state, updates, delta)
 
                 # Format prompt with current slot values for retry
                 slots = flow_manager.get_all_slots(state)
@@ -245,14 +273,16 @@ class ConfirmNodeFactory:
                 )
                 retry_prompt = retry_template.format(prompt=formatted_prompt)
 
-                return {
-                    "flow_state": "waiting_input",
-                    "waiting_for_slot": slot_name,
-                    "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
-                    "last_response": retry_prompt,
-                    "messages": [AIMessage(content=retry_prompt)],
-                    "flow_slots": state["flow_slots"],
-                }
+                updates.update(
+                    {
+                        "flow_state": "waiting_input",
+                        "waiting_for_slot": slot_name,
+                        "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+                        "last_response": retry_prompt,
+                        "messages": [AIMessage(content=retry_prompt)],
+                    }
+                )
+                return updates
 
             # First visit - ask for confirmation
             slots = flow_manager.get_all_slots(state)

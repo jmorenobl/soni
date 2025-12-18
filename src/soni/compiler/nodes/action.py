@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from soni.compiler.nodes.base import NodeFunction
 from soni.core.config import StepConfig
 from soni.core.types import DialogueState, get_runtime_context
+from soni.flow.manager import merge_delta
 
 
 class ActionNodeFactory:
@@ -39,14 +40,25 @@ class ActionNodeFactory:
             # Execute action
             result = await action_handler.execute(action_name, slots)
 
+            # Build updates dict
+            updates: dict[str, Any] = {}
+
             # Update state with results, applying output mapping
             if isinstance(result, dict):
                 for key, value in result.items():
                     # Apply mapping if defined, otherwise use original key
                     slot_name = output_mapping.get(key, key)
-                    await flow_manager.set_slot(state, slot_name, value)
+                    delta = flow_manager.set_slot(state, slot_name, value)
+                    merge_delta(updates, delta)
+                    # Apply to state for subsequent iterations
+                    if delta and delta.flow_slots is not None:
+                        state["flow_slots"] = delta.flow_slots
 
-            return {"flow_slots": state["flow_slots"]}
+            # Ensure flow_slots in updates
+            if "flow_slots" not in updates:
+                updates["flow_slots"] = state.get("flow_slots")
+
+            return updates
 
         action_node.__name__ = f"action_{step.step}"
         return action_node

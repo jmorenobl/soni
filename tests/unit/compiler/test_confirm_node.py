@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from langchain_core.runnables import RunnableConfig
@@ -13,7 +13,8 @@ from soni.core.types import DialogueState, RuntimeContext
 def mock_runtime_context():
     ctx = Mock(spec=RuntimeContext)
     ctx.flow_manager = Mock()
-    ctx.flow_manager.set_slot = AsyncMock()
+    # Now synchronous - returns None (no delta) for simplicity
+    ctx.flow_manager.set_slot = Mock(return_value=None)
     ctx.flow_manager.get_slot = Mock()
     ctx.flow_manager.get_all_slots = Mock()
 

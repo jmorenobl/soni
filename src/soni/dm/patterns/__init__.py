@@ -20,6 +20,7 @@ from soni.core.commands import (
 )
 from soni.core.config import PatternBehaviorsConfig
 from soni.core.types import DialogueState, RuntimeContext
+from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,12 @@ class CorrectionHandler:
     ) -> tuple[dict[str, Any], list[AIMessage]]:
         logger.info(f"Handling CorrectSlot: {cmd.slot}={cmd.new_value}")
 
-        # Update slot
-        await context.flow_manager.set_slot(state, cmd.slot, cmd.new_value)
+        # Update slot and get delta
+        delta = context.flow_manager.set_slot(state, cmd.slot, cmd.new_value)
+
+        # Build updates from delta
+        updates: dict[str, Any] = {}
+        merge_delta(updates, delta)
 
         # Generate response from config
         patterns = get_pattern_config(context)
@@ -83,7 +88,7 @@ class CorrectionHandler:
         )
         response_text = template.format(slot=cmd.slot, value=cmd.new_value, new_value=cmd.new_value)
 
-        return {}, [AIMessage(content=response_text)]
+        return updates, [AIMessage(content=response_text)]
 
 
 class CancellationHandler:
@@ -107,12 +112,14 @@ class CancellationHandler:
             # TODO: Push confirmation sub-flow
             pass
 
-        # Pop the current flow
+        # Pop the current flow and get delta
+        updates: dict[str, Any] = {"should_reset_flow_state": True}
         active_ctx = context.flow_manager.get_active_context(state)
         if active_ctx:
-            await context.flow_manager.pop_flow(state)
+            _, delta = context.flow_manager.pop_flow(state)
+            merge_delta(updates, delta)
 
-        return {"should_reset_flow_state": True}, [AIMessage(content=response_text)]
+        return updates, [AIMessage(content=response_text)]
 
 
 class ClarificationHandler:

@@ -1,18 +1,34 @@
+"""Tests for command handling in understand_node.
+
+Tests verify that handled commands are properly processed,
+and unhandled commands trigger appropriate debug logs.
+"""
+
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic import BaseModel
 
-from soni.core.commands import CancelFlow
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import RuntimeContext
 from soni.dm.nodes.understand import understand_node
 
 
+class UnknownCommand(BaseModel):
+    """A custom command type not handled by understand_node."""
+
+    type: str = "unknown_custom_command"
+
+
 @pytest.mark.asyncio
-async def test_log_unhandled_cancel_flow(caplog):
-    """Test that CancelFlow command triggers a warning log in understand_node."""
+async def test_log_debug_for_unhandled_command_type(caplog):
+    """Test that truly unknown command types trigger debug logs in understand_node.
+
+    Note: CancelFlow IS now handled via the patterns system.
+    This test uses a custom command type that is genuinely unhandled.
+    """
     # Arrange
-    caplog.set_level(logging.WARNING)
+    caplog.set_level(logging.DEBUG)
 
     from soni.core.constants import FlowState
     from soni.core.state import create_empty_dialogue_state
@@ -20,30 +36,35 @@ async def test_log_unhandled_cancel_flow(caplog):
     state = create_empty_dialogue_state()
     state.update(
         {
-            "user_message": "cancel",
+            "user_message": "something weird",
             "flow_state": FlowState.ACTIVE,
         }
     )
 
-    # Mock NLU output with CancelFlow
+    # Mock NLU output with a custom unknown command
     mock_du = MagicMock()
-    mock_du.acall = AsyncMock(return_value=MagicMock(commands=[CancelFlow(type="cancel_flow")]))
+    mock_du.acall = AsyncMock(return_value=MagicMock(commands=[UnknownCommand()]))
 
     mock_fm = MagicMock()
     mock_fm.get_active_context.return_value = None
+    # Set up synchronous mocks for new FlowManager API
+    mock_fm.set_slot = MagicMock(return_value=None)
+    mock_fm.handle_intent_change = MagicMock(return_value=None)
+
+    mock_config = MagicMock()
+    mock_config.slots = {}
+    mock_config.flows = {}
 
     context = RuntimeContext(
-        config=MagicMock(), flow_manager=mock_fm, du=mock_du, action_handler=MagicMock()
+        config=mock_config, flow_manager=mock_fm, du=mock_du, action_handler=MagicMock()
     )
 
     from langchain_core.runnables import RunnableConfig
 
-    # Use real dict for config since get_runtime_context uses item access
     config: RunnableConfig = {"configurable": {"runtime_context": context}}
 
     # Act
     await understand_node(state, config)
 
-    # Assert
-    assert "Unhandled command type" in caplog.text
-    assert "cancel_flow" in caplog.text
+    # Assert - Unknown commands are logged at debug level
+    assert "Command type handled by routing" in caplog.text

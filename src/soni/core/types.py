@@ -76,30 +76,34 @@ class DialogueState(TypedDict):
 
 @runtime_checkable
 class FlowManagerProtocol(Protocol):
-    """Protocol for FlowManager - enables DI without circular imports."""
+    """Protocol for FlowManager - enables DI without circular imports.
 
-    async def push_flow(
+    All mutation methods return FlowDelta objects instead of modifying
+    state in-place. This ensures LangGraph properly tracks changes.
+    """
+
+    def push_flow(
         self,
         state: DialogueState,
         flow_name: str,
         inputs: dict[str, Any] | None = None,
-    ) -> str:
+    ) -> tuple[str, Any]:  # Returns (flow_id, FlowDelta)
         """Push a new flow onto the stack."""
         ...
 
-    async def pop_flow(
+    def pop_flow(
         self,
         state: DialogueState,
         result: FlowContextState = FlowContextState.COMPLETED,
-    ) -> FlowContext:
+    ) -> tuple[FlowContext, Any]:  # Returns (popped_context, FlowDelta)
         """Pop the top flow from the stack."""
         ...
 
-    async def handle_intent_change(
+    def handle_intent_change(
         self,
         state: DialogueState,
         new_flow: str,
-    ) -> None:
+    ) -> Any | None:  # Returns FlowDelta or None
         """Handle intent switch (push new flow)."""
         ...
 
@@ -107,7 +111,9 @@ class FlowManagerProtocol(Protocol):
         """Get the currently active flow context."""
         ...
 
-    async def set_slot(self, state: DialogueState, slot_name: str, value: Any) -> None:
+    def set_slot(
+        self, state: DialogueState, slot_name: str, value: Any
+    ) -> Any | None:  # Returns FlowDelta or None
         """Set a slot value in the active flow context."""
         ...
 
@@ -119,7 +125,7 @@ class FlowManagerProtocol(Protocol):
         """Get all slots for the active flow."""
         ...
 
-    async def advance_step(self, state: DialogueState) -> bool:
+    def advance_step(self, state: DialogueState) -> Any | None:  # Returns FlowDelta or None
         """Advance to next step in current flow."""
         ...
 

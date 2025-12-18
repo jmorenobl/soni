@@ -1,9 +1,12 @@
+"""Tests for RuntimeLoop dependency injection."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from soni.core.config import SoniConfig
 from soni.core.types import DUProtocol
+from soni.du.modules import SoniDU
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -25,8 +28,8 @@ class TestRuntimeLoopDI:
         # Act - should not raise
         loop = RuntimeLoop(minimal_config, du=mock_du)
 
-        # Assert
-        assert loop._custom_du is mock_du
+        # Assert - check via the initializer
+        assert loop._initializer._custom_du is mock_du
 
     @pytest.mark.asyncio
     async def test_uses_injected_du_after_initialize(self, minimal_config):
@@ -40,10 +43,8 @@ class TestRuntimeLoopDI:
         # Act
         await loop.initialize()
 
-        # Assert
-        # Accessing private attribute _du for verification, or public property if it exists
-        # Assuming .du property or _du attribute usage
-        assert loop._du is mock_du
+        # Assert - use public property
+        assert loop.du is mock_du
 
     @pytest.mark.asyncio
     async def test_creates_default_du_when_not_injected(self, minimal_config):
@@ -54,7 +55,5 @@ class TestRuntimeLoopDI:
         # Act
         await loop.initialize()
 
-        # Assert
-        from soni.du.modules import SoniDU
-
-        assert isinstance(loop._du, SoniDU)
+        # Assert - use public property
+        assert isinstance(loop.du, SoniDU)

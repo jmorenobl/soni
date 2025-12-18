@@ -53,12 +53,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.core.commands import (
     AffirmConfirmation,
-    CancelFlow,
-    CorrectSlot,
     DenyConfirmation,
-    HumanHandoff,
-    RequestClarification,
-    SetSlot,
     StartFlow,
 )
 from soni.core.constants import FlowState, SlotWaitType
@@ -68,6 +63,7 @@ from soni.core.types import (
     RuntimeContext,
     get_runtime_context,
 )
+from soni.dm.nodes.command_registry import get_command_registry
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
 from soni.du.slot_extractor import SlotExtractionInput
 
@@ -244,7 +240,6 @@ async def understand_node(
     # 1. Get Context
     runtime_ctx = get_runtime_context(config)
     du = runtime_ctx.du  # DUProtocol
-    fm = runtime_ctx.flow_manager
     slot_extractor = runtime_ctx.slot_extractor  # NEW: SlotExtractor
 
     # 2. Build DU Context & Run NLU (Pass 1: Intent Detection)
@@ -277,51 +272,24 @@ async def understand_node(
                 # Append extracted SetSlot commands
                 commands.extend(extracted_slots)
 
-    # 4. Process Commands (Update State)
-    # Commands are typed Pydantic models - use isinstance() for type narrowing
+    # 4. Process Commands via Registry (SRP compliance)
     expected_slot = state.get("waiting_for_slot")
     should_reset_flow_state = False
     response_messages = []
+    updates: dict[str, Any] = {}
+
+    registry = get_command_registry()
 
     for cmd in commands:
-        # Use isinstance() for proper type narrowing (SOLID compliance)
-        if isinstance(cmd, StartFlow):
-            # Handle intent change (pushes flow)
-            await fm.handle_intent_change(state, cmd.flow_name)
-
-        elif isinstance(cmd, SetSlot):
-            await fm.set_slot(state, cmd.slot, cmd.value)
-            # Check if this is the slot we were waiting for
-            if cmd.slot == expected_slot:
+        result = await registry.dispatch(cmd, state, runtime_ctx, expected_slot)
+        if result:
+            # Merge updates from handler
+            updates.update(result.updates)
+            response_messages.extend(result.messages)
+            if result.should_reset_flow_state:
                 should_reset_flow_state = True
 
-        elif isinstance(cmd, (AffirmConfirmation, DenyConfirmation)):
-            # Confirmation commands should also allow flow to continue
-            # The confirm node will process the actual affirm/deny logic
-            should_reset_flow_state = True
-
-        elif isinstance(cmd, (CorrectSlot, CancelFlow, RequestClarification, HumanHandoff)):
-            # Delegate to pattern handlers (SRP compliance)
-            from soni.dm.patterns import dispatch_pattern_command
-
-            result = await dispatch_pattern_command(cmd, state, runtime_ctx)
-            if result:
-                updates, messages = result
-                response_messages.extend(messages)
-                if updates.get("should_reset_flow_state"):
-                    should_reset_flow_state = True
-
-                # Check if we corrected the slot we were waiting for
-                if isinstance(cmd, CorrectSlot) and cmd.slot == expected_slot:
-                    should_reset_flow_state = True
-
-        # NOTE: Other command types (chitchat, etc.) are handled
-        # by routing logic in subsequent nodes, not here
-        else:
-            logger.debug(f"Command type handled by routing: {cmd.type}")
-
     # 5. Reset flow state if we received relevant input
-    # This allows the subgraph to continue executing instead of immediately returning
     new_flow_state = state.get("flow_state")
     new_waiting_for_slot = state.get("waiting_for_slot")
 
@@ -338,16 +306,22 @@ async def understand_node(
     # Calculate last request if messages were generated
     last_response = response_messages[-1].content if response_messages else None
 
-    # 6. Return updates
-    # Must return keys that changed so LangGraph keeps them
-    # FlowManager modifies flow_stack and flow_slots in place
-    return {
-        "flow_state": new_flow_state,
-        "waiting_for_slot": new_waiting_for_slot,
-        "flow_slots": state.get("flow_slots"),
-        "flow_stack": state.get("flow_stack"),
-        "commands": [cmd.model_dump() for cmd in commands],
-        "messages": response_messages,
-        "last_response": last_response,
-        "metadata": state.get("metadata", {}),
-    }
+    # 6. Build final return dict
+    updates.update(
+        {
+            "flow_state": new_flow_state,
+            "waiting_for_slot": new_waiting_for_slot,
+            "commands": [cmd.model_dump() for cmd in commands],
+            "messages": response_messages,
+            "last_response": last_response,
+            "metadata": state.get("metadata", {}),
+        }
+    )
+
+    # Ensure flow_stack/flow_slots are in updates if not already from deltas
+    if "flow_stack" not in updates:
+        updates["flow_stack"] = state.get("flow_stack")
+    if "flow_slots" not in updates:
+        updates["flow_slots"] = state.get("flow_slots")
+
+    return updates
