@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
+from soni.config.steps import CollectStepConfig, SayStepConfig
 from soni.core.commands import SetSlot, StartFlow
-from soni.core.config import FlowConfig, SoniConfig, StepConfig
+from soni.core.config import FlowConfig, SoniConfig
 from soni.du.models import NLUOutput
 from soni.runtime.loop import RuntimeLoop
 
@@ -23,10 +24,8 @@ async def test_runtime_simple_flow_execution():
             "greeting": FlowConfig(
                 description="Greets the user",
                 steps=[
-                    StepConfig(
-                        step="ask_name", type="collect", slot="name", message="What is your name?"
-                    ),
-                    StepConfig(step="say_hello", type="say", message="Hello {name}!"),
+                    CollectStepConfig(step="ask_name", slot="name", message="What is your name?"),
+                    SayStepConfig(step="say_hello", message="Hello {name}!"),
                 ],
             )
         }
@@ -85,8 +84,8 @@ async def test_runtime_flow_persistence():
             "status": FlowConfig(
                 description="Check status",
                 steps=[
-                    StepConfig(step="ask_id", type="collect", slot="user_id", message="ID please?"),
-                    StepConfig(step="show_status", type="say", message="Status OK for {user_id}"),
+                    CollectStepConfig(step="ask_id", slot="user_id", message="ID please?"),
+                    SayStepConfig(step="show_status", message="Status OK for {user_id}"),
                 ],
             )
         }

@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
+from soni.config.steps import CollectStepConfig, ConfirmStepConfig, SayStepConfig
 from soni.core.commands import SetSlot, StartFlow
-from soni.core.config import FlowConfig, SoniConfig, StepConfig
+from soni.core.config import FlowConfig, SoniConfig
 from soni.du.models import NLUOutput
 from soni.runtime.loop import RuntimeLoop
 
@@ -17,23 +18,17 @@ def scenario_config():
             "book_flight": FlowConfig(
                 description="Book a flight",
                 steps=[
-                    StepConfig(
-                        step="ask_dest", type="collect", slot="destination", message="Where to?"
-                    ),
-                    StepConfig(step="ask_date", type="collect", slot="date", message="When?"),
-                    StepConfig(
-                        step="confirm", type="confirm", slot="confirmed", message="Confirm booking?"
-                    ),
-                    StepConfig(
-                        step="done", type="say", message="Booked flight to {destination} on {date}"
-                    ),
+                    CollectStepConfig(step="ask_dest", slot="destination", message="Where to?"),
+                    CollectStepConfig(step="ask_date", slot="date", message="When?"),
+                    ConfirmStepConfig(step="confirm", slot="confirmed", message="Confirm booking?"),
+                    SayStepConfig(step="done", message="Booked flight to {destination} on {date}"),
                 ],
             ),
             "check_weather": FlowConfig(
                 description="Check weather",
                 steps=[
-                    StepConfig(step="ask_city", type="collect", slot="city", message="Which city?"),
-                    StepConfig(step="show_weather", type="say", message="Sunny in {city}"),
+                    CollectStepConfig(step="ask_city", slot="city", message="Which city?"),
+                    SayStepConfig(step="show_weather", message="Sunny in {city}"),
                 ],
             ),
         }

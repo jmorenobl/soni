@@ -47,7 +47,7 @@ User: "Transfer 100€ to my mom"
 """
 
 import logging
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from langchain_core.runnables import RunnableConfig
 
@@ -216,6 +216,26 @@ def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueC
     )
 
 
+def create_state_view(
+    base_state: DialogueState, accumulated_updates: dict[str, Any]
+) -> DialogueState:
+    """Create an immutable view of state with accumulated updates applied.
+
+    This allows subsequent command handlers to see the effect of previous
+    commands without mutating the original state.
+    """
+    # Create shallow copy with updates overlaid
+    # We use cast because TypedDict doesn't support **kwargs dict expansion safely in Mypy
+    view = cast(
+        DialogueState,
+        {
+            **base_state,
+            **{k: v for k, v in accumulated_updates.items() if k in base_state},
+        },
+    )
+    return view
+
+
 async def understand_node(
     state: DialogueState,
     config: RunnableConfig,
@@ -242,6 +262,8 @@ async def understand_node(
     du = runtime_ctx.du  # DUProtocol
     slot_extractor = runtime_ctx.slot_extractor  # NEW: SlotExtractor
 
+    # 2. Build DU Context & Run NLU (Pass 1: Intent Detection)
+    du_ctx = build_du_context(state, runtime_ctx)
     # 2. Build DU Context & Run NLU (Pass 1: Intent Detection)
     du_ctx = build_du_context(state, runtime_ctx)
     user_message = state.get("user_message") or ""
@@ -276,25 +298,23 @@ async def understand_node(
     expected_slot = state.get("waiting_for_slot")
     should_reset_flow_state = False
     response_messages = []
-    updates: dict[str, Any] = {}
+    accumulated_updates: dict[str, Any] = {}
 
     registry = get_command_registry()
 
     for cmd in commands:
-        result = await registry.dispatch(cmd, state, runtime_ctx, expected_slot)
+        # Create view with accumulated updates for this handler
+        # This keeps the original 'state' immutable while allowing
+        # handlers to see effects of previous commands in this turn.
+        state_view = create_state_view(state, accumulated_updates)
+
+        result = await registry.dispatch(cmd, state_view, runtime_ctx, expected_slot)
         if result:
-            # Merge updates from handler
-            updates.update(result.updates)
+            # Accumulate updates from handler without mutating original state
+            accumulated_updates.update(result.updates)
             response_messages.extend(result.messages)
             if result.should_reset_flow_state:
                 should_reset_flow_state = True
-
-            # Apply updates to state context for subsequent commands in this turn
-            # e.g. StartFlow updates stack, subsequent SetSlot needs to see new stack
-            if "flow_stack" in result.updates:
-                state["flow_stack"] = result.updates["flow_stack"]
-            if "flow_slots" in result.updates:
-                state["flow_slots"] = result.updates["flow_slots"]
 
     # 5. Reset flow state if we received relevant input
     new_flow_state = state.get("flow_state")
@@ -314,6 +334,8 @@ async def understand_node(
     last_response = response_messages[-1].content if response_messages else None
 
     # 6. Build final return dict
+    # Start with accumulated updates
+    updates: dict[str, Any] = accumulated_updates.copy()
     updates.update(
         {
             "flow_state": new_flow_state,
@@ -325,10 +347,8 @@ async def understand_node(
         }
     )
 
-    # Ensure flow_stack/flow_slots are in updates if not already from deltas
-    if "flow_stack" not in updates:
-        updates["flow_stack"] = state.get("flow_stack")
-    if "flow_slots" not in updates:
-        updates["flow_slots"] = state.get("flow_slots")
+    # Note: We do NOT need to force flow_stack/flow_slots into updates if they never changed.
+    # LangGraph merges updates into existing state.
+    # If they were in accumulated_updates, they are already in 'updates'.
 
     return updates
