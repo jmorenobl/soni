@@ -33,6 +33,7 @@ class RuntimeComponents:
         action_registry: ActionRegistry,
         action_handler: ActionHandler,
         graph: CompiledStateGraph,
+        checkpointer: BaseCheckpointSaver | None = None,
     ):
         self.flow_manager = flow_manager
         self.du = du
@@ -40,6 +41,7 @@ class RuntimeComponents:
         self.action_registry = action_registry
         self.action_handler = action_handler
         self.graph = graph
+        self.checkpointer = checkpointer
 
 
 class RuntimeInitializer:
@@ -102,4 +104,5 @@ class RuntimeInitializer:
             action_registry=action_registry,
             action_handler=action_handler,
             graph=graph,
+            checkpointer=self.checkpointer,
         )

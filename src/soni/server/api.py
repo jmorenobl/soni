@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 
 from soni.core.config import SoniConfig
+from soni.core.errors import StateError
 from soni.core.loader import ConfigLoader
 from soni.runtime.loop import RuntimeLoop
 from soni.server.dependencies import RuntimeDep
@@ -206,15 +207,26 @@ async def reset_conversation(
     Returns:
         Confirmation of reset.
     """
-    # Note: Full reset requires checkpointer support
-    # For now, we just confirm the intent - state will reset on next message
-    # if no active checkpointer is configured
-    _ = runtime  # Used for dependency validation
+    try:
+        was_reset = await runtime.reset_state(user_id)
 
-    return ResetResponse(
-        success=True,
-        message=f"Conversation state for user '{user_id}' will be reset on next interaction.",
-    )
+        if was_reset:
+            return ResetResponse(
+                success=True,
+                message=f"Conversation state for user '{user_id}' has been reset.",
+            )
+        else:
+            return ResetResponse(
+                success=True,
+                message=f"No existing state found for user '{user_id}'.",
+            )
+
+    except StateError as e:
+        raise create_error_response(
+            exception=e,
+            user_id=user_id,
+            endpoint="/reset",
+        ) from e
 
 
 def create_app(config: SoniConfig | None = None) -> FastAPI:

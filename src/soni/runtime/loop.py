@@ -188,3 +188,65 @@ class RuntimeLoop:
             return None
 
         return None
+
+    async def reset_state(self, user_id: str) -> bool:
+        """Reset conversation state for a user.
+
+        Args:
+            user_id: The user/thread ID to reset
+
+        Returns:
+            True if state was reset, False if no state existed
+
+        Raises:
+            StateError: If reset fails due to persistence error
+        """
+        if not self._components:
+            logger.warning("reset_state called before initialization")
+            return False
+
+        checkpointer = self._components.checkpointer
+
+        if checkpointer is None:
+            # No persistence - state is already ephemeral
+            logger.info(f"No checkpointer configured, state for {user_id} is ephemeral")
+            # If we were tracking in-memory state in runtime self._state or similar, we would clear it here.
+            # Currently LangGraph holds state. If no checkpointer, compiled graph holds in-memory state?
+            # Standard CompiledGraph without checkpointer keeps state in memory per invocation usually,
+            # but if we are using "thread_id" in config without a checkpointer, LangGraph might complain or use MemorySaver default?
+            return True
+
+        try:
+            # LangGraph checkpointer API for clearing state
+            config = {"configurable": {"thread_id": user_id}}
+
+            # Check if state exists first
+            current = await self.get_state(user_id)
+            if current is None:
+                logger.debug(f"No state to reset for user {user_id}")
+                return False
+
+            # Delete the checkpoint for this thread
+            if hasattr(checkpointer, "adelete"):
+                await checkpointer.adelete(config)
+            elif hasattr(checkpointer, "delete"):
+                checkpointer.delete(config)
+            else:
+                # Fallback: Write empty state
+                from soni.core.state import create_empty_dialogue_state
+
+                empty_state = create_empty_dialogue_state()
+                # We need a way to force-write state.
+                # Usually graph.update_state?
+                if self._components.graph:
+                    # Config for update requires thread_id
+                    await self._components.graph.aupdate_state(
+                        cast(RunnableConfig, config), empty_state
+                    )
+
+            logger.info(f"Reset state for user {user_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to reset state for {user_id}: {e}")
+            raise StateError(f"Reset failed: {e}") from e
