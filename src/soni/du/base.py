@@ -8,10 +8,82 @@ Provides shared functionality for:
 
 import logging
 from abc import abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar, TypeVar, cast
 
 import dspy
+from pydantic import BaseModel, ValidationError
+
+T = TypeVar("T", bound=BaseModel)
+
+
+def validate_dspy_result(result: Any, model_class: type[T]) -> T:
+    """Validate and convert DSPy result to strict Pydantic model.
+
+    Handles various return formats from DSPy:
+    - Already correct model instance
+    - Dict
+    - DSPy Prediction object (extracts from _store or model_dump)
+    """
+    if result is None:
+        raise TypeError(f"Cannot validate None result against {model_class.__name__}")
+
+    # Case 1: Already correct type
+    if isinstance(result, model_class):
+        return result
+
+    # Case 2: Dict
+    if isinstance(result, dict):
+        return cast(T, model_class.model_validate(result))
+
+    # Case 3: DSPy Prediction object (or similar)
+    # Check for _store attribute (common in DSPy)
+    if hasattr(result, "_store") and isinstance(result._store, dict):
+        return cast(T, model_class.model_validate(result._store))
+
+    # Check for model_dump method
+    if hasattr(result, "model_dump") and callable(result.model_dump):
+        return cast(T, model_class.model_validate(result.model_dump()))
+
+    # Fallback: Try vars() or __dict__ if available
+    try:
+        return cast(T, model_class.model_validate(vars(result)))
+    except (TypeError, ValueError):
+        pass
+
+    raise TypeError(f"Cannot convert result of type {type(result)} to {model_class.__name__}")
+
+
+def safe_extract_result(
+    result: Any,
+    model_class: type[T],
+    default_factory: Callable[[], T],
+    context: str = "Extraction",
+) -> T:
+    """Safely extract result with fallback on validation failure.
+
+    Args:
+        result: Raw result from DSPy
+        model_class: Expected Pydantic model
+        default_factory: Function returning default value on failure
+        context: Context description for logging
+
+    Returns:
+        Validated model instance or default value
+    """
+    try:
+        return validate_dspy_result(result, model_class)
+    except (ValidationError, TypeError) as e:
+        logger.warning(f"{context} validation failed: {e}. Falling back to default.")
+        return default_factory()
+    except Exception as e:
+        logger.error(
+            f"{context} unexpected error during validation: {e}. Falling back to default.",
+            exc_info=True,
+        )
+        return default_factory()
+
 
 logger = logging.getLogger(__name__)
 

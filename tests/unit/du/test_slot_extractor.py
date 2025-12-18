@@ -63,10 +63,13 @@ class TestSlotExtractor:
 
         # Mock the DSPy extractor
         mock_result = MagicMock()
-        mock_result.result.extracted_slots = [
-            {"slot": "amount", "value": "100"},
-            {"slot": "beneficiary_name", "value": "my mom"},
-        ]
+        # Use a real dict or object structure that validate_dspy_result accepts
+        mock_result.result = {
+            "extracted_slots": [
+                {"slot": "amount", "value": "100"},
+                {"slot": "beneficiary_name", "value": "my mom"},
+            ]
+        }
         extractor.extractor = MagicMock()
         extractor.extractor.acall = AsyncMock(return_value=mock_result)
 
@@ -92,10 +95,12 @@ class TestSlotExtractor:
         extractor = SlotExtractor(use_cot=False)
 
         mock_result = MagicMock()
-        mock_result.result.extracted_slots = [
-            {"slot": "unknown_slot", "value": "value"},
-            {"slot": "amount", "value": "50"},
-        ]
+        mock_result.result = {
+            "extracted_slots": [
+                {"slot": "unknown_slot", "value": "value"},
+                {"slot": "amount", "value": "50"},
+            ]
+        }
         extractor.extractor = MagicMock()
         extractor.extractor.acall = AsyncMock(return_value=mock_result)
 
@@ -129,7 +134,7 @@ class TestSlotExtractor:
         extractor = SlotExtractor(use_cot=False)
 
         mock_result = MagicMock()
-        mock_result.result.extracted_slots = [{"slot": "amount", "value": "100"}]
+        mock_result.result = {"extracted_slots": [{"slot": "amount", "value": "100"}]}
         extractor.extractor = MagicMock(return_value=mock_result)
 
         slot_defs = [

@@ -289,6 +289,13 @@ async def understand_node(
             if result.should_reset_flow_state:
                 should_reset_flow_state = True
 
+            # Apply updates to state context for subsequent commands in this turn
+            # e.g. StartFlow updates stack, subsequent SetSlot needs to see new stack
+            if "flow_stack" in result.updates:
+                state["flow_stack"] = result.updates["flow_stack"]
+            if "flow_slots" in result.updates:
+                state["flow_slots"] = result.updates["flow_slots"]
+
     # 5. Reset flow state if we received relevant input
     new_flow_state = state.get("flow_state")
     new_waiting_for_slot = state.get("waiting_for_slot")

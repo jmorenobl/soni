@@ -7,13 +7,13 @@ This module is called ONLY when Pass 1 (SoniDU) detects a StartFlow command.
 """
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 import dspy
 from pydantic import BaseModel, Field
 
 from soni.core.commands import SetSlot
-from soni.du.base import OptimizableDSPyModule
+from soni.du.base import OptimizableDSPyModule, safe_extract_result
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +118,18 @@ class SlotExtractor(OptimizableDSPyModule):
                 slot_definitions=slot_definitions,
             )
 
+            # Validate extraction result
+            extraction_result = safe_extract_result(
+                result.result,
+                SlotExtractionResult,
+                default_factory=lambda: SlotExtractionResult(extracted_slots=[]),
+                context="Slot extraction",
+            )
+
             # Convert extraction result to SetSlot commands
             extracted: list[SetSlot] = []
-            for slot_data in result.result.extracted_slots:
+            for slot_data in extraction_result.extracted_slots:
+                # slot_data is now a dict from the model
                 slot_name = slot_data.get("slot")
                 slot_value = slot_data.get("value")
 
@@ -128,7 +137,7 @@ class SlotExtractor(OptimizableDSPyModule):
                     # Validate that slot exists in definitions
                     valid_names = {s.name for s in slot_definitions}
                     if slot_name in valid_names:
-                        extracted.append(SetSlot(slot=slot_name, value=slot_value))
+                        extracted.append(SetSlot(slot=slot_name, value=str(slot_value)))
                     else:
                         logger.warning(
                             f"SlotExtractor returned unknown slot '{slot_name}', ignoring"
@@ -159,4 +168,9 @@ class SlotExtractor(OptimizableDSPyModule):
             slot_definitions=slot_definitions,
         )
 
-        return cast(SlotExtractionResult, result.result)
+        return safe_extract_result(
+            result.result,
+            SlotExtractionResult,
+            default_factory=lambda: SlotExtractionResult(extracted_slots=[]),
+            context="Slot extraction forward pass",
+        )

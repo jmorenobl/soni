@@ -4,11 +4,10 @@ Async-first design using native .acall() method.
 """
 
 import logging
-from typing import cast
 
 import dspy
 
-from soni.du.base import OptimizableDSPyModule
+from soni.du.base import OptimizableDSPyModule, safe_extract_result
 from soni.du.models import DialogueContext, NLUOutput
 from soni.du.signatures import ExtractCommands
 
@@ -62,8 +61,13 @@ class SoniDU(OptimizableDSPyModule):
                 context=context,
                 history=history_obj,
             )
-            # DSPy Prediction object has dynamic 'result' attribute matching our signature
-            return cast(NLUOutput, result.result)
+            # Validate and extract result safely
+            return safe_extract_result(
+                result.result,
+                NLUOutput,
+                default_factory=lambda: NLUOutput(commands=[], confidence=0.0),
+                context="NLU extraction",
+            )
 
         except Exception as e:
             logger.error(f"NLU extraction failed: {e}", exc_info=True)
@@ -85,5 +89,9 @@ class SoniDU(OptimizableDSPyModule):
             context=context,
             history=history_obj,
         )
-        # DSPy Prediction object has dynamic 'result' attribute matching our signature
-        return cast(NLUOutput, result.result)
+        return safe_extract_result(
+            result.result,
+            NLUOutput,
+            default_factory=lambda: NLUOutput(commands=[], confidence=0.0),
+            context="NLU forward pass",
+        )

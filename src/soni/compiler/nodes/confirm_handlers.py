@@ -44,13 +44,16 @@ def format_prompt(prompt: str, slots: dict[str, Any]) -> str:
         return prompt
 
 
-def apply_delta(state: DialogueState, updates: dict[str, Any], delta: Any) -> None:
-    """Helper to merge delta and apply to state for subsequent operations."""
+def apply_delta(updates: dict[str, Any], delta: Any) -> None:
+    """Helper to merge delta into updates dict.
+
+    Does NOT mutate state - all changes go through updates dict.
+    The caller (confirm_node) is responsible for applying updates.
+    """
     from soni.flow.manager import merge_delta
 
-    merge_delta(updates, delta)
-    if delta and delta.flow_slots is not None:
-        state["flow_slots"] = delta.flow_slots
+    if delta:
+        merge_delta(updates, delta)
 
 
 class FirstVisitHandler:
@@ -85,7 +88,7 @@ class AffirmHandler:
     ) -> dict[str, Any]:
         """Process affirmation and proceed."""
         delta = ctx.flow_manager.set_slot(state, ctx.slot_name, True)
-        apply_delta(state, updates, delta)
+        apply_delta(updates, delta)
         logger.debug(f"Confirmation slot '{ctx.slot_name}' affirmed")
 
         updates.update(
@@ -111,8 +114,14 @@ class DenyHandler:
         """Process denial and handle modification requests."""
         # Set confirmation to False
         delta = ctx.flow_manager.set_slot(state, ctx.slot_name, False)
-        apply_delta(state, updates, delta)
+        apply_delta(updates, delta)
         logger.debug(f"Confirmation slot '{ctx.slot_name}' denied")
+
+        # Create working state for subsequent operations in same turn
+        working_state = state
+        if delta and delta.flow_slots is not None:
+            working_state = state.copy()
+            working_state["flow_slots"] = delta.flow_slots
 
         # Check if they also provided a new value via SetSlot
         has_set_slot = any(c.get("type") == "set_slot" for c in commands)
@@ -121,8 +130,17 @@ class DenyHandler:
             # Value already set by SetSlot - re-prompt confirmation
             logger.debug("Denial with SetSlot - re-prompting confirmation")
             delta = ctx.flow_manager.set_slot(state, ctx.slot_name, None)
-            apply_delta(state, updates, delta)
-            slots = ctx.flow_manager.get_all_slots(state)
+            apply_delta(updates, delta)
+
+            # Apply delta to working state if needed for get_all_slots
+            if delta and delta.flow_slots is not None:
+                if working_state is state:
+                    working_state = state.copy()
+                if "flow_slots" not in working_state:
+                    working_state["flow_slots"] = state.get("flow_slots", {}).copy()
+                working_state["flow_slots"].update(delta.flow_slots)
+
+            slots = ctx.flow_manager.get_all_slots(working_state)
             formatted_prompt = format_prompt(ctx.prompt, slots)
 
             updates.update(
@@ -140,7 +158,7 @@ class DenyHandler:
             # User wants to change but didn't provide value - ask for it
             logger.debug(f"Modification requested for slot '{slot_to_change}'")
             delta = ctx.flow_manager.set_slot(state, ctx.slot_name, None)
-            apply_delta(state, updates, delta)
+            apply_delta(updates, delta)
             prompt_message = f"What would you like to change {slot_to_change} to?"
             updates.update(
                 {
@@ -184,7 +202,7 @@ class ModificationHandler:
         if behavior == "update_and_confirm":
             # Auto-confirm after update
             delta = ctx.flow_manager.set_slot(state, ctx.slot_name, True)
-            apply_delta(state, updates, delta)
+            apply_delta(updates, delta)
             updates.update(
                 {
                     "flow_state": "active",
@@ -200,7 +218,7 @@ class ModificationHandler:
 
         # Reset retries
         delta = ctx.flow_manager.set_slot(state, ctx.retry_key, 0)
-        apply_delta(state, updates, delta)
+        apply_delta(updates, delta)
 
         updates.update(
             {
@@ -238,7 +256,7 @@ class RetryHandler:
                 f"'{ctx.slot_name}', defaulting to deny"
             )
             delta = ctx.flow_manager.set_slot(state, ctx.slot_name, False)
-            apply_delta(state, updates, delta)
+            apply_delta(updates, delta)
             updates.update(
                 {
                     "flow_state": "active",
@@ -251,10 +269,16 @@ class RetryHandler:
 
         # Increment retries
         delta = ctx.flow_manager.set_slot(state, ctx.retry_key, current_retries + 1)
-        apply_delta(state, updates, delta)
+        apply_delta(updates, delta)
+
+        # Update working state for slots
+        working_state = state
+        if delta and delta.flow_slots is not None:
+            working_state = state.copy()
+            working_state["flow_slots"] = delta.flow_slots
 
         # Format prompt with current slot values
-        slots = ctx.flow_manager.get_all_slots(state)
+        slots = ctx.flow_manager.get_all_slots(working_state)
         formatted_prompt = format_prompt(ctx.prompt, slots)
 
         # Get retry template from config

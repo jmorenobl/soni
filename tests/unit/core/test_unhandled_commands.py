@@ -66,5 +66,5 @@ async def test_log_debug_for_unhandled_command_type(caplog):
     # Act
     await understand_node(state, config)
 
-    # Assert - Unknown commands are logged at debug level
-    assert "Command type handled by routing" in caplog.text
+    # Assert - Unknown commands trigger warning from registry
+    assert "No handler registered for command type" in caplog.text

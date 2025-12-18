@@ -5,15 +5,18 @@ Uses the RuntimeLoop for dialogue processing with async support.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
 
 from soni.core.config import SoniConfig
 from soni.core.loader import ConfigLoader
 from soni.runtime.loop import RuntimeLoop
+from soni.server.dependencies import RuntimeDep
+from soni.server.errors import create_error_response, global_exception_handler
 from soni.server.models import (
     HealthResponse,
     MessageRequest,
@@ -24,35 +27,29 @@ from soni.server.models import (
 
 logger = logging.getLogger(__name__)
 
-# Global runtime instance
-_runtime: RuntimeLoop | None = None
-_config: SoniConfig | None = None
-
-
-def get_runtime() -> RuntimeLoop:
-    """Get the global runtime instance."""
-    if _runtime is None:
-        raise HTTPException(
-            status_code=503, detail="System not initialized. Server is starting up."
-        )
-    return _runtime
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan - initialize and cleanup."""
-    global _runtime, _config
-
-    # Startup
-    config_path = Path("soni.yaml")
+    """Application lifespan - initialize on startup, cleanup on shutdown."""
+    # Get config path from environment or default
+    config_path = Path(os.getenv("SONI_CONFIG_PATH", "soni.yaml"))
 
     if config_path.exists():
         logger.info(f"Loading configuration from {config_path}")
-        loader = ConfigLoader()
-        _config = loader.from_yaml(config_path)
-        _runtime = RuntimeLoop(_config)
-        await _runtime.initialize()
-        logger.info("Soni server initialized successfully")
+        try:
+            loader = ConfigLoader()
+            config = loader.from_yaml(config_path)
+            runtime = RuntimeLoop(config)
+            await runtime.initialize()
+
+            # Store in app.state instead of globals
+            app.state.config = config
+            app.state.runtime = runtime
+
+            logger.info("Soni server initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize server: {e}")
+            raise
     else:
         logger.warning(
             f"Configuration file {config_path} not found. "
@@ -61,8 +58,12 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown
+    # Cleanup
     logger.info("Soni server shutting down")
+    if hasattr(app.state, "runtime"):
+        app.state.runtime = None
+    if hasattr(app.state, "config"):
+        app.state.config = None
 
 
 # Create FastAPI app
@@ -73,32 +74,39 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register global exception handler for uncaught exceptions
+app.add_exception_handler(Exception, global_exception_handler)
+
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
+async def health_check(request: Request) -> HealthResponse:
     """Health check endpoint.
 
     Returns the current health status of the server.
     """
+    runtime = getattr(request.app.state, "runtime", None)
+
     return HealthResponse(
-        status="healthy" if _runtime is not None else "starting",
+        status="healthy" if runtime is not None else "starting",
         version="0.8.0",
-        initialized=_runtime is not None,
+        initialized=runtime is not None,
     )
 
 
 @app.post("/message", response_model=MessageResponse)
-async def process_message(request: MessageRequest) -> MessageResponse:
+async def process_message(
+    request: MessageRequest,
+    runtime: RuntimeDep,
+) -> MessageResponse:
     """Process a user message and return the assistant response.
 
     Args:
         request: Message request containing user_id and message.
+        runtime: Injected RuntimeLoop dependency.
 
     Returns:
         Assistant's response with conversation state.
     """
-    runtime = get_runtime()
-
     try:
         response = await runtime.process_message(
             message=request.message,
@@ -127,22 +135,27 @@ async def process_message(request: MessageRequest) -> MessageResponse:
         )
 
     except Exception as e:
-        logger.error(f"Error processing message: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}") from e
+        raise create_error_response(
+            exception=e,
+            user_id=request.user_id,
+            endpoint="/message",
+        ) from e
 
 
 @app.get("/state/{user_id}", response_model=StateResponse)
-async def get_conversation_state(user_id: str) -> StateResponse:
+async def get_conversation_state(
+    user_id: str,
+    runtime: RuntimeDep,
+) -> StateResponse:
     """Get the current conversation state for a user.
 
     Args:
         user_id: Unique identifier for the conversation thread.
+        runtime: Injected RuntimeLoop dependency.
 
     Returns:
         Current conversation state including active flow and slots.
     """
-    runtime = get_runtime()
-
     state = await runtime.get_state(user_id)
 
     if not state:
@@ -178,13 +191,17 @@ async def get_conversation_state(user_id: str) -> StateResponse:
 
 
 @app.post("/reset/{user_id}", response_model=ResetResponse)
-async def reset_conversation(user_id: str) -> ResetResponse:
+async def reset_conversation(
+    user_id: str,
+    runtime: RuntimeDep,
+) -> ResetResponse:
     """Reset the conversation state for a user.
 
     This clears all flow state and starts fresh.
 
     Args:
         user_id: Unique identifier for the conversation thread.
+        runtime: Injected RuntimeLoop dependency.
 
     Returns:
         Confirmation of reset.
@@ -192,6 +209,7 @@ async def reset_conversation(user_id: str) -> ResetResponse:
     # Note: Full reset requires checkpointer support
     # For now, we just confirm the intent - state will reset on next message
     # if no active checkpointer is configured
+    _ = runtime  # Used for dependency validation
 
     return ResetResponse(
         success=True,
@@ -208,7 +226,6 @@ def create_app(config: SoniConfig | None = None) -> FastAPI:
     Returns:
         Configured FastAPI application.
     """
-    global _config
     if config:
-        _config = config
+        app.state.config = config
     return app
