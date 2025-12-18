@@ -89,13 +89,10 @@ async def cleanup(self) -> None:
 
 **Archivo a modificar:** `src/soni/server/api.py`
 
+Solo se modifica la sección de cleanup (después del `yield`). El código de startup permanece sin cambios.
+
 **ANTES:**
 ```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan - initialize on startup, cleanup on shutdown."""
-    # ... initialization code ...
-
     yield
 
     # Cleanup
@@ -108,39 +105,6 @@ async def lifespan(app: FastAPI):
 
 **DESPUÉS:**
 ```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan - initialize on startup, cleanup on shutdown.
-
-    Handles graceful initialization and cleanup of server resources.
-    """
-    # === STARTUP ===
-    config_path = Path(os.getenv("SONI_CONFIG_PATH", "soni.yaml"))
-
-    if config_path.exists():
-        logger.info(f"Loading configuration from {config_path}")
-        try:
-            loader = ConfigLoader()
-            config = loader.from_yaml(config_path)
-            runtime = RuntimeLoop(config)
-            await runtime.initialize()
-
-            app.state.config = config
-            app.state.runtime = runtime
-
-            logger.info("Soni server initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize server: {e}")
-            raise
-    else:
-        logger.warning(
-            f"Configuration file {config_path} not found. "
-            "Server starting without configuration - "
-            "use POST /config to load configuration."
-        )
-        app.state.config = None
-        app.state.runtime = None
-
     yield
 
     # === SHUTDOWN ===

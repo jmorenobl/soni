@@ -60,12 +60,23 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Cleanup
-    logger.info("Soni server shutting down")
-    if hasattr(app.state, "runtime"):
-        app.state.runtime = None
-    if hasattr(app.state, "config"):
-        app.state.config = None
+    # === SHUTDOWN ===
+    logger.info("Soni server shutting down...")
+
+    # Cleanup runtime (releases async resources)
+    shutdown_runtime = getattr(app.state, "runtime", None)
+    if shutdown_runtime is not None:
+        try:
+            await shutdown_runtime.cleanup()
+            logger.info("Runtime cleanup completed")
+        except Exception as e:
+            logger.error(f"Error during runtime cleanup: {e}")
+
+    # Clear references
+    app.state.runtime = None
+    app.state.config = None
+
+    logger.info("Soni server shutdown completed")
 
 
 # Create FastAPI app

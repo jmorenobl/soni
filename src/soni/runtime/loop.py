@@ -250,3 +250,36 @@ class RuntimeLoop:
         except Exception as e:
             logger.error(f"Failed to reset state for {user_id}: {e}")
             raise StateError(f"Reset failed: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up runtime resources.
+
+        Should be called during server shutdown to release resources gracefully.
+        Closes checkpointer connections and clears component references.
+        """
+        logger.info("RuntimeLoop cleanup starting...")
+
+        if not self._components:
+            logger.debug("No components to clean up")
+            return
+
+        # Close checkpointer if it has a close method
+        checkpointer = self._components.checkpointer
+        if checkpointer:
+            if hasattr(checkpointer, "aclose"):
+                try:
+                    await checkpointer.aclose()
+                    logger.debug("Checkpointer closed (async)")
+                except Exception as e:
+                    logger.warning(f"Error closing checkpointer: {e}")
+            elif hasattr(checkpointer, "close"):
+                try:
+                    checkpointer.close()
+                    logger.debug("Checkpointer closed (sync)")
+                except Exception as e:
+                    logger.warning(f"Error closing checkpointer: {e}")
+
+        # Clear references
+        self._components = None
+
+        logger.info("RuntimeLoop cleanup completed")
