@@ -81,7 +81,6 @@ class ConfirmNodeFactory:
 
         slot_name = step.slot
         prompt = step.message or f"Please confirm {slot_name} (yes/no)"
-        max_retries = step.max_retries or 3
         retry_key = f"__confirm_retries_{slot_name}"
 
         async def confirm_node(
@@ -152,12 +151,74 @@ class ConfirmNodeFactory:
                     return result
 
                 # NLU didn't produce affirm/deny - check retries
+
+                # -------------------------------------------------------------
+                # NEW: Check for Slot Modification Pattern (e.g., "Let's make it 200")
+                # -------------------------------------------------------------
+                has_modification = any(c.get("type") == "set_slot" for c in commands)
+
+                if has_modification:
+                    # Get behavior config safely (DRY) - used for both modification and retry logic
+                    from soni.dm.patterns import get_pattern_config
+
+                    patterns = get_pattern_config(context)
+                    confirmation_cfg = patterns.confirmation if patterns else None
+
+                    # Default behavior
+                    behavior = (
+                        confirmation_cfg.modification_handling
+                        if confirmation_cfg
+                        else "update_and_reprompt"
+                    )
+                    acknowledgment = (
+                        confirmation_cfg.update_acknowledgment if confirmation_cfg else "Updated."
+                    )
+
+                    logger.info(f"Slot modification detected. Behavior: {behavior}")
+
+                    if behavior == "update_and_confirm":
+                        await flow_manager.set_slot(state, slot_name, True)
+                        return {
+                            "flow_state": "active",
+                            "waiting_for_slot": None,
+                            "flow_slots": state["flow_slots"],
+                        }
+                    else:
+                        # "update_and_reprompt" (Default)
+                        slots = flow_manager.get_all_slots(state)
+                        formatted_prompt = _format_prompt(prompt, slots)
+                        natural_reprompt = f"{acknowledgment} {formatted_prompt}"
+
+                        # Reset retries
+                        await flow_manager.set_slot(state, retry_key, 0)
+
+                        return {
+                            "flow_state": "waiting_input",
+                            "waiting_for_slot": slot_name,
+                            "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+                            "messages": [AIMessage(content=natural_reprompt)],
+                            "last_response": natural_reprompt,
+                            "flow_slots": state["flow_slots"],
+                        }
+
+                # -------------------------------------------------------------
+                # Standard Retry Logic (Only if no modification occurred)
+                # -------------------------------------------------------------
                 current_retries = flow_manager.get_slot(state, retry_key) or 0
 
-                if current_retries >= max_retries:
+                # Config already loaded above if has_modification was true,
+                # otherwise load it now for retry logic
+                if not has_modification:
+                    from soni.dm.patterns import get_pattern_config
+
+                    patterns = get_pattern_config(context)
+                pattern_max_retries = patterns.confirmation.max_retries if patterns else 3
+                effective_max = step.max_retries or pattern_max_retries
+
+                if current_retries >= effective_max:
                     # Max retries exceeded - default to deny
                     logger.warning(
-                        f"Max retries ({max_retries}) exceeded for confirmation "
+                        f"Max retries ({effective_max}) exceeded for confirmation "
                         f"'{slot_name}', defaulting to deny"
                     )
                     await flow_manager.set_slot(state, slot_name, False)
@@ -175,7 +236,14 @@ class ConfirmNodeFactory:
                 # Format prompt with current slot values for retry
                 slots = flow_manager.get_all_slots(state)
                 formatted_prompt = _format_prompt(prompt, slots)
-                retry_prompt = f"I need a clear yes or no answer. {formatted_prompt}"
+
+                # Get retry template from config (DRY)
+                retry_template = (
+                    patterns.confirmation.retry_message
+                    if patterns
+                    else "I need a clear yes or no answer. {prompt}"
+                )
+                retry_prompt = retry_template.format(prompt=formatted_prompt)
 
                 return {
                     "flow_state": "waiting_input",

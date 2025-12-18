@@ -50,6 +50,17 @@ class SlotWaitType(StrEnum):
     COLLECTION = "collection"  # Waiting for a slot value
 
 
+class SlotType(StrEnum):
+    """Types of slots."""
+
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    LIST = "list"
+    DICT = "dict"
+    ANY = "any"
+
+
 class NodeName(StrEnum):
     """Special node names in the graph."""
 

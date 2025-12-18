@@ -47,11 +47,20 @@ User: "Transfer 100€ to my mom"
 """
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from langchain_core.runnables import RunnableConfig
 
-from soni.core.commands import AffirmConfirmation, DenyConfirmation, SetSlot, StartFlow
+from soni.core.commands import (
+    AffirmConfirmation,
+    CancelFlow,
+    CorrectSlot,
+    DenyConfirmation,
+    HumanHandoff,
+    RequestClarification,
+    SetSlot,
+    StartFlow,
+)
 from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import (
     ConfigProtocol,
@@ -197,7 +206,7 @@ def build_du_context(state: DialogueState, context: RuntimeContext) -> DialogueC
     # Detect conversation state using explicit slot type
     # Replaces the previous suffix-based heuristic (waiting_for_slot.endswith("_confirmed"))
     is_confirming = waiting_for_slot_type == SlotWaitType.CONFIRMATION
-    conversation_state = (
+    conversation_state: Literal["idle", "collecting", "confirming", "action_pending"] = (
         "idle" if not active_flow else "confirming" if is_confirming else "collecting"
     )
 
@@ -272,6 +281,7 @@ async def understand_node(
     # Commands are typed Pydantic models - use isinstance() for type narrowing
     expected_slot = state.get("waiting_for_slot")
     should_reset_flow_state = False
+    response_messages = []
 
     for cmd in commands:
         # Use isinstance() for proper type narrowing (SOLID compliance)
@@ -290,7 +300,22 @@ async def understand_node(
             # The confirm node will process the actual affirm/deny logic
             should_reset_flow_state = True
 
-        # NOTE: Other command types (clarify, chitchat, etc.) are handled
+        elif isinstance(cmd, (CorrectSlot, CancelFlow, RequestClarification, HumanHandoff)):
+            # Delegate to pattern handlers (SRP compliance)
+            from soni.dm.patterns import dispatch_pattern_command
+
+            result = await dispatch_pattern_command(cmd, state, runtime_ctx)
+            if result:
+                updates, messages = result
+                response_messages.extend(messages)
+                if updates.get("should_reset_flow_state"):
+                    should_reset_flow_state = True
+
+                # Check if we corrected the slot we were waiting for
+                if isinstance(cmd, CorrectSlot) and cmd.slot == expected_slot:
+                    should_reset_flow_state = True
+
+        # NOTE: Other command types (chitchat, etc.) are handled
         # by routing logic in subsequent nodes, not here
         else:
             logger.debug(f"Command type handled by routing: {cmd.type}")
@@ -310,6 +335,9 @@ async def understand_node(
         if not has_confirmation_cmd:
             new_waiting_for_slot = None
 
+    # Calculate last request if messages were generated
+    last_response = response_messages[-1].content if response_messages else None
+
     # 6. Return updates
     # Must return keys that changed so LangGraph keeps them
     # FlowManager modifies flow_stack and flow_slots in place
@@ -319,5 +347,7 @@ async def understand_node(
         "flow_slots": state.get("flow_slots"),
         "flow_stack": state.get("flow_stack"),
         "commands": [cmd.model_dump() for cmd in commands],
+        "messages": response_messages,
+        "last_response": last_response,
         "metadata": state.get("metadata", {}),
     }

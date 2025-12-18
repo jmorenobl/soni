@@ -14,6 +14,7 @@ from soni.core.commands import (
     ChitChat,
     CorrectSlot,
     DenyConfirmation,
+    HumanHandoff,
     RequestClarification,
     SetSlot,
     StartFlow,
@@ -160,6 +161,7 @@ CommandUnion = Annotated[
     | AffirmConfirmation
     | DenyConfirmation
     | RequestClarification
+    | HumanHandoff
     | ChitChat,
     Field(discriminator="type"),
 ]
