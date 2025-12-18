@@ -11,6 +11,7 @@ Refactored to use separate handlers for each concern (SRP).
 import logging
 from typing import Any
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from soni.core.config import StepConfig
@@ -108,7 +109,7 @@ class ConfirmNodeFactory:
 
         async def confirm_node(
             state: DialogueState,
-            config: Any,
+            config: RunnableConfig,
         ) -> dict[str, Any] | Command:
             context = get_runtime_context(config)
             flow_manager = context.flow_manager
