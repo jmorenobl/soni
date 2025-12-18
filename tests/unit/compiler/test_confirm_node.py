@@ -4,7 +4,7 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
-from soni.core.config import StepConfig
+from soni.core.config import ConfirmStepConfig
 from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import DialogueState, RuntimeContext
 
@@ -48,7 +48,7 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context,
     and re-prompts with updated values (without asking for the value again).
     """
     factory = ConfirmNodeFactory()
-    step = StepConfig(
+    step = ConfirmStepConfig(
         step="confirm_transfer",
         type="confirm",
         slot="transfer_confirmed",
@@ -97,7 +97,7 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context,
 async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_config):
     """Test retry prompt correctly formats template placeholders."""
     factory = ConfirmNodeFactory()
-    step = StepConfig(
+    step = ConfirmStepConfig(
         step="confirm_transfer",
         type="confirm",
         slot="transfer_confirmed",
@@ -138,7 +138,7 @@ async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_co
 async def test_confirm_node_modification_updates_and_reprompts(mock_runtime_context, run_config):
     """Test standard slot modification behavior (update_and_reprompt)."""
     factory = ConfirmNodeFactory()
-    step = StepConfig(
+    step = ConfirmStepConfig(
         step="confirm_transfer",
         type="confirm",
         slot="transfer_confirmed",

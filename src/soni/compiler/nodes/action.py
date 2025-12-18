@@ -5,7 +5,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import ActionStepConfig, StepConfig
 from soni.core.types import DialogueState, get_runtime_context
 from soni.flow.manager import merge_delta
 
@@ -20,8 +20,8 @@ class ActionNodeFactory:
         step_index: int | None = None,
     ) -> NodeFunction:
         """Create a node that executes an action."""
-        if not step.call:
-            raise ValueError(f"Step {step.step} of type 'action' missing required field 'call'")
+        if not isinstance(step, ActionStepConfig):
+            raise ValueError(f"ActionNodeFactory received wrong step type: {type(step).__name__}")
 
         action_name = step.call
         output_mapping = step.map_outputs or {}

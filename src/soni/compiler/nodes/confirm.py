@@ -14,7 +14,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from soni.core.config import StepConfig
+from soni.config.steps import ConfirmStepConfig, StepConfig
 from soni.core.types import DialogueState, get_runtime_context
 from soni.dm.patterns.base import get_pattern_config
 
@@ -92,8 +92,8 @@ class ConfirmNodeFactory:
         step_index: int | None = None,
     ) -> NodeFunction:
         """Create a node that requests and processes confirmation."""
-        if not step.slot:
-            raise ValueError(f"Step {step.step} of type 'confirm' missing required field 'slot'")
+        if not isinstance(step, ConfirmStepConfig):
+            raise ValueError(f"ConfirmNodeFactory received wrong step type: {type(step).__name__}")
 
         slot_name = step.slot
         prompt = step.message or f"Please confirm {slot_name} (yes/no)"

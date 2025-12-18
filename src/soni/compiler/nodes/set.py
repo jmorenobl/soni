@@ -164,7 +164,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import SetStepConfig, StepConfig
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, get_runtime_context
 from soni.flow.manager import merge_delta
@@ -197,15 +197,10 @@ class SetNodeFactory:
         Raises:
             ValueError: If slots field is missing or wrong type
         """
-        if step.slots is None:
-            raise ValueError(f"Step {step.step} of type 'set' missing required field 'slots'")
+        if not isinstance(step, SetStepConfig):
+            raise ValueError(f"SetNodeFactory received wrong step type: {type(step).__name__}")
 
-        if not isinstance(step.slots, dict):
-            raise ValueError(
-                f"Step {step.step} of type 'set' requires 'slots' to be a dictionary, "
-                f"got {type(step.slots).__name__}"
-            )
-
+        # Pydantic validates slots is a dict
         slots_to_set = step.slots
         condition = step.condition
 

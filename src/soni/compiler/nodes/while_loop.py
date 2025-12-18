@@ -55,10 +55,10 @@ While loops work best for **automatic iterations** without pausing for user inpu
 # ❌ BAD - collect inside loop causes resumption issues
 condition: "has_more_pages == 'yes'"
 do:
-  - fetch_page
-  - show_page
-  - ask_user_continue  # collect - PROBLEMATIC!
-  - handle_response
+*   - fetch_page
+*   - show_page
+*   - ask_user_continue  # collect - PROBLEMATIC!
+*   - handle_response
 ```
 
 **Why it fails**: When `collect` pauses execution (`waiting_input`), the loop state
@@ -101,7 +101,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import StepConfig, WhileStepConfig
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, get_runtime_context
 
@@ -134,14 +134,17 @@ class WhileNodeFactory:
         - Edge from last step in do: back to this guard (loop back)
         - Edges for sequential flow within do: block
         """
-        if not step.condition:
-            raise ValueError(f"Step {step.step} of type 'while' missing required field 'condition'")
+        if not isinstance(step, WhileStepConfig):
+            raise ValueError(f"WhileNodeFactory received wrong step type: {type(step).__name__}")
+
+        # Pydantic validates condition and do are present
+        condition = step.condition
+        # do is list[str], must check if empty? Pydantic validates list[str], but not length > 0
         if not step.do:
             raise ValueError(f"Step {step.step} of type 'while' missing required field 'do'")
 
-        condition = step.condition
         loop_body_start = step.do[0]  # First step in do: block
-        loop_body_end = step.do[-1]  # Last step in do: block
+        # loop_body_end = step.do[-1]  # Last step - unused here but concept applies
         while_node_name = step.step  # Name of this while node
 
         # Calculate default exit target: first step AFTER all steps in do: block
@@ -156,9 +159,9 @@ class WhileNodeFactory:
                     break
             # If no step found after while, will fall through to __end_flow__
 
-        # Store loop metadata for SubgraphBuilder to use
+        # Store loop metadata for SubgraphBuilder to use (if it uses this factory directly)
         step.loop_body_start = loop_body_start
-        step.loop_body_end = loop_body_end
+        step.loop_body_end = step.do[-1]
         step.calculated_exit_target = exit_target or "__end_flow__"
 
         async def while_node(

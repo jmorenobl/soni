@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from soni.core.config import FlowConfig, SoniConfig, StepConfig
+from soni.core.config import (
+    ActionStepConfig,
+    CollectStepConfig,
+    FlowConfig,
+    SoniConfig,
+    StepConfig,
+)
 from soni.core.errors import ConfigError
 from soni.core.loader import ConfigLoader
 
@@ -18,14 +24,21 @@ class TestConfigModels:
         WHEN StepConfig is created
         THEN defaults are applied
         """
-        step = StepConfig(step="step1", type="action")
-        assert step.slot is None
-        assert step.call is None
+        # Test defaults on a specific type
+        step = CollectStepConfig(step="step1", type="collect", slot="my_slot")
+        assert step.message is None  # Optional field default
+
+        # Action step doesn't have 'slot'
+        action = ActionStepConfig(step="step2", type="action", call="my_func")
+        assert not hasattr(action, "slot")
 
     def test_steps_or_process_property(self):
         """Test steps_or_process returns correct list."""
         # Case 1: steps
-        fc1 = FlowConfig(description="desc", steps=[StepConfig(step="s1", type="action")])
+        fc1 = FlowConfig(
+            description="desc",
+            steps=[ActionStepConfig(step="s1", type="action", call="my_func")],
+        )
         assert len(fc1.steps) == 1
 
 
@@ -68,4 +81,7 @@ class TestConfigLoader:
         assert config.version == "1.0"
         assert "book_flight" in config.flows
         assert config.flows["book_flight"].description == "Book a flight"
-        assert config.flows["book_flight"].steps[0].slot == "origin"
+        # Access specifically typed step
+        step = config.flows["book_flight"].steps[0]
+        assert isinstance(step, CollectStepConfig)
+        assert step.slot == "origin"

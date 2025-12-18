@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import CollectStepConfig, StepConfig
 from soni.core.constants import SlotWaitType
 from soni.core.types import DialogueState, get_runtime_context
 
@@ -21,9 +21,8 @@ class CollectNodeFactory:
         step_index: int | None = None,
     ) -> NodeFunction:
         """Create a node that collects a slot value."""
-        # Validate config
-        if not step.slot:
-            raise ValueError(f"Step {step.step} of type 'collect' missing required field 'slot'")
+        if not isinstance(step, CollectStepConfig):
+            raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
 
         slot_name = step.slot
         prompt = step.message or f"Please provide {slot_name}"

@@ -1,9 +1,15 @@
 """Unit tests for while loop transformation in SubgraphBuilder."""
 
 import pytest
+from pydantic import ValidationError
 
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.core.config import FlowConfig, StepConfig
+from soni.core.config import (
+    ActionStepConfig,
+    FlowConfig,
+    SayStepConfig,
+    WhileStepConfig,
+)
 
 
 class TestWhileLoopTransformation:
@@ -19,13 +25,13 @@ class TestWhileLoopTransformation:
         config = FlowConfig(
             description="Test while loop",
             steps=[
-                StepConfig(
+                WhileStepConfig(
                     step="counter_loop",
                     type="while",
                     condition="counter < 3",
                     do=["increment"],
                 ),
-                StepConfig(
+                ActionStepConfig(
                     step="increment",
                     type="action",
                     call="increment_counter",
@@ -51,14 +57,14 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(
+            WhileStepConfig(
                 step="my_loop",
                 type="while",
                 condition="x < 10",
                 do=["step_a", "step_b"],
             ),
-            StepConfig(step="step_a", type="say", message="A"),
-            StepConfig(step="step_b", type="say", message="B"),
+            SayStepConfig(step="step_a", type="say", message="A"),
+            SayStepConfig(step="step_b", type="say", message="B"),
         ]
         builder = SubgraphBuilder()
 
@@ -78,14 +84,14 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(
+            WhileStepConfig(
                 step="my_loop",
                 type="while",
                 condition="i < 5",
                 do=["work"],
             ),
-            StepConfig(step="work", type="action", call="do_work"),
-            StepConfig(
+            ActionStepConfig(step="work", type="action", call="do_work"),
+            SayStepConfig(
                 step="restart",
                 type="say",
                 message="Restarting",
@@ -110,14 +116,14 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(
+            WhileStepConfig(
                 step="loop",
                 type="while",
                 condition="running",
                 do=["process"],
             ),
-            StepConfig(step="process", type="action", call="process_item"),
-            StepConfig(step="done", type="say", message="Complete"),
+            ActionStepConfig(step="process", type="action", call="process_item"),
+            SayStepConfig(step="done", type="say", message="Complete"),
         ]
         builder = SubgraphBuilder()
 
@@ -139,16 +145,16 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(
+            WhileStepConfig(
                 step="loop",
                 type="while",
                 condition="active",
                 do=["work"],
                 exit_to="cleanup",
             ),
-            StepConfig(step="work", type="action", call="do_work"),
-            StepConfig(step="next_flow", type="say", message="Next"),
-            StepConfig(step="cleanup", type="say", message="Cleanup"),
+            ActionStepConfig(step="work", type="action", call="do_work"),
+            SayStepConfig(step="next_flow", type="say", message="Next"),
+            SayStepConfig(step="cleanup", type="say", message="Cleanup"),
         ]
         builder = SubgraphBuilder()
 
@@ -168,13 +174,13 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(
+            WhileStepConfig(
                 step="counter",
                 type="while",
                 condition="index < max_count",
                 do=["increment"],
             ),
-            StepConfig(step="increment", type="action", call="inc"),
+            ActionStepConfig(step="increment", type="action", call="inc"),
         ]
         builder = SubgraphBuilder()
 
@@ -198,10 +204,10 @@ class TestWhileLoopTransformation:
         """
         # Arrange
         steps = [
-            StepConfig(step="loop1", type="while", condition="a < 5", do=["work1"]),
-            StepConfig(step="work1", type="action", call="work"),
-            StepConfig(step="loop2", type="while", condition="b < 10", do=["work2"]),
-            StepConfig(step="work2", type="action", call="work"),
+            WhileStepConfig(step="loop1", type="while", condition="a < 5", do=["work1"]),
+            ActionStepConfig(step="work1", type="action", call="work"),
+            WhileStepConfig(step="loop2", type="while", condition="b < 10", do=["work2"]),
+            ActionStepConfig(step="work2", type="action", call="work"),
         ]
         builder = SubgraphBuilder()
 
@@ -222,34 +228,21 @@ class TestWhileLoopTransformation:
         """
         GIVEN while loop without condition
         WHEN compiled
-        THEN raises ValueError
+        THEN raises ValidationError (from Pydantic)
         """
-        # Arrange
-        steps = [
-            StepConfig(step="bad_loop", type="while", do=["work"]),
-            StepConfig(step="work", type="action", call="work"),
-        ]
-        builder = SubgraphBuilder()
-
         # Act & Assert
-        with pytest.raises(ValueError, match="missing condition"):
-            builder._compile_while(steps[0], steps)
+        with pytest.raises(ValidationError, match="condition"):
+            WhileStepConfig(step="bad_loop", type="while", do=["work"])
 
     def test_while_loop_without_do_block_raises_error(self):
         """
         GIVEN while loop without do block
         WHEN compiled
-        THEN raises ValueError
+        THEN raises ValidationError (from Pydantic)
         """
-        # Arrange
-        steps = [
-            StepConfig(step="bad_loop", type="while", condition="x < 5"),
-        ]
-        builder = SubgraphBuilder()
-
         # Act & Assert
-        with pytest.raises(ValueError, match="missing do block"):
-            builder._compile_while(steps[0], steps)
+        with pytest.raises(ValidationError, match="do"):
+            WhileStepConfig(step="bad_loop", type="while", condition="x < 5")
 
     def test_full_flow_with_while_loop_compiles(self):
         """
@@ -261,16 +254,16 @@ class TestWhileLoopTransformation:
         config = FlowConfig(
             description="Full test",
             steps=[
-                StepConfig(step="init", type="say", message="Start"),
-                StepConfig(
+                SayStepConfig(step="init", type="say", message="Start"),
+                WhileStepConfig(
                     step="process_loop",
                     type="while",
                     condition="items_remaining > 0",
                     do=["process_item", "decrement"],
                 ),
-                StepConfig(step="process_item", type="action", call="process"),
-                StepConfig(step="decrement", type="action", call="decrement_count"),
-                StepConfig(step="finish", type="say", message="Done"),
+                ActionStepConfig(step="process_item", type="action", call="process"),
+                ActionStepConfig(step="decrement", type="action", call="decrement_count"),
+                SayStepConfig(step="finish", type="say", message="Done"),
             ],
         )
         builder = SubgraphBuilder()

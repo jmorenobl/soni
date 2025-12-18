@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import SayStepConfig, StepConfig
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -20,8 +20,8 @@ class SayNodeFactory:
         step_index: int | None = None,
     ) -> NodeFunction:
         """Create a node that returns a static response."""
-        if not step.message:
-            raise ValueError(f"Step {step.step} of type 'say' missing required field 'message'")
+        if not isinstance(step, SayStepConfig):
+            raise ValueError(f"SayNodeFactory received wrong step type: {type(step).__name__}")
 
         message_template = step.message
 

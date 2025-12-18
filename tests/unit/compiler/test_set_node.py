@@ -2,9 +2,10 @@
 
 import pytest
 from langchain_core.runnables import RunnableConfig
+from pydantic import ValidationError
 
 from soni.compiler.nodes.set import SetNodeFactory
-from soni.core.config import StepConfig
+from soni.core.config import SetStepConfig
 from soni.core.constants import FlowContextState, FlowState
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import FlowManager
@@ -74,25 +75,26 @@ class TestSetNodeFactory:
     """Tests for SetNodeFactory."""
 
     def test_missing_slots_raises_error(self):
-        """Test that missing slots field raises ValueError."""
-        factory = SetNodeFactory()
-        step = StepConfig(step="bad_set", type="set")
+        """Test that missing slots field raises ValidationError."""
+        # Pydantic v2 validation happens at instantiation
+        with pytest.raises(ValidationError) as exc_info:
+            SetStepConfig(step="bad_set", type="set")
 
-        with pytest.raises(ValueError, match="missing required field 'slots'"):
-            factory.create(step)
+        assert "slots" in str(exc_info.value)
 
     def test_invalid_slots_type_raises_error(self):
-        """Test that non-dict slots raises ValueError."""
-        factory = SetNodeFactory()
-        # slots should be dict, not list
-        step = StepConfig(
-            step="bad_set",
-            type="set",
-            slots=["slot1", "slot2"],
-        )
+        """Test that non-dict slots raises ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            SetStepConfig(
+                step="bad_set",
+                type="set",
+                slots=["slot1", "slot2"],
+            )
 
-        with pytest.raises(ValueError, match="requires 'slots' to be a dictionary"):
-            factory.create(step)
+        # Pydantic validation message
+        assert "Input should be a valid dictionary" in str(exc_info.value) or "slots" in str(
+            exc_info.value
+        )
 
     @pytest.mark.asyncio
     async def test_set_literal_values(
@@ -103,7 +105,7 @@ class TestSetNodeFactory:
     ):
         """Test setting literal values (string, int, bool, float)."""
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_literals",
             type="set",
             slots={
@@ -142,7 +144,7 @@ class TestSetNodeFactory:
         }
 
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_templates",
             type="set",
             slots={
@@ -171,7 +173,7 @@ class TestSetNodeFactory:
     ):
         """Test that missing template slot logs warning and uses literal."""
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_missing_template",
             type="set",
             slots={
@@ -205,7 +207,7 @@ class TestSetNodeFactory:
         }
 
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_conditional",
             type="set",
             condition="is_premium",
@@ -237,7 +239,7 @@ class TestSetNodeFactory:
         }
 
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_conditional",
             type="set",
             condition="is_premium",
@@ -263,7 +265,7 @@ class TestSetNodeFactory:
     ):
         """Test setting multiple slots in a single step."""
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_many",
             type="set",
             slots={
@@ -297,7 +299,7 @@ class TestSetNodeFactory:
     ):
         """Test that empty slots dict doesn't error (no-op)."""
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_empty",
             type="set",
             slots={},
@@ -325,7 +327,7 @@ class TestSetNodeFactory:
         }
 
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="increment",
             type="set",
             slots={
@@ -357,7 +359,7 @@ class TestSetNodeFactory:
         }
 
         factory = SetNodeFactory()
-        step = StepConfig(
+        step = SetStepConfig(
             step="set_complex",
             type="set",
             condition="account_type == 'premium' AND age > 18",

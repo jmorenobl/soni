@@ -2,7 +2,15 @@
 
 import pytest
 
-from soni.core.config import FlowConfig, SlotConfig, SoniConfig, StepConfig
+from soni.core.config import (
+    CollectStepConfig,
+    ConfirmStepConfig,
+    FlowConfig,
+    SayStepConfig,
+    SlotConfig,
+    SoniConfig,
+    StepConfig,
+)
 from soni.dm.nodes.understand import get_flow_slot_definitions
 from soni.du.slot_extractor import SlotExtractionInput
 
@@ -22,7 +30,7 @@ class TestGetFlowSlotDefinitions:
             flows={
                 "greet": FlowConfig(
                     description="Greeting",
-                    steps=[StepConfig(step="say_hi", type="say", message="Hello")],
+                    steps=[SayStepConfig(step="say_hi", type="say", message="Hello")],
                 )
             }
         )
@@ -49,9 +57,11 @@ class TestGetFlowSlotDefinitions:
                 "transfer": FlowConfig(
                     description="Transfer money",
                     steps=[
-                        StepConfig(step="get_recipient", type="collect", slot="beneficiary_name"),
-                        StepConfig(step="get_amount", type="collect", slot="amount"),
-                        StepConfig(step="confirm", type="confirm", slot="confirmed"),
+                        CollectStepConfig(
+                            step="get_recipient", type="collect", slot="beneficiary_name"
+                        ),
+                        CollectStepConfig(step="get_amount", type="collect", slot="amount"),
+                        ConfirmStepConfig(step="confirm", type="confirm", slot="confirmed"),
                     ],
                 )
             },
@@ -85,7 +95,7 @@ class TestGetFlowSlotDefinitions:
             flows={
                 "transfer": FlowConfig(
                     description="Transfer money",
-                    steps=[StepConfig(step="get_amount", type="collect", slot="amount")],
+                    steps=[CollectStepConfig(step="get_amount", type="collect", slot="amount")],
                 )
             },
         )
@@ -102,7 +112,7 @@ class TestGetFlowSlotDefinitions:
             flows={
                 "transfer": FlowConfig(
                     description="Transfer money",
-                    steps=[StepConfig(step="get_amount", type="collect", slot="amount")],
+                    steps=[CollectStepConfig(step="get_amount", type="collect", slot="amount")],
                 )
             },
         )
@@ -125,8 +135,8 @@ class TestGetFlowSlotDefinitions:
                 "transfer": FlowConfig(
                     description="Transfer money",
                     steps=[
-                        StepConfig(step="get_amount", type="collect", slot="amount"),
-                        StepConfig(step="ask_confirm", type="confirm", slot="confirmed"),
+                        CollectStepConfig(step="get_amount", type="collect", slot="amount"),
+                        ConfirmStepConfig(step="ask_confirm", type="confirm", slot="confirmed"),
                     ],
                 )
             },

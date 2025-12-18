@@ -4,7 +4,7 @@ import pytest
 from langgraph.graph import StateGraph
 
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.core.config import FlowConfig, StepConfig
+from soni.core.config import FlowConfig, SayStepConfig, StepConfig
 from soni.core.types import DialogueState, RuntimeContext
 
 
@@ -21,8 +21,8 @@ class TestSubgraphBuilder:
         config = FlowConfig(
             description="Test",
             steps=[
-                StepConfig(step="step_a", type="say", message="A"),
-                StepConfig(step="step_b", type="say", message="B"),
+                SayStepConfig(step="step_a", type="say", message="A"),
+                SayStepConfig(step="step_b", type="say", message="B"),
             ],
         )
         builder = SubgraphBuilder()
@@ -46,9 +46,9 @@ class TestSubgraphBuilder:
         config = FlowConfig(
             description="Test",
             steps=[
-                StepConfig(step="step_a", type="say", message="A", jump_to="step_c"),
-                StepConfig(step="step_b", type="say", message="B"),
-                StepConfig(step="step_c", type="say", message="C"),
+                SayStepConfig(step="step_a", type="say", message="A", jump_to="step_c"),
+                SayStepConfig(step="step_b", type="say", message="B"),
+                SayStepConfig(step="step_c", type="say", message="C"),
             ],
         )
         builder = SubgraphBuilder()

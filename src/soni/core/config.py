@@ -8,7 +8,6 @@ All configuration classes have been moved to the soni.config package.
 from soni.config import (
     # Step types
     ActionStepConfig,
-    AnyStepConfig,
     BaseStepConfig,
     BranchStepConfig,
     # Patterns
@@ -45,7 +44,6 @@ __all__ = [
     "FlowConfig",
     # Step types
     "StepConfig",
-    "AnyStepConfig",
     "BaseStepConfig",
     "SayStepConfig",
     "CollectStepConfig",

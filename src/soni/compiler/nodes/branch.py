@@ -5,7 +5,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.base import NodeFunction
-from soni.core.config import StepConfig
+from soni.config.steps import BranchStepConfig, StepConfig
 from soni.core.types import DialogueState, get_runtime_context
 
 
@@ -19,10 +19,11 @@ class BranchNodeFactory:
         step_index: int | None = None,
     ) -> NodeFunction:
         """Create a node that branches based on a slot value or expression."""
-        if not step.cases:
-            raise ValueError(f"Step {step.step} of type 'branch' missing required field 'cases'")
+        if not isinstance(step, BranchStepConfig):
+            raise ValueError(f"BranchNodeFactory received wrong step type: {type(step).__name__}")
 
-        # Must have either slot OR evaluate, not both
+        # Pydantic validates cases is present
+        # Manually validate slot vs evaluate XOR logic
         if not step.slot and not step.evaluate:
             raise ValueError(
                 f"Step {step.step} of type 'branch' must specify either 'slot' or 'evaluate'"
@@ -55,7 +56,7 @@ class BranchNodeFactory:
                 str_value = "true" if is_true else "false"
             else:
                 # Slot mode: get slot value
-                assert slot_name is not None  # Type guard
+                assert slot_name is not None  # Type guard based on XOR check above
                 value = flow_manager.get_slot(state, slot_name)
                 str_value = str(value) if value is not None else ""
 

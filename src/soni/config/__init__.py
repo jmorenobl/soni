@@ -34,16 +34,13 @@ from soni.config.settings import (
 # Step types (discriminated unions)
 from soni.config.steps import (
     ActionStepConfig,
-    AnyStepConfig,
     BaseStepConfig,
     BranchStepConfig,
     CollectStepConfig,
     ConfirmStepConfig,
-    GenericStepConfig,
     SayStepConfig,
     SetStepConfig,
     StepConfig,
-    TypedStepConfig,
     WhileStepConfig,
 )
 
@@ -54,7 +51,6 @@ __all__ = [
     "FlowConfig",
     # Step types
     "StepConfig",
-    "AnyStepConfig",
     "BaseStepConfig",
     "SayStepConfig",
     "CollectStepConfig",
@@ -63,8 +59,6 @@ __all__ = [
     "ConfirmStepConfig",
     "WhileStepConfig",
     "SetStepConfig",
-    "GenericStepConfig",
-    "TypedStepConfig",
     # Patterns
     "ConfirmationPatternConfig",
     "CorrectionPatternConfig",

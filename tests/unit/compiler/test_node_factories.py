@@ -8,7 +8,15 @@ import pytest
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.collect import CollectNodeFactory
-from soni.core.config import StepConfig
+from soni.core.config import (
+    ActionStepConfig,
+    BranchStepConfig,
+    CollectStepConfig,
+    ConfirmStepConfig,
+    SayStepConfig,
+    StepConfig,
+    WhileStepConfig,
+)
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState, RuntimeContext
 
@@ -32,7 +40,7 @@ class TestCollectNodeFactory:
         THEN returns 'waiting_input' and prompt
         """
         # Arrange
-        step = StepConfig(step="get_origin", type="collect", slot="origin")
+        step = CollectStepConfig(step="get_origin", type="collect", slot="origin")
         factory = CollectNodeFactory()
 
         # Mock dependencies
@@ -62,7 +70,7 @@ class TestCollectNodeFactory:
         THEN returns 'active' state
         """
         # Arrange
-        step = StepConfig(step="get_origin", type="collect", slot="origin")
+        step = CollectStepConfig(step="get_origin", type="collect", slot="origin")
         factory = CollectNodeFactory()
 
         # Mock dependencies
@@ -96,7 +104,7 @@ class TestActionNodeFactory:
         from soni.compiler.nodes.action import ActionNodeFactory
 
         # Arrange
-        step = StepConfig(step="do_booking", type="action", call="book_flight_api")
+        step = ActionStepConfig(step="do_booking", type="action", call="book_flight_api")
         factory = ActionNodeFactory()
 
         mock_handler = AsyncMock()
@@ -127,7 +135,7 @@ class TestSayNodeFactory:
         from soni.compiler.nodes.say import SayNodeFactory
 
         # Arrange
-        step = StepConfig(step="greet", type="say", message="Hello")
+        step = SayStepConfig(step="greet", type="say", message="Hello")
         factory = SayNodeFactory()
 
         mock_fm = Mock()
@@ -157,7 +165,7 @@ class TestBranchNodeFactory:
         from soni.compiler.nodes.branch import BranchNodeFactory
 
         # Arrange
-        step = StepConfig(
+        step = BranchStepConfig(
             step="check_user_type",
             type="branch",
             slot="user_type",
@@ -190,8 +198,11 @@ class TestBranchNodeFactory:
         from soni.compiler.nodes.branch import BranchNodeFactory
 
         # Arrange
-        step = StepConfig(
-            step="check_user_type", type="branch", slot="user_type", cases={"gold": "vip_flow"}
+        step = BranchStepConfig(
+            step="check_user_type",
+            type="branch",
+            slot="user_type",
+            cases={"gold": "vip_flow"},
         )
         factory = BranchNodeFactory()
 
@@ -224,7 +235,7 @@ class TestConfirmNodeFactory:
         from soni.compiler.nodes.confirm import ConfirmNodeFactory
 
         # Arrange
-        step = StepConfig(step="confirm_booking", type="confirm", slot="confirmed")
+        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="confirmed")
         factory = ConfirmNodeFactory()
 
         mock_fm = Mock()
@@ -251,7 +262,7 @@ class TestConfirmNodeFactory:
         """
         from soni.compiler.nodes.confirm import ConfirmNodeFactory
 
-        step = StepConfig(step="confirm_booking", type="confirm", slot="confirmed")
+        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="confirmed")
         factory = ConfirmNodeFactory()
 
         mock_fm = Mock()
@@ -286,7 +297,7 @@ class TestWhileNodeFactory:
         # But 'while' node logic is tricky: it acts as the loop guard.
         # If true -> goto body_start; else -> goto next_step (implicit).
 
-        step = StepConfig(
+        step = WhileStepConfig(
             step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"]
         )
         factory = WhileNodeFactory()
@@ -307,7 +318,7 @@ class TestWhileNodeFactory:
     async def test_while_node_exits_loop_if_condition_false(self):
         from soni.compiler.nodes.while_loop import WhileNodeFactory
 
-        step = StepConfig(
+        step = WhileStepConfig(
             step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"]
         )
         factory = WhileNodeFactory()

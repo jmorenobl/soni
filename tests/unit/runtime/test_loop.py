@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
-from soni.core.config import FlowConfig, SoniConfig, StepConfig
+from soni.core.config import FlowConfig, SayStepConfig, SoniConfig
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -21,22 +21,16 @@ class TestRuntimeLoop:
         """
         # Arrange
         # Minimal config to produce a response
-        # We need a flow that says something or default response
         config = SoniConfig(
             flows={
                 "greet": FlowConfig(
                     description="Greets user",
-                    steps=[StepConfig(step="say_hello", type="say", message="Hello world")],
+                    steps=[SayStepConfig(step="say_hello", type="say", message="Hello world")],
                 )
             }
         )
 
         runtime = RuntimeLoop(config)
-        # We mock SoniDU to return a command that starts the flow, or rely on defaults?
-        # If we rely on real SoniDU, it might need real prompt logic or mocking.
-        # Ideally we test RuntimeLoop integration.
-        # For simplicity, let's mock the DU inside runtime to force a path.
-
         # Initialize first so we can patch components
         await runtime.initialize()
 
@@ -48,15 +42,10 @@ class TestRuntimeLoop:
         mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greet")]))
         runtime.du = mock_du
 
-        # Ac
+        # Act
         response = await runtime.process_message("Hi")
 
-        # Asser
-        # The 'say' node sets active output. The runtime should return it.
-        # Wait, 'say' node creates a response message in messages list or returns a dict?
-        # SayNodeFactory returns {"messages": [AIMessage(...)]} usually.
-        # And DialogueState reducer adds it.
-        # RuntimeLoop should return `state["last_response"]` or extract from messages.
+        # Assert
         assert "Hello world" in response
 
     @pytest.mark.asyncio

@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 # Import discriminated union step types
 from soni.config.steps import (
     ActionStepConfig,
-    AnyStepConfig,
     BranchStepConfig,
     CollectStepConfig,
     ConfirmStepConfig,
@@ -65,7 +64,6 @@ __all__ = [
     "SlotConfig",
     "FlowConfig",
     "StepConfig",
-    "AnyStepConfig",
     "SayStepConfig",
     "CollectStepConfig",
     "ActionStepConfig",

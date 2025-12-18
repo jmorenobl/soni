@@ -13,7 +13,8 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
-from soni.core.config import FlowConfig, StepConfig
+from soni.config.models import FlowConfig
+from soni.config.steps import BranchStepConfig, StepConfig, WhileStepConfig
 from soni.core.constants import NodeName
 from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
@@ -92,10 +93,10 @@ class SubgraphBuilder:
             - Name mappings (original_name -> guard_name)
         """
         transformed_steps = []
-        name_mappings = {}
+        name_mappings: dict[str, str] = {}
 
         for step in steps:
-            if step.type == "while":
+            if isinstance(step, WhileStepConfig):
                 # Transform while to branch guard
                 guard_step, mapping = self._compile_while(step, steps)
                 transformed_steps.append(guard_step)
@@ -106,7 +107,7 @@ class SubgraphBuilder:
         return transformed_steps, name_mappings
 
     def _compile_while(
-        self, step: StepConfig, all_steps: list[StepConfig]
+        self, step: WhileStepConfig, all_steps: list[StepConfig]
     ) -> tuple[StepConfig, dict[str, str]]:
         """Compile a while step into a branch guard step.
 
@@ -117,9 +118,9 @@ class SubgraphBuilder:
         original_name = step.step
         guard_name = f"{original_name}_guard"
 
-        if not step.condition:
-            raise ValueError(f"While step '{original_name}' missing condition")
-        if not step.do or len(step.do) == 0:
+        # Pydantic already validates that condition and do are present
+        # but check for empty list
+        if not step.do:
             raise ValueError(f"While step '{original_name}' missing do block")
 
         # Find exit target
@@ -127,7 +128,10 @@ class SubgraphBuilder:
         if not exit_target:
             # Auto-calculate: first step after all do: steps
             do_step_names = set(step.do)
-            step_index = next(i for i, s in enumerate(all_steps) if s.step == original_name)
+            try:
+                step_index = next(i for i, s in enumerate(all_steps) if s.step == original_name)
+            except StopIteration as err:
+                raise ValueError(f"Step {original_name} not found in step list") from err
 
             for i in range(step_index + 1, len(all_steps)):
                 if all_steps[i].step not in do_step_names:
@@ -138,10 +142,10 @@ class SubgraphBuilder:
                 exit_target = END_FLOW_NODE
 
         # Create branch guard step
-        guard_step = StepConfig(
+        guard_step = BranchStepConfig(
             step=guard_name,
             type="branch",
-            evaluate=step.condition,  # Use evaluate for expression-based branching
+            evaluate=step.condition,  # Now correctly accessible
             cases={
                 "true": step.do[0],  # First step in loop body
                 "false": exit_target,  # Exit when condition is false
@@ -150,9 +154,16 @@ class SubgraphBuilder:
 
         # Auto-add jump_to on last step of do: block
         last_step_name = step.do[-1]
-        last_step = next(s for s in all_steps if s.step == last_step_name)
-        if not last_step.jump_to:
-            last_step.jump_to = guard_name
+        try:
+            last_step = next(s for s in all_steps if s.step == last_step_name)
+            # Note: We can only modify jump_to if the step type allows it.
+            # BaseStepConfig defines jump_to, so it should be fine.
+            if not last_step.jump_to:
+                last_step.jump_to = guard_name
+        except StopIteration:
+            # Last step might define a jump to something else effectively ending the block or
+            # the step list might be structured differently. Warning or error?
+            pass
 
         return guard_step, {original_name: guard_name}
 
@@ -165,11 +176,12 @@ class SubgraphBuilder:
         """
         for step in steps:
             # Translate jump_to
-            if step.jump_to and step.jump_to in name_mappings:
-                step.jump_to = name_mappings[step.jump_to]
+            target = step.jump_to
+            if target and target in name_mappings:
+                step.jump_to = name_mappings[target]
 
             # Translate branch cases
-            if step.type == "branch" and step.cases:
+            if isinstance(step, BranchStepConfig):
                 step.cases = {
                     key: name_mappings.get(target, target) for key, target in step.cases.items()
                 }
@@ -219,7 +231,7 @@ class SubgraphBuilder:
                 return str(END)
 
             # For branch steps, check for target override
-            if step.type == "branch":
+            if isinstance(step, BranchStepConfig):
                 branch_target = state.get("_branch_target")
                 if branch_target:
                     return str(branch_target)

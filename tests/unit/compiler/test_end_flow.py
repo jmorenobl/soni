@@ -6,7 +6,7 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.subgraph import END_FLOW_NODE, SubgraphBuilder, end_flow_node
-from soni.core.config import FlowConfig, StepConfig
+from soni.core.config import FlowConfig, SayStepConfig
 from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state
 
@@ -90,7 +90,7 @@ class TestSubgraphBuilder:
         flow_config = FlowConfig(
             description="Test flow",
             steps=[
-                StepConfig(step="greet", type="say", message="Hello"),
+                SayStepConfig(step="greet", type="say", message="Hello"),
             ],
         )
 
@@ -115,8 +115,8 @@ class TestSubgraphBuilder:
         flow_config = FlowConfig(
             description="Test flow",
             steps=[
-                StepConfig(step="step1", type="say", message="One"),
-                StepConfig(step="step2", type="say", message="Two"),
+                SayStepConfig(step="step1", type="say", message="One"),
+                SayStepConfig(step="step2", type="say", message="Two"),
             ],
         )
 
