@@ -9,8 +9,6 @@ This design follows:
 
 from typing import Any
 
-from langchain_core.messages import AIMessage
-
 from soni.core.commands import (
     CancelFlow,
     CorrectSlot,
@@ -18,6 +16,7 @@ from soni.core.commands import (
     RequestClarification,
 )
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 from soni.dm.patterns.base import PatternHandler
 from soni.dm.patterns.cancellation import CancellationHandler
 from soni.dm.patterns.clarification import ClarificationHandler
@@ -38,10 +37,11 @@ async def dispatch_pattern_command(
     cmd: Any,
     state: DialogueState,
     context: RuntimeContext,
-) -> tuple[dict[str, Any], list[AIMessage]] | None:
+) -> CommandResult | None:
     """Dispatch a command to its appropriate handler.
 
-    Returns None if no handler exists for this command type.
+    Returns:
+        CommandResult from the handler, or None if no handler exists
     """
     handler = PATTERN_HANDLERS.get(type(cmd))
     if handler:

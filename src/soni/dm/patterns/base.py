@@ -2,17 +2,16 @@
 
 from typing import Any, Protocol
 
-from langchain_core.messages import AIMessage
-
 from soni.config import PatternBehaviorsConfig
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 
 
 class PatternHandler(Protocol):
     """Protocol for pattern handlers.
 
     Each handler processes a specific command type and returns
-    state updates and optional response messages.
+    CommandResult for consistency with command handlers.
     """
 
     async def handle(
@@ -20,8 +19,8 @@ class PatternHandler(Protocol):
         cmd: Any,
         state: DialogueState,
         context: RuntimeContext,
-    ) -> tuple[dict[str, Any], list[AIMessage]]:
-        """Handle a command and return state updates and messages.
+    ) -> CommandResult:
+        """Handle a command and return CommandResult.
 
         Args:
             cmd: The command to handle
@@ -29,7 +28,7 @@ class PatternHandler(Protocol):
             context: Runtime context with config and managers
 
         Returns:
-            Tuple of (state_updates dict, list of response messages)
+            CommandResult with updates and response messages
         """
         ...
 

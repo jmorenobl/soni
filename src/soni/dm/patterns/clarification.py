@@ -1,12 +1,12 @@
 """Handler for RequestClarification pattern."""
 
 import logging
-from typing import Any
 
 from langchain_core.messages import AIMessage
 
 from soni.core.commands import RequestClarification
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 from soni.dm.patterns.base import get_pattern_config
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class ClarificationHandler:
         cmd: RequestClarification,
         state: DialogueState,
         context: RuntimeContext,
-    ) -> tuple[dict[str, Any], list[AIMessage]]:
+    ) -> CommandResult:
         """Handle clarification request."""
         logger.info(f"Handling RequestClarification: {cmd.topic}")
 
@@ -44,4 +44,7 @@ class ClarificationHandler:
                 explanation = template
 
         # Do NOT reset flow state - remain waiting for input
-        return {}, [AIMessage(content=explanation)]
+        return CommandResult(
+            messages=[AIMessage(content=explanation)]
+            # No state updates for clarification
+        )

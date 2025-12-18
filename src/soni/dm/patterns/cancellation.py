@@ -1,12 +1,12 @@
 """Handler for CancelFlow pattern."""
 
 import logging
-from typing import Any
 
 from langchain_core.messages import AIMessage
 
 from soni.core.commands import CancelFlow
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 from soni.dm.patterns.base import get_pattern_config
 from soni.flow.manager import merge_delta
 
@@ -21,7 +21,7 @@ class CancellationHandler:
         cmd: CancelFlow,
         state: DialogueState,
         context: RuntimeContext,
-    ) -> tuple[dict[str, Any], list[AIMessage]]:
+    ) -> CommandResult:
         """Handle flow cancellation."""
         logger.info("Handling CancelFlow")
 
@@ -36,10 +36,14 @@ class CancellationHandler:
             pass
 
         # Pop the current flow and get delta
-        updates: dict[str, Any] = {"should_reset_flow_state": True}
+        result = CommandResult(
+            messages=[AIMessage(content=response_text)], should_reset_flow_state=True
+        )
+
         active_ctx = context.flow_manager.get_active_context(state)
         if active_ctx:
             _, delta = context.flow_manager.pop_flow(state)
-            merge_delta(updates, delta)
+            merge_delta(result.updates, delta)
+            result.applied_delta = True
 
-        return updates, [AIMessage(content=response_text)]
+        return result

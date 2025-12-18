@@ -1,12 +1,12 @@
 """Handler for HumanHandoff pattern."""
 
 import logging
-from typing import Any
 
 from langchain_core.messages import AIMessage
 
 from soni.core.commands import HumanHandoff
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 from soni.dm.patterns.base import get_pattern_config
 
 logger = logging.getLogger(__name__)
@@ -20,11 +20,13 @@ class HumanHandoffHandler:
         cmd: HumanHandoff,
         state: DialogueState,
         context: RuntimeContext,
-    ) -> tuple[dict[str, Any], list[AIMessage]]:
-        """Handle human handoff."""
+    ) -> CommandResult:
+        """Handle human handoff request."""
         logger.info("Handling HumanHandoff")
 
         patterns = get_pattern_config(context)
-        message = patterns.human_handoff.message if patterns else "Transferring you to an agent..."
+        response_text = (
+            patterns.human_handoff.message if patterns else "Transferring you to a human agent..."
+        )
 
-        return {"should_reset_flow_state": True}, [AIMessage(content=message)]
+        return CommandResult(messages=[AIMessage(content=response_text)])

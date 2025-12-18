@@ -230,16 +230,15 @@ class PatternCommandHandler:
 
         pattern_result = await dispatch_pattern_command(cmd, state, context)
         if pattern_result:
-            pattern_updates, messages = pattern_result
-            result.messages.extend(messages)
-
-            # Merge pattern updates
-            for key, value in pattern_updates.items():
-                if key != "should_reset_flow_state":
-                    result.updates[key] = value
-
-            if pattern_updates.get("should_reset_flow_state"):
+            # Direct merge - both are CommandResult
+            result.messages.extend(
+                pattern_result.messages
+            )  # Changed from response_messages to messages
+            result.updates.update(pattern_result.updates)
+            if pattern_result.should_reset_flow_state:
                 result.should_reset_flow_state = True
+            if pattern_result.applied_delta:
+                result.applied_delta = True
 
             # Check if we corrected the slot we were waiting for
             if isinstance(cmd, CorrectSlot) and cmd.slot == expected_slot:

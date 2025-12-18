@@ -1,12 +1,12 @@
 """Handler for CorrectSlot pattern."""
 
 import logging
-from typing import Any
 
 from langchain_core.messages import AIMessage
 
 from soni.core.commands import CorrectSlot
 from soni.core.types import DialogueState, RuntimeContext
+from soni.dm.nodes.command_registry import CommandResult
 from soni.dm.patterns.base import get_pattern_config
 from soni.flow.manager import merge_delta
 
@@ -21,16 +21,12 @@ class CorrectionHandler:
         cmd: CorrectSlot,
         state: DialogueState,
         context: RuntimeContext,
-    ) -> tuple[dict[str, Any], list[AIMessage]]:
+    ) -> CommandResult:
         """Handle slot correction."""
         logger.info(f"Handling CorrectSlot: {cmd.slot}={cmd.new_value}")
 
         # Update slot and get delta
         delta = context.flow_manager.set_slot(state, cmd.slot, cmd.new_value)
-
-        # Build updates from delta
-        updates: dict[str, Any] = {}
-        merge_delta(updates, delta)
 
         # Generate response from config
         patterns = get_pattern_config(context)
@@ -39,4 +35,11 @@ class CorrectionHandler:
         )
         response_text = template.format(slot=cmd.slot, value=cmd.new_value, new_value=cmd.new_value)
 
-        return updates, [AIMessage(content=response_text)]
+        # Build result with delta
+        result = CommandResult(messages=[AIMessage(content=response_text)])
+
+        if delta:
+            merge_delta(result.updates, delta)
+            result.applied_delta = True
+
+        return result
