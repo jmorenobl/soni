@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 from langgraph.types import Command
 
-from soni.core.config import StepConfig
+from soni.config import StepConfig
 
 # Node function signature: async def node(state: DialogueState, config: RunnableConfig) -> dict[str, Any] | Command
 # We use ... to indicate varying arguments if strictly typing Runtime is hard without circular imports

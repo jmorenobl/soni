@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated, cast
 from fastapi import Depends, HTTPException, Request
 
 if TYPE_CHECKING:
-    from soni.core.config import SoniConfig
+    from soni.config import SoniConfig
     from soni.runtime.loop import RuntimeLoop
 
 
@@ -56,7 +56,7 @@ def get_config(request: Request) -> SoniConfig:
         )
 
     # Import at runtime to avoid circular imports
-    from soni.core.config import SoniConfig as SoniConfigClass
+    from soni.config import SoniConfig as SoniConfigClass
 
     return cast(SoniConfigClass, config)
 

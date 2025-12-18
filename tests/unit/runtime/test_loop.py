@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
-from soni.core.config import FlowConfig, SayStepConfig, SoniConfig
+from soni.config import FlowConfig, SayStepConfig, SoniConfig
 from soni.runtime.loop import RuntimeLoop
 
 

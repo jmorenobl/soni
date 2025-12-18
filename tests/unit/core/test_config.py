@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from soni.core.config import (
+from soni.config import (
     ActionStepConfig,
     CollectStepConfig,
     FlowConfig,
     SoniConfig,
     StepConfig,
 )
+from soni.config.loader import ConfigLoader
 from soni.core.errors import ConfigError
-from soni.core.loader import ConfigLoader
 
 
 class TestConfigModels:
@@ -51,31 +51,28 @@ class TestConfigLoader:
         WHEN load is called
         THEN raises ConfigError
         """
-        with pytest.raises(ConfigError, match="Config not found"):
-            ConfigLoader.from_yaml(Path("non_existent.yaml"))
+        with pytest.raises(ConfigError, match="Configuration file not found"):
+            ConfigLoader.load(Path("non_existent.yaml"))
 
     def test_load_valid_yaml(self, tmp_path):
-        """
-        GIVEN valid YAML file
-        WHEN loaded
-        THEN returns SoniConfig object
-        """
+        """Test loading valid YAML configuration."""
         # Arrange
         config_file = tmp_path / "soni.yaml"
         yaml_content = """
-        version: "1.0"
-        flows:
-          book_flight:
-            description: "Book a flight"
-            steps:
-              - step: collect_origin
-                type: collect
-                slot: origin
-        """
+version: "1.0"
+flows:
+  book_flight:
+    name: book_flight
+    description: "Book a flight"
+    steps:
+      - step: collect_origin
+        type: collect
+        slot: origin
+"""
         config_file.write_text(yaml_content)
 
         # Act
-        config = ConfigLoader.from_yaml(config_file)
+        config = ConfigLoader.load(config_file)
 
         # Assert
         assert config.version == "1.0"

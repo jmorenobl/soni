@@ -12,7 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
 from soni.core.types import DUProtocol, SlotExtractorProtocol
 from soni.dm.builder import build_orchestrator
 from soni.du.modules import SoniDU

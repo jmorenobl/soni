@@ -4,13 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
-from soni.core.commands import (
-    CancelFlow,
-    CorrectSlot,
-    HumanHandoff,
-    RequestClarification,
-)
-from soni.core.config import (
+from soni.config import (
     CancellationPatternConfig,
     ClarificationPatternConfig,
     CorrectionPatternConfig,
@@ -19,6 +13,12 @@ from soni.core.config import (
     SettingsConfig,
     SlotConfig,
     SoniConfig,
+)
+from soni.core.commands import (
+    CancelFlow,
+    CorrectSlot,
+    HumanHandoff,
+    RequestClarification,
 )
 from soni.core.constants import FlowState
 from soni.core.types import DialogueState, RuntimeContext

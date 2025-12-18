@@ -4,7 +4,7 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
-from soni.core.config import ConfirmStepConfig
+from soni.config import ConfirmStepConfig
 from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import DialogueState, RuntimeContext
 

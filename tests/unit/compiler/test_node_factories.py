@@ -8,7 +8,7 @@ import pytest
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.collect import CollectNodeFactory
-from soni.core.config import (
+from soni.config import (
     ActionStepConfig,
     BranchStepConfig,
     CollectStepConfig,

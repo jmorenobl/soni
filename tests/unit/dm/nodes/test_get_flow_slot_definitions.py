@@ -2,7 +2,7 @@
 
 import pytest
 
-from soni.core.config import (
+from soni.config import (
     CollectStepConfig,
     ConfirmStepConfig,
     FlowConfig,

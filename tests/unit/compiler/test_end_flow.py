@@ -6,7 +6,7 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.subgraph import END_FLOW_NODE, SubgraphBuilder, end_flow_node
-from soni.core.config import FlowConfig, SayStepConfig
+from soni.config import FlowConfig, SayStepConfig
 from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state
 

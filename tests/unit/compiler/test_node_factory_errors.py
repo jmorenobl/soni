@@ -9,7 +9,7 @@ from soni.compiler.nodes.collect import CollectNodeFactory
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
-from soni.core.config import (
+from soni.config import (
     ActionStepConfig,
     BranchStepConfig,
     CollectStepConfig,

@@ -5,7 +5,7 @@ Provides runtime type checking and coercion for slot values based on config.
 
 from typing import Any
 
-from soni.core.config import SlotConfig
+from soni.config import SlotConfig
 from soni.core.constants import SlotType
 
 

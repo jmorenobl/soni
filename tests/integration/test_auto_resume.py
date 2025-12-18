@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.builder import build_orchestrator

@@ -4,8 +4,8 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
 from soni.actions.registry import ActionRegistry
+from soni.config import FlowConfig, SoniConfig
 from soni.config.steps import ActionStepConfig, CollectStepConfig, SayStepConfig
-from soni.core.config import FlowConfig, SoniConfig
 from soni.runtime.loop import RuntimeLoop
 
 

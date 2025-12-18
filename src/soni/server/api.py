@@ -12,9 +12,9 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
+from soni.config.loader import ConfigLoader
 from soni.core.errors import StateError
-from soni.core.loader import ConfigLoader
 from soni.runtime.loop import RuntimeLoop
 from soni.server.dependencies import RuntimeDep
 from soni.server.errors import create_error_response, global_exception_handler
@@ -38,8 +38,7 @@ async def lifespan(app: FastAPI):
     if config_path.exists():
         logger.info(f"Loading configuration from {config_path}")
         try:
-            loader = ConfigLoader()
-            config = loader.from_yaml(config_path)
+            config = ConfigLoader.load(config_path)
             runtime = RuntimeLoop(config)
             await runtime.initialize()
 

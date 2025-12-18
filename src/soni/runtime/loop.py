@@ -17,7 +17,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
 from soni.core.errors import StateError
 from soni.core.types import DUProtocol, RuntimeContext, SlotExtractorProtocol
 from soni.flow.manager import FlowManager

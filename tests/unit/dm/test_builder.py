@@ -3,7 +3,7 @@
 import pytest
 from langchain_core.runnables import Runnable
 
-from soni.core.config import FlowConfig, SoniConfig
+from soni.config import FlowConfig, SoniConfig
 from soni.dm.builder import build_orchestrator
 
 

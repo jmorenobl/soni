@@ -4,7 +4,7 @@ from typing import Any, Protocol
 
 from langchain_core.messages import AIMessage
 
-from soni.core.config import PatternBehaviorsConfig
+from soni.config import PatternBehaviorsConfig
 from soni.core.types import DialogueState, RuntimeContext
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
 from soni.core.errors import ConfigError
 from soni.runtime.loop import RuntimeLoop
 

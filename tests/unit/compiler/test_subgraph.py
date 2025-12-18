@@ -4,7 +4,7 @@ import pytest
 from langgraph.graph import StateGraph
 
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.core.config import FlowConfig, SayStepConfig, StepConfig
+from soni.config import FlowConfig, SayStepConfig, StepConfig
 from soni.core.types import DialogueState, RuntimeContext
 
 

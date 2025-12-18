@@ -2,7 +2,7 @@
 
 import pytest
 
-from soni.core.config import SlotConfig
+from soni.config import SlotConfig
 from soni.core.constants import SlotType
 from soni.core.validation import validate_slot_value
 

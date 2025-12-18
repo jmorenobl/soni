@@ -5,7 +5,7 @@ from langchain_core.runnables import RunnableConfig
 from pydantic import ValidationError
 
 from soni.compiler.nodes.set import SetNodeFactory
-from soni.core.config import SetStepConfig
+from soni.config import SetStepConfig
 from soni.core.constants import FlowContextState, FlowState
 from soni.core.errors import ValidationError as SoniValidationError
 from soni.core.types import DialogueState, RuntimeContext
@@ -21,7 +21,7 @@ def flow_manager():
 @pytest.fixture
 def runtime_context(flow_manager):
     """Create a RuntimeContext for testing."""
-    from soni.core.config import SoniConfig
+    from soni.config import SoniConfig
 
     config = SoniConfig(flows={})
     return RuntimeContext(

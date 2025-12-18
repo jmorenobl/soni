@@ -5,7 +5,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.core.config import SoniConfig
+from soni.config import SoniConfig
 from soni.core.constants import NodeName, get_flow_node_name
 from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
