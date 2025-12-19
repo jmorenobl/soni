@@ -146,7 +146,15 @@ class RuntimeLoop:
         if not state_snapshot or not hasattr(state_snapshot, "next"):
             return False
         # If there are pending tasks (next nodes to execute), there's an interrupt
-        return bool(state_snapshot.next)
+        # Ensure it's a real list/tuple, not a mock or other object
+        next_nodes = state_snapshot.next
+        if next_nodes is None:
+            return False
+        # Check if it's a real collection (list/tuple) and not empty
+        if isinstance(next_nodes, (list, tuple)):
+            return len(next_nodes) > 0
+        # For anything else (including mocks), return False to be safe
+        return False
 
     async def initialize(self) -> None:
         """Initialize all components.
@@ -208,19 +216,36 @@ class RuntimeLoop:
 
         # Execute graph
         final_config = cast(RunnableConfig, run_config)
-        # Note: LangGraph v0.6.0+ context injection API.
-        # Execute graph
-        final_config = cast(RunnableConfig, run_config)
 
         # Use Command(resume=...) pattern when resuming from interrupt
         if has_interrupt:
+            # CRITICAL: Execute NLU BEFORE resuming to enable command-based approach
+            # This ensures NLU always processes user input, even during interrupt/resume
+            from soni.du.service import NLUService
+
+            nlu_service = NLUService(self.du, self.slot_extractor)
+            # Use current_state or empty dict if None (shouldn't happen with interrupt, but safety check)
+            from soni.core.state import create_empty_dialogue_state
+            from soni.core.types import DialogueState
+
+            state_for_nlu: DialogueState = (
+                cast(DialogueState, current_state)
+                if current_state
+                else create_empty_dialogue_state()
+            )
+            commands = await nlu_service.process_message(message, state_for_nlu, context)
+            serialized_commands = nlu_service.serialize_commands(commands)
+
             # LangGraph canonical pattern: Command(resume=value, update=state_changes)
             from langgraph.types import Command
 
             result = await graph.ainvoke(
                 Command(
                     resume=message,  # The interrupt() call will return this value
-                    update=input_payload,  # Update state with NLU results
+                    update={
+                        **input_payload,
+                        "commands": serialized_commands,  # Include NLU commands
+                    },
                 ),
                 config=final_config,
                 context=context,

@@ -11,10 +11,12 @@ from soni.du.models import (
 )
 from soni.du.modules import SoniDU
 from soni.du.optimizer import create_metric, optimize_du
+from soni.du.service import NLUService
 from soni.du.signatures import ExtractCommands
 
 __all__ = [
     "SoniDU",
+    "NLUService",
     "optimize_du",
     "create_metric",
     "DialogueContext",
