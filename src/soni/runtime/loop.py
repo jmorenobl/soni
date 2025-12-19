@@ -183,13 +183,18 @@ class RuntimeLoop:
         run_config: dict[str, Any] = {
             "configurable": {
                 "thread_id": user_id,
-                "runtime_context": context,
             }
         }
 
         # Execute graph
         final_config = cast(RunnableConfig, run_config)
-        result = await graph.ainvoke(input_payload, config=final_config)
+        # Note: LangGraph v0.6.0+ context injection API.
+        # Type checking is handled via ignore_missing_imports in pyproject.toml.
+        result = await graph.ainvoke(
+            input_payload,
+            config=final_config,
+            context=context,
+        )
 
         # Extract and return response
         return self._extractor.extract(result, input_payload, history)
@@ -238,14 +243,15 @@ class RuntimeLoop:
         run_config: dict[str, Any] = {
             "configurable": {
                 "thread_id": user_id,
-                "runtime_context": context,
             }
         }
 
+        # Same context injection as ainvoke - see comment above.
         async for chunk in graph.astream(
             input_payload,
             config=cast(RunnableConfig, run_config),
             stream_mode=stream_mode,
+            context=context,
         ):
             yield chunk
 

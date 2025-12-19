@@ -1,25 +1,19 @@
 from unittest.mock import Mock
 
 import pytest
-from langchain_core.runnables import RunnableConfig
 
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.config import ConfirmStepConfig
 from soni.core.constants import FlowState, SlotWaitType
-from soni.core.types import DialogueState, RuntimeContext
+from soni.core.types import DialogueState
 
 
 @pytest.fixture
-def mock_runtime_context():
-    ctx = Mock(spec=RuntimeContext)
-    ctx.flow_manager = Mock()
-    # Now synchronous - returns None (no delta) for simplicity
-    ctx.flow_manager.set_slot = Mock(return_value=None)
-    ctx.flow_manager.get_slot = Mock()
-    ctx.flow_manager.get_all_slots = Mock()
+def customized_runtime(mock_runtime):
+    """Customize mock runtime with confirmation settings."""
+    ctx = mock_runtime.context
 
-    # Mock config
-    ctx.config = Mock()
+    # Mock config settings hierarchy
     ctx.config.settings = Mock()
     ctx.config.settings.patterns = Mock()
     ctx.config.settings.patterns.confirmation = Mock()
@@ -31,16 +25,14 @@ def mock_runtime_context():
     )
     ctx.config.settings.patterns.confirmation.max_retries = 3
 
-    return ctx
+    # Ensure flow_manager returns None for set_slot (synchronous mock behavior)
+    ctx.flow_manager.set_slot = Mock(return_value=None)
 
-
-@pytest.fixture
-def run_config(mock_runtime_context):
-    return RunnableConfig(configurable={"runtime_context": mock_runtime_context})
+    return mock_runtime
 
 
 @pytest.mark.asyncio
-async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context, run_config):
+async def test_confirm_node_reprompts_on_deny_with_setslot(customized_runtime):
     """Test re-prompt when NLU generates DenyConfirmation + SetSlot.
 
     This is the ELEGANT solution: NLU detects slot modification during confirmation
@@ -77,13 +69,14 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context,
         "metadata": {},
     }
 
-    mock_runtime_context.flow_manager.get_slot.return_value = None
-    mock_runtime_context.flow_manager.get_all_slots.return_value = {
+    ctx = customized_runtime.context
+    ctx.flow_manager.get_slot.return_value = None
+    ctx.flow_manager.get_all_slots.return_value = {
         "amount": "200",
         "beneficiary": "mom",
     }
 
-    result = await confirm_node(state, run_config)
+    result = await confirm_node(state, customized_runtime)
 
     assert isinstance(result, dict)
     assert result["waiting_for_slot"] == "transfer_confirmed"
@@ -94,7 +87,7 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(mock_runtime_context,
 
 
 @pytest.mark.asyncio
-async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_config):
+async def test_confirm_node_retry_formats_templates(customized_runtime):
     """Test retry prompt correctly formats template placeholders."""
     factory = ConfirmNodeFactory()
     step = ConfirmStepConfig(
@@ -122,10 +115,11 @@ async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_co
         "metadata": {},
     }
 
-    mock_runtime_context.flow_manager.get_slot.return_value = None
-    mock_runtime_context.flow_manager.get_all_slots.return_value = {"amount": "100"}
+    ctx = customized_runtime.context
+    ctx.flow_manager.get_slot.return_value = None
+    ctx.flow_manager.get_all_slots.return_value = {"amount": "100"}
 
-    result = await confirm_node(state, run_config)
+    result = await confirm_node(state, customized_runtime)
 
     assert isinstance(result, dict)
     msg = result["messages"][0].content
@@ -135,7 +129,7 @@ async def test_confirm_node_retry_formats_templates(mock_runtime_context, run_co
 
 
 @pytest.mark.asyncio
-async def test_confirm_node_modification_updates_and_reprompts(mock_runtime_context, run_config):
+async def test_confirm_node_modification_updates_and_reprompts(customized_runtime):
     """Test standard slot modification behavior (update_and_reprompt)."""
     factory = ConfirmNodeFactory()
     step = ConfirmStepConfig(
@@ -166,18 +160,17 @@ async def test_confirm_node_modification_updates_and_reprompts(mock_runtime_cont
         "_branch_target": None,
     }
 
-    mock_runtime_context.flow_manager.get_slot.return_value = None
-    mock_runtime_context.flow_manager.get_all_slots.return_value = {
+    ctx = customized_runtime.context
+    ctx.flow_manager.get_slot.return_value = None
+    ctx.flow_manager.get_all_slots.return_value = {
         "amount": "200",
         "beneficiary": "mom",
     }
 
-    result = await confirm_node(state, run_config)
+    result = await confirm_node(state, customized_runtime)
 
     # Should update retry counter to 0 (reset)
-    mock_runtime_context.flow_manager.set_slot.assert_any_call(
-        state, "__confirm_retries_transfer_confirmed", 0
-    )
+    ctx.flow_manager.set_slot.assert_any_call(state, "__confirm_retries_transfer_confirmed", 0)
 
     # Should stay in confirmation with natural prompt
     assert isinstance(result, dict)

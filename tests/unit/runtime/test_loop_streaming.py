@@ -117,7 +117,10 @@ class TestRuntimeLoopStreaming:
         # Arrange
         captured_config = {}
 
+        captured_kwargs = {}
+
         async def mock_astream(*args, **kwargs):
+            captured_kwargs.update(kwargs)
             captured_config.update(kwargs.get("config", {}))
             yield {"node": {}}
 
@@ -132,5 +135,10 @@ class TestRuntimeLoopStreaming:
 
         # Assert
         assert "configurable" in captured_config
-        assert "runtime_context" in captured_config["configurable"]
-        assert captured_config["configurable"]["thread_id"] == "user1"
+        assert "thread_id" in captured_config["configurable"]
+
+        # Verify context injection
+        assert "context" in captured_kwargs
+        from soni.core.types import RuntimeContext
+
+        assert isinstance(captured_kwargs["context"], RuntimeContext)

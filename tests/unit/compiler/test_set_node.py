@@ -1,7 +1,6 @@
 """Tests for SetNodeFactory."""
 
 import pytest
-from langchain_core.runnables import RunnableConfig
 from pydantic import ValidationError
 
 from soni.compiler.nodes.set import SetNodeFactory
@@ -20,22 +19,30 @@ def flow_manager():
 
 @pytest.fixture
 def runtime_context(flow_manager):
-    """Create a RuntimeContext for testing."""
+    """Create a Runtime for testing."""
+    from langgraph.runtime import Runtime
+
     from soni.config import SoniConfig
 
-    config = SoniConfig(flows={})
-    return RuntimeContext(
+    config = SoniConfig(flows={}, slots={})
+    ctx = RuntimeContext(
         config=config,
         flow_manager=flow_manager,
         action_handler=None,  # type: ignore
         du=None,  # type: ignore
     )
+    return Runtime(
+        context=ctx,
+        store=None,
+        stream_writer=lambda x: None,
+        previous=None,
+    )
 
 
 @pytest.fixture
-def config_with_context(runtime_context):
-    """Create a RunnableConfig with RuntimeContext."""
-    return RunnableConfig(configurable={"runtime_context": runtime_context})
+def mock_runtime(runtime_context):
+    """Alias for runtime_context fixture."""
+    return runtime_context
 
 
 @pytest.fixture
@@ -101,7 +108,7 @@ class TestSetNodeFactory:
     async def test_set_literal_values(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test setting literal values (string, int, bool, float)."""
@@ -118,7 +125,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         # Check slots were set
         flow_id = "test_flow_123"
@@ -133,7 +140,7 @@ class TestSetNodeFactory:
     async def test_set_with_template_substitution(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test setting values with template substitution."""
@@ -156,7 +163,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
 
@@ -168,7 +175,7 @@ class TestSetNodeFactory:
     async def test_set_with_missing_template_slot(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
         caplog,
     ):
@@ -183,7 +190,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         flow_id = "test_flow_123"
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
@@ -197,7 +204,7 @@ class TestSetNodeFactory:
     async def test_conditional_execution_true(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test that condition=true executes the set."""
@@ -218,7 +225,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
 
@@ -229,7 +236,7 @@ class TestSetNodeFactory:
     async def test_conditional_execution_false(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test that condition=false skips the set."""
@@ -250,7 +257,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
 
@@ -261,7 +268,7 @@ class TestSetNodeFactory:
     async def test_multiple_slots_in_one_step(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test setting multiple slots in a single step."""
@@ -279,7 +286,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         flow_id = "test_flow_123"
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
@@ -295,7 +302,7 @@ class TestSetNodeFactory:
     async def test_empty_slots_dict(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test that empty slots dict raises ValidationError."""
@@ -313,7 +320,7 @@ class TestSetNodeFactory:
     async def test_overwrite_existing_slot(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test that set can overwrite existing slot values."""
@@ -333,7 +340,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
 
@@ -344,7 +351,7 @@ class TestSetNodeFactory:
     async def test_set_with_complex_condition(
         self,
         dialogue_state_with_flow,
-        config_with_context,
+        mock_runtime,
         flow_manager,
     ):
         """Test set with complex condition expression."""
@@ -366,7 +373,7 @@ class TestSetNodeFactory:
         )
 
         node = factory.create(step)
-        await node(dialogue_state_with_flow, config_with_context)
+        await node(dialogue_state_with_flow, mock_runtime)
 
         slots = dialogue_state_with_flow["flow_slots"][flow_id]
 

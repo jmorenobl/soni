@@ -2,13 +2,13 @@
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import BranchStepConfig, StepConfig
 from soni.core.errors import ValidationError
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 
 
 class BranchNodeFactory:
@@ -44,12 +44,12 @@ class BranchNodeFactory:
 
         async def branch_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Evaluate branch condition and set target for router."""
             from soni.core.expression import evaluate_condition
 
-            context = get_runtime_context(config)
+            context = runtime.context
             flow_manager = context.flow_manager
 
             # Determine branch value

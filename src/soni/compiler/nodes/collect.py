@@ -3,13 +3,13 @@
 from typing import Any
 
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import CollectStepConfig, StepConfig
 from soni.core.constants import SlotWaitType
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 
 
 class CollectNodeFactory:
@@ -30,9 +30,9 @@ class CollectNodeFactory:
 
         async def collect_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            context = get_runtime_context(config)
+            context = runtime.context
             flow_manager = context.flow_manager
 
             value = flow_manager.get_slot(state, slot_name)

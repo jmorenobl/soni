@@ -3,12 +3,12 @@
 from typing import Any
 
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import SayStepConfig, StepConfig
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 
 
 class SayNodeFactory:
@@ -28,11 +28,11 @@ class SayNodeFactory:
 
         async def say_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Execute the say step."""
 
-            context = get_runtime_context(config)
+            context = runtime.context
             fm = context.flow_manager
             slots = fm.get_all_slots(state)
 

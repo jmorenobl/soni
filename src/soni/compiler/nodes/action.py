@@ -2,12 +2,12 @@
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ActionStepConfig, StepConfig
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import merge_delta
 
 
@@ -29,10 +29,10 @@ class ActionNodeFactory:
 
         async def action_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Execute the action."""
-            context = get_runtime_context(config)
+            context = runtime.context
             action_handler = context.action_handler
             flow_manager = context.flow_manager
 

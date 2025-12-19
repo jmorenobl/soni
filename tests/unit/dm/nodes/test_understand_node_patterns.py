@@ -2,7 +2,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableConfig
 
 from soni.config import (
     CancellationPatternConfig,
@@ -70,16 +69,18 @@ def mock_runtime_context():
         action_handler=Mock(),  # Partial mock
     )
 
-    return ctx
+    from langgraph.runtime import Runtime
 
-
-@pytest.fixture
-def run_config(mock_runtime_context):
-    return RunnableConfig(configurable={"runtime_context": mock_runtime_context})
+    return Runtime(
+        context=ctx,
+        store=None,
+        stream_writer=lambda x: None,
+        previous=None,
+    )
 
 
 @pytest.mark.asyncio
-async def test_understand_node_handles_correction(mock_runtime_context, run_config):
+async def test_understand_node_handles_correction(mock_runtime_context):
     """Test CorrectSlot command updates slot and adds response."""
     state: DialogueState = {
         "messages": [],
@@ -100,12 +101,14 @@ async def test_understand_node_handles_correction(mock_runtime_context, run_conf
 
     # Mock NLU output
     initial_cmd = CorrectSlot(slot="name", new_value="Jim")
-    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[initial_cmd], confidence=1.0)
+    mock_runtime_context.context.du.acall.return_value = NLUOutput(
+        commands=[initial_cmd], confidence=1.0
+    )
 
-    result = await understand_node(state, run_config)
+    result = await understand_node(state, mock_runtime_context)
 
     # Verify slot update
-    mock_runtime_context.flow_manager.set_slot.assert_called_with(state, "name", "Jim")
+    mock_runtime_context.context.flow_manager.set_slot.assert_called_with(state, "name", "Jim")
 
     # Verify response message
     assert "messages" in result
@@ -115,7 +118,7 @@ async def test_understand_node_handles_correction(mock_runtime_context, run_conf
 
 
 @pytest.mark.asyncio
-async def test_understand_node_handles_cancellation(mock_runtime_context, run_config):
+async def test_understand_node_handles_cancellation(mock_runtime_context):
     """Test CancelFlow command pops flow and adds response."""
     state: DialogueState = {
         "messages": [],
@@ -134,12 +137,14 @@ async def test_understand_node_handles_cancellation(mock_runtime_context, run_co
         "metadata": {},
     }
 
-    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[CancelFlow()], confidence=1.0)
+    mock_runtime_context.context.du.acall.return_value = NLUOutput(
+        commands=[CancelFlow()], confidence=1.0
+    )
 
-    result = await understand_node(state, run_config)
+    result = await understand_node(state, mock_runtime_context)
 
     # Verify flow pop
-    mock_runtime_context.flow_manager.pop_flow.assert_called_once()
+    mock_runtime_context.context.flow_manager.pop_flow.assert_called_once()
 
     # Verify response
     msg = result["messages"][0].content
@@ -147,7 +152,7 @@ async def test_understand_node_handles_cancellation(mock_runtime_context, run_co
 
 
 @pytest.mark.asyncio
-async def test_understand_node_handles_clarification(mock_runtime_context, run_config):
+async def test_understand_node_handles_clarification(mock_runtime_context):
     """Test RequestClarification looks up description and responds."""
     state: DialogueState = {
         "messages": [],
@@ -168,9 +173,9 @@ async def test_understand_node_handles_clarification(mock_runtime_context, run_c
 
     # Request clarification for "cvv" (implicit via topic=None or explicit)
     cmd = RequestClarification(topic="cvv")
-    mock_runtime_context.du.acall.return_value = NLUOutput(commands=[cmd], confidence=1.0)
+    mock_runtime_context.context.du.acall.return_value = NLUOutput(commands=[cmd], confidence=1.0)
 
-    result = await understand_node(state, run_config)
+    result = await understand_node(state, mock_runtime_context)
 
     # Verify response uses description
     msg = result["messages"][0].content
@@ -178,7 +183,7 @@ async def test_understand_node_handles_clarification(mock_runtime_context, run_c
 
 
 @pytest.mark.asyncio
-async def test_understand_node_handles_handoff(mock_runtime_context, run_config):
+async def test_understand_node_handles_handoff(mock_runtime_context):
     """Test HumanHandoff adds configured message."""
     state: DialogueState = {
         "messages": [],
@@ -197,11 +202,11 @@ async def test_understand_node_handles_handoff(mock_runtime_context, run_config)
         "metadata": {},
     }
 
-    mock_runtime_context.du.acall.return_value = NLUOutput(
+    mock_runtime_context.context.du.acall.return_value = NLUOutput(
         commands=[HumanHandoff()], confidence=1.0
     )
 
-    result = await understand_node(state, run_config)
+    result = await understand_node(state, mock_runtime_context)
 
     msg = result["messages"][0].content
     assert "Calling human..." in msg

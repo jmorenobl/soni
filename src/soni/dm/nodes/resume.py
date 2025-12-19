@@ -83,12 +83,12 @@ The resume node distinguishes between two states:
 import logging
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.core.constants import FlowContextState
 from soni.core.errors import FlowStackError
 from soni.core.state import is_waiting_input
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ logger = logging.getLogger(__name__)
 
 async def resume_node(
     state: DialogueState,
-    config: RunnableConfig,
+    runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
     """Handle flow completion and stack resumption.
 
@@ -106,7 +106,7 @@ async def resume_node(
     2. Determines if there are remaining flows to resume
     3. Ends turn if stack is empty
     """
-    context = get_runtime_context(config)
+    context = runtime.context
     flow_manager = context.flow_manager
 
     # Check if we are just paused for input

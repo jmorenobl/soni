@@ -98,7 +98,14 @@ class TestUnderstandNodeImmutability:
             action_handler=Mock(),
             slot_extractor=Mock(),
         )
-        return ctx
+
+        # Use a simple Mock instead of Runtime class to avoid TypeError in tests
+        # The error "obj (instance of Runtime) is not an instance of type" implies
+        # class mismatch or super() issues in testing context.
+        # Since we only read .context, a Mock is sufficient and safer here.
+        mock_runtime = Mock()
+        mock_runtime.context = ctx
+        return mock_runtime
 
     @pytest.mark.asyncio
     async def test_understand_node_does_not_mutate_flow_stack(
@@ -144,14 +151,10 @@ class TestUnderstandNodeImmutability:
             with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
                 # Mock SlotExtractor
                 mock_runtime_context.custom_components = {}
-                mock_runtime_context.du.acall = AsyncMock(return_value=nlu_output)
+                mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
 
                 # Act
-                from langchain_core.runnables import RunnableConfig
-
-                config = RunnableConfig(configurable={"runtime_context": mock_runtime_context})
-
-                await understand_node(base_state, config)
+                await understand_node(base_state, mock_runtime_context)
 
         # Assert - Original state should be unchanged
         # The mutation happened at: state["flow_stack"] = result.updates["flow_stack"]
@@ -183,12 +186,8 @@ class TestUnderstandNodeImmutability:
 
         with patch("soni.dm.nodes.understand.get_command_registry", return_value=mock_registry):
             with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
-                mock_runtime_context.du.acall = AsyncMock(return_value=nlu_output)
-                from langchain_core.runnables import RunnableConfig
-
-                config = RunnableConfig(configurable={"runtime_context": mock_runtime_context})
-
-                await understand_node(base_state, config)
+                mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
+                await understand_node(base_state, mock_runtime_context)
 
         # Assert - Original state should be unchanged
         assert base_state["flow_slots"] == original_slots, (
@@ -225,12 +224,8 @@ class TestUnderstandNodeImmutability:
 
         with patch("soni.dm.nodes.understand.get_command_registry", return_value=mock_registry):
             with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
-                mock_runtime_context.du.acall = AsyncMock(return_value=nlu_output)
-                from langchain_core.runnables import RunnableConfig
-
-                config = RunnableConfig(configurable={"runtime_context": mock_runtime_context})
-
-                await understand_node(base_state, config)
+                mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
+                await understand_node(base_state, mock_runtime_context)
 
         # Assert
         assert len(captured_states) == 2

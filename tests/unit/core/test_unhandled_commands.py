@@ -51,20 +51,25 @@ async def test_log_debug_for_unhandled_command_type(caplog):
     mock_fm.set_slot = MagicMock(return_value=None)
     mock_fm.handle_intent_change = MagicMock(return_value=None)
 
-    mock_config = MagicMock()
-    mock_config.slots = {}
-    mock_config.flows = {}
+    from langgraph.runtime import Runtime
+
+    from soni.config import SoniConfig
+
+    mock_config = SoniConfig(flows={}, slots={})
 
     context = RuntimeContext(
         config=mock_config, flow_manager=mock_fm, du=mock_du, action_handler=MagicMock()
     )
 
-    from langchain_core.runnables import RunnableConfig
-
-    config: RunnableConfig = {"configurable": {"runtime_context": context}}
+    runtime = Runtime(
+        context=context,
+        store=None,
+        stream_writer=lambda x: None,
+        previous=None,
+    )
 
     # Act
-    await understand_node(state, config)
+    await understand_node(state, runtime)
 
     # Assert - Unknown commands trigger warning from registry
     assert "No handler registered for command type" in caplog.text

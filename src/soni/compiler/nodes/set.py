@@ -161,13 +161,13 @@ Uses the same condition syntax as `branch` and `while` nodes.
 import logging
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field, validate_non_empty
 from soni.config.steps import SetStepConfig, StepConfig
 from soni.core.expression import evaluate_condition
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
@@ -210,14 +210,14 @@ class SetNodeFactory:
 
         async def set_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Execute the set step.
 
             Sets each slot in the slots dict, with optional template substitution
             and conditional execution.
             """
-            context = get_runtime_context(config)
+            context = runtime.context
             fm = context.flow_manager
 
             # Check condition if specified

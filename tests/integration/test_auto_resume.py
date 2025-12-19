@@ -86,16 +86,16 @@ async def test_auto_resume_flow(mock_du):
 
     # Context injection
     ctx = RuntimeContext(config=config, flow_manager=fm, action_handler=handler, du=mock_du)
-    run_config = {"configurable": {"runtime_context": ctx}}
 
-    result = await graph.ainvoke(state, config=run_config)
+    run_config = {"configurable": {"thread_id": "test_thread"}}
+    result = await graph.ainvoke(state, config=run_config, context=ctx)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
     assert result["waiting_for_slot"] == "beneficiary_name"  # Asking beneficiary
 
     # Turn 2: my mom
     state = result
     state["user_message"] = "my mom"
-    result = await graph.ainvoke(state, config=run_config)
+    result = await graph.ainvoke(state, config=run_config, context=ctx)
     # Should be asking IBAN (next slot in transfer_funds flow)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
     assert result["waiting_for_slot"] == "iban"
@@ -103,7 +103,7 @@ async def test_auto_resume_flow(mock_du):
     # Turn 3: check balance (Interrupt)
     state = result
     state["user_message"] = "check balance"
-    result = await graph.ainvoke(state, config=run_config)
+    result = await graph.ainvoke(state, config=run_config, context=ctx)
     # New flow on top
     assert len(result["flow_stack"]) == 2
     assert result["flow_stack"][1]["flow_name"] == "check_balance"
@@ -112,7 +112,7 @@ async def test_auto_resume_flow(mock_du):
     # Turn 4: savings -> Should complete balance AND resume transfer
     state = result
     state["user_message"] = "savings"
-    result = await graph.ainvoke(state, config=run_config)
+    result = await graph.ainvoke(state, config=run_config, context=ctx)
 
     # Check Auto-Resume
     # 1. Stack should be 1 (check_balance popped)

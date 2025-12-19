@@ -26,6 +26,9 @@ class TestExecuteNode:
         WHEN execute_node runs
         THEN returns Command(goto="flow_{name}")
         """
+        from langgraph.runtime import Runtime
+
+        from soni.config import SoniConfig
         from soni.dm.nodes.execute import execute_node
 
         # Arrange
@@ -44,14 +47,19 @@ class TestExecuteNode:
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = flow_ctx
 
-        from langchain_core.runnables import RunnableConfig
-
         context = Mock()
         context.flow_manager = mock_fm
-        config = RunnableConfig(configurable={"runtime_context": context})
+        context.config = SoniConfig(flows={}, slots={})
+
+        runtime = Runtime(
+            context=context,
+            store=None,
+            stream_writer=lambda x: None,
+            previous=None,
+        )
 
         # Ac
-        result = await execute_node(state, config)
+        result = await execute_node(state, runtime)
 
         # Asser
         assert isinstance(result, Command)
@@ -64,19 +72,27 @@ class TestExecuteNode:
         WHEN execute_node runs
         THEN routes to respond (or handles error)
         """
+        from langgraph.runtime import Runtime
+
+        from soni.config import SoniConfig
         from soni.dm.nodes.execute import execute_node
 
         state = create_empty_dialogue_state()
         mock_fm = Mock()
         mock_fm.get_active_context.return_value = None
 
-        from langchain_core.runnables import RunnableConfig
-
         context = Mock()
         context.flow_manager = mock_fm
-        config = RunnableConfig(configurable={"runtime_context": context})
+        context.config = SoniConfig(flows={}, slots={})
 
-        result = await execute_node(state, config)
+        runtime = Runtime(
+            context=context,
+            store=None,
+            stream_writer=lambda x: None,
+            previous=None,
+        )
+
+        result = await execute_node(state, runtime)
 
         # If no flow, usually we just respond (maybe with fallback)
         # Assuming simple sequential edge or explicit command.

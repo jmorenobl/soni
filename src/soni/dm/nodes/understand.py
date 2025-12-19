@@ -49,7 +49,7 @@ User: "Transfer 100€ to my mom"
 import logging
 from typing import Any, Literal, cast
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 from soni.core.commands import (
     AffirmConfirmation,
@@ -61,7 +61,6 @@ from soni.core.types import (
     ConfigProtocol,
     DialogueState,
     RuntimeContext,
-    get_runtime_context,
 )
 from soni.dm.nodes.command_registry import get_command_registry
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotValue
@@ -238,7 +237,7 @@ def create_state_view(
 
 async def understand_node(
     state: DialogueState,
-    config: RunnableConfig,
+    runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
     """Process user input via NLU and update state with extracted commands.
 
@@ -252,13 +251,13 @@ async def understand_node(
 
     Args:
         state: Current dialogue state
-        config: LangGraph runnable config (contains RuntimeContext)
+        runtime: LangGraph runtime (provides RuntimeContext)
 
     Returns:
         Dictionary with updated state keys (flow_stack, flow_slots, commands, etc.)
     """
     # 1. Get Context
-    runtime_ctx = get_runtime_context(config)
+    runtime_ctx = runtime.context
     du = runtime_ctx.du  # DUProtocol
     slot_extractor = runtime_ctx.slot_extractor  # NEW: SlotExtractor
 

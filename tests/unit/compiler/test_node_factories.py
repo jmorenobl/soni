@@ -23,10 +23,25 @@ from soni.core.types import DialogueState, RuntimeContext
 
 # Mocking helper
 def create_mock_config(fm=None, ah=None):
+    from unittest.mock import MagicMock
+
+    from langgraph.runtime import Runtime
+
+    from soni.config import SoniConfig
+
     context = Mock()
     context.flow_manager = fm or Mock()
     context.action_handler = ah or Mock()
-    return {"configurable": {"runtime_context": context}}
+    # Use real config
+    context.config = SoniConfig(flows={}, slots={})
+
+    # Return Runtime object
+    return Runtime(
+        context=context,
+        store=None,
+        stream_writer=lambda x: None,
+        previous=None,
+    )
 
 
 class TestCollectNodeFactory:

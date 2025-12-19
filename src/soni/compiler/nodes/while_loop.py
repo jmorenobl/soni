@@ -97,14 +97,14 @@ is not properly preserved across turns, causing the flow to restart incorrectly.
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import validate_non_empty
 from soni.config.steps import StepConfig, WhileStepConfig
 from soni.core.expression import evaluate_condition
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 
 # Special constant for exiting a while loop from within
 EXIT_LOOP_TARGET = "__exit_loop__"
@@ -166,10 +166,10 @@ class WhileNodeFactory:
 
         async def while_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> Command[Any] | dict[str, Any]:
             """Evaluate condition and route to loop body or exit."""
-            context = get_runtime_context(config)
+            context = runtime.context
             flow_manager = context.flow_manager
 
             # Get all slots for condition evaluation

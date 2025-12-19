@@ -50,22 +50,22 @@ The execute node relies on `FlowManager` to:
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from soni.core.constants import NodeName, get_flow_node_name
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 
 
 async def execute_node(
     state: DialogueState,
-    config: RunnableConfig,
+    runtime: Runtime[RuntimeContext],
 ) -> Command[Any] | dict[str, Any]:
     """Determine execution path based on stack.
 
     Uses dynamic goto for flow subgraphs.
     """
-    context = get_runtime_context(config)
+    context = runtime.context
     flow_manager = context.flow_manager
     # Check if we have an active flow
     active_ctx = flow_manager.get_active_context(state)

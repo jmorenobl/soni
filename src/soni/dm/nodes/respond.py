@@ -54,14 +54,14 @@ default to avoid crashes in production.
 
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, RuntimeContext
 
 
 async def respond_node(
     state: DialogueState,
-    config: RunnableConfig,
+    runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
     """Generate response for user.
 

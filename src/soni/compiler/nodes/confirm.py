@@ -11,12 +11,12 @@ Refactored to use separate handlers for each concern (SRP).
 import logging
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ConfirmStepConfig, StepConfig
-from soni.core.types import DialogueState, get_runtime_context
+from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.patterns.base import get_pattern_config
 
 from .base import NodeFunction
@@ -110,9 +110,9 @@ class ConfirmNodeFactory:
 
         async def confirm_node(
             state: DialogueState,
-            config: RunnableConfig,
+            runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any] | Command:
-            context = get_runtime_context(config)
+            context = runtime.context
             flow_manager = context.flow_manager
 
             # Get pattern config
