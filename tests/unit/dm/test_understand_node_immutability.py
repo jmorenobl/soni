@@ -74,18 +74,30 @@ class TestUnderstandNodeImmutability:
 
     @pytest.fixture
     def mock_runtime_context(self):
-        ctx = Mock()
-        ctx.flow_manager = Mock()
-        ctx.flow_manager.get_active_flow_id.return_value = "original"
+        mock_flow_manager = Mock()
+        mock_flow_manager.get_active_flow_id.return_value = "original"
         # Return a valid context dict instead of Mock
-        ctx.flow_manager.get_active_context.return_value = {
+        mock_flow_manager.get_active_context.return_value = {
             "flow_id": "original",
             "flow_name": "test",
         }
-        ctx.du = Mock()
-        ctx.config = Mock()
-        ctx.config.flows = {}
-        ctx.config.slots = {}
+
+        mock_du = Mock()
+
+        mock_config = Mock()
+        mock_config.flows = {}
+        mock_config.slots = {}
+
+        # Need to import RuntimeContext
+        from soni.core.types import RuntimeContext
+
+        ctx = RuntimeContext(
+            config=mock_config,
+            flow_manager=mock_flow_manager,
+            du=mock_du,
+            action_handler=Mock(),
+            slot_extractor=Mock(),
+        )
         return ctx
 
     @pytest.mark.asyncio

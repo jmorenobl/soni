@@ -39,7 +39,7 @@ class RuntimeLoop:
     def __init__(
         self,
         config: SoniConfig,
-        checkpointer: BaseCheckpointSaver | None = None,
+        checkpointer: BaseCheckpointSaver[Any] | None = None,
         registry: ActionRegistry | None = None,
         du: DUProtocol | None = None,
     ):
@@ -67,22 +67,12 @@ class RuntimeLoop:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
         return self._components.flow_manager
 
-    @flow_manager.setter
-    def flow_manager(self, value: FlowManager | None) -> None:
-        if self._components:
-            self._components.flow_manager = value  # type: ignore
-
     @property
     def du(self) -> DUProtocol:
         """Get DU module, raising if not initialized."""
         if not self._components:
             raise StateError("RuntimeLoop not initialized. Call initialize() first.")
         return self._components.du
-
-    @du.setter
-    def du(self, value: DUProtocol | None) -> None:
-        if self._components:
-            self._components.du = value  # type: ignore
 
     @property
     def action_handler(self) -> ActionHandler:
@@ -97,7 +87,7 @@ class RuntimeLoop:
         return self._components.slot_extractor if self._components else None
 
     @property
-    def graph(self) -> CompiledStateGraph | None:
+    def graph(self) -> CompiledStateGraph[Any, Any] | None:
         """Get compiled graph."""
         return self._components.graph if self._components else None
 

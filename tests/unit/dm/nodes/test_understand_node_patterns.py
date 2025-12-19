@@ -28,19 +28,22 @@ from soni.du.models import NLUOutput
 
 @pytest.fixture
 def mock_runtime_context():
-    ctx = Mock(spec=RuntimeContext)
-    ctx.du = Mock()
-    ctx.du.acall = AsyncMock()
+    # Mocks
+    mock_du = Mock()
+    mock_du.acall = AsyncMock()
 
-    ctx.flow_manager = Mock()
+    mock_flow_manager = Mock()
     # Now synchronous - returns None (no delta) for mocking simplicity
-    ctx.flow_manager.set_slot = Mock(return_value=None)
-    ctx.flow_manager.pop_flow = Mock(return_value=({"flow_name": "test"}, None))
-    ctx.flow_manager.handle_intent_change = Mock(return_value=None)
-    ctx.flow_manager.get_active_context.return_value = {"flow_id": "test_flow", "flow_name": "test"}
+    mock_flow_manager.set_slot = Mock(return_value=None)
+    mock_flow_manager.pop_flow = Mock(return_value=({"flow_name": "test"}, None))
+    mock_flow_manager.handle_intent_change = Mock(return_value=None)
+    mock_flow_manager.get_active_context.return_value = {
+        "flow_id": "test_flow",
+        "flow_name": "test",
+    }
 
-    ctx.slot_extractor = Mock()
-    ctx.slot_extractor.acall = AsyncMock(return_value=[])
+    mock_slot_extractor = Mock()
+    mock_slot_extractor.acall = AsyncMock(return_value=[])
 
     # Setup Config with Patterns
     settings = SettingsConfig(
@@ -52,11 +55,19 @@ def mock_runtime_context():
         )
     )
 
-    ctx.config = SoniConfig(
+    config = SoniConfig(
         settings=settings,
         slots={
             "cvv": SlotConfig(type="string", description="The 3 digits on back"),
         },
+    )
+
+    ctx = RuntimeContext(
+        config=config,
+        flow_manager=mock_flow_manager,
+        du=mock_du,
+        slot_extractor=mock_slot_extractor,
+        action_handler=Mock(),  # Partial mock
     )
 
     return ctx

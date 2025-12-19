@@ -41,25 +41,11 @@ class TestE2E:
         )
 
         # 3. Initialize Runtime
-        # Use MemorySaver for state persistence across turns
-        checkpointer = MemorySaver()
-        runtime = RuntimeLoop(config, checkpointer=checkpointer, registry=registry)
-        await runtime.initialize()
-
-        # 4. Mock DU to simulate user intent understanding
-        # Since we don't want to rely on LLM for E2E logic verification unless we have robust prompts.
-        # We'll use a Mock wrapper around DU or patch it?
-        # But this is E2E of the system components.
-        # To make it realistic, we SHOULD use defaults.
-        # However, without configuring DSPy LM, it fails.
-        # So we MUST mock DU or configure DummyLM.
-
         from unittest.mock import AsyncMock, Mock
 
         from soni.core.commands import SetSlot, StartFlow
         from soni.du.models import NLUOutput
 
-        # Turn 1: "Book flight" -> start_flow(book_flight)
         mock_du = Mock()
         mock_du.acall = AsyncMock(
             side_effect=[
@@ -67,7 +53,11 @@ class TestE2E:
                 NLUOutput(commands=[SetSlot(slot="destination", value="Paris")]),  # Turn 2
             ]
         )
-        runtime.du = mock_du
+
+        # Use MemorySaver for state persistence across turns
+        checkpointer = MemorySaver()
+        runtime = RuntimeLoop(config, checkpointer=checkpointer, registry=registry, du=mock_du)
+        await runtime.initialize()
 
         # Run Turn 1
         response1 = await runtime.process_message("I want to book a flight", user_id="e2e_user")

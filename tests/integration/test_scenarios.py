@@ -39,8 +39,7 @@ def scenario_config():
 def runtime(scenario_config):
     """Runtime with mocked DU."""
     checkpointer = MemorySaver()
-    rt = RuntimeLoop(scenario_config, checkpointer=checkpointer)
-    rt.du = Mock()
+    rt = RuntimeLoop(scenario_config, checkpointer=checkpointer, du=Mock())
     return rt
 
 

@@ -31,18 +31,17 @@ async def test_runtime_simple_flow_execution():
         }
     )
 
-    # 2. Runtime
-    checkpointer = MemorySaver()
-    runtime = RuntimeLoop(config, checkpointer=checkpointer)
-    await runtime.initialize()
-
     # 3. Mock NLU (Crucial for deterministic integration test)
     # We simulate the DU decision making
     mock_du = Mock()
-    runtime.du = mock_du
 
     # Turn 1: User says "Hi" -> NLU starts 'greeting'
     mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greeting")]))
+
+    # 2. Runtime
+    checkpointer = MemorySaver()
+    runtime = RuntimeLoop(config, checkpointer=checkpointer, du=mock_du)
+    await runtime.initialize()
 
     response1 = await runtime.process_message("Hi", user_id="test_user")
 
@@ -95,23 +94,25 @@ async def test_runtime_flow_persistence():
     checkpointer = MemorySaver()
 
     # --- Session A ---
-    runtime1 = RuntimeLoop(config, checkpointer=checkpointer)
+    mock_du1 = Mock()
+    mock_du1.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="status")]))
+
+    runtime1 = RuntimeLoop(config, checkpointer=checkpointer, du=mock_du1)
     await runtime1.initialize()
-    runtime1.du = Mock()
-    runtime1.du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="status")]))
 
     await runtime1.process_message("Check status", user_id="user_1")
     # State is now: Active flow 'status', waiting for 'user_id'
 
     # --- Session B (New Instance) ---
     # Simulates server restart or new request handler
-    runtime2 = RuntimeLoop(config, checkpointer=checkpointer)
-    await runtime2.initialize()
-    runtime2.du = Mock()
+    mock_du2 = Mock()
     # Resume flow: NLU understands slot filling
-    runtime2.du.acall = AsyncMock(
+    mock_du2.acall = AsyncMock(
         return_value=NLUOutput(commands=[SetSlot(slot="user_id", value="123")])
     )
+
+    runtime2 = RuntimeLoop(config, checkpointer=checkpointer, du=mock_du2)
+    await runtime2.initialize()
 
     response = await runtime2.process_message("123", user_id="user_1")
 

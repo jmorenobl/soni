@@ -4,7 +4,7 @@ Extracted from RuntimeLoop to follow Single Responsibility Principle.
 Responsible solely for creating and hydrating dialogue state.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage
 
@@ -42,9 +42,9 @@ class StateHydrator:
         else:
             # Incremental update for existing conversation
             # Only send changed fields - reducer will merge messages
-            input_payload: DialogueState = {  # type: ignore[typeddict-item]
+            input_payload: dict[str, Any] = {
                 "user_message": message,
                 "messages": [HumanMessage(content=message)],
                 "turn_count": int(current_state.get("turn_count", 0)) + 1,
             }
-            return input_payload
+            return cast(DialogueState, input_payload)

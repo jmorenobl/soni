@@ -30,17 +30,16 @@ class TestRuntimeLoop:
             }
         )
 
-        runtime = RuntimeLoop(config)
-        # Initialize first so we can patch components
-        await runtime.initialize()
-
         # Mock DU to return start_flow('greet') command
         from soni.core.commands import StartFlow
         from soni.du.models import NLUOutput
 
         mock_du = Mock()
         mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[StartFlow(flow_name="greet")]))
-        runtime.du = mock_du
+
+        runtime = RuntimeLoop(config, du=mock_du)
+        # Initialize first so we can patch components
+        await runtime.initialize()
 
         # Act
         response = await runtime.process_message("Hi")
@@ -56,15 +55,14 @@ class TestRuntimeLoop:
         THEN state is preserved
         """
         config = SoniConfig(flows={})
-        runtime = RuntimeLoop(config, checkpointer=MemorySaver())
-        await runtime.initialize()
-
         # MOCK DU to avoid dspy error
         from soni.du.models import NLUOutput
 
         mock_du = Mock()
         mock_du.acall = AsyncMock(return_value=NLUOutput(commands=[]))
-        runtime.du = mock_du
+
+        runtime = RuntimeLoop(config, checkpointer=MemorySaver(), du=mock_du)
+        await runtime.initialize()
 
         # First turn
         await runtime.process_message("Hi", user_id="user1")

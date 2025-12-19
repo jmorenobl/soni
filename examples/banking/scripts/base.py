@@ -19,8 +19,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
-
 from soni.core.config import SoniConfig
+
 from soni.runtime.loop import RuntimeLoop
 
 # =============================================================================
@@ -599,14 +599,26 @@ class FlowTestRunner:
         mock_du = Mock()
         mock_du.acall = AsyncMock(return_value=nlu_response)  # Fixed: acall not aforward
 
-        # Temporarily replace DU
-        original_du = self._runtime.du
-        self._runtime.du = mock_du
+        # Temporarily replace runtime with one that has mocked DU
+        original_runtime = self._runtime
+
+        # Create a new runtime with the same config but injected mock_du
+        # and sharing the checkpointer to maintain state
+        self._runtime = RuntimeLoop(
+            config=original_runtime.config,
+            checkpointer=original_runtime._components.checkpointer
+            if original_runtime._components
+            else None,
+            du=mock_du,
+        )
+        # Initialize the temporary runtime to set up components
+        # Note: We need to ensure it uses the same checkpointer instance to see existing state
+        await self._runtime.initialize()
 
         try:
             response = await self._runtime.process_message(message, user_id)
         finally:
-            self._runtime.du = original_du
+            self._runtime = original_runtime
 
         return str(response)
 
