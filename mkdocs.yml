@@ -68,47 +68,11 @@ plugins:
 
 nav:
   - Home: index.md
-  - Quickstart: quickstart.md
-  - Architecture: architecture.md
-  - DSL Guide: dsl-guide.md
-  - Publishing: publishing.md
-  - API Reference:
-    - Overview: api/index.md
-    - Core:
-      - Interfaces: api/core/interfaces.md
-      - State: api/core/state.md
-      - Configuration: api/core/config.md
-      - Errors: api/core/errors.md
-      - Scope: api/core/scope.md
-      - Security: api/core/security.md
-    - Dialogue Understanding: api/du.md
-    - Dialogue Management: api/dm.md
-    - Compiler: api/compiler.md
-    - Actions: api/actions.md
-    - Validation: api/validation.md
-    - Runtime: api/runtime.md
-    - Server: api/server.md
-    - CLI: api/cli.md
-    - Utils: api/utils.md
-  - ADRs:
-    - "ADR-001: Architecture": adr/ADR-001-Soni-Framework-Architecture.md
-    - "ADR-002: Validation": adr/ADR-002-Technical-Validation-Results.md
-    - "ADR-003: Refactoring": adr/ADR-003-Architectural-Refactoring.md
-  - Releases:
-    - v0.4.0: releases/v0.4.0-release-notes.md
-    - v0.3.0: releases/v0.3.0-release-notes.md
-    - v0.2.1: releases/v0.2.1-release-notes.md
-    - v0.2.0: releases/v0.2.0-release-notes.md
-    - v0.1.0: releases/v0.1.0-release-notes.md
-  - Validation Reports:
-    - E2E Validation: validation/e2e-validation-report.md
-    - Runtime Validation: validation/runtime-validation.md
-    - Runtime API Validation: validation/runtime-api-validation.md
-    - Final Validation: validation/final-validation-report.md
-    - Code Audit: validation/code-audit-report-v0.5.0.md
-    - Code Quality: validation/code-quality-polish-report-v0.5.0.md
-    - Documentation Cleanup: validation/documentation-cleanup-report-v0.5.0.md
-    - Performance: validation/performance-report-v0.5.0.md
-    - Security Audit: validation/security-audit-report-v0.5.0.md
-    - ADR Implementation: validation/adr-implementation-review-v0.5.0.md
-  - Milestones: milestones.md
+  - Tutorials:
+    - Quickstart: tutorials/quickstart.md
+  - How-To Guides:
+    - Overview: how-to/index.md
+  - Reference:
+    - DSL Specification: reference/dsl-spec.md
+  - Explanation:
+    - Architecture: explanation/architecture.md
