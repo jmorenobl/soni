@@ -7,6 +7,7 @@ Handles:
 - Flow state management (waiting_input, etc.)
 """
 
+from copy import deepcopy
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -89,17 +90,20 @@ class SubgraphBuilder:
     ) -> tuple[list[StepConfig], dict[str, str]]:
         """Transform while loops into branch + jump_to pattern.
 
-        Returns:
-            - Transformed steps (while replaced with branch guard)
-            - Name mappings (original_name -> guard_name)
+        Creates deep copies of steps to avoid mutating input configuration.
+        This ensures thread-safe compilation of the same config.
         """
+        # Deep copy all steps to avoid mutating input
+        # Critical for thread safety when compiling same config concurrently
+        mutable_steps = [deepcopy(step) for step in steps]
+
         transformed_steps = []
         name_mappings: dict[str, str] = {}
 
-        for step in steps:
+        for step in mutable_steps:
             if isinstance(step, WhileStepConfig):
-                # Transform while to branch guard
-                guard_step, mapping = self._compile_while(step, steps)
+                # Transform while to branch guard - pass mutable_steps so it can modify loop body
+                guard_step, mapping = self._compile_while(step, mutable_steps)
                 transformed_steps.append(guard_step)
                 name_mappings.update(mapping)
             else:
