@@ -3,9 +3,14 @@
 Global settings for models, persistence, and other runtime configuration.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from soni.config.patterns import PatternBehaviorsConfig
+
+# LangGraph durability modes for checkpoint persistence
+DurabilityMode = Literal["sync", "async", "exit"]
 
 
 class NLUModelConfig(BaseModel):
@@ -36,3 +41,14 @@ class SettingsConfig(BaseModel):
     models: ModelsConfig = Field(default_factory=ModelsConfig)
     persistence: PersistenceConfig = Field(default_factory=PersistenceConfig)
     patterns: PatternBehaviorsConfig = Field(default_factory=PatternBehaviorsConfig)
+
+    durability: DurabilityMode = Field(
+        default="async",
+        description=(
+            "Checkpoint durability mode for LangGraph runtime. "
+            "Controls when checkpoints are persisted: "
+            "'sync' = before next step (safest, slower), "
+            "'async' = while next step runs (default, balanced), "
+            "'exit' = only on exit (fastest, risky)"
+        ),
+    )

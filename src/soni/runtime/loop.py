@@ -194,6 +194,7 @@ class RuntimeLoop:
             input_payload,
             config=final_config,
             context=context,
+            durability=self.config.settings.durability,
         )
 
         # Extract and return response
@@ -252,6 +253,7 @@ class RuntimeLoop:
             config=cast(RunnableConfig, run_config),
             stream_mode=stream_mode,
             context=context,
+            durability=self.config.settings.durability,
         ):
             yield chunk
 
