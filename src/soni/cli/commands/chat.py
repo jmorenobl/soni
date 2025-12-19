@@ -25,16 +25,30 @@ BANNER_ART = r"""
 class SoniChatCLI:
     """Interactive CLI for Soni conversations."""
 
-    def __init__(self, runtime: RuntimeLoop, user_id: str = "cli_user"):
+    def __init__(
+        self,
+        runtime: RuntimeLoop,
+        user_id: str = "cli_user",
+        streaming: bool = False,
+    ):
         self.console = Console()
         self.runtime = runtime
         self.user_id = user_id
+        self.streaming = streaming
+
+        # Re-writing start() method content logic completely in one chunk to avoid context issues
 
     async def start(self) -> None:
         """Start the interactive session."""
+        from soni.runtime.stream_extractor import ResponseStreamExtractor
+
         self.console.print(BANNER_ART, style="bold blue")
         self.console.print(f"Session ID: [green]{self.user_id}[/]")
+        if self.streaming:
+            self.console.print("[dim]Streaming mode enabled[/]")
         self.console.print("Type 'exit' or 'quit' to end session.\n")
+
+        extractor = ResponseStreamExtractor()
 
         while True:
             try:
@@ -46,20 +60,41 @@ class SoniChatCLI:
                 if not user_input.strip():
                     continue
 
-                # Process message
-                with self.console.status("[bold blue]Thinking...[/]"):
-                    response = await self.runtime.process_message(user_input, user_id=self.user_id)
+                if self.streaming:
+                    # Streaming mode
+                    self.console.print("[bold blue]Soni > [/]", end="")
+                    last_response = ""
 
-                # Print response
-                if response:
-                    # Depending on response format (dict or object)
-                    # response is usually dict from RuntimeLoop
-                    text = (
-                        response.get("response", "...")
-                        if isinstance(response, dict)
-                        else str(response)
-                    )
-                    self.console.print(f"[bold blue]Soni > [/]{text}\n")
+                    async for chunk in self.runtime.process_message_streaming(
+                        user_input,
+                        user_id=self.user_id,
+                        stream_mode="updates",
+                    ):
+                        stream_chunk = extractor.extract(chunk, "updates")
+                        if stream_chunk and stream_chunk.content:
+                            # Print new content (avoid duplicates)
+                            if stream_chunk.content != last_response:
+                                print(stream_chunk.content, end="", flush=True)
+                                last_response = stream_chunk.content
+
+                    print()  # Newline after response
+                else:
+                    # Process message
+                    with self.console.status("[bold blue]Thinking...[/]"):
+                        response = await self.runtime.process_message(
+                            user_input, user_id=self.user_id
+                        )
+
+                    # Print response
+                    if response:
+                        # Depending on response format (dict or object)
+                        # response is usually dict from RuntimeLoop
+                        text = (
+                            response.get("response", "...")
+                            if isinstance(response, dict)
+                            else str(response)
+                        )
+                        self.console.print(f"[bold blue]Soni > [/]{text}\n")
 
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Goodbye![/]")
@@ -78,6 +113,7 @@ def run_chat(
     module: str | None = typer.Option(
         None, "--module", "-m", help="Python module to import (e.g. 'examples.banking.handlers')"
     ),
+    streaming: bool = typer.Option(False, "--streaming", "-s", help="Enable streaming mode"),
 ):
     """Start interactive chat session."""
 
@@ -179,7 +215,11 @@ def run_chat(
                         err=True,
                     )
 
-            chat = SoniChatCLI(runtime, user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}")
+            chat = SoniChatCLI(
+                runtime,
+                user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}",
+                streaming=streaming,
+            )
             await chat.start()
 
         asyncio.run(_bootstrap())

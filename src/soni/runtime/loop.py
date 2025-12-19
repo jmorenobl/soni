@@ -9,12 +9,14 @@ This follows SRP by delegating specific responsibilities to dedicated classes.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from types import TracebackType
 from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import StreamMode
 
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
@@ -191,6 +193,61 @@ class RuntimeLoop:
 
         # Extract and return response
         return self._extractor.extract(result, input_payload, history)
+
+    async def process_message_streaming(
+        self,
+        user_message: str,
+        user_id: str = "default",
+        stream_mode: StreamMode = "updates",
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Process a message with streaming output.
+
+        Args:
+            user_message: The user's input message
+            user_id: User identifier for state persistence
+            stream_mode: LangGraph stream mode (updates, values, custom)
+                - "updates": Emit state updates after each node (recommended)
+                - "values": Emit full state after each node
+                - "custom": Emit custom data via get_stream_writer()
+
+        Yields:
+            Streaming chunks in format {node_name: {state_updates}}
+        """
+        if not self._components:
+            await self.initialize()
+
+        if not self._components or not self._components.graph:
+            raise StateError("Graph initialization failed")
+
+        graph = self._components.graph
+
+        # Create runtime context for dependency injection
+        context = RuntimeContext(
+            config=self.config,
+            flow_manager=self.flow_manager,
+            action_handler=self.action_handler,
+            du=self.du,
+            slot_extractor=self.slot_extractor,
+        )
+
+        # Get current state and prepare input
+        current_state = await self.get_state(user_id)
+        input_payload = self._hydrator.prepare_input(user_message, current_state)
+
+        # Build config with thread and context
+        run_config: dict[str, Any] = {
+            "configurable": {
+                "thread_id": user_id,
+                "runtime_context": context,
+            }
+        }
+
+        async for chunk in graph.astream(
+            input_payload,
+            config=cast(RunnableConfig, run_config),
+            stream_mode=stream_mode,
+        ):
+            yield chunk
 
     async def get_state(self, user_id: str) -> dict[str, Any] | None:
         """Get current state snapshot for a user.

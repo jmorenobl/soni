@@ -4,6 +4,7 @@ Provides REST API endpoints for the Soni dialogue system.
 Uses the RuntimeLoop for dialogue processing with async support.
 """
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from soni import __version__, get_version_info
 from soni.config import SoniConfig
@@ -267,6 +269,50 @@ async def process_message(
             user_id=request.user_id,
             endpoint="/message",
         ) from e
+
+
+@app.post("/chat/stream")
+async def chat_stream(
+    request: MessageRequest,
+    runtime: RuntimeDep,
+) -> StreamingResponse:
+    """Stream chat responses via Server-Sent Events.
+
+    Emits incremental updates as each node in the graph completes.
+    """
+    from soni.runtime.stream_extractor import ResponseStreamExtractor
+
+    extractor = ResponseStreamExtractor()
+
+    async def event_generator():
+        async for chunk in runtime.process_message_streaming(
+            request.message,
+            user_id=request.user_id,
+            stream_mode="updates",
+        ):
+            # Extract response content
+            stream_chunk = extractor.extract(chunk, "updates")
+            if stream_chunk and stream_chunk.content:
+                data = json.dumps(
+                    {
+                        "content": stream_chunk.content,
+                        "node": stream_chunk.node,
+                        "is_final": stream_chunk.is_final,
+                    },
+                    default=str,
+                )
+                yield f"data: {data}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.get("/state/{user_id}", response_model=StateResponse)
