@@ -24,16 +24,6 @@ def create_empty_dialogue_state() -> DialogueState:
     }
 
 
-def is_waiting_input(state: DialogueState) -> bool:
-    """Check if dialogue is waiting for user input.
-
-    DEPRECATED: Now using LangGraph interrupt() instead of manual state.
-    This function is kept temporarily for Phase 2, will be removed in Phase 3.
-    Always returns False since collect nodes now use interrupt().
-    """
-    return False  # No longer using manual waiting_input stately)
-
-
 def get_current_flow_id(state: DialogueState) -> str | None:
     """Get the ID of the current active flow (top of stack)."""
     stack = state.get("flow_stack")

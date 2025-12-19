@@ -48,47 +48,50 @@ async def test_scenario_interruption_and_resume(runtime):
     """
     Scenario:
     1. User starts 'book_flight' -> System asks "Where to?"
-    2. User interrupts "Wait, check weather in London" -> System switches to 'check_weather', asks "Which city?" (or fills it)
-    3. System finishes weather flow -> System resumes 'book_flight', asks "Where to?" again.
+    2. User says "what's the weather in London?" (INTERRUPTION)
+    3. System handles weather, then resumes booking
+
+    With interrupt() API: verify flow stack changes and slot values
     """
-    await runtime.initialize()
+    # Mock NLU
+    runtime.du.acall.side_effect = [
+        # Turn 1: book flight
+        NLUOutput(commands=[StartFlow(flow_name="book_flight")]),
+        # Turn 2: weather in London (interruption while collecting destination)
+        NLUOutput(
+            commands=[StartFlow(flow_name="check_weather"), SetSlot(slot="city", value="London")]
+        ),
+        # Turn 3: Paris (resume booking, provide destination)
+        NLUOutput(commands=[SetSlot(slot="destination", value="Paris")]),
+    ]
 
-    # 1. Start Booking
-    runtime.du.acall = AsyncMock(
-        return_value=NLUOutput(commands=[StartFlow(flow_name="book_flight")])
-    )
-    resp1 = await runtime.process_message("I want to book a flight", user_id="user_int")
-    assert "Where to?" in resp1
+    # Turn 1: Start booking
+    state = await runtime.aprocess_turn("book a flight", thread_id="t1")
 
-    # 2. Interrupt with Weather (Slot filling + Flow switch)
-    # The NLU detects: Start 'check_weather' AND set slot 'city'='London'
-    runtime.du.acall = AsyncMock(
-        return_value=NLUOutput(
-            commands=[
-                StartFlow(flow_name="check_weather"),
-                SetSlot(slot="city", value="London"),
-            ]
-        )
-    )
-    resp2 = await runtime.process_message("Check weather in London", user_id="user_int")
+    # Verify: booking flow started
+    assert len(state["flow_stack"]) == 1
+    assert state["flow_stack"][0]["flow_name"] == "book_flight"
+    # Should be collecting destination (interrupted but not set yet)
 
-    # Expectation: System executes 'check_weather'. Since city is provided, it goes straight to 'show_weather'
-    # AND since it's a sub-call or interrupt, does it auto-resume?
-    # Current logic: It finishes the active flow. Resuming depends on stack management.
-    assert "Sunny in London" in resp2
+    # Turn 2: Weather interruption + intent change
+    state = await runtime.aprocess_turn("what's the weather in London?", thread_id="t1")
 
-    # 3. Check Resume
-    # Instead of checking internal stack, we verify behavior:
-    # Send a neutral message. If 'check_weather' is done, 'book_flight' handles it.
+    # Verify: weather flow on top, London slot set
+    assert len(state["flow_stack"]) == 2
+    assert state["flow_stack"][1]["flow_name"] == "check_weather"
+    weather_flow_id = state["flow_stack"][1]["flow_id"]
+    assert state["flow_slots"][weather_flow_id].get("city") == "London"
+    # Should have weather message
+    assert any("Sunny" in str(m.content) for m in state["messages"])
 
-    # We need to simulate that check_weather is done.
-    # If the runtime doesn't auto-pop, we might be stuck.
-    # Let's see if the system prompts for the previous flow.
-    # For now, we accept that 'check_weather' happened.
+    # Turn 3: Resume booking with "Paris"
+    state = await runtime.aprocess_turn("Paris", thread_id="t1")
 
-    # NOTE: Interruption handling is complex.
-    # Validating that we at least switched context and got the answer is a good first step.
-    assert "Sunny" in resp2
+    # Verify: back to booking flow (weather completed)
+    assert len(state["flow_stack"]) == 1
+    assert state["flow_stack"][0]["flow_name"] == "book_flight"
+    booking_flow_id = state["flow_stack"][0]["flow_id"]
+    assert state["flow_slots"][booking_flow_id]["destination"] == "Paris"
 
 
 @pytest.mark.asyncio
@@ -137,41 +140,39 @@ async def test_scenario_correction(runtime):
 async def test_scenario_denial_cancel(runtime):
     """
     Scenario:
-    1. User reaches confirmation
-    2. User denies "No"
-    3. Flow cancels/aborts/loops
-    """
-    await runtime.initialize()
+    1. Book flight to Paris Tomorrow
+    2. System asks confirmation
+    3. User denies -> Should proceed with denial (confirmation = False)
 
-    # Pre-fill state to reach confirmation
-    runtime.du.acall = AsyncMock(
-        return_value=NLUOutput(
+    With interrupt() API: verify confirmation denial behavior
+    """
+    runtime.du.acall.side_effect = [
+        # Turn 1: book flight with all slots
+        NLUOutput(
             commands=[
                 StartFlow(flow_name="book_flight"),
                 SetSlot(slot="destination", value="Paris"),
                 SetSlot(slot="date", value="Tomorrow"),
             ]
-        )
-    )
-    resp = await runtime.process_message("Book flight to Paris tomorrow", user_id="user_deny")
-    assert "Confirm booking?" in resp
+        ),
+        # Turn 2: deny confirmation
+        NLUOutput(commands=[]),  # No affirm/deny command -> will call interrupt()
+    ]
 
-    # User says No
-    # NLU maps this to a command? Or specific intent?
-    # If ConfirmNode uses `last_response` or `user_message`, we need to ensure NLU doesn't override
-    # unless it produces a specific 'deny' command.
-    # Usually ConfirmNode checks raw message for yes/no if NLU doesn't provide specific 'confirmation' intent.
+    # Turn 1: Book with all info
+    state = await runtime.aprocess_turn("book flight to Paris tomorrow", thread_id="t2")
 
-    # Let's assume standard "No" message.
-    runtime.du.acall = AsyncMock(
-        return_value=NLUOutput(
-            commands=[]  # No specific command, just text
-        )
-    )
+    # Verify: flow started, slots collected
+    assert len(state["flow_stack"]) == 1
+    flow_id = state["flow_stack"][0]["flow_id"]
+    assert state["flow_slots"][flow_id]["destination"] == "Paris"
+    assert state["flow_slots"][flow_id]["date"] == "Tomorrow"
 
-    await runtime.process_message("No", user_id="user_deny")
+    # Turn 2: No affirm/deny -> should call interrupt for confirmation
+    state = await runtime.aprocess_turn("hmm", thread_id="t2")
 
-    # Verify flow ended or looped?
-    # Requires checking ConfirmNode logic. Assuming it might end flow or ask for correction.
-    # For this test, we verify the specific behavior implemented.
-    pass
+    # With interrupt(): confirm node will interrupt and wait
+    # The flow should still be active, waiting for confirmation
+    assert len(state["flow_stack"]) == 1
+    # Confirmed slot should not be set yet
+    assert state["flow_slots"][flow_id].get("confirmed") is None

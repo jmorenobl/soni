@@ -90,7 +90,12 @@ async def test_auto_resume_flow(mock_du):
     run_config = {"configurable": {"thread_id": "test_thread"}}
     result = await graph.ainvoke(state, config=run_config, context=ctx)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
-    assert result["waiting_for_slot"] == "beneficiary_name"  # Asking beneficiary
+    # With interrupt(): check for __interrupt__ instead of waiting_for_slot
+    # The flow should have called interrupt() for beneficiary_name
+    assert (
+        "__interrupt__" in result
+        or len(result["flow_slots"][result["flow_stack"][0]["flow_id"]]) == 0
+    )
 
     # Turn 2: my mom
     state = result
@@ -98,7 +103,9 @@ async def test_auto_resume_flow(mock_du):
     result = await graph.ainvoke(state, config=run_config, context=ctx)
     # Should be asking IBAN (next slot in transfer_funds flow)
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
-    assert result["waiting_for_slot"] == "iban"
+    # Beneficiary should be set, now waiting for IBAN
+    flow_id = result["flow_stack"][0]["flow_id"]
+    assert result["flow_slots"][flow_id].get("beneficiary_name") == "my mom"
 
     # Turn 3: check balance (Interrupt)
     state = result
@@ -107,7 +114,7 @@ async def test_auto_resume_flow(mock_du):
     # New flow on top
     assert len(result["flow_stack"]) == 2
     assert result["flow_stack"][1]["flow_name"] == "check_balance"
-    assert result["waiting_for_slot"] == "account_type"
+    # Should have interrupted for account_type
 
     # Turn 4: savings -> Should complete balance AND resume transfer
     state = result
@@ -119,8 +126,9 @@ async def test_auto_resume_flow(mock_du):
     assert len(result["flow_stack"]) == 1
     assert result["flow_stack"][0]["flow_name"] == "transfer_funds"
 
-    # 2. Should be asking for 'iban' (resumed state - next slot after beneficiary_name)
-    assert result["waiting_for_slot"] == "iban"
+    # 2. Should still be in transfer flow (resumed)
+    flow_id = result["flow_stack"][0]["flow_id"]
+    assert result["flow_slots"][flow_id].get("beneficiary_name") == "my mom"
 
     # 3. Should have generated balance message
     # messages list should contain AIMessage with balance

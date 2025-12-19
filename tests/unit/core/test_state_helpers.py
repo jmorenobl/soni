@@ -1,23 +1,11 @@
 import pytest
 
 from soni.core.constants import FlowContextState, FlowState
-from soni.core.state import create_empty_dialogue_state, get_current_flow_id, is_waiting_input
+from soni.core.state import create_empty_dialogue_state, get_current_flow_id
 
 
 class TestStateHelpers:
     """Tests for state helper functions."""
-
-    def test_is_waiting_input_true(self):
-        """Test is_waiting_input always returns False (deprecated)."""
-        state = create_empty_dialogue_state()
-        # WAITING_INPUT removed - is_waiting_input always returns False now
-        assert is_waiting_input(state) is False
-
-    def test_is_waiting_input_false(self):
-        """Test is_waiting_input returns False."""
-        state = create_empty_dialogue_state()
-        state["flow_state"] = FlowState.ACTIVE
-        assert is_waiting_input(state) is False
 
     def test_get_current_flow_id_returns_id(self):
         """Test get_current_flow_id returns ID of top flow."""
