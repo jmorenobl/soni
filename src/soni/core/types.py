@@ -32,6 +32,23 @@ class FlowContext(TypedDict):
     started_at: float  # Timestamp
 
 
+@dataclass
+class FlowDelta:
+    """State delta returned by FlowManager mutation methods.
+
+    Callers must merge these into their return dict for LangGraph to track.
+    This follows the immutable state pattern where mutations return deltas
+    instead of modifying state in-place.
+
+    Attributes:
+        flow_stack: Updated flow stack if changed, None if unchanged.
+        flow_slots: Updated slot mapping if changed, None if unchanged.
+    """
+
+    flow_stack: list[FlowContext] | None = None
+    flow_slots: dict[str, dict[str, Any]] | None = None
+
+
 class DialogueState(TypedDict):
     """Complete dialogue state for LangGraph.
 
@@ -87,7 +104,7 @@ class SlotProvider(Protocol):
 
     def set_slot(
         self, state: DialogueState, slot_name: str, value: Any
-    ) -> Any | None:  # Returns FlowDelta or None
+    ) -> FlowDelta | None:  # Returns FlowDelta or None
         """Set a slot value in the active flow context."""
         ...
 
@@ -112,7 +129,7 @@ class FlowStackProvider(Protocol):
         state: DialogueState,
         flow_name: str,
         inputs: dict[str, Any] | None = None,
-    ) -> tuple[str, Any]:  # Returns (flow_id, FlowDelta)
+    ) -> tuple[str, FlowDelta]:  # Returns (flow_id, FlowDelta)
         """Push a new flow onto the stack."""
         ...
 
@@ -120,7 +137,7 @@ class FlowStackProvider(Protocol):
         self,
         state: DialogueState,
         result: FlowContextState = FlowContextState.COMPLETED,
-    ) -> tuple[FlowContext, Any]:  # Returns (popped_context, FlowDelta)
+    ) -> tuple[FlowContext, FlowDelta]:  # Returns (popped_context, FlowDelta)
         """Pop the top flow from the stack."""
         ...
 
@@ -128,7 +145,7 @@ class FlowStackProvider(Protocol):
         self,
         state: DialogueState,
         new_flow: str,
-    ) -> Any | None:  # Returns FlowDelta or None
+    ) -> FlowDelta | None:  # Returns FlowDelta or None
         """Handle intent switch (push new flow)."""
         ...
 
@@ -144,7 +161,7 @@ class FlowContextProvider(Protocol):
         """Get the currently active flow context."""
         ...
 
-    def advance_step(self, state: DialogueState) -> Any | None:  # Returns FlowDelta or None
+    def advance_step(self, state: DialogueState) -> FlowDelta | None:  # Returns FlowDelta or None
         """Advance to next step in current flow."""
         ...
 

@@ -7,24 +7,12 @@ All state-mutating methods return dict updates that callers must merge.
 import logging
 import time
 import uuid
-from dataclasses import dataclass
 from typing import Any, cast
 
 from soni.core.errors import FlowStackError
-from soni.core.types import DialogueState, FlowContext, FlowContextState
+from soni.core.types import DialogueState, FlowContext, FlowContextState, FlowDelta
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class FlowDelta:
-    """State delta returned by FlowManager mutation methods.
-
-    Callers must merge these into their return dict for LangGraph to track.
-    """
-
-    flow_stack: list[FlowContext] | None = None
-    flow_slots: dict[str, dict[str, Any]] | None = None
 
 
 class FlowManager:
@@ -219,3 +207,6 @@ def merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
         updates["flow_stack"] = delta.flow_stack
     if delta.flow_slots is not None:
         updates["flow_slots"] = delta.flow_slots
+
+
+__all__ = ["FlowManager", "FlowDelta", "merge_delta"]
