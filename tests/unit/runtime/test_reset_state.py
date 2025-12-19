@@ -24,7 +24,7 @@ class TestResetState:
         # We need checkpointer mock if we want to really test logic flow without depending on real implementations
         runtime._components = MagicMock()
         checkpointer = MagicMock()
-        checkpointer.adelete = AsyncMock(return_value=None)
+        checkpointer.adelete_thread = AsyncMock(return_value=None)
         runtime._components.checkpointer = checkpointer
 
         # Mock get_state to return something
@@ -77,7 +77,7 @@ class TestResetState:
         # Mock checkpointer to look real
         checkpointer = MagicMock()
         # When accessing adelete, return an AsyncMock that raises
-        checkpointer.adelete = AsyncMock(side_effect=Exception("DB connection lost"))
+        checkpointer.adelete_thread = AsyncMock(side_effect=Exception("DB connection lost"))
         # We also need 'adelete' to be present in dir/hasattr? MagicMock handles that.
         # But we ensure delete is NOT present or logic will try that first if precedence...
         # Actually logic is 'if hasattr adelete await adelete'.

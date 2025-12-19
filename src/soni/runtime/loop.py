@@ -227,17 +227,15 @@ class RuntimeLoop:
                 return False
 
             # Delete the checkpoint for this thread
-            if hasattr(checkpointer, "adelete"):
-                await checkpointer.adelete(config)
-            elif hasattr(checkpointer, "delete"):
-                checkpointer.delete(config)
+            # Delete the checkpoint for this thread (async-first)
+            if hasattr(checkpointer, "adelete_thread"):
+                await checkpointer.adelete_thread(user_id)
             else:
-                # Fallback: Write empty state
+                # Fallback: Write empty state if checkpointer doesn't support deletion
                 from soni.core.state import create_empty_dialogue_state
 
                 empty_state = create_empty_dialogue_state()
                 # We need a way to force-write state.
-                # Usually graph.update_state?
                 if self._components.graph:
                     # Config for update requires thread_id
                     await self._components.graph.aupdate_state(
