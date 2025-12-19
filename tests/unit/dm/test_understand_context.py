@@ -4,7 +4,7 @@ import pytest
 
 from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import DialogueState, RuntimeContext
-from soni.dm.nodes.understand import build_du_context
+from soni.du.service import build_du_context
 
 
 @pytest.fixture

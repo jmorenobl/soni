@@ -33,7 +33,7 @@ class TestCreateStateView:
     def test_state_view_overlays_updates(self):
         """Test that accumulated updates are applied to view."""
         base = create_empty_dialogue_state()
-        base["flow_stack"] = [{"flow_id": "old"}]  # type: ignore
+        base["flow_stack"] = [{"flow_id": "old"}]
 
         updates = {"flow_stack": [{"flow_id": "new"}]}
         view = create_state_view(base, updates)
@@ -148,7 +148,7 @@ class TestUnderstandNodeImmutability:
 
         with patch("soni.dm.nodes.understand.get_command_registry", return_value=mock_registry):
             # Also mock get_flow_slot_definitions used in understand_node
-            with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
+            with patch("soni.du.service.get_flow_slot_definitions", return_value=[]):
                 # Mock SlotExtractor
                 mock_runtime_context.custom_components = {}
                 mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
@@ -185,7 +185,7 @@ class TestUnderstandNodeImmutability:
         from unittest.mock import patch
 
         with patch("soni.dm.nodes.understand.get_command_registry", return_value=mock_registry):
-            with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
+            with patch("soni.du.service.get_flow_slot_definitions", return_value=[]):
                 mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
                 await understand_node(base_state, mock_runtime_context)
 
@@ -223,7 +223,7 @@ class TestUnderstandNodeImmutability:
         from unittest.mock import patch
 
         with patch("soni.dm.nodes.understand.get_command_registry", return_value=mock_registry):
-            with patch("soni.dm.nodes.understand.get_flow_slot_definitions", return_value=[]):
+            with patch("soni.du.service.get_flow_slot_definitions", return_value=[]):
                 mock_runtime_context.context.du.acall = AsyncMock(return_value=nlu_output)
                 await understand_node(base_state, mock_runtime_context)
 

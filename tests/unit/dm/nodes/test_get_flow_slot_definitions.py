@@ -11,7 +11,7 @@ from soni.config import (
     SoniConfig,
     StepConfig,
 )
-from soni.dm.nodes.understand import get_flow_slot_definitions
+from soni.du.service import get_flow_slot_definitions
 from soni.du.slot_extractor import SlotExtractionInput
 
 
