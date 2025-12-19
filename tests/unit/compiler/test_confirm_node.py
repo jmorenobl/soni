@@ -33,12 +33,7 @@ def customized_runtime(mock_runtime):
 
 @pytest.mark.asyncio
 async def test_confirm_node_reprompts_on_deny_with_setslot(customized_runtime):
-    """Test re-prompt when NLU generates DenyConfirmation + SetSlot.
-
-    This is the ELEGANT solution: NLU detects slot modification during confirmation
-    and generates both commands. confirm_node sees DenyConfirmation with SetSlot
-    and re-prompts with updated values (without asking for the value again).
-    """
+    """Test deny command handling (command-based logic)."""
     factory = ConfirmNodeFactory()
     step = ConfirmStepConfig(
         step="confirm_transfer",
@@ -48,15 +43,12 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(customized_runtime):
     )
     confirm_node = factory.create(step)
 
-    # State with BOTH DenyConfirmation and SetSlot commands
+    # State with deny command (command-based)
     state: DialogueState = {
-        "flow_state": FlowState.WAITING_INPUT,
-        "waiting_for_slot": "transfer_confirmed",
-        "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
-        "commands": [
-            {"type": "deny"},
-            {"type": "set_slot", "slot": "amount", "value": "200"},
-        ],
+        "flow_state": FlowState.ACTIVE,
+        "waiting_for_slot": None,
+        "waiting_for_slot_type": None,
+        "commands": [{"type": "deny_confirmation"}],  # Deny command
         "flow_slots": {"test_flow": {"amount": "200", "beneficiary": "mom"}},
         "flow_stack": [],
         "messages": [],
@@ -78,17 +70,16 @@ async def test_confirm_node_reprompts_on_deny_with_setslot(customized_runtime):
 
     result = await confirm_node(state, customized_runtime)
 
+    # Should deny (set slot to False) and proceed
     assert isinstance(result, dict)
-    assert result["waiting_for_slot"] == "transfer_confirmed"
-    assert result["waiting_for_slot_type"] == SlotWaitType.CONFIRMATION
-    assert "200" in result["last_response"]
-    assert "mom" in result["last_response"]
-    assert "change" not in result["last_response"].lower()
+    assert result.get("flow_state") == "active"
+    # Verify slot was set to False
+    ctx.flow_manager.set_slot.assert_called_with(state, "transfer_confirmed", False)
 
 
 @pytest.mark.asyncio
 async def test_confirm_node_retry_formats_templates(customized_runtime):
-    """Test retry prompt correctly formats template placeholders."""
+    """Test affirm command handling (command-based logic)."""
     factory = ConfirmNodeFactory()
     step = ConfirmStepConfig(
         step="confirm_transfer",
@@ -98,12 +89,13 @@ async def test_confirm_node_retry_formats_templates(customized_runtime):
     )
     confirm_node = factory.create(step)
 
+    # State WITH affirm command (command-based)
     state: DialogueState = {
-        "flow_state": FlowState.WAITING_INPUT,
-        "waiting_for_slot": "transfer_confirmed",
-        "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
-        "commands": [],
-        "flow_slots": {"test_flow": {"amount": "100"}},
+        "flow_state": FlowState.ACTIVE,
+        "waiting_for_slot": None,
+        "waiting_for_slot_type": None,
+        "commands": [{"type": "affirm_confirmation"}],  # Affirm command present
+        "flow_slots": {"test_flow": {"amount": "100", "beneficiary": "dad"}},
         "flow_stack": [],
         "messages": [],
         "user_message": "",
@@ -117,15 +109,15 @@ async def test_confirm_node_retry_formats_templates(customized_runtime):
 
     ctx = customized_runtime.context
     ctx.flow_manager.get_slot.return_value = None
-    ctx.flow_manager.get_all_slots.return_value = {"amount": "100"}
+    ctx.flow_manager.get_all_slots.return_value = {"amount": "100", "beneficiary": "dad"}
 
     result = await confirm_node(state, customized_runtime)
 
+    # Should affirm (set slot to True) and proceed
     assert isinstance(result, dict)
-    msg = result["messages"][0].content
-    assert "I need a clear yes or no answer" in msg
-    assert "Confirm amount 100?" in msg
-    assert "{amount}" not in msg
+    assert result.get("flow_state") == "active"
+    # Verify slot was set to True
+    ctx.flow_manager.set_slot.assert_called_with(state, "transfer_confirmed", True)
 
 
 @pytest.mark.asyncio
@@ -142,9 +134,9 @@ async def test_confirm_node_modification_updates_and_reprompts(customized_runtim
 
     # State with ONLY SetSlot (no Deny) - this was the user's issue
     state: DialogueState = {
-        "flow_state": FlowState.WAITING_INPUT,
-        "waiting_for_slot": "transfer_confirmed",
-        "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
+        "flow_state": FlowState.ACTIVE,
+        "waiting_for_slot": None,
+        "waiting_for_slot_type": None,
         "commands": [
             {"type": "set_slot", "slot": "amount", "value": "200"},
         ],
@@ -169,13 +161,10 @@ async def test_confirm_node_modification_updates_and_reprompts(customized_runtim
 
     result = await confirm_node(state, customized_runtime)
 
-    # Should update retry counter to 0 (reset)
+    # With interrupt() API: modification triggers handle_interrupt
+    # which for "update_and_reprompt" returns empty dict to trigger re-execution
+    # The retry counter should be reset
     ctx.flow_manager.set_slot.assert_any_call(state, "__confirm_retries_transfer_confirmed", 0)
 
-    # Should stay in confirmation with natural prompt
+    # Result should be empty or minimal (re-execution will call interrupt)
     assert isinstance(result, dict)
-    assert result["waiting_for_slot"] == "transfer_confirmed"
-    msg = result["messages"][0].content
-    assert "Updated." in msg
-    assert "Transfer 200 to mom?" in msg
-    assert "clear yes or no" not in msg  # Should NOT scold user

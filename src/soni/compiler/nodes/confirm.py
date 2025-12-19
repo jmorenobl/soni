@@ -1,18 +1,19 @@
-"""ConfirmNodeFactory - generates confirmation nodes.
+"""ConfirmNodeFactory - generates confirmation nodes with interrupt() API.
 
-Implements full confirmation flow using NLU commands:
-1. First visit: Show confirmation prompt, wait for input
-2. Subsequent visits: Check NLU commands for affirm/deny
-3. Handle modifications and retries
+Implements full confirmation flow using NLU commands and LangGraph interrupt():
+1. Check if slot already filled (idempotent)
+2. Check NLU commands for affirm/deny
+3. If no commands, call interrupt() and wait
+4. On resume, process user response through handlers
 
-Refactored to use separate handlers for each concern (SRP).
+Refactored to use LangGraph interrupt() API with command-based approach.
 """
 
 import logging
 from typing import Any
 
 from langgraph.runtime import Runtime
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ConfirmStepConfig, StepConfig
@@ -24,9 +25,9 @@ from .confirm_handlers import (
     AffirmHandler,
     ConfirmationContext,
     DenyHandler,
-    FirstVisitHandler,
     ModificationHandler,
     RetryHandler,
+    format_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,12 +68,12 @@ class ConfirmNodeFactory:
     """Factory for confirm step nodes.
 
     Creates nodes that:
-    1. Prompt for confirmation on first visit
-    2. Check NLU commands for affirm/deny on subsequent visits
-    3. Re-ask if no clear confirmation command (up to max_retries)
+    1. Check if already confirmed (idempotent)
+    2. Check NLU commands for affirm/deny (command-based)
+    3. Call interrupt() if no commands
+    4. Process confirmation on resume
 
     Uses separate handlers for each concern (SRP):
-    - FirstVisitHandler: Initial prompt
     - AffirmHandler: Affirmation processing
     - DenyHandler: Denial with optional modification
     - ModificationHandler: Slot modifications
@@ -80,7 +81,6 @@ class ConfirmNodeFactory:
     """
 
     def __init__(self) -> None:
-        self._first_visit = FirstVisitHandler()
         self._affirm = AffirmHandler()
         self._deny = DenyHandler()
         self._modification = ModificationHandler()
@@ -102,7 +102,6 @@ class ConfirmNodeFactory:
         max_retries = step.max_retries
 
         # Capture handlers for closure
-        first_visit = self._first_visit
         affirm = self._affirm
         deny = self._deny
         modification = self._modification
@@ -129,38 +128,86 @@ class ConfirmNodeFactory:
                 max_retries=max_retries,
             )
 
+            # IDEMPOTENT: Check if confirmation slot is already filled
+            value = flow_manager.get_slot(state, slot_name)
+            if value is not None:
+                return {}  # Already confirmed, no state change needed
+
             # Build updates dict for merging deltas
             updates: dict[str, Any] = {}
 
-            # Check if confirmation slot is already filled
-            value = flow_manager.get_slot(state, slot_name)
-            if value is not None:
-                return {"flow_state": "active"}
+            # COMMAND-BASED: Check NLU commands
+            commands = state.get("commands", [])
 
-            # Check if we're waiting for this slot (subsequent visit)
-            if state.get("waiting_for_slot") == slot_name:
-                # Get NLU commands from state
-                commands = state.get("commands", [])
+            # Check for affirm/deny commands
+            is_affirmed, slot_to_change = _find_confirmation_command(commands)
 
-                is_affirmed, slot_to_change = _find_confirmation_command(commands)
+            if is_affirmed is True:
+                # Affirm command found - process it
+                return affirm.handle_interrupt(ctx, state, updates)
 
-                if is_affirmed is True:
-                    return affirm.handle(ctx, state, updates)
+            if is_affirmed is False:
+                # Deny command found - process it
+                return deny.handle_interrupt(ctx, state, updates, commands, slot_to_change)
 
-                if is_affirmed is False:
-                    return deny.handle(ctx, state, updates, commands, slot_to_change)
+            # Check for slot modification without explicit affirm/deny
+            has_modification = any(
+                c.get("type") == "set_slot" if isinstance(c, dict) else c.type == "set_slot"
+                for c in commands
+            )
 
-                # NLU didn't produce affirm/deny - check for slot modification
-                has_modification = any(c.get("type") == "set_slot" for c in commands)
+            if has_modification:
+                # Modification command found - handle it
+                return modification.handle_interrupt(ctx, state, updates)
 
-                if has_modification:
-                    return modification.handle(ctx, state, updates)
+            # NO COMMANDS: Call interrupt() and wait for user response
+            # Get current slots for prompt formatting
+            slots = flow_manager.get_all_slots(state)
+            formatted_prompt = format_prompt(prompt, slots)
 
-                # No modification - do retry logic
-                return retry.handle(ctx, state, updates)
+            # Check retry count to determine appropriate message
+            current_retries = flow_manager.get_slot(state, retry_key) or 0
+            effective_max = max_retries or (
+                confirmation_config.max_retries if confirmation_config else 3
+            )
 
-            # First visit - ask for confirmation
-            return first_visit.handle(ctx, state)
+            if current_retries >= effective_max:
+                # Max retries - handle before interrupt
+                return retry.handle_interrupt(ctx, state, updates)
+
+            # Format retry message if needed
+            if current_retries > 0:
+                retry_template = (
+                    confirmation_config.retry_message
+                    if confirmation_config
+                    else "I need a clear yes or no answer. {prompt}"
+                )
+                formatted_prompt = retry_template.format(prompt=formatted_prompt)
+
+            # Increment retry counter for next time
+            if current_retries > 0:
+                delta = flow_manager.set_slot(state, retry_key, current_retries + 1)
+                if delta:
+                    from soni.flow.manager import merge_delta
+
+                    merge_delta(updates, delta)
+
+            # Call interrupt() - execution pauses here
+            interrupt(
+                {
+                    "type": "confirm",
+                    "prompt": formatted_prompt,
+                    "slot": slot_name,
+                }
+            )
+
+            # After resume - user_response contains the answer
+            # This code only executes on resume
+            # The user's answer will be processed by NLU, generating commands
+            # that will be checked on the next invocation (above)
+
+            # For now, just return updates (interrupt handling is done)
+            return updates
 
         confirm_node.__name__ = f"confirm_{step.step}"
         return confirm_node

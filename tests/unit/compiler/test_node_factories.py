@@ -6,8 +6,15 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from soni.compiler.nodes import (
+    ActionNodeFactory,
+    CollectNodeFactory,
+    ConfirmNodeFactory,
+    SayNodeFactory,
+    WhileNodeFactory,
+)
 from soni.compiler.nodes.base import NodeFunction
-from soni.compiler.nodes.collect import CollectNodeFactory
+from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.config import (
     ActionStepConfig,
     BranchStepConfig,
@@ -115,8 +122,6 @@ class TestActionNodeFactory:
         WHEN node is executed
         THEN executes action via handler
         """
-        from soni.compiler.nodes.action import ActionNodeFactory
-
         # Arrange
         step = ActionStepConfig(step="do_booking", type="action", call="book_flight_api")
         factory = ActionNodeFactory()
@@ -146,8 +151,6 @@ class TestSayNodeFactory:
         WHEN node is executed
         THEN returns response
         """
-        from soni.compiler.nodes.say import SayNodeFactory
-
         # Arrange
         step = SayStepConfig(step="greet", type="say", message="Hello")
         factory = SayNodeFactory()
@@ -176,7 +179,6 @@ class TestBranchNodeFactory:
         WHEN node is executed (and slot matches case)
         THEN returns _branch_target in state for router
         """
-        from soni.compiler.nodes.branch import BranchNodeFactory
 
         # Arrange
         step = BranchStepConfig(
@@ -209,7 +211,6 @@ class TestBranchNodeFactory:
         WHEN slot does not match any case
         THEN returns _branch_target = None to proceed to next step
         """
-        from soni.compiler.nodes.branch import BranchNodeFactory
 
         # Arrange
         step = BranchStepConfig(
@@ -242,54 +243,58 @@ class TestConfirmNodeFactory:
     @pytest.mark.asyncio
     async def test_confirm_node_collects_slot_if_missing(self):
         """
-        GIVEN a confirm step
-        WHEN slot is empty
-        THEN prompts user
+        GIVEN a confirm step with empty slot AND affirm command
+        WHEN node is executed
+        THEN sets slot to True
         """
-        from soni.compiler.nodes.confirm import ConfirmNodeFactory
-
         # Arrange
-        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="confirmed")
+        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="booking_confirmed")
         factory = ConfirmNodeFactory()
 
+        # Mock dependencies
         mock_fm = Mock()
-        mock_fm.get_slot.return_value = None
-        mock_fm.get_all_slots.return_value = {}  # Required for prompt formatting
+        mock_fm.get_slot.return_value = None  # Slot is empty
+        mock_fm.set_slot.return_value = None
 
         runtime = create_mock_config(fm=mock_fm)
 
+        # State WITH affirm command (command-based approach)
+        state = create_empty_dialogue_state()
+        state["commands"] = [{"type": "affirm_confirmation"}]
+
         # Act
         node = factory.create(step)
-        result = await node(create_empty_dialogue_state(), runtime)
+        result = await node(state, runtime)
 
-        # Assert
-        assert isinstance(result, dict)
-        assert result["flow_state"] == "waiting_input"
-        assert result["waiting_for_slot"] == "confirmed"
+        # Assert - should set slot to True and proceed
+        mock_fm.set_slot.assert_called_with(state, "booking_confirmed", True)
+        assert result.get("flow_state") == "active"
 
     @pytest.mark.asyncio
     async def test_confirm_node_validates_value(self):
         """
-        GIVEN a confirm step
-        WHEN slot has value
-        THEN returns active (logic to act on confirmation is separate or defaults)
+        GIVEN a confirm step with filled slot
+        WHEN node is executed
+        THEN returns empty dict (idempotent, no state change)
         """
-        from soni.compiler.nodes.confirm import ConfirmNodeFactory
-
-        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="confirmed")
+        # Arrange
+        step = ConfirmStepConfig(step="confirm_booking", type="confirm", slot="booking_confirmed")
         factory = ConfirmNodeFactory()
 
+        # Mock dependencies
         mock_fm = Mock()
-        mock_fm.get_slot.return_value = True
+        mock_fm.get_slot.return_value = True  # Slot already confirmed
 
         runtime = create_mock_config(fm=mock_fm)
 
-        node = factory.create(step)
-        result = await node(create_empty_dialogue_state(), runtime)
+        state = create_empty_dialogue_state()
 
-        assert isinstance(result, dict)
-        assert isinstance(result, dict)
-        assert result["flow_state"] == "active"
+        # Act
+        node = factory.create(step)
+        result = await node(state, runtime)
+
+        # Assert - no state change when slot already filled
+        assert result == {}
 
 
 class TestWhileNodeFactory:
@@ -303,8 +308,6 @@ class TestWhileNodeFactory:
         THEN branches to loop start/body
         """
         from langgraph.types import Command
-
-        from soni.compiler.nodes.while_loop import WhileNodeFactory
 
         # 'do' contains list of steps to execute in loop.
         # In this simplistic test, we check if it validates condition.
@@ -330,8 +333,6 @@ class TestWhileNodeFactory:
 
     @pytest.mark.asyncio
     async def test_while_node_exits_loop_if_condition_false(self):
-        from soni.compiler.nodes.while_loop import WhileNodeFactory
-
         step = WhileStepConfig(
             step="loop_chk", type="while", condition="slot_x == 'value'", do=["step1"]
         )
