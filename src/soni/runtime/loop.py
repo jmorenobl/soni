@@ -9,6 +9,7 @@ This follows SRP by delegating specific responsibilities to dedicated classes.
 """
 
 import logging
+from types import TracebackType
 from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
@@ -31,9 +32,14 @@ logger = logging.getLogger(__name__)
 class RuntimeLoop:
     """Main runtime for processing dialogue messages.
 
-    Provides async-first interface for dialogue processing.
-    Delegates component creation, state preparation, and response
-    extraction to specialized classes following SRP.
+    Supports async context manager protocol for resource management:
+
+        async with RuntimeLoop(config, checkpointer) as runtime:
+            response = await runtime.process_message("hi", "user1")
+        # Resources automatically cleaned up
+
+    Can also be used without context manager, but cleanup() must be
+    called manually to release resources.
     """
 
     def __init__(
@@ -58,6 +64,41 @@ class RuntimeLoop:
 
         # Components set during initialization
         self._components: RuntimeComponents | None = None
+        self._cleanup_done = False  # Track cleanup state
+
+    async def __aenter__(self) -> "RuntimeLoop":
+        """Async context manager entry - initialize runtime.
+
+        Returns:
+            Self for use in `async with` statements.
+
+        Example:
+            async with RuntimeLoop(config) as runtime:
+                response = await runtime.process_message("hi", "user1")
+        """
+        await self.initialize()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
+        """Async context manager exit - cleanup resources.
+
+        Always performs cleanup, regardless of whether an exception occurred.
+
+        Args:
+            exc_type: Exception type if an exception was raised.
+            exc_val: Exception instance if an exception was raised.
+            exc_tb: Traceback if an exception was raised.
+
+        Returns:
+            False to propagate exceptions (never suppresses).
+        """
+        await self.cleanup()
+        return False  # Don't suppress exceptions
 
     # Property accessors for backwards compatibility
     @property
@@ -242,13 +283,18 @@ class RuntimeLoop:
     async def cleanup(self) -> None:
         """Clean up runtime resources.
 
+        Safe to call multiple times - subsequent calls are no-ops.
         Should be called during server shutdown to release resources gracefully.
-        Closes checkpointer connections and clears component references.
         """
+        if self._cleanup_done:
+            logger.debug("Cleanup already completed, skipping")
+            return
+
         logger.info("RuntimeLoop cleanup starting...")
 
         if not self._components:
             logger.debug("No components to clean up")
+            self._cleanup_done = True
             return
 
         # Close checkpointer if it has a close method
@@ -267,7 +313,8 @@ class RuntimeLoop:
                 except Exception as e:
                     logger.warning(f"Error closing checkpointer: {e}")
 
-        # Clear references
+        # Clear references to allow GC
         self._components = None
+        self._cleanup_done = True
 
         logger.info("RuntimeLoop cleanup completed")

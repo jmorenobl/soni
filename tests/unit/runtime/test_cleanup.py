@@ -116,17 +116,28 @@ class TestLifespanCleanup:
 
     @pytest.mark.asyncio
     async def test_lifespan_calls_runtime_cleanup(self):
-        """Test that lifespan calls runtime.cleanup() on shutdown."""
+        """Test that lifespan uses RuntimeLoop context manager."""
+        from unittest.mock import patch
+
         from soni.server.api import app, lifespan
 
         mock_runtime = MagicMock()
+        mock_runtime.initialize = AsyncMock()
         mock_runtime.cleanup = AsyncMock()
+        # Mock context manager behavior
+        mock_runtime.__aenter__ = AsyncMock(return_value=mock_runtime)
+        mock_runtime.__aexit__ = AsyncMock(return_value=False)
 
-        # Simulate lifespan
-        app.state.runtime = mock_runtime
-        app.state.config = MagicMock()
+        # Mock config loader and Path existence
+        with (
+            patch("soni.server.api.ConfigLoader.load", return_value=MagicMock()),
+            patch("soni.server.api.RuntimeLoop", return_value=mock_runtime),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            async with lifespan(app):
+                # Verify initialization happened upon entry
+                mock_runtime.__aenter__.assert_called_once()
+                assert app.state.runtime is mock_runtime
 
-        async with lifespan(app):
-            pass  # Yield point
-
-        mock_runtime.cleanup.assert_called_once()
+            # Verify cleanup happened upon exit
+            mock_runtime.__aexit__.assert_called_once()

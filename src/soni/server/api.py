@@ -37,46 +37,47 @@ async def lifespan(app: FastAPI):
     # Get config path from environment or default
     config_path = Path(os.getenv("SONI_CONFIG_PATH", "soni.yaml"))
 
-    if config_path.exists():
-        logger.info(f"Loading configuration from {config_path}")
-        try:
-            config = ConfigLoader.load(config_path)
-            runtime = RuntimeLoop(config)
-            await runtime.initialize()
+    if not config_path.exists():
+        logger.warning(
+            f"Configuration file {config_path} not found. "
+            "Server will start but message processing will fail."
+        )
+        yield
+        return
 
+    logger.info(f"Loading configuration from {config_path}")
+
+    try:
+        config = ConfigLoader.load(config_path)
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        # Yield to allow startup, but runtime won't be available
+        yield
+        return
+
+    try:
+        # Use context manager for automatic cleanup
+        async with RuntimeLoop(config) as runtime:
             # Store in app.state instead of globals
             app.state.config = config
             app.state.runtime = runtime
 
             logger.info("Soni server initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize server: {e}")
-            raise
-    else:
-        logger.warning(
-            f"Configuration file {config_path} not found. "
-            "Server will start but message processing will fail."
-        )
+            yield
 
-    yield
+            # Context manager handles cleanup automatically
 
-    # === SHUTDOWN ===
-    logger.info("Soni server shutting down...")
+    except Exception as e:
+        logger.error(f"Failed to initialize runtime: {e}")
+        # If context manager entry fails (initialize raises), we yield so app can start/fail gracefully
+        # depending on preference. Here we log and continue.
+        yield
 
-    # Cleanup runtime (releases async resources)
-    shutdown_runtime = getattr(app.state, "runtime", None)
-    if shutdown_runtime is not None:
-        try:
-            await shutdown_runtime.cleanup()
-            logger.info("Runtime cleanup completed")
-        except Exception as e:
-            logger.error(f"Error during runtime cleanup: {e}")
+    logger.info("Soni server shutdown completed")
 
     # Clear references
     app.state.runtime = None
     app.state.config = None
-
-    logger.info("Soni server shutdown completed")
 
 
 # Create FastAPI app
