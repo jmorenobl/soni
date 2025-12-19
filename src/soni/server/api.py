@@ -7,10 +7,11 @@ Uses the RuntimeLoop for dialogue processing with async support.
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 
 from soni import __version__, get_version_info
 from soni.config import SoniConfig
@@ -20,9 +21,11 @@ from soni.runtime.loop import RuntimeLoop
 from soni.server.dependencies import RuntimeDep
 from soni.server.errors import create_error_response, global_exception_handler
 from soni.server.models import (
+    ComponentStatus,
     HealthResponse,
     MessageRequest,
     MessageResponse,
+    ReadinessResponse,
     ResetResponse,
     StateResponse,
     VersionResponse,
@@ -94,17 +97,127 @@ app.add_exception_handler(Exception, global_exception_handler)
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check(request: Request) -> HealthResponse:
-    """Health check endpoint.
+    """Liveness probe for Kubernetes.
 
-    Returns the current health status of the server.
+    Returns basic health status. Use for Kubernetes liveness probes
+    to detect if the process needs to be restarted.
+
+    For detailed component status, see /ready endpoint.
     """
-    runtime = getattr(request.app.state, "runtime", None)
+    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
+
+    # Determine overall status
+    if runtime is None:
+        status = "starting"
+    elif runtime._components is None:
+        status = "starting"
+    elif runtime._components.graph is None:
+        status = "degraded"
+    else:
+        status = "healthy"
+
+    # Build component status (optional detail)
+    components: dict[str, ComponentStatus] | None = None
+    if runtime and runtime._components:
+        components = {
+            "runtime": ComponentStatus(
+                name="runtime",
+                status="healthy",
+                message=None,
+            ),
+            "graph": ComponentStatus(
+                name="graph",
+                status="healthy" if runtime._components.graph else "unhealthy",
+                message="Compiled and ready" if runtime._components.graph else "Not compiled",
+            ),
+            "checkpointer": ComponentStatus(
+                name="checkpointer",
+                status="healthy" if runtime._components.checkpointer else "degraded",
+                message="Connected"
+                if runtime._components.checkpointer
+                else "None (in-memory only)",
+            ),
+        }
 
     return HealthResponse(
-        status="healthy" if runtime is not None else "starting",
+        status=status,
         version=__version__,
-        initialized=runtime is not None,
+        timestamp=datetime.now(UTC).isoformat(),
+        components=components,
     )
+
+
+@app.get("/ready", response_model=ReadinessResponse)
+async def readiness_check(request: Request) -> ReadinessResponse:
+    """Readiness probe for Kubernetes.
+
+    Returns 200 if the service is ready to accept traffic.
+    Returns 503 if the service is not ready.
+
+    Use this for Kubernetes readiness probes to control
+    when pods receive traffic after startup or during issues.
+    """
+    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
+
+    checks: dict[str, bool] = {}
+
+    # Check 1: Runtime exists
+    checks["runtime_exists"] = runtime is not None
+
+    # Check 2: Components initialized
+    components_ok = False
+    if runtime and runtime._components:
+        components_ok = (
+            runtime._components.graph is not None
+            and runtime._components.du is not None
+            and runtime._components.flow_manager is not None
+        )
+    checks["components_initialized"] = components_ok
+
+    # Check 3: Graph is compiled (can process messages)
+    checks["graph_ready"] = (
+        runtime is not None
+        and runtime._components is not None
+        and runtime._components.graph is not None
+    )
+
+    # Overall readiness
+    ready = all(checks.values())
+
+    if not ready:
+        failed_checks = [k for k, v in checks.items() if not v]
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "ready": False,
+                "message": f"Not ready: {', '.join(failed_checks)}",
+                "checks": checks,
+            },
+        )
+
+    return ReadinessResponse(
+        ready=True,
+        message="Service is ready to accept traffic",
+        checks=checks,
+    )
+
+
+@app.get("/startup")
+async def startup_check(request: Request) -> dict[str, bool]:
+    """Startup probe for Kubernetes.
+
+    Returns 200 once initial startup is complete.
+    Use for Kubernetes startupProbe to give the app time to initialize.
+    """
+    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
+
+    if runtime is None or runtime._components is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"started": False, "message": "Still initializing"},
+        )
+
+    return {"started": True}
 
 
 @app.post("/message", response_model=MessageResponse)

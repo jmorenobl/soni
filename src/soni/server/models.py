@@ -3,6 +3,9 @@
 Defines request and response schemas for the Soni REST API.
 """
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -26,12 +29,33 @@ class MessageResponse(BaseModel):
     turn_count: int = Field(default=0, description="Number of conversation turns")
 
 
-class HealthResponse(BaseModel):
-    """Response model for health check endpoint."""
+class ComponentStatus(BaseModel):
+    """Status of a single component."""
 
-    status: str = Field(description="Health status (healthy/unhealthy)")
-    version: str = Field(description="API version")
-    initialized: bool = Field(description="Whether the system is initialized")
+    name: str
+    status: Literal["healthy", "degraded", "unhealthy"]
+    message: str | None = None
+
+
+class HealthResponse(BaseModel):
+    """Health check response with component details.
+
+    Breaking change: `initialized` field removed.
+    Use `status` field or /ready endpoint instead.
+    """
+
+    status: Literal["healthy", "starting", "degraded", "unhealthy"]
+    version: str
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    components: dict[str, ComponentStatus] | None = None
+
+
+class ReadinessResponse(BaseModel):
+    """Readiness probe response."""
+
+    ready: bool
+    message: str
+    checks: dict[str, bool] | None = None
 
 
 class StateResponse(BaseModel):

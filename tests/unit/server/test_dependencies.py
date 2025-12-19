@@ -134,7 +134,7 @@ class TestDependencyIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "starting"
-        assert data["initialized"] is False
+        # initialized field was removed in P1-003
 
     def test_health_returns_healthy_when_runtime_initialized(self, app_with_runtime):
         """Health should show healthy when runtime is initialized."""
@@ -148,4 +148,4 @@ class TestDependencyIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
-        assert data["initialized"] is True
+        # initialized field was removed in P1-003
