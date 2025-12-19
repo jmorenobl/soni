@@ -18,7 +18,6 @@ from soni.config.models import FlowConfig
 from soni.config.steps import BranchStepConfig, StepConfig, WhileStepConfig
 from soni.core.constants import NodeName
 from soni.core.errors import GraphBuildError
-from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
 
 # Constant for special node name
@@ -240,10 +239,7 @@ class SubgraphBuilder:
         """Create router that handles pausing and branching (no while loop complexity)."""
 
         def router(state: DialogueState) -> str:
-            # Check if we should pause execution
-            if is_waiting_input(state):
-                return str(END)
-
+            """Route to next step or exit based on state."""
             # For branch steps, check for target override
             if isinstance(step, BranchStepConfig):
                 branch_target = state.get("_branch_target")

@@ -7,11 +7,11 @@ from enum import StrEnum
 
 
 class FlowState(StrEnum):
-    """Possible states for the dialogue flow."""
+    """Flow execution states."""
 
     IDLE = "idle"
     ACTIVE = "active"
-    WAITING_INPUT = "waiting_input"
+    # WAITING_INPUT removed - now using LangGraph interrupt()
     DONE = "done"
     ERROR = "error"
 

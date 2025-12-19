@@ -25,12 +25,13 @@ def create_empty_dialogue_state() -> DialogueState:
 
 
 def is_waiting_input(state: DialogueState) -> bool:
-    """Check if the dialogue is waiting for user input."""
-    # Import locally to avoid circular imports if constants imports types (it doesn't, but safely)
-    # Actually constants.py doesn't import types.py
-    from soni.core.constants import FlowState
+    """Check if dialogue is waiting for user input.
 
-    return state.get("flow_state") == FlowState.WAITING_INPUT
+    DEPRECATED: Now using LangGraph interrupt() instead of manual state.
+    This function is kept temporarily for Phase 2, will be removed in Phase 3.
+    Always returns False since collect nodes now use interrupt().
+    """
+    return False  # No longer using manual waiting_input stately)
 
 
 def get_current_flow_id(state: DialogueState) -> str | None:

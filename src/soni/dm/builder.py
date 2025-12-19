@@ -7,7 +7,6 @@ from langgraph.graph import END, START, StateGraph
 from soni.compiler.subgraph import SubgraphBuilder
 from soni.config import SoniConfig
 from soni.core.constants import NodeName, get_flow_node_name
-from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes import execute_node, respond_node, resume_node, understand_node
 
@@ -54,15 +53,11 @@ def build_orchestrator(
 
     # Conditional logic after resume
     def route_resume(state: DialogueState) -> str:
-        """Route based on stack state."""
-        # If waiting for input, stop execution (pause)
-        if is_waiting_input(state):
-            return NodeName.END
-
-        # If stack has items (and not waiting), loop to execute next flow
+        """Route after resume node."""
+        # If there's an active flow, loop back through understand
+        # Otherwise end
         if state.get("flow_stack"):
             return NodeName.LOOP
-
         return NodeName.END
 
     builder.add_conditional_edges(

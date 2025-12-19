@@ -50,9 +50,9 @@ class TestCollectNodeFactory:
     @pytest.mark.asyncio
     async def test_collect_node_prompts_when_slot_empty(self):
         """
-        GIVEN a collect step for an empty slot
+        GIVEN a collect step for an empty slot with SetSlot command
         WHEN node is executed
-        THEN returns 'waiting_input' and prompt
+        THEN uses command value without interrupting
         """
         # Arrange
         step = CollectStepConfig(step="get_origin", type="collect", slot="origin")
@@ -61,21 +61,21 @@ class TestCollectNodeFactory:
         # Mock dependencies
         mock_fm = Mock()
         mock_fm.get_slot.return_value = None  # Slot is empty
+        mock_fm.set_slot.return_value = None  # No delta
 
         runtime = create_mock_config(fm=mock_fm)
 
         state = create_empty_dialogue_state()
+        # Add SetSlot command (NLU provided value)
+        state["commands"] = [{"type": "SetSlot", "slot": "origin", "value": "Madrid"}]
 
         # Act
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert
-        assert isinstance(result, dict)
-        assert result["flow_state"] == "waiting_input"
-
-        assert result["waiting_for_slot"] == "origin"
-        assert "last_response" in result
+        # Assert - should use command value
+        mock_fm.set_slot.assert_called_once_with(state, "origin", "Madrid")
+        assert result["waiting_for_slot"] is None
 
     @pytest.mark.asyncio
     async def test_collect_node_continues_when_slot_filled(self):
@@ -100,10 +100,9 @@ class TestCollectNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert
+        # Assert - slot filled, returns empty dict
         assert isinstance(result, dict)
-        assert isinstance(result, dict)
-        assert result["flow_state"] == "active"
+        assert result == {}
 
 
 class TestActionNodeFactory:

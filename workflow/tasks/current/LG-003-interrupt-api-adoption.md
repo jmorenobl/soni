@@ -3,12 +3,15 @@
 **ID de tarea:** LG-003
 **Hito:** LangGraph Modernization
 **Dependencias:** LG-002 (Runtime[RuntimeContext] adoption)
-**Duración estimada:** 12-16 horas
+**Duración estimada:** 6-8 horas (phased migration)
 **Prioridad:** Media-Alta (Critical for Human-in-the-Loop UX)
+**Status:** Ready to implement with approved command-based strategy
 
 ### Objetivo
 
-Migrar de `flow_state: "waiting_input"` + routers manuales a la función `interrupt()` de LangGraph v1.0+ con `Command(resume=)` para pausar/resumir flujos conversacionales.
+Migrar de `flow_state: "waiting_input"` + routers manuales a la función `interrupt()` de LangGraph v1.0+ usando **enfoque command-based** que preserva integración NLU.
+
+**Estrategia aprobada**: Migración en 3 fases (collect → cleanup → confirm) con command-based approach.
 
 ### Contexto
 
@@ -58,19 +61,77 @@ result = await graph.ainvoke(Command(resume=user_input), config)
 
 **Referencia:** [Human-in-the-loop Guide](ref/langgraph/docs/docs/how-tos/human_in_the_loop/add-human-in-the-loop.md)
 
+### Estrategia: Command-Based Approach (APROBADA)
+
+**Problema identificado**: ¿Cómo preservar NLU (detección de digressions, correcciones) con interrupt()?
+
+**Solución elegante**:
+Los nodos revisan comandos NLU ANTES de llamar `interrupt()`:
+
+```python
+async def collect_node(state, runtime):
+    # 1. Check if NLU provided value via SetSlot command
+    commands = state.get("commands", [])
+    for cmd in commands:
+        if cmd.type == "SetSlot" and cmd.slot == slot_name:
+            # NLU provided value - use it!
+            return {"slot_value": cmd.value}
+
+    # 2. No command - interrupt and wait
+    user_input = interrupt({"prompt": "Please provide value"})
+    return {"slot_value": user_input}
+```
+
+**Flujo completo**:
+1. Usuario: "100 euros" → NLU genera `SetSlot(amount="100")`
+2. `collect_node` ve comando → usa valor, NO interrumpe
+3. Usuario: "check balance" → NLU genera `StartFlow("balance")`
+4. `collect_node` NO ve SetSlot → interrumpe de nuevo (sigue esperando)
+
+**Ventajas**:
+- ✅ Una sola invocación de grafo por turno
+- ✅ NLU siempre procesa input (detecta digressions)
+- ✅ Compatible con `interrupt()` nativo de LangGraph
+- ✅ Más simple que enfoque de doble invocación
+
+### Migración en Fases (APROBADA)
+
+**Fase 1: Collect Node** (3-4 horas)
+- Migrar solo nodo `collect` a `interrupt()`
+- Implementar command-based approach
+- Tests exhaustivos (básico, digression, correction)
+- Mantener `confirm` con patrón anterior
+
+**Fase 2: Partial Cleanup** (30 minutos)
+- Eliminar `WAITING_INPUT` de código no usado
+- Mantener `is_waiting_input()` para `confirm`
+
+**Fase 3: Confirm Node** (2-3 horas)
+- Aplicar aprendizajes de Fase 1
+- Migrar `confirm` a `interrupt()`
+- Cleanup final completo
+
 ### Entregables
 
-- [ ] Nodos `collect` usan `interrupt()` para pausar
-- [ ] Nodos `confirm` usan `interrupt()` para pausar
-- [ ] RuntimeLoop detecta `__interrupt__` y resume con `Command`
-- [ ] Eliminado `FlowState.WAITING_INPUT`
-- [ ] Eliminado `is_waiting_input()` helper
-- [ ] Tests actualizados
+**Fase 1:**
+- [ ] Nodo `collect` usa command-based + `interrupt()`
+- [ ] RuntimeLoop detecta `__interrupt__` y retorna prompt
+- [ ] Tests: basic collection, digression, correction
+
+**Fase 2:**
+- [ ] `FlowState.WAITING_INPUT` eliminado (parcial)
+- [ ] Código no usado limpiado
+
+**Fase 3:**
+- [ ] Nodo `confirm` usa command-based + `interrupt()`
+- [ ] `is_waiting_input()` eliminado completamente
+- [ ] Cleanup final (builder, subgraph, resume)
+- [ ] Tests completos pasan
 - [ ] Comportamiento funcional idéntico
 
 ### Implementación Detallada
 
-#### Paso 1: Actualizar nodo Collect
+#### Fase 1, Paso 1: Actualizar nodo Collect (Command-Based)
 
 **Archivo(s) a modificar:** `src/soni/compiler/nodes/collect.py`
 
@@ -89,7 +150,7 @@ def create_collect_node(step: CollectStepConfig) -> Callable:
 
         prompt = generate_prompt(step, state)
         return {
-            "flow_state": "waiting_input",
+            "flow_state": "waiting_input",  # ← Manual flag
             "waiting_for_slot": slot_name,
             "waiting_for_slot_type": SlotWaitType.COLLECTION,
             "last_response": prompt,
@@ -98,45 +159,58 @@ def create_collect_node(step: CollectStepConfig) -> Callable:
     return collect_node
 ```
 
-**Código nuevo:**
+**Código nuevo (Command-Based Approach):**
 
 ```python
 from langgraph.types import interrupt
+from soni.core.commands import SetSlot
 
 def create_collect_node(step: CollectStepConfig) -> Callable:
     async def collect_node(state, runtime):
         slot_name = step.slot
         ctx = runtime.context
 
-        # Check if slot already has value
+        # Check if slot already has value (idempotent - runs twice!)
         current_value = ctx.flow_manager.get_slot(state, slot_name)
         if current_value is not None:
-            return {}  # Already collected, continue
+            return {}  # Already collected
 
-        # Generate prompt and pause for input
+        # ✅ COMMAND-BASED: Check if NLU provided value
+        commands = state.get("commands", [])
+        for cmd in commands:
+            if _is_set_slot_for(cmd, slot_name):
+                # NLU provided value - use it, no interrupt!
+                delta = ctx.flow_manager.set_slot(state, slot_name, cmd.value)
+                return _merge_updates({
+                    "waiting_for_slot": None,
+                    "waiting_for_slot_type": None,
+                }, delta)
+
+        # No command - interrupt and wait
         prompt = generate_prompt(step, state, ctx)
 
-        # This pauses execution and returns control to client
-        # On resume, `user_value` contains Command(resume=...) value
+        # This pauses execution (raises GraphInterrupt)
+        # On resume, returns the user input
         user_value = interrupt({
             "type": "collect",
             "prompt": prompt,
             "slot": slot_name,
         })
 
-        # This code only runs AFTER resume
+        # ⚠️ Code below only runs on RESUME
         delta = ctx.flow_manager.set_slot(state, slot_name, user_value)
-
-        updates: dict[str, Any] = {
+        return _merge_updates({
             "waiting_for_slot": None,
             "waiting_for_slot_type": None,
-        }
-        if delta:
-            merge_delta(updates, delta)
-
-        return updates
+        }, delta)
 
     return collect_node
+
+def _is_set_slot_for(cmd, slot_name):
+    """Check if command is SetSlot for this slot."""
+    if isinstance(cmd, dict):
+        return cmd.get("type") == "SetSlot" and cmd.get("slot") == slot_name
+    return getattr(cmd, "type", None) == "SetSlot" and getattr(cmd, "slot", None) == slot_name
 ```
 
 **Explicación:**

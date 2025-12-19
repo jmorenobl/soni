@@ -85,11 +85,7 @@ from typing import Any
 
 from langgraph.runtime import Runtime
 
-from soni.core.constants import FlowContextState
-from soni.core.errors import FlowStackError
-from soni.core.state import is_waiting_input
 from soni.core.types import DialogueState, RuntimeContext
-from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)
 
@@ -101,44 +97,21 @@ async def resume_node(
     """Handle flow completion and stack resumption.
 
     This node is called when a flow subgraph finishes execution.
-    It manages the flow stack lifecycle:
-    1. Pops the completed flow from the stack
-    2. Determines if there are remaining flows to resume
-    3. Ends turn if stack is empty
+    Interrupts are now handled by LangGraph interrupt() API.
     """
     context = runtime.context
     flow_manager = context.flow_manager
 
-    # Check if we are just paused for input
-    # If so, do NOT pop. Just pass through to respond.
-    if is_waiting_input(state):
-        logger.debug("Flow waiting for input - skipping pop")
-        return {"flow_stack": state.get("flow_stack")}
-
     # Build updates dict
     updates: dict[str, Any] = {}
 
-    # 1. Pop the completed flow
-    try:
-        completed_flow, delta = flow_manager.pop_flow(state, result=FlowContextState.COMPLETED)
-        merge_delta(updates, delta)
-        # Apply to state for subsequent reads
-        if delta.flow_stack is not None:
-            state["flow_stack"] = delta.flow_stack
-        logger.debug(f"Popped completed flow: {completed_flow['flow_name']}")
-    except FlowStackError:
-        logger.warning("Attempted to pop flow from empty stack in resume_node")
-        return {"flow_stack": state.get("flow_stack", [])}
-
-    # 2. Check remaining stack for resume intent
-    active_ctx = flow_manager.get_active_context(state)
-    if active_ctx:
-        logger.info(f"Resuming parent flow: {active_ctx['flow_name']}")
-    else:
-        logger.debug("Stack empty after pop - ending turn")
-
-    # Ensure flow_stack in updates
-    if "flow_stack" not in updates:
-        updates["flow_stack"] = state.get("flow_stack")
+    # Pop the completed flow (if any)
+    if state.get("flow_stack"):
+        delta = flow_manager.pop_flow(state)
+        if delta:
+            if delta.flow_stack is not None:
+                updates["flow_stack"] = delta.flow_stack
+            if delta.flow_slots is not None:
+                updates["flow_slots"] = delta.flow_slots
 
     return updates

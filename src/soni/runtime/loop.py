@@ -197,6 +197,12 @@ class RuntimeLoop:
             durability=self.config.settings.durability,
         )
 
+        # Check for interrupt
+        if "__interrupt__" in result:
+            interrupt_info = result["__interrupt__"][0]
+            prompt = interrupt_info.value.get("prompt", "")
+            return str(prompt) if prompt else ""
+
         # Extract and return response
         return self._extractor.extract(result, input_payload, history)
 
