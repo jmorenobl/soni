@@ -55,9 +55,9 @@ class ActionNodeFactory:
                     if delta and delta.flow_slots is not None:
                         state["flow_slots"] = delta.flow_slots
 
-            # Ensure flow_slots in updates
-            if "flow_slots" not in updates:
-                updates["flow_slots"] = state.get("flow_slots")
+            # NOTE: Don't add flow_slots fallback - the reducer will merge properly
+            # Adding state.get("flow_slots") here would OVERWRITE slots set by
+            # previous nodes in the same step (like collect_node)
 
             return updates
 

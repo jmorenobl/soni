@@ -10,7 +10,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 from langgraph.runtime import Runtime
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
@@ -34,9 +34,13 @@ def _is_set_slot_for(cmd: Any, slot_name: str) -> bool:
     if isinstance(cmd, SetSlot):
         return cmd.slot == slot_name
 
-    # Check dict format (for serialized commands)
+    # Check dict format (for serialized commands from NLU)
+    # Serialized format uses snake_case: type="set_slot"
     if isinstance(cmd, dict):
-        return cmd.get("type") == "SetSlot" and cmd.get("slot") == slot_name
+        cmd_type = cmd.get("type", "")
+        # Support both snake_case (serialized) and CamelCase formats
+        is_set_slot = cmd_type in ("set_slot", "SetSlot")
+        return is_set_slot and cmd.get("slot") == slot_name
 
     # Check generic object with attributes
     return getattr(cmd, "type", None) == "SetSlot" and getattr(cmd, "slot", None) == slot_name
@@ -88,7 +92,7 @@ class CollectNodeFactory:
         async def collect_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
-        ) -> dict[str, Any]:
+        ) -> dict[str, Any] | Command:
             context = runtime.context
             flow_manager = context.flow_manager
 
@@ -115,8 +119,8 @@ class CollectNodeFactory:
 
             # 3. No value from NLU - interrupt and wait for input
             # This raises GraphInterrupt on first call
-            # Returns resume value on second call (after Command(resume=...))
-            user_input = interrupt(
+            # On resume, interrupt() returns the value from Command(resume=...)
+            resume_data = interrupt(
                 {
                     "type": "collect",
                     "prompt": prompt,
@@ -125,18 +129,47 @@ class CollectNodeFactory:
             )
 
             # ⚠️ CODE BELOW ONLY RUNS ON RESUME
-            # Set slot with direct user input (bypass NLU)
-            delta = flow_manager.set_slot(state, slot_name, user_input)
+            # Extract NLU commands from resume data
+            if isinstance(resume_data, dict):
+                # RuntimeLoop passes serialized commands in "commands" key
+                raw_commands = resume_data.get("commands", [])
+                # Deserialize commands
+                from soni.core.commands import parse_command
 
-            return _merge_delta(
-                {
-                    "waiting_for_slot": None,
-                    "waiting_for_slot_type": None,
-                    "messages": [AIMessage(content=prompt)],
-                    "last_response": prompt,
-                },
-                delta,
-            )
+                commands = [parse_command(cmd) for cmd in raw_commands]
+            else:
+                # Fallback for backward compatibility
+                commands = []
+
+            for cmd in commands:
+                if _is_set_slot_for(cmd, slot_name):
+                    # NLU provided value in resume - use it
+                    value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
+                    delta = flow_manager.set_slot(state, slot_name, value)
+
+                    updates = _merge_delta(
+                        {
+                            "waiting_for_slot": None,
+                            "waiting_for_slot_type": None,
+                            "messages": [AIMessage(content=prompt)],
+                            "last_response": prompt,
+                        },
+                        delta,
+                    )
+
+                    # KEY FIX: Return Command(update=...) to persist write
+                    # LangGraph discards normal return values after interrupt in subgraphs,
+                    # but Command(update=...) is respected.
+                    from langgraph.types import Command
+
+                    return Command(update=updates)
+
+            # No SetSlot for this slot - likely a digression (ChitChat, StartFlow, etc)
+            # Return without setting slot - DM will handle other commands
+            return {
+                "messages": [AIMessage(content=prompt)],
+                "last_response": prompt,
+            }
 
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node

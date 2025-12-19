@@ -49,6 +49,66 @@ class FlowDelta:
     flow_slots: dict[str, dict[str, Any]] | None = None
 
 
+def _last_value_str(current: str | None, new: str | None) -> str | None:
+    """Reducer that always returns the new value (last write wins).
+
+    Used for user_message to handle concurrent updates during interrupt/resume.
+    When Command(resume=..., update={user_message: ...}) is used, LangGraph
+    may detect concurrent updates with the checkpoint. This reducer resolves
+    the conflict by always taking the new value.
+    """
+    return new
+
+
+def _last_value_int(current: int, new: int) -> int:
+    """Reducer that always returns the new value (last write wins) for int fields.
+
+    Used for turn_count during interrupt/resume.
+    """
+    return new
+
+
+def _last_value_list(current: list[Any], new: list[Any]) -> list[Any]:
+    """Reducer that always returns the new list (last write wins).
+
+    Used for commands during interrupt/resume.
+    """
+    return new
+
+
+def _last_value_any(current: Any, new: Any) -> Any:
+    """Generic reducer that always returns the new value (last write wins).
+
+    Used for various fields that may have concurrent updates during resume:
+    flow_state, waiting_for_slot, response, action_result, metadata, etc.
+    """
+    return new
+
+
+def _merge_flow_slots(
+    current: dict[str, dict[str, Any]],
+    new: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Reducer that deep-merges flow_slots dicts.
+
+    Each flow_id maps to a dict of slot values. This reducer:
+    - Preserves existing flow_ids not in 'new'
+    - For overlapping flow_ids, merges the slot dicts (new values override)
+
+    This is critical for interrupt/resume: the collect_node updates one
+    slot at a time, and we need to preserve existing slots.
+    """
+    result = dict(current)  # Shallow copy of outer dict
+    for flow_id, slots in new.items():
+        if flow_id in result:
+            # Merge slots for existing flow
+            result[flow_id] = {**result[flow_id], **slots}
+        else:
+            # New flow
+            result[flow_id] = slots
+    return result
+
+
 class DialogueState(TypedDict):
     """Complete dialogue state for LangGraph.
 
@@ -57,33 +117,41 @@ class DialogueState(TypedDict):
 
     Uses Annotated reducers:
     - messages: Uses add_messages for proper message aggregation
+    - user_message: Uses _last_value_str for interrupt/resume support
+    - turn_count: Uses _last_value_int for interrupt/resume support
+    - commands: Uses _last_value_list for interrupt/resume support
+    - flow_slots: Uses _merge_flow_slots for proper slot persistence
     """
 
-    # User communication (with reducer for message accumulation)
-    user_message: str | None
-    last_response: str
+    # User communication (with reducers for proper state handling)
+    user_message: Annotated[str | None, _last_value_str]  # Last value wins on resume
+    last_response: Annotated[str, _last_value_str]  # Last value wins on concurrent updates
     messages: Annotated[list[AnyMessage], add_messages]  # Reducer for messages
 
     # Flow management
     flow_stack: list[FlowContext]
-    flow_slots: dict[str, dict[str, Any]]  # flow_id -> slot_name -> value
+    flow_slots: Annotated[
+        dict[str, dict[str, Any]], _merge_flow_slots
+    ]  # flow_id -> slot_name -> value (with merge reducer)
 
-    # State tracking
-    flow_state: FlowState
-    waiting_for_slot: str | None
-    waiting_for_slot_type: SlotWaitType | None  # CONFIRMATION | COLLECTION
+    # State tracking (with reducers for resume pattern)
+    flow_state: Annotated[FlowState, _last_value_any]  # Last value wins
+    waiting_for_slot: Annotated[str | None, _last_value_any]  # Last value wins
+    waiting_for_slot_type: Annotated[
+        SlotWaitType | None, _last_value_any
+    ]  # CONFIRMATION | COLLECTION
 
-    # Commands from NLU (replaced each turn, no reducer)
-    commands: list[dict[str, Any]]  # Serialized commands
+    # Commands from NLU (replaced each turn)
+    commands: Annotated[list[dict[str, Any]], _last_value_list]  # Last value wins on resume
 
-    # Transient data
-    response: str | None
-    action_result: dict[str, Any] | None
-    _branch_target: str | None  # Target node for branch routing
+    # Transient data (with reducers for resume pattern)
+    response: Annotated[str | None, _last_value_any]  # Last value wins
+    action_result: Annotated[dict[str, Any] | None, _last_value_any]  # Last value wins
+    _branch_target: Annotated[str | None, _last_value_any]  # Target node for branch routing
 
     # Metadata
-    turn_count: int
-    metadata: dict[str, Any]
+    turn_count: Annotated[int, _last_value_int]  # Last value wins on resume
+    metadata: Annotated[dict[str, Any], _last_value_any]  # Last value wins
 
 
 # =============================================================================

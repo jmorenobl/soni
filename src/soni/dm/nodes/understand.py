@@ -110,11 +110,22 @@ async def understand_node(
     runtime_ctx = runtime.context
     user_message = state.get("user_message") or ""
 
-    # 2. Run NLU via NLUService (centralized 2-pass processing)
-    from soni.du.service import NLUService
+    # 2. Get Commands: either pre-populated (resume case) or via NLU
+    # During interrupt resume, RuntimeLoop populates state.commands before routing here
+    pre_existing_commands = state.get("commands", [])
 
-    nlu_service = NLUService(runtime_ctx.du, runtime_ctx.slot_extractor)
-    commands = await nlu_service.process_message(user_message, state, runtime_ctx)
+    if pre_existing_commands:
+        # Resume case: commands already processed by RuntimeLoop before goto
+        # Deserialize dict commands back to Command objects
+        from soni.core.commands import parse_command
+
+        commands = [parse_command(cmd) for cmd in pre_existing_commands]
+    else:
+        # Normal case: Run NLU via NLUService (centralized 2-pass processing)
+        from soni.du.service import NLUService
+
+        nlu_service = NLUService(runtime_ctx.du, runtime_ctx.slot_extractor)
+        commands = await nlu_service.process_message(user_message, state, runtime_ctx)
 
     # 4. Process Commands via Registry (SRP compliance)
     expected_slot = state.get("waiting_for_slot")
@@ -158,11 +169,16 @@ async def understand_node(
     # 6. Build final return dict
     # Start with accumulated updates
     updates: dict[str, Any] = accumulated_updates.copy()
+
+    # Preserve pre-existing commands (from resume) so collect_node can access them
+    # Only clear if we generated new commands via NLU (which have been processed)
+    final_commands = pre_existing_commands if pre_existing_commands else []
+
     updates.update(
         {
             "flow_state": new_flow_state,
             "waiting_for_slot": new_waiting_for_slot,
-            "commands": [],  # Cleared after processing - effects applied to flow_stack/slots
+            "commands": final_commands,  # Preserve for collect_node if from resume
             "messages": response_messages,
             "last_response": last_response,
             "metadata": state.get("metadata", {}),

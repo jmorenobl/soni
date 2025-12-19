@@ -229,24 +229,35 @@ class RuntimeLoop:
             from soni.core.types import DialogueState
 
             state_for_nlu: DialogueState = (
-                cast(DialogueState, current_state)
+                cast(DialogueState, dict(current_state))  # Copy to avoid mutating original
                 if current_state
                 else create_empty_dialogue_state()
             )
+
+            # Extract expected slot from interrupt metadata
+            # The collect_node passes {type: "collect", slot: slot_name} in interrupt()
+            if state_snapshot.interrupts:
+                interrupt_value = state_snapshot.interrupts[0].value
+                if isinstance(interrupt_value, dict) and "slot" in interrupt_value:
+                    state_for_nlu["waiting_for_slot"] = interrupt_value["slot"]
+
             commands = await nlu_service.process_message(message, state_for_nlu, context)
             serialized_commands = nlu_service.serialize_commands(commands)
 
-            # LangGraph canonical pattern: Command(resume=value, update=state_changes)
+            # Standard Pattern: Pass NLU commands via resume payload
+            # The collect_node will process them and return a Command(update=...)
+            # to ensure persistence despite interrupt discard rules.
             from langgraph.types import Command
 
+            # Prepare resume payload with serialized commands
+            resume_payload = {
+                "message": message,
+                "commands": serialized_commands,
+                **input_payload,  # user_message, messages, turn_count
+            }
+
             result = await graph.ainvoke(
-                Command(
-                    resume=message,  # The interrupt() call will return this value
-                    update={
-                        **input_payload,
-                        "commands": serialized_commands,  # Include NLU commands
-                    },
-                ),
+                Command(resume=resume_payload),
                 config=final_config,
                 context=context,
                 durability=self.config.settings.durability,

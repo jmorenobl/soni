@@ -193,7 +193,7 @@ class ConfirmNodeFactory:
                     merge_delta(updates, delta)
 
             # Call interrupt() - execution pauses here
-            interrupt(
+            resume_data = interrupt(
                 {
                     "type": "confirm",
                     "prompt": formatted_prompt,
@@ -201,13 +201,18 @@ class ConfirmNodeFactory:
                 }
             )
 
-            # After resume - user_response contains the answer
-            # This code only executes on resume
-            # The user's answer will be processed by NLU, generating commands
-            # that will be checked on the next invocation (above)
+            # After resume - we received NLU commands via resume payload
+            # We must persist them to state.commands so the loop checks them on next run
+            commands_update = []
+            if isinstance(resume_data, dict):
+                # RuntimeLoop passes serialized commands in "commands" key
+                commands_update = resume_data.get("commands", [])
 
-            # For now, just return updates (interrupt handling is done)
-            return updates
+            # Return Command to persist updates (commands) despite interrupt
+            from langgraph.types import Command
+
+            updates["commands"] = commands_update
+            return Command(update=updates)
 
         confirm_node.__name__ = f"confirm_{step.step}"
         return confirm_node
