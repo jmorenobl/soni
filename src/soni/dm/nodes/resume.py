@@ -107,7 +107,7 @@ async def resume_node(
 
     # Pop the completed flow (if any)
     if state.get("flow_stack"):
-        delta = flow_manager.pop_flow(state)
+        _, delta = flow_manager.pop_flow(state)
         if delta:
             if delta.flow_stack is not None:
                 updates["flow_stack"] = delta.flow_stack
