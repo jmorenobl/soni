@@ -162,7 +162,7 @@ async def understand_node(
         {
             "flow_state": new_flow_state,
             "waiting_for_slot": new_waiting_for_slot,
-            "commands": [cmd.model_dump() for cmd in commands],
+            "commands": [],  # Cleared after processing - effects applied to flow_stack/slots
             "messages": response_messages,
             "last_response": last_response,
             "metadata": state.get("metadata", {}),

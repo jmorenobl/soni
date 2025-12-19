@@ -120,9 +120,6 @@ async def test_scenario_interruption_and_resume(scenario_config):
     assert result["flow_slots"][booking_flow_id]["destination"] == "Paris"
 
 
-@pytest.mark.skip(
-    reason="TODO: Investigate why flow completes instead of calling interrupt() - flow_stack is empty after Turn 2"
-)
 @pytest.mark.asyncio
 async def test_scenario_denial_cancel(scenario_config):
     """
