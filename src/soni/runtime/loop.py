@@ -134,6 +134,20 @@ class RuntimeLoop:
         """Get compiled graph."""
         return self._components.graph if self._components else None
 
+    def _has_pending_interrupt(self, state_snapshot) -> bool:
+        """Check if there's a pending interrupt in the state.
+
+        Args:
+            state_snapshot: StateSnapshot from graph.aget_state()
+
+        Returns:
+            True if there's a pending interrupt, False otherwise.
+        """
+        if not state_snapshot or not hasattr(state_snapshot, "next"):
+            return False
+        # If there are pending tasks (next nodes to execute), there's an interrupt
+        return bool(state_snapshot.next)
+
     async def initialize(self) -> None:
         """Initialize all components.
 
@@ -186,17 +200,42 @@ class RuntimeLoop:
             }
         }
 
+        # Check for pending interrupt BEFORE executing graph (only if checkpointer exists)
+        has_interrupt = False
+        if hasattr(graph, "checkpointer") and graph.checkpointer:
+            state_snapshot = await graph.aget_state(run_config)
+            has_interrupt = self._has_pending_interrupt(state_snapshot)
+
         # Execute graph
         final_config = cast(RunnableConfig, run_config)
         # Note: LangGraph v0.6.0+ context injection API.
-        # Type checking is handled via ignore_missing_imports in pyproject.toml.
-        result = await graph.ainvoke(
-            input_payload,
-            config=final_config,
-            context=context,
-            durability=self.config.settings.durability,
-        )
+        # Execute graph
+        final_config = cast(RunnableConfig, run_config)
 
+        # Use Command(resume=...) pattern when resuming from interrupt
+        if has_interrupt:
+            # LangGraph canonical pattern: Command(resume=value, update=state_changes)
+            from langgraph.types import Command
+
+            result = await graph.ainvoke(
+                Command(
+                    resume=message,  # The interrupt() call will return this value
+                    update=input_payload,  # Update state with NLU results
+                ),
+                config=final_config,
+                context=context,
+                durability=self.config.settings.durability,
+            )
+        else:
+            # Normal flow: start with prepared input
+            # Note: LangGraph v0.6.0+ context injection API.
+            # Type checking is handled via ignore_missing_imports in pyproject.toml.
+            result = await graph.ainvoke(
+                input_payload,
+                config=final_config,
+                context=context,
+                durability=self.config.settings.durability,
+            )
         # Check for interrupt
         if "__interrupt__" in result:
             interrupt_info = result["__interrupt__"][0]
