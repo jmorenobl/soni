@@ -105,6 +105,14 @@ async def resume_node(
     # Build updates dict
     updates: dict[str, Any] = {}
 
+    # Check for digression: if a new flow was pushed during an interrupt,
+    # we should NOT pop - instead, let execute_node run the new flow
+    if state.get("_digression_pending"):
+        logger.debug("Digression pending - skipping pop, will execute new flow")
+        # Clear the flag so next time we do pop
+        updates["_digression_pending"] = False
+        return updates
+
     # Pop the completed flow (if any)
     if state.get("flow_stack"):
         _, delta = flow_manager.pop_flow(state)

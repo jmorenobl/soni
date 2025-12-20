@@ -1,79 +1,135 @@
-"""ExecuteNode - main routing hub for dialogue execution.
+"""ExecuteNode - consumes flow commands and routes to subgraphs.
 
-## How Execute Node Works
+## How Execute Node Works (Refactored)
 
-The execute node is the **central dispatcher** in Soni's dialogue management system.
-It acts as the main entry point after the understand node processes user input, and
-determines where execution should flow next based on the current flow stack state.
+The execute node is the **command consumer** for flow-level commands and
+the **central dispatcher** for routing to flow subgraphs.
+
+## Command Ownership
+
+This node CONSUMES:
+- `StartFlow` → Push new flow onto stack, route to it
+- `CancelFlow` → Pop flow(s) from stack
 
 ## Execution Flow
 
-1. **Check Flow Stack**: Examines the `flow_stack` to determine if there's an active flow
-2. **Route to Subgraph**: If active flow exists → jumps to that flow's subgraph node
-3. **Route to Respond**: If no active flow → jumps to respond node (idle state)
+1. **Consume Flow Commands**: Process StartFlow/CancelFlow from state.commands
+2. **Update Stack**: Push/pop flows as needed
+3. **Route**: Jump to active flow subgraph or respond node
 
 ```
-User Input → Understand → Execute → ?
-                                    ├─ flow_booking (active flow detected)
-                                    ├─ flow_transfer (active flow detected)
-                                    └─ respond (no active flow, idle state)
+Commands: [StartFlow("transfer"), SetSlot("amount", 100)]
+                    ↓
+Execute Node:
+  - Consumes StartFlow → pushes "transfer" to stack
+  - Leaves SetSlot for collect_node
+  - Routes to flow_transfer subgraph
 ```
-
-## Flow Subgraph Naming Convention
-
-Each compiled flow creates a dedicated subgraph node following this pattern:
-
-- **Convention**: `flow_{flow_name}`
-- **Example**: Flow "book_flight" → Node "flow_booking"
-- **Dynamic Routing**: Uses LangGraph's `Command(goto=target)` for runtime dispatch
-
-## State Management
-
-The execute node relies on `FlowManager` to:
-- **Get Active Context**: Retrieves current flow information from stack
-- **Determine Routing**: Uses flow name to construct target subgraph identifier
 
 ## Integration Points
 
-- **Upstream**: Receives control from `understand_node` after NLU processing
+- **Upstream**: Receives control from `understand_node` after NLU extraction
 - **Downstream**:
   - Flow subgraphs (for active flows)
-  - `respond_node` (for idle state)
-- **Resume Flow**: After a flow completes, `resume_node` may loop back to execute
-
-## Implementation Details
-
-- **No State Mutation**: This node is read-only, it only routes based on current state
-- **Fallback Behavior**: If no active flow, defaults to respond node
-- **Dynamic Dispatch**: Uses LangGraph Command API for runtime routing decisions
+  - `respond_node` (for idle state or chitchat)
 """
 
+import logging
 from typing import Any
 
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 
+from soni.core.commands import CancelFlow, StartFlow, parse_command
 from soni.core.constants import NodeName, get_flow_node_name
 from soni.core.types import DialogueState, RuntimeContext
+from soni.flow.manager import FlowDelta
+
+logger = logging.getLogger(__name__)
+
+
+def _merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
+    """Merge FlowDelta into updates dict."""
+    if delta is None:
+        return
+    if delta.flow_stack is not None:
+        updates["flow_stack"] = delta.flow_stack
+    if delta.flow_slots is not None:
+        updates["flow_slots"] = delta.flow_slots
 
 
 async def execute_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext],
 ) -> Command[Any] | dict[str, Any]:
-    """Determine execution path based on stack.
+    """Consume flow commands and route to appropriate subgraph.
 
-    Uses dynamic goto for flow subgraphs.
+    Consumes: StartFlow, CancelFlow
+    Leaves: SetSlot, AffirmConfirmation, DenyConfirmation, ChitChat (for other nodes)
+
+    Returns:
+        Command with goto target and state updates
     """
     context = runtime.context
     flow_manager = context.flow_manager
-    # Check if we have an active flow
-    active_ctx = flow_manager.get_active_context(state)
-    if active_ctx:
-        # Route to the subgraph node for this flow
-        # Node name convention: flow_{flow_name}
-        target = get_flow_node_name(active_ctx["flow_name"])
-        return Command(goto=target)
 
-    # If no active flow, go to respond (or handle idle state)
-    return Command(goto=NodeName.RESPOND)
+    # 1. Process commands - consume only flow-related ones
+    commands = state.get("commands", [])
+    remaining_commands: list[Any] = []
+    updates: dict[str, Any] = {}
+
+    for cmd_data in commands:
+        cmd = parse_command(cmd_data) if isinstance(cmd_data, dict) else cmd_data
+
+        if isinstance(cmd, StartFlow):
+            # CONSUME: Push new flow onto stack
+            logger.info(f"StartFlow consumed: pushing '{cmd.flow_name}' onto stack")
+
+            # Use handle_intent_change which handles push logic
+            delta = flow_manager.handle_intent_change(state, cmd.flow_name)
+            _merge_delta(updates, delta)
+
+            # If StartFlow has pre-populated slots, add them
+            if cmd.slots:
+                for slot_name, slot_value in cmd.slots.items():
+                    slot_delta = flow_manager.set_slot(state, slot_name, slot_value)
+                    _merge_delta(updates, slot_delta)
+
+            # Don't add to remaining - this command is consumed
+
+        elif isinstance(cmd, CancelFlow):
+            # CONSUME: Pop flow(s) from stack
+            flow_name = cmd.flow_name if hasattr(cmd, "flow_name") else None
+            logger.info(f"CancelFlow consumed: popping '{flow_name or 'active'}' from stack")
+
+            # Pop the specified flow or active flow
+            _, delta = flow_manager.pop_flow(state)
+            _merge_delta(updates, delta)
+
+            # Don't add to remaining - this command is consumed
+
+        else:
+            # PASS THROUGH: Keep for downstream nodes
+            remaining_commands.append(cmd_data)
+
+    # 2. Update commands in state (remove consumed ones)
+    updates["commands"] = remaining_commands
+
+    # 3. Clear branch target to avoid pollution from previous digressions
+    updates["_branch_target"] = None
+
+    # 4. Determine routing target based on updated stack
+    # Create a view of state with our updates applied
+    updated_stack = updates.get("flow_stack", state.get("flow_stack", []))
+
+    if updated_stack:
+        # Route to active flow subgraph
+        active_flow = updated_stack[-1]  # Top of stack
+        flow_name = active_flow.get("flow_name", active_flow.get("name", ""))
+        target = get_flow_node_name(flow_name)
+        logger.debug(f"Routing to flow subgraph: {target}")
+        return Command(goto=target, update=updates)
+
+    # 4. No active flow - route to respond (idle state or chitchat handling)
+    logger.debug("No active flow, routing to respond node")
+    return Command(goto=NodeName.RESPOND, update=updates)

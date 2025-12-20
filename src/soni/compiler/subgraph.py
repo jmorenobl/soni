@@ -32,7 +32,8 @@ async def end_flow_node(
 
     Stack management is handled by the Orchestrator's resume_node.
     """
-    return {}
+    # Clear branch target to avoid pollution
+    return {"_branch_target": None}
 
 
 class SubgraphBuilder:
@@ -236,15 +237,17 @@ class SubgraphBuilder:
         target_node: str,
         step: StepConfig,
     ):
-        """Create router that handles pausing and branching (no while loop complexity)."""
+        """Create router that handles pausing and branching.
+
+        Note: _branch_target is cleared by the target node after consumption.
+        """
 
         def router(state: DialogueState) -> str:
             """Route to next step or exit based on state."""
-            # For branch steps, check for target override
-            if isinstance(step, BranchStepConfig):
-                branch_target = state.get("_branch_target")
-                if branch_target:
-                    return str(branch_target)
+            # Check for target override (from branch/digression)
+            branch_target = state.get("_branch_target")
+            if branch_target:
+                return str(branch_target)
 
             return target_node
 

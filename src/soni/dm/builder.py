@@ -53,9 +53,11 @@ def build_orchestrator(
 
     # Conditional logic after resume
     def route_resume(state: DialogueState) -> str:
-        """Route after resume node."""
-        # If there's an active flow, loop back through understand
-        # Otherwise end
+        """Route after resume node.
+
+        If there's an active flow, loop back to execute it.
+        Otherwise, go to respond to end the turn.
+        """
         if state.get("flow_stack"):
             return NodeName.LOOP
         return NodeName.END
@@ -65,7 +67,7 @@ def build_orchestrator(
         route_resume,
         {
             NodeName.LOOP: NodeName.EXECUTE,  # Resume parent flow
-            NodeName.END: NodeName.RESPOND,  # Stack empty, end turn
+            NodeName.END: NodeName.RESPOND,  # End turn
         },
     )
 

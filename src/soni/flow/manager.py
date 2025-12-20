@@ -140,11 +140,10 @@ class FlowManager:
             return None
 
         flow_id = context["flow_id"]
-        current_flow_slots = state["flow_slots"].get(flow_id, {})
 
-        # Create new slot dict with update
-        new_flow_slots = {**current_flow_slots, slot_name: value}
-        new_slots = {**state["flow_slots"], flow_id: new_flow_slots}
+        # Return minimal delta - let the reducer merge it
+        # This prevents overwriting concurrent updates with stale state
+        new_slots = {flow_id: {slot_name: value}}
 
         return FlowDelta(flow_slots=new_slots)
 
@@ -206,7 +205,16 @@ def merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
     if delta.flow_stack is not None:
         updates["flow_stack"] = delta.flow_stack
     if delta.flow_slots is not None:
-        updates["flow_slots"] = delta.flow_slots
+        if "flow_slots" in updates:
+            # Deep merge to preserve existing updates (e.g. from action loop)
+            # Import strictly locally to avoid circular imports
+            from soni.core.types import _merge_flow_slots
+
+            updates["flow_slots"] = _merge_flow_slots(
+                cast(dict[str, dict[str, Any]], updates["flow_slots"]), delta.flow_slots
+            )
+        else:
+            updates["flow_slots"] = delta.flow_slots
 
 
 __all__ = ["FlowManager", "FlowDelta", "merge_delta"]

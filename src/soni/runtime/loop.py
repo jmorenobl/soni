@@ -256,8 +256,17 @@ class RuntimeLoop:
                 **input_payload,  # user_message, messages, turn_count
             }
 
+            # CRITICAL: Update state.commands with new commands on resume
+            # Without this, old commands from previous turns persist and cause
+            # nodes like confirm_node to incorrectly detect modifications
             result = await graph.ainvoke(
-                Command(resume=resume_payload),
+                Command(
+                    resume=resume_payload,
+                    update={
+                        "_pending_responses": [],
+                        "commands": serialized_commands,  # Replace old commands
+                    },
+                ),
                 config=final_config,
                 context=context,
                 durability=self.config.settings.durability,
@@ -275,8 +284,21 @@ class RuntimeLoop:
         # Check for interrupt
         if "__interrupt__" in result:
             interrupt_info = result["__interrupt__"][0]
-            prompt = interrupt_info.value.get("prompt", "")
-            return str(prompt) if prompt else ""
+            interrupt_value = interrupt_info.value
+            prompt = interrupt_value.get("prompt", "") if isinstance(interrupt_value, dict) else ""
+
+            # Consume pending responses queue (from completed flows like check_balance)
+            pending_responses = result.get("_pending_responses", [])
+
+            if pending_responses and prompt:
+                # Combine queued responses with new prompt
+                combined = "\n\n".join(pending_responses) + "\n\n" + str(prompt)
+                return combined
+            elif prompt:
+                return str(prompt)
+            elif pending_responses:
+                return "\n\n".join(pending_responses)
+            return ""
 
         # Extract and return response
         return self._extractor.extract(result, input_payload, history)

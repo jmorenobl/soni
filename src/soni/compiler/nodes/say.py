@@ -42,7 +42,13 @@ class SayNodeFactory:
             except KeyError:
                 content = message_template  # Fallback
 
-            return {"messages": [AIMessage(content=content)], "last_response": content}
+            # Append to pending responses queue (consumed by RuntimeLoop before interrupt prompt)
+            pending = state.get("_pending_responses", [])
+            return {
+                "messages": [AIMessage(content=content)],
+                "last_response": content,
+                "_pending_responses": pending + [content],  # Queue pattern
+            }
 
         say_node.__name__ = f"say_{step.step}"
         return say_node

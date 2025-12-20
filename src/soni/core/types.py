@@ -98,13 +98,21 @@ def _merge_flow_slots(
     This is critical for interrupt/resume: the collect_node updates one
     slot at a time, and we need to preserve existing slots.
     """
+    # Debug logging for reducer (disabled)
+    # print(f"[REDUCER] merge_flow_slots called")
+    # print(f"  Current keys: {list(current.keys())} with slots: {current}")
+    # print(f"  New keys: {list(new.keys())} with slots: {new}")
+
     result = dict(current)  # Shallow copy of outer dict
     for flow_id, slots in new.items():
         if flow_id in result:
             # Merge slots for existing flow
+            # print(f"  Merging flow {flow_id}: current={result[flow_id].keys()}, new={slots.keys()}")
             result[flow_id] = {**result[flow_id], **slots}
+            # print(f"  Result: {result[flow_id]}")
         else:
             # New flow
+            # print(f"  New flow {flow_id}: {slots}")
             result[flow_id] = slots
     return result
 
@@ -148,6 +156,8 @@ class DialogueState(TypedDict):
     response: Annotated[str | None, _last_value_any]  # Last value wins
     action_result: Annotated[dict[str, Any] | None, _last_value_any]  # Last value wins
     _branch_target: Annotated[str | None, _last_value_any]  # Target node for branch routing
+    _digression_pending: Annotated[bool, _last_value_any]  # Flag for digression during interrupt
+    _pending_responses: Annotated[list[str], _last_value_any]  # Queue of responses to show
 
     # Metadata
     turn_count: Annotated[int, _last_value_int]  # Last value wins on resume

@@ -99,7 +99,7 @@ class CollectNodeFactory:
             # 1. Check if slot already has value (idempotent - runs on pause AND resume)
             current_value = flow_manager.get_slot(state, slot_name)
             if current_value is not None:
-                return {}  # Already collected, continue
+                return {"_branch_target": None}  # Already collected, clear any branch target
 
             # 2. COMMAND-BASED: Check if NLU provided value via SetSlot command
             commands = state.get("commands", [])
@@ -113,63 +113,82 @@ class CollectNodeFactory:
                         {
                             "waiting_for_slot": None,
                             "waiting_for_slot_type": None,
+                            "_branch_target": None,  # Clear branch target
                         },
                         delta,
                     )
 
             # 3. No value from NLU - interrupt and wait for input
-            # This raises GraphInterrupt on first call
-            # On resume, interrupt() returns the value from Command(resume=...)
-            resume_data = interrupt(
-                {
-                    "type": "collect",
-                    "prompt": prompt,
-                    "slot": slot_name,
-                }
-            )
+            current_prompt = prompt
 
-            # ⚠️ CODE BELOW ONLY RUNS ON RESUME
-            # Extract NLU commands from resume data
-            if isinstance(resume_data, dict):
-                # RuntimeLoop passes serialized commands in "commands" key
-                raw_commands = resume_data.get("commands", [])
-                # Deserialize commands
-                from soni.core.commands import parse_command
+            while True:
+                # This raises GraphInterrupt on first call
+                # On resume, interrupt() returns the value from Command(resume=...)
+                resume_data = interrupt(
+                    {
+                        "type": "collect",
+                        "prompt": current_prompt,
+                        "slot": slot_name,
+                    }
+                )
 
-                commands = [parse_command(cmd) for cmd in raw_commands]
-            else:
-                # Fallback for backward compatibility
-                commands = []
+                # ⚠️ CODE BELOW ONLY RUNS ON RESUME
+                # Extract NLU commands from resume data
+                if isinstance(resume_data, dict):
+                    raw_commands = resume_data.get("commands", [])
+                    # Deserialize commands
+                    from soni.core.commands import StartFlow, parse_command
 
-            for cmd in commands:
-                if _is_set_slot_for(cmd, slot_name):
-                    # NLU provided value in resume - use it
-                    value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
-                    delta = flow_manager.set_slot(state, slot_name, value)
+                    commands = [parse_command(cmd) for cmd in raw_commands]
+                else:
+                    commands = []
 
-                    updates = _merge_delta(
-                        {
-                            "waiting_for_slot": None,
-                            "waiting_for_slot_type": None,
-                            "messages": [AIMessage(content=prompt)],
-                            "last_response": prompt,
-                        },
-                        delta,
-                    )
+                for cmd in commands:
+                    # HANDLE DIGRESSION (StartFlow)
+                    if isinstance(cmd, StartFlow):
+                        # User wants to switch to a different flow
+                        from soni.core.constants import NodeName
 
-                    # KEY FIX: Return Command(update=...) to persist write
-                    # LangGraph discards normal return values after interrupt in subgraphs,
-                    # but Command(update=...) is respected.
-                    from langgraph.types import Command
+                        # Push the new flow onto the stack
+                        delta = flow_manager.handle_intent_change(state, cmd.flow_name)
 
-                    return Command(update=updates)
+                        updates: dict[str, Any] = {}
+                        if delta:
+                            _merge_delta(updates, delta)
 
-            # No SetSlot for this slot - likely a digression (ChitChat, StartFlow, etc)
-            # Return without setting slot - DM will handle other commands
-            return {
-                "messages": [AIMessage(content=prompt)],
-                "last_response": prompt,
-            }
+                        # CRITICAL: Mark digression pending so resume_node doesn't pop
+                        updates["_digression_pending"] = True
+                        # Set branch target for router (conditional_edges reads from state)
+                        updates["_branch_target"] = NodeName.END_FLOW
+
+                        # Return updates - router will see _branch_target and exit
+                        return updates
+
+                    if _is_set_slot_for(cmd, slot_name):
+                        # NLU provided value in resume - use it
+                        value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
+                        delta = flow_manager.set_slot(state, slot_name, value)
+
+                        updates = _merge_delta(
+                            {
+                                "waiting_for_slot": None,
+                                "waiting_for_slot_type": None,
+                                "messages": [AIMessage(content=prompt)],
+                                "last_response": prompt,
+                                "_branch_target": None,  # Clear branch target
+                            },
+                            delta,
+                        )
+
+                        # KEY FIX: Return updates dict directly
+                        # With minimal delta in set_slot, standard return should be safe (merged by reducer)
+                        # and avoids potential issues with Command(update=...) in subgraphs.
+                        return updates
+
+                # No SetSlot for this slot - likely extraction failed or digression
+                # Loop back to interrupt to ask again
+                # TODO: Handle digressions (StartFlow/StopFlow) by exiting loop if needed
+                current_prompt = f"I didn't understand. {prompt}"
 
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node

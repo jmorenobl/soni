@@ -42,11 +42,13 @@ class BranchNodeFactory:
         cases = step.cases
         step_name = step.step
 
+        # Note: next_step calculation removed - we now use _branch_target for all routing
+
         async def branch_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            """Evaluate branch condition and set target for router."""
+            """Evaluate branch condition and set _branch_target for router."""
             from soni.core.expression import evaluate_condition
 
             context = runtime.context
@@ -66,11 +68,12 @@ class BranchNodeFactory:
 
             if str_value in cases:
                 target = cases[str_value]
-                # Store branch target for the router to use
+                # Use _branch_target for conditional_edges (Command doesn't work)
                 return {"_branch_target": target}
 
-            # No match - clear any previous target to proceed to next node
-            return {"_branch_target": None}
+            # No match - proceed to next step normally (let router handle)
+            # Return empty dict to signal no state change, router will route to default
+            return {}
 
         branch_node.__name__ = f"branch_{step_name}"
         return branch_node

@@ -104,7 +104,7 @@ class ConfirmNodeFactory:
         # Capture handlers for closure
         affirm = self._affirm
         deny = self._deny
-        modification = self._modification
+        _modification = self._modification  # noqa: F841 - Used in commented modification detection
         retry = self._retry
 
         async def confirm_node(
@@ -151,14 +151,18 @@ class ConfirmNodeFactory:
                 return deny.handle_interrupt(ctx, state, updates, commands, slot_to_change)
 
             # Check for slot modification without explicit affirm/deny
-            has_modification = any(
-                c.get("type") == "set_slot" if isinstance(c, dict) else c.type == "set_slot"
-                for c in commands
-            )
-
-            if has_modification:
-                # Modification command found - handle it
-                return modification.handle_interrupt(ctx, state, updates)
+            # NOTE: Commented out - the detection is too aggressive. Any SetSlot in
+            # commands (even unrelated NLU extractions like beneficiary_name) triggers
+            # this path. Need more nuanced approach that checks if the SetSlot is
+            # actually modifying a slot displayed in the confirmation prompt.
+            # has_modification = any(
+            #     c.get("type") == "set_slot" if isinstance(c, dict) else c.type == "set_slot"
+            #     for c in commands
+            # )
+            # print(f"[CONFIRM] is_affirmed={is_affirmed} has_modification={has_modification} commands={len(commands)}")
+            # if has_modification:
+            #     # Modification command found - handle it
+            #     return modification.handle_interrupt(ctx, state, updates)
 
             # NO COMMANDS: Call interrupt() and wait for user response
             # Get current slots for prompt formatting
