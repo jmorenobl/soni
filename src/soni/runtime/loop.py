@@ -31,21 +31,25 @@ class RuntimeLoop:
         self._context: RuntimeContext | None = None
 
     async def __aenter__(self) -> "RuntimeLoop":
-        """Initialize graphs and NLU module."""
+        """Initialize graphs and NLU modules (two-pass architecture)."""
         # Build subgraph for first flow
         flow_name = next(iter(self.config.flows.keys()))
         flow = self.config.flows[flow_name]
         subgraph = build_flow_subgraph(flow)
 
-        # Create flow manager and NLU module
+        # Create flow manager and NLU modules (two-pass)
         flow_manager = FlowManager()
-        du = SoniDU.create_with_best_model()
+        du = SoniDU.create_with_best_model()  # Pass 1: Intent detection
+
+        from soni.du.slot_extractor import SlotExtractor
+        slot_extractor = SlotExtractor.create_with_best_model()  # Pass 2: Slot extraction
 
         self._context = RuntimeContext(
             subgraph=subgraph,
             config=self.config,
             flow_manager=flow_manager,
             du=du,
+            slot_extractor=slot_extractor,
         )
 
         # Build orchestrator with checkpointer
