@@ -1,10 +1,13 @@
-"""RuntimeContext for M1."""
+"""RuntimeContext for M4 (NLU integration)."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from soni.config.models import SoniConfig
 from soni.flow.manager import FlowManager
+
+if TYPE_CHECKING:
+    from soni.du.modules import SoniDU
 
 
 @dataclass
@@ -17,3 +20,4 @@ class RuntimeContext:
     subgraph: Any  # CompiledStateGraph
     config: SoniConfig
     flow_manager: FlowManager
+    du: "SoniDU"  # NLU module (M4) - REQUIRED

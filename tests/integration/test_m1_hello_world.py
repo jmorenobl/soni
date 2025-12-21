@@ -1,4 +1,4 @@
-"""M1: Hello World integration test."""
+"""M1: Hello World integration test (M4 - NLU-driven)."""
 
 import pytest
 
@@ -8,18 +8,26 @@ from soni.runtime.loop import RuntimeLoop
 
 @pytest.mark.asyncio
 async def test_hello_world():
-    """A flow with a single say step returns the message."""
-    # Arrange
+    """A flow with a single say step returns the message.
+    
+    NLU detects intent from flow description and triggers the flow.
+    """
+    # Arrange - flow with description for NLU to match
     config = SoniConfig(
-        flows={"greet": FlowConfig(steps=[SayStepConfig(step="hello", message="Hello, World!")])}
+        flows={
+            "greet": FlowConfig(
+                description="Greet the user and say hello",
+                steps=[SayStepConfig(step="hello", message="Hello, World!")]
+            )
+        }
     )
 
-    # Act
+    # Act - user message that matches "greet" intent
     async with RuntimeLoop(config) as runtime:
-        response = await runtime.process_message("hi")
+        response = await runtime.process_message("I want to be greeted")
 
     # Assert
-    assert response == "Hello, World!"
+    assert "Hello, World!" in response
 
 
 @pytest.mark.asyncio
@@ -28,7 +36,8 @@ async def test_multi_step_say():
     # Arrange
     config = SoniConfig(
         flows={
-            "greet": FlowConfig(
+            "welcome": FlowConfig(
+                description="Welcome user to the system",
                 steps=[
                     SayStepConfig(step="hello", message="Hello!"),
                     SayStepConfig(step="welcome", message="Welcome to Soni!"),
@@ -39,7 +48,8 @@ async def test_multi_step_say():
 
     # Act
     async with RuntimeLoop(config) as runtime:
-        response = await runtime.process_message("hi")
+        response = await runtime.process_message("Welcome me please")
 
     # Assert
-    assert response == "Welcome to Soni!"
+    assert "Welcome to Soni!" in response
+

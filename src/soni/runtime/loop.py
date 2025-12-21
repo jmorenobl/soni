@@ -29,22 +29,27 @@ class RuntimeLoop:
         self._context: RuntimeContext | None = None
 
     async def __aenter__(self) -> "RuntimeLoop":
-        """Initialize graphs."""
+        """Initialize graphs and NLU module."""
         # Build subgraph for first flow
         flow_name = next(iter(self.config.flows.keys()))
         flow = self.config.flows[flow_name]
         subgraph = build_flow_subgraph(flow)
 
-        # Create context
-        # Helper: We should probably instantiate FlowManager here too and put it in context
+        # Create flow manager
         from soni.flow.manager import FlowManager
 
         flow_manager = FlowManager()
+
+        # Initialize SoniDU (NLU module) - REQUIRED component
+        from soni.du.modules import SoniDU
+
+        du = SoniDU.create_with_best_model()
 
         self._context = RuntimeContext(
             subgraph=subgraph,
             config=self.config,
             flow_manager=flow_manager,
+            du=du,
         )
 
         # Build orchestrator with checkpointer

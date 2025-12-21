@@ -2,7 +2,13 @@
 
 import pytest
 
+# Configure DSPy for all tests
+import dspy
 
+# Use a fast, cheap model for tests
+# Requires OPENAI_API_KEY environment variable
+lm = dspy.LM("openai/gpt-4o-mini")
+dspy.configure(lm=lm)
 @pytest.fixture
 def empty_dialogue_state():
     """Create an empty dialogue state for testing."""
