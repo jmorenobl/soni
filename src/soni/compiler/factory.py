@@ -1,5 +1,6 @@
 """Node factory registry (OCP: extensible without modification)."""
 
+from soni.compiler.nodes.action import ActionNodeFactory
 from soni.compiler.nodes.base import NodeFactory
 from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
@@ -18,6 +19,7 @@ class NodeFactoryRegistry:
         "set": SetNodeFactory(),
         "branch": BranchNodeFactory(),
         "while": WhileNodeFactory(),
+        "action": ActionNodeFactory(),
     }
 
     @classmethod

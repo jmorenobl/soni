@@ -1,6 +1,6 @@
-"""RuntimeLoop for M4 (NLU integration)."""
+"""RuntimeLoop for M5 (Actions + NLU)."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -16,22 +16,27 @@ from soni.du.modules import SoniDU
 from soni.flow.manager import FlowManager
 from soni.runtime.context import RuntimeContext
 
+if TYPE_CHECKING:
+    from soni.actions.registry import ActionRegistry
+
 
 class RuntimeLoop:
-    """Runtime loop for M4 with checkpointer and NLU support."""
+    """Runtime loop for M5 with actions and NLU support."""
 
     def __init__(
         self,
         config: SoniConfig,
         checkpointer: BaseCheckpointSaver | None = None,
+        action_registry: "ActionRegistry | None" = None,  # M5: Optional user-provided registry
     ) -> None:
         self.config = config
         self.checkpointer = checkpointer
+        self._action_registry = action_registry
         self._graph: CompiledStateGraph[DialogueState, RuntimeContext, Any, Any] | None = None
         self._context: RuntimeContext | None = None
 
     async def __aenter__(self) -> "RuntimeLoop":
-        """Initialize graphs and NLU modules (two-pass architecture)."""
+        """Initialize graphs, NLU modules, and action registry."""
         # Build subgraph for first flow
         flow_name = next(iter(self.config.flows.keys()))
         flow = self.config.flows[flow_name]
@@ -44,12 +49,17 @@ class RuntimeLoop:
         from soni.du.slot_extractor import SlotExtractor
         slot_extractor = SlotExtractor.create_with_best_model()  # Pass 2: Slot extraction
 
+        # Use provided registry or create empty one
+        from soni.actions.registry import ActionRegistry
+        action_registry = self._action_registry or ActionRegistry()
+
         self._context = RuntimeContext(
             subgraph=subgraph,
             config=self.config,
             flow_manager=flow_manager,
             du=du,
             slot_extractor=slot_extractor,
+            action_registry=action_registry,
         )
 
         # Build orchestrator with checkpointer

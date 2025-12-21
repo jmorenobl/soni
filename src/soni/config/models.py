@@ -87,8 +87,22 @@ class WhileStepConfig(BaseModel):
         return [s for s in self.do if not isinstance(s, str)]
 
 
+class ActionStepConfig(BaseModel):
+    """Configuration for action steps (M5).
+
+    Actions execute external handlers and optionally map outputs to slots.
+    """
+
+    step: str = Field(description="Step identifier")
+    type: Literal["action"] = "action"
+    call: str = Field(description="Name of action handler to call")
+    map_outputs: dict[str, str] | None = Field(
+        default=None, description="Map action outputs to slot names"
+    )
+
+
 StepConfig = Annotated[
-    SayStepConfig | CollectStepConfig | SetStepConfig | BranchStepConfig | WhileStepConfig,
+    SayStepConfig | CollectStepConfig | SetStepConfig | BranchStepConfig | WhileStepConfig | ActionStepConfig,
     Field(discriminator="type"),
 ]
 
