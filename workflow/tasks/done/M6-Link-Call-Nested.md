@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 6: Link/Call + Nested Flows
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Completed
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0, M1, M2, M3, M4, M5
 
 ---
@@ -131,28 +131,28 @@ class LinkNodeFactory:
         """Create a link node function."""
         if not isinstance(step, LinkStepConfig):
             raise ValueError(f"LinkNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         target_flow = step.target
-        
+
         async def link_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Link to another flow (no return)."""
             fm = runtime.context.flow_manager
-            
+
             # Pop current flow
             _, pop_delta = fm.pop_flow(state)
-            
+
             # Push target flow
             _, push_delta = fm.push_flow(state, target_flow)
-            
+
             updates: dict[str, Any] = {}
             merge_delta(updates, pop_delta)
             merge_delta(updates, push_delta)
-            
+
             return updates
-        
+
         link_node.__name__ = f"link_{step.step}"
         return link_node
 
@@ -185,24 +185,24 @@ class CallNodeFactory:
         """Create a call node function."""
         if not isinstance(step, CallStepConfig):
             raise ValueError(f"CallNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         target_flow = step.target
-        
+
         async def call_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Call a subflow (with return)."""
             fm = runtime.context.flow_manager
-            
+
             # Push target flow (current stays on stack)
             _, delta = fm.push_flow(state, target_flow)
-            
+
             return {
                 "flow_stack": delta.flow_stack,
                 "flow_slots": delta.flow_slots,
             }
-        
+
         call_node.__name__ = f"call_{step.step}"
         return call_node
 
@@ -228,24 +228,24 @@ class CallStepConfig(BaseStepConfig):
 ```python
 async def execute_node(state, runtime):
     # ... existing code ...
-    
+
     # After subgraph completes:
     if not result.get("_need_input"):
         # Check if flow completed
         stack = result.get("flow_stack", [])
-        
+
         # If multiple flows on stack and current finished, pop
         if len(stack) > 1:
             fm = runtime.context.flow_manager
             current_name = stack[-1]["flow_name"]
-            
+
             # Check if subgraph reached END
             if _flow_completed(result, current_name):
                 _, delta = fm.pop_flow(result)
                 result = {**result, **delta.__dict__}
                 # Loop to continue parent flow
                 continue  # Re-invoke with parent flow
-        
+
         return result
 ```
 
@@ -271,11 +271,11 @@ async def test_link_transfers_control():
             SayStepConfig(step="end", message="In other flow!"),
         ]),
     })
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("start")
-    
+
     # Assert
     assert "In other flow!" in response
     assert "Never reached" not in response
@@ -295,11 +295,11 @@ async def test_call_returns_to_parent():
             SayStepConfig(step="auth_msg", message="Authenticating..."),
         ]),
     })
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("start")
-    
+
     # Assert
     assert "Authenticating" in response
     assert "After call" in response
@@ -318,7 +318,7 @@ async def test_call_returns_to_parent():
             SayStepConfig(step="auth_msg", message="Authenticating..."),
         ]),
     })
-    
+
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("start")
         assert "Authenticating" in response
@@ -329,10 +329,10 @@ async def test_call_returns_to_parent():
 
 ## 7. Success Criteria
 
-- [ ] Link transfers control to target flow
-- [ ] Call pushes subflow and returns
-- [ ] Parent flow resumes after call completes
-- [ ] Flow stack correctly managed
+- [x] Link transfers control to target flow
+- [x] Call pushes subflow and returns
+- [x] Parent flow resumes after call completes
+- [x] Flow stack correctly managed
 
 ---
 

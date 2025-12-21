@@ -3,7 +3,9 @@
 from soni.compiler.nodes.action import ActionNodeFactory
 from soni.compiler.nodes.base import NodeFactory
 from soni.compiler.nodes.branch import BranchNodeFactory
+from soni.compiler.nodes.call import CallNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
+from soni.compiler.nodes.link import LinkNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
 from soni.compiler.nodes.set import SetNodeFactory
 from soni.compiler.nodes.while_loop import WhileNodeFactory
@@ -20,6 +22,8 @@ class NodeFactoryRegistry:
         "branch": BranchNodeFactory(),
         "while": WhileNodeFactory(),
         "action": ActionNodeFactory(),
+        "link": LinkNodeFactory(),
+        "call": CallNodeFactory(),
     }
 
     @classmethod

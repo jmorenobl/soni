@@ -1,5 +1,7 @@
 """Subgraph builder for M3 with branch and while support."""
 
+from typing import cast
+
 from langgraph.graph import END, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
@@ -104,10 +106,13 @@ def build_flow_subgraph(flow: FlowConfig):
 
         def router(state: DialogueState) -> str:
             if state.get("_need_input"):
-                return END
+                return cast(str, END)
 
             target = state.get("_branch_target")
             if target:
+                # Special: __end__ for link/call to exit subgraph early
+                if target == "__end__":
+                    return cast(str, END)
                 node_name = step_mapping.get(target, target)
                 if node_name in valid_targets:
                     return node_name

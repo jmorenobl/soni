@@ -109,6 +109,7 @@ class DialogueState(TypedDict):
     # Internal
     _executed_steps: Annotated[dict[str, set[str]], _merge_executed_steps]
     _branch_target: Annotated[str | None, _last_value_str]
+    _flow_changed: Annotated[bool, _last_value_any]  # M6: Link/Call signal
     _pending_responses: Annotated[list[str], _last_value_any]
 
 

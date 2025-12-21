@@ -105,8 +105,39 @@ class ActionStepConfig(BaseModel):
     )
 
 
+class LinkStepConfig(BaseModel):
+    """Configuration for link steps (M6).
+
+    Link transfers control to another flow without return.
+    Current flow is popped, target flow is pushed.
+    """
+
+    step: str = Field(description="Step identifier")
+    type: Literal["link"] = "link"
+    target: str = Field(description="Flow to link to")
+
+
+class CallStepConfig(BaseModel):
+    """Configuration for call steps (M6).
+
+    Call invokes a subflow and returns when it completes.
+    Current flow stays on stack, target flow is pushed on top.
+    """
+
+    step: str = Field(description="Step identifier")
+    type: Literal["call"] = "call"
+    target: str = Field(description="Subflow to call")
+
+
 StepConfig = Annotated[
-    SayStepConfig | CollectStepConfig | SetStepConfig | BranchStepConfig | WhileStepConfig | ActionStepConfig,
+    SayStepConfig
+    | CollectStepConfig
+    | SetStepConfig
+    | BranchStepConfig
+    | WhileStepConfig
+    | ActionStepConfig
+    | LinkStepConfig
+    | CallStepConfig,
     Field(discriminator="type"),
 ]
 

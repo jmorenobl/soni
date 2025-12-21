@@ -1,10 +1,9 @@
-"""Execute node for M4 (NLU integration)."""
-
 from typing import Any
 
 from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
+from soni.compiler.subgraph import build_flow_subgraph
 from soni.core.types import DialogueState
 from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
@@ -15,19 +14,23 @@ RESPONSE_CANCELLED = "Flow cancelled."
 RESPONSE_NO_FLOW = "I can help you. What would you like to do?"
 
 
+def _get_active_flow_name(state: DialogueState) -> str | None:
+    """Get the name of the currently active flow."""
+    stack = state.get("flow_stack", [])
+    if stack:
+        return stack[-1]["flow_name"]
+    return None
+
+
 async def execute_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
     """Execute flows based on NLU commands.
 
-    Processes commands from understand_node:
-    - StartFlow: Push flow onto stack and execute
-    - ChitChat: Return chitchat response (no flow needed)
-    - CancelFlow: Pop current flow
-    - SetSlot: Apply slot value (handled by subgraph)
+    Supports link (flow transfer) and call (subflow with return).
+    Dynamically rebuilds subgraph when active flow changes.
     """
-    subgraph = runtime.context.subgraph
     flow_manager = runtime.context.flow_manager
     config = runtime.context.config
 
@@ -50,12 +53,10 @@ async def execute_node(
                     state["flow_slots"] = delta.flow_slots
 
         elif cmd_type == "chitchat":
-            # ChitChat: return message without executing flow
             message = cmd.get("message", RESPONSE_CHITCHAT_DEFAULT)
             return {"response": message, "commands": []}
 
         elif cmd_type == "cancel_flow":
-            # Cancel: pop current flow
             if state.get("flow_stack"):
                 _, delta = flow_manager.pop_flow(state)
                 merge_delta(updates, delta)
@@ -65,31 +66,74 @@ async def execute_node(
     if not state.get("flow_stack"):
         return {"response": RESPONSE_NO_FLOW, "commands": []}
 
-    # Execute subgraph
-    subgraph_state = dict(state)
+    # Collect all responses from potentially multiple flows
+    responses: list[str] = []
+    # Use copy() to preserve TypedDict type information (cleaner than dict() + cast)
+    subgraph_state = state.copy()
     subgraph_state["_need_input"] = False
+    processed_flows: set[str] = set()  # Track to avoid infinite loops
 
     while True:
-        result = await subgraph.ainvoke(subgraph_state)
+        subgraph_state["response"] = None  # Clear response to avoid duplicates
 
-        if not result.get("_need_input"):
-            # Merge updates and return response
-            return {**updates, "response": result.get("response"), "commands": []}
+        # Get current flow and build its subgraph
+        current_flow_name = _get_active_flow_name(subgraph_state)
+        if not current_flow_name or current_flow_name not in config.flows:
+            break
 
-        # Interrupt and get user response
-        prompt = result["_pending_prompt"]
-        user_response = interrupt(prompt)
+        flow_config = config.flows[current_flow_name]
+        subgraph = build_flow_subgraph(flow_config)
 
-        # Update state with result (flow_slots, etc.)
+        result = await subgraph.ainvoke(subgraph_state, context=runtime.context)
+
+        # Collect response if any
+        if result.get("response"):
+            responses.append(result["response"])
+
+        # Update subgraph_state with result
         subgraph_state.update(result)
 
-        # Inject as command for next iteration
-        message = (
-            user_response if isinstance(user_response, str) else user_response.get("message", "")
-        )
-        subgraph_state["commands"] = [
-            {"type": "set_slot", "slot": prompt["slot"], "value": message}
-        ]
+        # Check if flow changed (link/call)
 
-        # Clear flags
-        subgraph_state["_need_input"] = False
+        if result.get("_need_input"):
+            # Interrupt for user input
+            prompt = result["_pending_prompt"]
+            user_response = interrupt(prompt)
+
+            # Inject as command for next iteration
+            message = (
+                user_response
+                if isinstance(user_response, str)
+                else user_response.get("message", "")
+            )
+            subgraph_state["commands"] = [
+                {"type": "set_slot", "slot": prompt["slot"], "value": message}
+            ]
+            subgraph_state["_need_input"] = False
+            # Allow re-processing current flow after input
+            processed_flows.discard(current_flow_name)
+
+        elif result.get("_flow_changed"):
+            # Link or call changed flow - continue with new active flow
+            processed_flows.add(current_flow_name)
+            subgraph_state["_flow_changed"] = False
+            subgraph_state["_branch_target"] = None  # Clear so new flow runs normally
+            continue
+
+        elif len(subgraph_state.get("flow_stack", [])) > 1:
+            # Subflow completed - pop and continue parent
+            processed_flows.add(current_flow_name)
+            _, delta = flow_manager.pop_flow(subgraph_state)
+            if delta.flow_stack:
+                subgraph_state["flow_stack"] = delta.flow_stack
+            merge_delta(updates, delta)
+            # Continue to resume parent flow
+            continue
+
+        else:
+            # Single flow completed - we're done
+            break
+
+    # Join all responses
+    final_response = "\n".join(responses) if responses else None
+    return {**updates, "response": final_response, "commands": []}
