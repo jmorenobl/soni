@@ -7,11 +7,11 @@ import dspy
 import typer
 from rich.console import Console
 from rich.table import Table
+from soni.dataset import DatasetBuilder
+from soni.du.optimizer import create_metric, optimize_du
 
 from soni.config import SoniConfig
 from soni.core.commands import Command
-from soni.dataset import DatasetBuilder
-from soni.du.optimizer import create_metric, optimize_du
 
 app = typer.Typer(help="Optimize NLU module")
 console = Console()

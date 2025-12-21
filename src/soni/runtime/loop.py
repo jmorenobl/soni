@@ -1,4 +1,4 @@
-"""RuntimeLoop for M1/M2."""
+"""RuntimeLoop for M4 (NLU integration)."""
 
 from typing import Any
 
@@ -12,11 +12,13 @@ from soni.config.models import SoniConfig
 from soni.core.state import create_empty_state
 from soni.core.types import DialogueState
 from soni.dm.builder import build_orchestrator
+from soni.du.modules import SoniDU
+from soni.flow.manager import FlowManager
 from soni.runtime.context import RuntimeContext
 
 
 class RuntimeLoop:
-    """Runtime loop for M2 with checkpointer support."""
+    """Runtime loop for M4 with checkpointer and NLU support."""
 
     def __init__(
         self,
@@ -35,14 +37,8 @@ class RuntimeLoop:
         flow = self.config.flows[flow_name]
         subgraph = build_flow_subgraph(flow)
 
-        # Create flow manager
-        from soni.flow.manager import FlowManager
-
+        # Create flow manager and NLU module
         flow_manager = FlowManager()
-
-        # Initialize SoniDU (NLU module) - REQUIRED component
-        from soni.du.modules import SoniDU
-
         du = SoniDU.create_with_best_model()
 
         self._context = RuntimeContext(

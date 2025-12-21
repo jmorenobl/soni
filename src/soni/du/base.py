@@ -10,7 +10,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, ClassVar, TypeVar, cast
+from typing import Any, ClassVar, TypeVar
 
 import dspy
 from pydantic import BaseModel, ValidationError

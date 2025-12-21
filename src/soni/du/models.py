@@ -7,6 +7,7 @@ DSPy uses Pydantic for output validation and type coercion.
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
+
 from soni.core.commands import (
     AffirmConfirmation,
     CancelFlow,

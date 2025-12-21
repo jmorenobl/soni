@@ -5,7 +5,6 @@ from pathlib import Path
 
 import typer
 import uvicorn
-
 from soni.config.loader import ConfigLoader
 
 app = typer.Typer(help="Start API server")

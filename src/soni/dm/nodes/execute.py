@@ -9,13 +9,18 @@ from soni.core.types import DialogueState
 from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
 
+# Response constants (facilitates i18n and testing)
+RESPONSE_CHITCHAT_DEFAULT = "I'm here to help!"
+RESPONSE_CANCELLED = "Flow cancelled."
+RESPONSE_NO_FLOW = "I can help you. What would you like to do?"
+
 
 async def execute_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
     """Execute flows based on NLU commands.
-    
+
     Processes commands from understand_node:
     - StartFlow: Push flow onto stack and execute
     - ChitChat: Return chitchat response (no flow needed)
@@ -29,10 +34,10 @@ async def execute_node(
     # Process NLU commands
     commands = state.get("commands", []) or []
     updates: dict[str, Any] = {}
-    
+
     for cmd in commands:
         cmd_type = cmd.get("type")
-        
+
         if cmd_type == "start_flow":
             flow_name = cmd.get("flow_name")
             if flow_name and flow_name in config.flows:
@@ -43,22 +48,22 @@ async def execute_node(
                     state["flow_stack"] = delta.flow_stack
                 if delta.flow_slots:
                     state["flow_slots"] = delta.flow_slots
-        
+
         elif cmd_type == "chitchat":
             # ChitChat: return message without executing flow
-            message = cmd.get("message", "I'm here to help!")
+            message = cmd.get("message", RESPONSE_CHITCHAT_DEFAULT)
             return {"response": message, "commands": []}
-        
+
         elif cmd_type == "cancel_flow":
             # Cancel: pop current flow
             if state.get("flow_stack"):
                 _, delta = flow_manager.pop_flow(state)
                 merge_delta(updates, delta)
-                return {**updates, "response": "Flow cancelled.", "commands": []}
+                return {**updates, "response": RESPONSE_CANCELLED, "commands": []}
 
     # No flow to execute?
     if not state.get("flow_stack"):
-        return {"response": "I can help you. What would you like to do?", "commands": []}
+        return {"response": RESPONSE_NO_FLOW, "commands": []}
 
     # Execute subgraph
     subgraph_state = dict(state)
@@ -88,4 +93,3 @@ async def execute_node(
 
         # Clear flags
         subgraph_state["_need_input"] = False
-

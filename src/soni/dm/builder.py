@@ -11,17 +11,16 @@ from soni.runtime.context import RuntimeContext
 
 def build_orchestrator(checkpointer: BaseCheckpointSaver | None = None):
     """Build the main orchestrator graph.
-    
+
     Graph flow: understand → execute → END
     """
     builder = StateGraph(DialogueState, context_schema=RuntimeContext)
 
     builder.add_node("understand", understand_node)
     builder.add_node("execute", execute_node)
-    
+
     builder.set_entry_point("understand")
     builder.add_edge("understand", "execute")
     builder.add_edge("execute", END)
 
     return builder.compile(checkpointer=checkpointer)
-

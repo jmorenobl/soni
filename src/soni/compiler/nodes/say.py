@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from langgraph.runtime import Runtime
@@ -28,8 +29,6 @@ class SayNodeFactory:
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Return the message as response."""
-            import re
-
             fm = runtime.context.flow_manager
             flow_id = fm.get_active_flow_id(state)
 
@@ -62,4 +61,3 @@ class SayNodeFactory:
 
         say_node.__name__ = f"say_{step.step}"
         return say_node
-

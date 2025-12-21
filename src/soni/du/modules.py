@@ -6,6 +6,7 @@ Async-first design using native .acall() method.
 import logging
 
 import dspy
+
 from soni.du.base import OptimizableDSPyModule, safe_extract_result
 from soni.du.models import DialogueContext, NLUOutput
 from soni.du.signatures import ExtractCommands
