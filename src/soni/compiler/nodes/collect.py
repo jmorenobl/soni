@@ -34,9 +34,9 @@ class CollectNodeFactory:
             # ISP: Use SlotProvider interface (FlowManager)
             fm = runtime.context.flow_manager
 
-            # 1. Already filled?
+            # 1. Already filled? Clear branch target and continue
             if fm.get_slot(state, slot_name):
-                return {}
+                return {"_branch_target": None}
 
             # 2. Command provides value?
             commands = state.get("commands", []) or []
@@ -44,15 +44,17 @@ class CollectNodeFactory:
             for cmd in commands:
                 if cmd.get("type") == "set_slot" and cmd.get("slot") == slot_name:
                     delta = fm.set_slot(state, slot_name, cmd["value"])
-                    updates: dict[str, Any] = {"commands": []}  # Consume command
+                    # Clear branch target + consume command
+                    updates: dict[str, Any] = {"commands": [], "_branch_target": None}
                     merge_delta(updates, delta)
                     return updates
 
-            # 3. Need input
+            # 3. Need input (clear branch target to prevent loops on resume)
             return {
                 "_need_input": True,
                 "_pending_prompt": {"slot": slot_name, "prompt": prompt},
                 "response": prompt,
+                "_branch_target": None,
             }
 
         collect_node.__name__ = f"collect_{step.step}"

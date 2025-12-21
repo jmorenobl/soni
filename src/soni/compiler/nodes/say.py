@@ -21,17 +21,26 @@ class SayNodeFactory:
             raise ValueError(f"SayNodeFactory received wrong step type: {type(step).__name__}")
 
         message = step.message
+        step_id = step.step
 
         async def say_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Return the message as response."""
-            # Interpolate slots
             import re
 
             fm = runtime.context.flow_manager
+            flow_id = fm.get_active_flow_id(state)
 
+            # Idempotency check (ADR-002 requirement)
+            if flow_id:
+                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                if step_id in executed:
+                    # Already executed - skip to prevent duplicate messages
+                    return {"_branch_target": None}
+
+            # Interpolate slots
             def replace_slot(match: re.Match) -> str:
                 slot_name = match.group(1)
                 value = fm.get_slot(state, slot_name)
@@ -39,7 +48,18 @@ class SayNodeFactory:
 
             interpolated_message = re.sub(r"\{(\w+)\}", replace_slot, message)
 
-            return {"response": interpolated_message}
+            # Build response with idempotency tracking
+            result: dict[str, Any] = {
+                "response": interpolated_message,
+                "_branch_target": None,
+            }
+
+            # Mark as executed
+            if flow_id:
+                result["_executed_steps"] = {flow_id: {step_id}}
+
+            return result
 
         say_node.__name__ = f"say_{step.step}"
         return say_node
+

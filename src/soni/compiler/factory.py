@@ -1,8 +1,11 @@
 """Node factory registry (OCP: extensible without modification)."""
 
 from soni.compiler.nodes.base import NodeFactory
+from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
+from soni.compiler.nodes.set import SetNodeFactory
+from soni.compiler.nodes.while_loop import WhileNodeFactory
 from soni.core.errors import GraphBuildError
 
 
@@ -12,6 +15,9 @@ class NodeFactoryRegistry:
     _factories: dict[str, NodeFactory] = {
         "say": SayNodeFactory(),
         "collect": CollectNodeFactory(),
+        "set": SetNodeFactory(),
+        "branch": BranchNodeFactory(),
+        "while": WhileNodeFactory(),
     }
 
     @classmethod

@@ -15,5 +15,6 @@ def create_empty_state() -> DialogueState:
         "_need_input": False,
         "_pending_prompt": None,
         "_executed_steps": {},
+        "_branch_target": None,
         "_pending_responses": [],
     }

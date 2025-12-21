@@ -26,10 +26,10 @@ class FlowDelta:
 
 
 def _last_value_str(current: str | None, new: str | None) -> str | None:
-    """Reducer that keeps the last non-None string value."""
-    if new is not None:
-        return new
-    return current
+    """Reducer that keeps the last value (including None to clear)."""
+    # Note: This reducer is designed to allow clearing via explicit None.
+    # If a node returns {key: None}, it will clear the value.
+    return new
 
 
 def _last_value_any(current: Any | None, new: Any | None) -> Any | None:
@@ -108,6 +108,7 @@ class DialogueState(TypedDict):
 
     # Internal
     _executed_steps: Annotated[dict[str, set[str]], _merge_executed_steps]
+    _branch_target: Annotated[str | None, _last_value_str]
     _pending_responses: Annotated[list[str], _last_value_any]
 
 
