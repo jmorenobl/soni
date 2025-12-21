@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.subgraph import SubgraphBuilder
 from soni.config import SoniConfig
-from soni.core.constants import NodeName, get_flow_node_name
+from soni.core.constants import NodeName
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes import execute_node, respond_node, resume_node, understand_node
 
@@ -36,20 +36,15 @@ def build_orchestrator(
     builder.add_node(NodeName.EXECUTE, execute_node)
     builder.add_node(NodeName.RESPOND, respond_node)
 
-    # Flow subgraph nodes
-    for flow_name, subgraph in subgraphs.items():
-        node_name = get_flow_node_name(flow_name)
-        builder.add_node(node_name, subgraph)
+    # Flow subgraph nodes are NOT added to the main graph anymore.
+    # They are invoked dynamically by execute_node.
 
     # Edges
     builder.add_edge(START, NodeName.UNDERSTAND)
     builder.add_edge(NodeName.UNDERSTAND, NodeName.EXECUTE)
 
     # Edges from flows to resume logic
-    # When a flow finishes, it goes to resume node to pop stack
-    for flow_name in subgraphs:
-        node_name = get_flow_node_name(flow_name)
-        builder.add_edge(node_name, NodeName.RESUME)
+    # NOT needed as subgraphs are isolated execution units invoked by execute_node
 
     # Conditional logic after resume
     def route_resume(state: DialogueState) -> str:
@@ -75,7 +70,8 @@ def build_orchestrator(
 
     # Note: 'execute' node uses Command to route to specific flow_{name},
     # so no explicit edges from 'execute' are needed if coverage via Command is complete.
-    # However,    # If 'execute' returns 'respond', we need that edge or allow Command routing there too.
+    # However, if 'execute' returns 'respond', we need that edge or allow Command routing there too.
     # Command(goto="respond") covers it.
 
-    return builder.compile(checkpointer=checkpointer)
+    compiled_graph = builder.compile(checkpointer=checkpointer)
+    return compiled_graph, subgraphs

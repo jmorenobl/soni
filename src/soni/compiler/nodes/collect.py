@@ -1,16 +1,21 @@
-"""CollectNodeFactory - generates collect step nodes with interrupt() support.
+"""CollectNodeFactory - generates collect step nodes.
 
-Implements command-based approach:
+Implements the LangGraph pattern: interrupt at START of node.
+
+Flow:
 1. Check if slot already filled (idempotent)
-2. Check if NLU provided SetSlot command
-3. If no command, use interrupt() to pause and wait
+2. Check if NLU provided SetSlot command (via resume or state)
+3. If no value, call interrupt() to get user input
+4. On resume, commands come via interrupt() return value
+
+Note: Due to subgraph state isolation, commands must be passed via
+interrupt() return value, not state.commands.
 """
 
 from typing import Any
 
-from langchain_core.messages import AIMessage
 from langgraph.runtime import Runtime
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
 
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
@@ -68,7 +73,13 @@ def _merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> dict[str, 
 
 
 class CollectNodeFactory:
-    """Factory for collect step nodes with command-based interrupt support."""
+    """Factory for collect step nodes.
+
+    Creates nodes that:
+    1. Check if slot already has value (idempotent)
+    2. Check if NLU provided SetSlot command
+    3. Call interrupt() if input needed, get commands via resume value
+    """
 
     def create(
         self,
@@ -76,12 +87,12 @@ class CollectNodeFactory:
         all_steps: list[StepConfig] | None = None,
         step_index: int | None = None,
     ) -> NodeFunction:
-        """Create a node that collects a slot value using command-based approach.
+        """Create a node that collects a slot value.
 
         Flow:
         1. Check if slot already filled → skip
         2. Check if NLU provided SetSlot command → use it
-        3. Otherwise → interrupt() and wait for input
+        3. Otherwise → call interrupt() and get commands via resume
         """
         if not isinstance(step, CollectStepConfig):
             raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
@@ -92,103 +103,53 @@ class CollectNodeFactory:
         async def collect_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
-        ) -> dict[str, Any] | Command:
+        ) -> dict[str, Any] | Command[Any]:
             context = runtime.context
             flow_manager = context.flow_manager
 
-            # 1. Check if slot already has value (idempotent - runs on pause AND resume)
+            # 1. IDEMPOTENT: Check if slot already has value
             current_value = flow_manager.get_slot(state, slot_name)
             if current_value is not None:
-                return {"_branch_target": None}  # Already collected, clear any branch target
+                return {}  # Already collected, proceed
 
-            # 2. COMMAND-BASED: Check if NLU provided value via SetSlot command
-            commands = state.get("commands", [])
+            # 2. COMMAND-BASED: Check state.commands
+            # (passed from execute_node after NLU)
+            commands = list(state.get("commands", []))
+
+            # Check for SetSlot command for this slot
+            remaining_commands = []
+            slot_value = None
             for cmd in commands:
                 if _is_set_slot_for(cmd, slot_name):
-                    # NLU provided value - use it, no interrupt needed!
-                    value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
-                    delta = flow_manager.set_slot(state, slot_name, value)
-
-                    return _merge_delta(
-                        {
-                            "waiting_for_slot": None,
-                            "waiting_for_slot_type": None,
-                            "_branch_target": None,  # Clear branch target
-                        },
-                        delta,
-                    )
-
-            # 3. No value from NLU - interrupt and wait for input
-            current_prompt = prompt
-
-            while True:
-                # This raises GraphInterrupt on first call
-                # On resume, interrupt() returns the value from Command(resume=...)
-                resume_data = interrupt(
-                    {
-                        "type": "collect",
-                        "prompt": current_prompt,
-                        "slot": slot_name,
-                    }
-                )
-
-                # ⚠️ CODE BELOW ONLY RUNS ON RESUME
-                # Extract NLU commands from resume data
-                if isinstance(resume_data, dict):
-                    raw_commands = resume_data.get("commands", [])
-                    # Deserialize commands
-                    from soni.core.commands import StartFlow, parse_command
-
-                    commands = [parse_command(cmd) for cmd in raw_commands]
+                    # NLU provided value - use it
+                    slot_value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
                 else:
-                    commands = []
+                    remaining_commands.append(cmd)
 
-                for cmd in commands:
-                    # HANDLE DIGRESSION (StartFlow)
-                    if isinstance(cmd, StartFlow):
-                        # User wants to switch to a different flow
-                        from soni.core.constants import NodeName
+            if slot_value is not None:
+                delta = flow_manager.set_slot(state, slot_name, slot_value)
+                updates = _merge_delta({}, delta)
+                # Clear consumed command by updating commands list
+                updates["commands"] = remaining_commands
+                # Clear waiting flags since slot is now filled
+                updates["waiting_for_slot"] = None
+                updates["waiting_for_slot_type"] = None
+                return updates
 
-                        # Push the new flow onto the stack
-                        delta = flow_manager.handle_intent_change(state, cmd.flow_name)
-
-                        updates: dict[str, Any] = {}
-                        if delta:
-                            _merge_delta(updates, delta)
-
-                        # CRITICAL: Mark digression pending so resume_node doesn't pop
-                        updates["_digression_pending"] = True
-                        # Set branch target for router (conditional_edges reads from state)
-                        updates["_branch_target"] = NodeName.END_FLOW
-
-                        # Return updates - router will see _branch_target and exit
-                        return updates
-
-                    if _is_set_slot_for(cmd, slot_name):
-                        # NLU provided value in resume - use it
-                        value = cmd.value if isinstance(cmd, SetSlot) else cmd.get("value")
-                        delta = flow_manager.set_slot(state, slot_name, value)
-
-                        updates = _merge_delta(
-                            {
-                                "waiting_for_slot": None,
-                                "waiting_for_slot_type": None,
-                                "messages": [AIMessage(content=prompt)],
-                                "last_response": prompt,
-                                "_branch_target": None,  # Clear branch target
-                            },
-                            delta,
-                        )
-
-                        # KEY FIX: Return updates dict directly
-                        # With minimal delta in set_slot, standard return should be safe (merged by reducer)
-                        # and avoids potential issues with Command(update=...) in subgraphs.
-                        return updates
-
-                # No SetSlot for this slot - likely extraction failed or digression
-                # Loop back to interrupt to ask again
-                # TODO: Handle digressions (StartFlow/StopFlow) by exiting loop if needed
-                current_prompt = f"I didn't understand. {prompt}"
+            # 3. NEED INPUT: Return flag to orchestrator
+            # The router will see _need_input and route to END
+            updates = {
+                "_need_input": True,
+                "_pending_prompt": {
+                    "type": "collect",
+                    "slot": slot_name,
+                    "prompt": prompt,
+                },
+                # Determine wait type
+                "waiting_for_slot": slot_name,
+                "waiting_for_slot_type": "collection",
+            }
+            return updates
 
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node

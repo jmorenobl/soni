@@ -220,14 +220,28 @@ class SetNodeFactory:
             context = runtime.context
             fm = context.flow_manager
 
+            # IDEMPOTENCY CHECK
+            step_id = f"step_{step_index}" if step_index is not None else step.step
+            flow_id = fm.get_active_flow_id(state)
+
+            if flow_id:
+                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                if step_id in executed:
+                    return {}
+
             # Check condition if specified
             if condition:
                 current_slots = fm.get_all_slots(state)
                 should_execute = evaluate_condition(condition, current_slots)
                 if not should_execute:
                     logger.debug(f"Set step {step.step}: condition '{condition}' false, skipping")
-                    # Condition false - skip execution
-                    return {"flow_slots": state["flow_slots"]}
+
+                    # Mark as executed even if condition failed?
+                    # Yes, because we evaluated it.
+                    updates = {"flow_slots": state["flow_slots"]}
+                    if flow_id:
+                        updates["_executed_steps"] = {flow_id: {step_id}}
+                    return updates
 
             # Get current slots for template substitution
             current_slots = fm.get_all_slots(state)
@@ -264,6 +278,10 @@ class SetNodeFactory:
             # Ensure flow_slots in updates
             if "flow_slots" not in updates:
                 updates["flow_slots"] = state.get("flow_slots")
+
+            # MARK AS EXECUTED
+            if flow_id:
+                updates["_executed_steps"] = {flow_id: {step_id}}
 
             return updates
 

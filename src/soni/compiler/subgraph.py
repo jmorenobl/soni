@@ -4,13 +4,11 @@ Handles:
 - Sequential step execution with conditional routing
 - While loop back-edges and exit handling
 - Branch routing with _branch_target
-- Flow state management (waiting_input, etc.)
 """
 
 from copy import deepcopy
 from typing import Any
 
-from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
@@ -26,13 +24,12 @@ END_FLOW_NODE = NodeName.END_FLOW
 
 async def end_flow_node(
     state: DialogueState,
-    config: RunnableConfig,
 ) -> dict[str, Any]:
     """Node that marks flow completion.
 
     Stack management is handled by the Orchestrator's resume_node.
     """
-    # Clear branch target to avoid pollution
+    # Clear transient state to avoid pollution
     return {"_branch_target": None}
 
 
@@ -42,7 +39,7 @@ class SubgraphBuilder:
     Key features:
     - Creates nodes for each step
     - Handles while loop semantics (back-edges, exit handling)
-    - Supports __exit_loop__ special target for mid-loop exits
+    - interrupt() is called directly by collect/confirm nodes
     """
 
     def build(self, flow_config: FlowConfig) -> StateGraph[Any, Any]:
@@ -70,10 +67,10 @@ class SubgraphBuilder:
             node_fn = factory.create(step, all_steps=steps, step_index=i)
             builder.add_node(name, node_fn)
 
-        # Add the __end_flow__ node for proper stack cleanup
+        # Add end_flow node
         builder.add_node(END_FLOW_NODE, end_flow_node)
 
-        # Create simple sequential edges (no while loop special handling needed)
+        # Create simple sequential edges
         self._add_simple_edges(builder, steps, step_names)
 
         return builder
@@ -206,8 +203,10 @@ class SubgraphBuilder:
         steps: list[StepConfig],
         step_names: list[str],
     ) -> None:
-        """Add simple sequential edges without special while handling."""
+        """Add simple sequential edges with routing support."""
         step_set = set(step_names)
+        # Include special nodes in valid targets
+        valid_targets = step_set | {END_FLOW_NODE}
 
         if not step_names:
             return
@@ -219,36 +218,45 @@ class SubgraphBuilder:
             name = step_names[i]
             next_step = step_names[i + 1] if i < len(steps) - 1 else None
 
-            # Determine target
+            # Determine default target
             if step.jump_to:
-                target = step.jump_to if step.jump_to in step_set else END_FLOW_NODE
+                target = step.jump_to if step.jump_to in valid_targets else END_FLOW_NODE
             else:
                 target = next_step if next_step else END_FLOW_NODE
 
             # Create router for conditional edges
-            router = self._create_simple_router(target, step)
+            router = self._create_router(target, valid_targets)
             builder.add_conditional_edges(name, router)
 
         # __end_flow__ -> END
         builder.add_edge(END_FLOW_NODE, END)
 
-    def _create_simple_router(
+    def _create_router(
         self,
-        target_node: str,
-        step: StepConfig,
+        default_target: str,
+        valid_targets: set[str],
     ):
-        """Create router that handles pausing and branching.
+        """Create router that handles branching and input requests.
+
+        The router checks:
+        1. _need_input - if True, route to END to stop subgraph and signal orchestrator
+        2. _branch_target - explicit routing from branch/digression nodes
+        3. default_target - sequential flow
 
         Note: _branch_target is cleared by the target node after consumption.
         """
 
         def router(state: DialogueState) -> str:
-            """Route to next step or exit based on state."""
-            # Check for target override (from branch/digression)
+            """Route to next step based on state."""
+            # Priority 0: Need input flag - stop subgraph execution
+            if state.get("_need_input"):
+                return END
+
+            # Priority 1: Explicit branch target (from branch/digression)
             branch_target = state.get("_branch_target")
-            if branch_target:
+            if branch_target and branch_target in valid_targets:
                 return str(branch_target)
 
-            return target_node
+            return default_target
 
         return router

@@ -21,6 +21,9 @@ def create_empty_dialogue_state() -> DialogueState:
         "_branch_target": None,
         "_digression_pending": False,
         "_pending_responses": [],
+        "_pending_prompt": None,
+        "_need_input": False,
+        "_executed_steps": {},
         "turn_count": 0,
         "metadata": {},
     }

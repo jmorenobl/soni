@@ -36,6 +36,15 @@ class ActionNodeFactory:
             action_handler = context.action_handler
             flow_manager = context.flow_manager
 
+            # IDEMPOTENCY CHECK
+            step_id = f"step_{step_index}" if step_index is not None else step.step
+            flow_id = flow_manager.get_active_flow_id(state)
+
+            if flow_id:
+                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                if step_id in executed:
+                    return {}
+
             slots = flow_manager.get_all_slots(state)
 
             # Execute action
@@ -54,6 +63,10 @@ class ActionNodeFactory:
                     # Apply to state for subsequent iterations
                     if delta and delta.flow_slots is not None:
                         state["flow_slots"] = delta.flow_slots
+
+            # MARK AS EXECUTED
+            if flow_id:
+                updates["_executed_steps"] = {flow_id: {step_id}}
 
             # NOTE: Don't add flow_slots fallback - the reducer will merge properly
             # Adding state.get("flow_slots") here would OVERWRITE slots set by

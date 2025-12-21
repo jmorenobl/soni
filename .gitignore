@@ -250,4 +250,4 @@ src/soni/du/datasets/*.json
 .DS_Store
 .AppleDouble
 .LSOverride
-archive/
+#archive/

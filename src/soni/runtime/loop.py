@@ -23,6 +23,7 @@ from soni.actions.registry import ActionRegistry
 from soni.config import SoniConfig
 from soni.core.errors import StateError
 from soni.core.types import DUProtocol, RuntimeContext, SlotExtractorProtocol
+from soni.du.service import NLUService
 from soni.flow.manager import FlowManager
 from soni.runtime.extractor import ResponseExtractor
 from soni.runtime.hydrator import StateHydrator
@@ -50,6 +51,7 @@ class RuntimeLoop:
         checkpointer: BaseCheckpointSaver[Any] | None = None,
         registry: ActionRegistry | None = None,
         du: DUProtocol | None = None,
+        slot_extractor: SlotExtractorProtocol | None = None,
     ):
         """Initialize RuntimeLoop.
 
@@ -58,9 +60,10 @@ class RuntimeLoop:
             checkpointer: Optional checkpointer for state persistence.
             registry: Optional action registry. Created if not provided.
             du: Optional Dialogue Understanding module (dependency injection).
+            slot_extractor: Optional slot extractor (dependency injection for testing).
         """
         self.config = config
-        self._initializer = RuntimeInitializer(config, checkpointer, registry, du)
+        self._initializer = RuntimeInitializer(config, checkpointer, registry, du, slot_extractor)
         self._hydrator = StateHydrator()
         self._extractor = ResponseExtractor()
 
@@ -187,6 +190,9 @@ class RuntimeLoop:
 
         graph = self._components.graph
 
+        # Create NLU service
+        nlu_service = NLUService(self.du, self.slot_extractor)
+
         # Create runtime context for dependency injection
         context = RuntimeContext(
             config=self.config,
@@ -194,6 +200,8 @@ class RuntimeLoop:
             action_handler=self.action_handler,
             du=self.du,
             slot_extractor=self.slot_extractor,
+            subgraphs=self._components.subgraphs,
+            nlu_service=nlu_service,
         )
 
         # Get current state and prepare input
@@ -221,9 +229,8 @@ class RuntimeLoop:
         if has_interrupt:
             # CRITICAL: Execute NLU BEFORE resuming to enable command-based approach
             # This ensures NLU always processes user input, even during interrupt/resume
-            from soni.du.service import NLUService
+            # Note: nlu_service is already created above and in context
 
-            nlu_service = NLUService(self.du, self.slot_extractor)
             # Use current_state or empty dict if None (shouldn't happen with interrupt, but safety check)
             from soni.core.state import create_empty_dialogue_state
             from soni.core.types import DialogueState
@@ -330,6 +337,9 @@ class RuntimeLoop:
 
         graph = self._components.graph
 
+        # Create NLU service
+        nlu_service = NLUService(self.du, self.slot_extractor)
+
         # Create runtime context for dependency injection
         context = RuntimeContext(
             config=self.config,
@@ -337,6 +347,8 @@ class RuntimeLoop:
             action_handler=self.action_handler,
             du=self.du,
             slot_extractor=self.slot_extractor,
+            subgraphs=self._components.subgraphs,
+            nlu_service=nlu_service,
         )
 
         # Get current state and prepare input

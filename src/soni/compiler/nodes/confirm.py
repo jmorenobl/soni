@@ -1,31 +1,40 @@
-"""ConfirmNodeFactory - generates confirmation nodes with interrupt() API.
+"""ConfirmNodeFactory - generates confirmation nodes.
 
-Implements full confirmation flow using NLU commands and LangGraph interrupt():
+Implements the LangGraph pattern: interrupt at START of node.
+
+Flow:
 1. Check if slot already filled (idempotent)
-2. Check NLU commands for affirm/deny
-3. If no commands, call interrupt() and wait
-4. On resume, process user response through handlers
+2. Check NLU commands for affirm/deny (via state or resume)
+3. If no commands, call interrupt() to get user input
+4. On resume, commands come via interrupt() return value
 
-Refactored to use LangGraph interrupt() API with command-based approach.
+Note: Due to subgraph state isolation, commands must be passed via
+interrupt() return value, not state.commands.
+
+Uses separate handlers for each concern (SRP):
+- AffirmHandler: Affirmation processing
+- DenyHandler: Denial with optional modification
+- RetryHandler: Max retries logic
 """
 
 import logging
 from typing import Any
 
+from langgraph.graph import END
 from langgraph.runtime import Runtime
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
 
 from soni.compiler.nodes.utils import require_field
 from soni.config.steps import ConfirmStepConfig, StepConfig
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.patterns.base import get_pattern_config
+from soni.flow.manager import merge_delta
 
 from .base import NodeFunction
 from .confirm_handlers import (
     AffirmHandler,
     ConfirmationContext,
     DenyHandler,
-    ModificationHandler,
     RetryHandler,
     format_prompt,
 )
@@ -70,20 +79,17 @@ class ConfirmNodeFactory:
     Creates nodes that:
     1. Check if already confirmed (idempotent)
     2. Check NLU commands for affirm/deny (command-based)
-    3. Call interrupt() if no commands
-    4. Process confirmation on resume
+    3. Call interrupt() if no commands, get response via resume
 
     Uses separate handlers for each concern (SRP):
     - AffirmHandler: Affirmation processing
     - DenyHandler: Denial with optional modification
-    - ModificationHandler: Slot modifications
     - RetryHandler: Max retries logic
     """
 
     def __init__(self) -> None:
         self._affirm = AffirmHandler()
         self._deny = DenyHandler()
-        self._modification = ModificationHandler()
         self._retry = RetryHandler()
 
     def create(
@@ -104,13 +110,12 @@ class ConfirmNodeFactory:
         # Capture handlers for closure
         affirm = self._affirm
         deny = self._deny
-        _modification = self._modification  # noqa: F841 - Used in commented modification detection
         retry = self._retry
 
         async def confirm_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
-        ) -> dict[str, Any] | Command:
+        ) -> dict[str, Any] | Command[Any]:
             context = runtime.context
             flow_manager = context.flow_manager
 
@@ -128,47 +133,33 @@ class ConfirmNodeFactory:
                 max_retries=max_retries,
             )
 
-            # IDEMPOTENT: Check if confirmation slot is already filled
+            # 1. IDEMPOTENT: Check if confirmation slot is already filled
             value = flow_manager.get_slot(state, slot_name)
             if value is not None:
-                return {}  # Already confirmed, no state change needed
+                return {}  # Already confirmed
 
             # Build updates dict for merging deltas
             updates: dict[str, Any] = {}
 
-            # COMMAND-BASED: Check NLU commands
-            commands = state.get("commands", [])
+            # 2. COMMAND-BASED: Check state.commands
+            commands = list(state.get("commands", []))
 
             # Check for affirm/deny commands
             is_affirmed, slot_to_change = _find_confirmation_command(commands)
 
             if is_affirmed is True:
-                # Affirm command found - process it
-                return affirm.handle_interrupt(ctx, state, updates)
+                res = affirm.handle(ctx, state, updates)
+                if res.get("_need_input"):
+                    return Command(goto=END, update=res)
+                return res
 
             if is_affirmed is False:
-                # Deny command found - process it
-                return deny.handle_interrupt(ctx, state, updates, commands, slot_to_change)
+                res = deny.handle(ctx, state, updates, commands, slot_to_change)
+                if res.get("_need_input"):
+                    return Command(goto=END, update=res)
+                return res
 
-            # Check for slot modification without explicit affirm/deny
-            # NOTE: Commented out - the detection is too aggressive. Any SetSlot in
-            # commands (even unrelated NLU extractions like beneficiary_name) triggers
-            # this path. Need more nuanced approach that checks if the SetSlot is
-            # actually modifying a slot displayed in the confirmation prompt.
-            # has_modification = any(
-            #     c.get("type") == "set_slot" if isinstance(c, dict) else c.type == "set_slot"
-            #     for c in commands
-            # )
-            # print(f"[CONFIRM] is_affirmed={is_affirmed} has_modification={has_modification} commands={len(commands)}")
-            # if has_modification:
-            #     # Modification command found - handle it
-            #     return modification.handle_interrupt(ctx, state, updates)
-
-            # NO COMMANDS: Call interrupt() and wait for user response
-            # Get current slots for prompt formatting
-            slots = flow_manager.get_all_slots(state)
-            formatted_prompt = format_prompt(prompt, slots)
-
+            # 3. NO COMMANDS: Need Input
             # Check retry count to determine appropriate message
             current_retries = flow_manager.get_slot(state, retry_key) or 0
             effective_max = max_retries or (
@@ -176,8 +167,14 @@ class ConfirmNodeFactory:
             )
 
             if current_retries >= effective_max:
-                # Max retries - handle before interrupt
-                return retry.handle_interrupt(ctx, state, updates)
+                res = retry.handle(ctx, state, updates)
+                if res.get("_need_input"):
+                    return Command(goto=END, update=res)
+                return res
+
+            # Get current slots for prompt formatting
+            slots = flow_manager.get_all_slots(state)
+            formatted_prompt = format_prompt(prompt, slots)
 
             # Format retry message if needed
             if current_retries > 0:
@@ -192,31 +189,24 @@ class ConfirmNodeFactory:
             if current_retries > 0:
                 delta = flow_manager.set_slot(state, retry_key, current_retries + 1)
                 if delta:
-                    from soni.flow.manager import merge_delta
-
                     merge_delta(updates, delta)
 
-            # Call interrupt() - execution pauses here
-            resume_data = interrupt(
+            # Return _need_input with formatted prompt
+            updates.update(
                 {
-                    "type": "confirm",
-                    "prompt": formatted_prompt,
-                    "slot": slot_name,
+                    "_need_input": True,
+                    "_pending_prompt": {
+                        "type": "confirm",
+                        "slot": slot_name,
+                        "prompt": formatted_prompt,
+                    },
+                    "waiting_for_slot": slot_name,
+                    "waiting_for_slot_type": "confirmation",
+                    "messages": [AIMessage(content=formatted_prompt)],
+                    "last_response": formatted_prompt,
                 }
             )
-
-            # After resume - we received NLU commands via resume payload
-            # We must persist them to state.commands so the loop checks them on next run
-            commands_update = []
-            if isinstance(resume_data, dict):
-                # RuntimeLoop passes serialized commands in "commands" key
-                commands_update = resume_data.get("commands", [])
-
-            # Return Command to persist updates (commands) despite interrupt
-            from langgraph.types import Command
-
-            updates["commands"] = commands_update
-            return Command(update=updates)
+            return Command(goto=END, update=updates)
 
         confirm_node.__name__ = f"confirm_{step.step}"
         return confirm_node

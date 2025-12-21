@@ -107,9 +107,9 @@ class TestCollectNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert - slot filled, returns empty dict
+        # Assert - slot filled, returns dict with cleared branch target
         assert isinstance(result, dict)
-        assert result == {}
+        assert result == {"_branch_target": None}
 
 
 class TestActionNodeFactory:
@@ -233,8 +233,8 @@ class TestBranchNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert - _branch_target = None means proceed to next step
-        assert result == {"_branch_target": None}
+        # Assert - no match returns empty dict, router will route to default next step
+        assert result == {}
 
 
 class TestConfirmNodeFactory:
@@ -293,8 +293,8 @@ class TestConfirmNodeFactory:
         node = factory.create(step)
         result = await node(state, runtime)
 
-        # Assert - no state change when slot already filled
-        assert result == {}
+        # Assert - no state change when slot already filled (except clearing branch target)
+        assert result == {"_branch_target": None}
 
 
 class TestWhileNodeFactory:

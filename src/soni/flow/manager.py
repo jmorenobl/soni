@@ -81,11 +81,15 @@ class FlowManager:
         # Create new stack without last element
         new_stack = list(state["flow_stack"][:-1])
 
-        # Get the popped context and update its state
         popped = cast(FlowContext, dict(state["flow_stack"][-1]))
         popped["flow_state"] = result
 
-        return popped, FlowDelta(flow_stack=new_stack)
+        # Cleanup executed steps for the popped flow
+        # Use None to signal removal in _merge_dicts reducer
+        return popped, FlowDelta(
+            flow_stack=new_stack,
+            executed_steps={popped["flow_id"]: None},  # type: ignore
+        )
 
     def handle_intent_change(
         self,
@@ -113,6 +117,13 @@ class FlowManager:
 
         _, delta = self.push_flow(state, new_flow)
         return delta
+
+    def get_active_flow_id(self, state: DialogueState) -> str | None:
+        """Get the ID of the active flow."""
+        context = self.get_active_context(state)
+        if not context:
+            return None
+        return context["flow_id"]
 
     def get_active_context(self, state: DialogueState) -> FlowContext | None:
         """Get the currently active flow context.
@@ -215,6 +226,18 @@ def merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
             )
         else:
             updates["flow_slots"] = delta.flow_slots
+
+    if delta.executed_steps is not None:
+        # Import strictly locally
+        from soni.core.types import _merge_dicts
+
+        if "_executed_steps" in updates:
+            # We must merge carefully if updates["_executed_steps"] exists
+            updates["_executed_steps"] = _merge_dicts(
+                cast(dict[str, Any], updates["_executed_steps"]), delta.executed_steps
+            )
+        else:
+            updates["_executed_steps"] = delta.executed_steps
 
 
 __all__ = ["FlowManager", "FlowDelta", "merge_delta"]

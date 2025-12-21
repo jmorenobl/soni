@@ -47,6 +47,7 @@ class FlowDelta:
 
     flow_stack: list[FlowContext] | None = None
     flow_slots: dict[str, dict[str, Any]] | None = None
+    executed_steps: dict[str, set[str]] | None = None
 
 
 def _last_value_str(current: str | None, new: str | None) -> str | None:
@@ -111,9 +112,28 @@ def _merge_flow_slots(
             result[flow_id] = {**result[flow_id], **slots}
             # print(f"  Result: {result[flow_id]}")
         else:
-            # New flow
             # print(f"  New flow {flow_id}: {slots}")
             result[flow_id] = slots
+    return result
+
+
+def _merge_dicts(
+    current: dict[str, Any],
+    new: dict[str, Any],
+) -> dict[str, Any]:
+    """Reducer that merges dictionaries.
+
+    Supports deletion: if value is None, key is removed from result.
+    Used for _executed_steps cleanup.
+    """
+    result = dict(current)
+    for key, value in new.items():
+        if value is None:
+            result.pop(key, None)
+        elif key in result and isinstance(result[key], set) and isinstance(value, set):
+            result[key] = result[key] | value
+        else:
+            result[key] = value
     return result
 
 
@@ -158,6 +178,15 @@ class DialogueState(TypedDict):
     _branch_target: Annotated[str | None, _last_value_any]  # Target node for branch routing
     _digression_pending: Annotated[bool, _last_value_any]  # Flag for digression during interrupt
     _pending_responses: Annotated[list[str], _last_value_any]  # Queue of responses to show
+    _pending_prompt: Annotated[
+        dict[str, Any] | None, _last_value_any
+    ]  # Prompt info for request_input_node
+
+    # NEW: Interrupt Architecture fields
+    _need_input: Annotated[bool, _last_value_any]  # Flag from subgraph
+
+    # Idempotency tracking (flow_id -> set of executed steps)
+    _executed_steps: Annotated[dict[str, set[str]], _merge_dicts]
 
     # Metadata
     turn_count: Annotated[int, _last_value_int]  # Last value wins on resume
@@ -243,6 +272,10 @@ class FlowContextProvider(Protocol):
         """Advance to next step in current flow."""
         ...
 
+    def get_active_flow_id(self, state: DialogueState) -> str | None:
+        """Get the ID of the active flow."""
+        ...
+
 
 @runtime_checkable
 class FlowManagerProtocol(SlotProvider, FlowStackProvider, FlowContextProvider, Protocol):
@@ -295,6 +328,24 @@ class SlotExtractorProtocol(Protocol):
 
 
 @runtime_checkable
+class NLUServiceProtocol(Protocol):
+    """Protocol for NLU Service (orchestrator level)."""
+
+    async def process_message(
+        self,
+        message: str,
+        state: DialogueState,
+        context: Any,  # RuntimeContext
+    ) -> Any:  # Returns NLUOutput
+        """Process a message through the NLU pipeline."""
+        ...
+
+    def serialize_commands(self, commands: list[Any]) -> list[dict[str, Any]]:
+        """Serialize NLU commands for storage in state."""
+        ...
+
+
+@runtime_checkable
 class ConfigProtocol(Protocol):
     """Protocol for SoniConfig."""
 
@@ -327,8 +378,15 @@ class RuntimeContext:
     config: ConfigProtocol
     flow_manager: FlowManagerProtocol
     action_handler: ActionHandlerProtocol
+    # du and slot_extractor deprecated, use nlu_service
     du: DUProtocol
-    slot_extractor: SlotExtractorProtocol | None = None  # Optional for backwards compat
+    slot_extractor: SlotExtractorProtocol | None = None
+
+    # NEW: Services
+    nlu_service: Any = None  # Typed as Any to avoid importing NLUServiceProtocol (circular)
+    subgraphs: dict[str, Any] | None = (
+        None  # dict[str, CompiledStateGraph]  # Optional for backwards compat
+    )
 
 
 # =============================================================================

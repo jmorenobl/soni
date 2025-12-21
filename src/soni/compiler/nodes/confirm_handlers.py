@@ -69,7 +69,12 @@ class FirstVisitHandler:
         formatted_prompt = format_prompt(ctx.prompt, slots)
 
         return {
-            "flow_state": "waiting_input",
+            "_need_input": True,
+            "_pending_prompt": {
+                "type": "confirm",
+                "slot": ctx.slot_name,
+                "prompt": formatted_prompt,
+            },
             "waiting_for_slot": ctx.slot_name,
             "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
             "messages": [AIMessage(content=formatted_prompt)],
@@ -86,32 +91,18 @@ class AffirmHandler:
         state: DialogueState,
         updates: dict[str, Any],
     ) -> dict[str, Any]:
-        """Process affirmation and proceed (legacy)."""
+        """Process affirmation and proceed."""
         delta = ctx.flow_manager.set_slot(state, ctx.slot_name, True)
         apply_delta(updates, delta)
         logger.debug(f"Confirmation slot '{ctx.slot_name}' affirmed")
 
         updates.update(
             {
-                "flow_state": "active",
+                "_need_input": False,
+                "_pending_prompt": None,
                 "waiting_for_slot": None,
             }
         )
-        return updates
-
-    def handle_interrupt(
-        self,
-        ctx: ConfirmationContext,
-        state: DialogueState,
-        updates: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Process affirmation with interrupt() API."""
-        delta = ctx.flow_manager.set_slot(state, ctx.slot_name, True)
-        apply_delta(updates, delta)
-        logger.debug(f"Confirmation slot '{ctx.slot_name}' affirmed")
-
-        # No need to set waiting_for_slot with interrupt()
-        updates.update({"flow_state": "active"})
         return updates
 
 
@@ -160,7 +151,12 @@ class DenyHandler:
 
             updates.update(
                 {
-                    "flow_state": "waiting_input",
+                    "_need_input": True,
+                    "_pending_prompt": {
+                        "type": "confirm",
+                        "slot": ctx.slot_name,
+                        "prompt": formatted_prompt,
+                    },
                     "waiting_for_slot": ctx.slot_name,
                     "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
                     "last_response": formatted_prompt,
@@ -177,7 +173,12 @@ class DenyHandler:
             prompt_message = f"What would you like to change {slot_to_change} to?"
             updates.update(
                 {
-                    "flow_state": "waiting_input",
+                    "_need_input": True,
+                    "_pending_prompt": {
+                        "type": "collect",
+                        "slot": slot_to_change,
+                        "prompt": prompt_message,
+                    },
                     "waiting_for_slot": slot_to_change,
                     "waiting_for_slot_type": SlotWaitType.COLLECTION,
                     "messages": [AIMessage(content=prompt_message)],
@@ -189,28 +190,11 @@ class DenyHandler:
         # Simple denial - proceed
         updates.update(
             {
-                "flow_state": "active",
+                "_need_input": False,
+                "_pending_prompt": None,
                 "waiting_for_slot": None,
             }
         )
-        return updates
-
-    def handle_interrupt(
-        self,
-        ctx: ConfirmationContext,
-        state: DialogueState,
-        updates: dict[str, Any],
-        commands: list[Any],
-        slot_to_change: str | None,
-    ) -> dict[str, Any]:
-        """Process denial with interrupt() API (no waiting_for_slot)."""
-        # Set confirmation to False
-        delta = ctx.flow_manager.set_slot(state, ctx.slot_name, False)
-        apply_delta(updates, delta)
-        logger.debug(f"Confirmation slot '{ctx.slot_name}' denied")
-
-        # Simple denial - just proceed (interrupt handling done by confirm_node)
-        updates.update({"flow_state": "active"})
         return updates
 
 
@@ -238,7 +222,8 @@ class ModificationHandler:
             apply_delta(updates, delta)
             updates.update(
                 {
-                    "flow_state": "active",
+                    "_need_input": False,
+                    "_pending_prompt": None,
                     "waiting_for_slot": None,
                 }
             )
@@ -255,7 +240,12 @@ class ModificationHandler:
 
         updates.update(
             {
-                "flow_state": "waiting_input",
+                "_need_input": True,
+                "_pending_prompt": {
+                    "type": "confirm",
+                    "slot": ctx.slot_name,
+                    "prompt": natural_reprompt,
+                },
                 "waiting_for_slot": ctx.slot_name,
                 "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
                 "messages": [AIMessage(content=natural_reprompt)],
@@ -263,36 +253,6 @@ class ModificationHandler:
             }
         )
         return updates
-
-    def handle_interrupt(
-        self,
-        ctx: ConfirmationContext,
-        state: DialogueState,
-        updates: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Handle modification with interrupt() API."""
-        config = ctx.confirmation_config
-
-        # Get behavior
-        behavior = config.modification_handling if config else "update_and_reprompt"
-
-        logger.info(f"Slot modification detected. Behavior: {behavior}")
-
-        if behavior == "update_and_confirm":
-            # Auto-confirm after update
-            delta = ctx.flow_manager.set_slot(state, ctx.slot_name, True)
-            apply_delta(updates, delta)
-            updates.update({"flow_state": "active"})
-            return updates
-
-        # "update_and_reprompt" - Reset retries and return
-        # Next invocation will call interrupt() with new prompt
-        delta = ctx.flow_manager.set_slot(state, ctx.retry_key, 0)
-        apply_delta(updates, delta)
-
-        # Don't call interrupt here - let main node do it
-        # Just return empty updates to trigger re-execution
-        return {}
 
 
 class RetryHandler:
@@ -322,7 +282,8 @@ class RetryHandler:
             apply_delta(updates, delta)
             updates.update(
                 {
-                    "flow_state": "active",
+                    "_need_input": False,
+                    "_pending_prompt": None,
                     "waiting_for_slot": None,
                     "last_response": "I didn't understand. Assuming 'no'.",
                     "messages": [AIMessage(content="I didn't understand. Assuming 'no'.")],
@@ -352,33 +313,16 @@ class RetryHandler:
 
         updates.update(
             {
-                "flow_state": "waiting_input",
+                "_need_input": True,
+                "_pending_prompt": {
+                    "type": "confirm",
+                    "slot": ctx.slot_name,
+                    "prompt": retry_prompt,
+                },
                 "waiting_for_slot": ctx.slot_name,
                 "waiting_for_slot_type": SlotWaitType.CONFIRMATION,
                 "last_response": retry_prompt,
                 "messages": [AIMessage(content=retry_prompt)],
             }
         )
-        return updates
-
-    def handle_interrupt(
-        self,
-        ctx: ConfirmationContext,
-        state: DialogueState,
-        updates: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Handle max retries with interrupt() API."""
-        # Get effective max retries
-        config = ctx.confirmation_config
-        pattern_max = config.max_retries if config else 3
-        effective_max = ctx.max_retries or pattern_max
-
-        # Max retries exceeded - default to deny
-        logger.warning(
-            f"Max retries ({effective_max}) exceeded for confirmation "
-            f"'{ctx.slot_name}', defaulting to deny"
-        )
-        delta = ctx.flow_manager.set_slot(state, ctx.slot_name, False)
-        apply_delta(updates, delta)
-        updates.update({"flow_state": "active"})
         return updates
