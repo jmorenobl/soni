@@ -84,7 +84,6 @@ import logging
 from typing import Any
 
 from langgraph.runtime import Runtime
-
 from soni.core.types import DialogueState, RuntimeContext
 
 logger = logging.getLogger(__name__)

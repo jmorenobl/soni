@@ -1,5 +1,3 @@
-import pytest
-
 from soni.core.constants import get_flow_node_name
 
 

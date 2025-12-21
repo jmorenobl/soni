@@ -1,7 +1,7 @@
 # Soni v2 - Milestone 0: Archive & Fresh Start
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
+**Status**: Ready for Review
+**Date**: 2025-12-21
 **Type**: Design Document
 
 ---
@@ -267,7 +267,7 @@ async def test_hello_world():
             SayStepConfig(step="hello", message="Hello, World!")
         ])
     })
-    
+
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
         assert response == "Hello, World!"

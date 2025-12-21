@@ -6,7 +6,6 @@ Verifies that all pattern handlers return CommandResult for consistency.
 from unittest.mock import MagicMock
 
 import pytest
-
 from soni.core.commands import CancelFlow, CorrectSlot, RequestClarification
 from soni.dm.nodes.command_registry import CommandResult
 

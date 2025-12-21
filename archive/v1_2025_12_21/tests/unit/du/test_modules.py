@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from soni.core.commands import SetSlot, StartFlow
 from soni.du.models import DialogueContext, FlowInfo, NLUOutput
 from soni.du.modules import SoniDU

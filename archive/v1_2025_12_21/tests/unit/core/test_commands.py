@@ -1,10 +1,7 @@
 """Unit tests for Command hierarchy."""
 
 import pytest
-
 from soni.core.commands import (
-    CancelFlow,
-    Command,
     SetSlot,
     StartFlow,
     parse_command,

@@ -1,8 +1,6 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
 

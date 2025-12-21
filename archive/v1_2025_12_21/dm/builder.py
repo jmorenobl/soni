@@ -3,11 +3,11 @@
 from langchain_core.runnables import Runnable
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
-
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.config import SoniConfig
 from soni.core.constants import NodeName
 from soni.core.types import DialogueState, RuntimeContext
+
+from soni.config import SoniConfig
 from soni.dm.nodes import execute_node, respond_node, resume_node, understand_node
 
 

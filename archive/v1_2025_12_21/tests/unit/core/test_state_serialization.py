@@ -12,12 +12,10 @@ This is critical for:
 import json
 from typing import Any
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-
 from soni.core.constants import FlowContextState, FlowState, SlotWaitType
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DialogueState, FlowContext
+from soni.core.types import FlowContext
 
 
 class TestDialogueStateSerializability:

@@ -37,7 +37,6 @@ class TestRuntimeLoopDurability:
     @pytest.mark.asyncio
     async def test_passes_durability_to_ainvoke(self):
         """Test that RuntimeLoop passes durability to graph.ainvoke."""
-        from soni.core.types import RuntimeContext
         from soni.runtime.loop import RuntimeLoop
 
         mock_graph = MagicMock()

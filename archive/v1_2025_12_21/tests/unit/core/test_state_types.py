@@ -1,10 +1,7 @@
 """Unit tests for core types."""
 
-import pytest
-
 from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DialogueState
 
 
 class TestDialogueState:

@@ -3,16 +3,14 @@
 from pathlib import Path
 
 import pytest
+from soni.core.errors import ConfigError
 
 from soni.config import (
     ActionStepConfig,
     CollectStepConfig,
     FlowConfig,
-    SoniConfig,
-    StepConfig,
 )
 from soni.config.loader import ConfigLoader
-from soni.core.errors import ConfigError
 
 
 class TestConfigModels:

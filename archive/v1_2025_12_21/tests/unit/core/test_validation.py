@@ -1,10 +1,10 @@
 """Tests for core validation logic."""
 
 import pytest
-
-from soni.config import SlotConfig
 from soni.core.constants import SlotType
 from soni.core.validation import validate_slot_value
+
+from soni.config import SlotConfig
 
 
 class TestValidator:

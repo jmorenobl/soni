@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from soni.du.metrics import create_slot_extraction_metric, normalize_value
 
 

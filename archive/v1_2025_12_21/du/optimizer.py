@@ -9,7 +9,6 @@ from typing import Any, cast
 import dspy
 from dspy import Example
 from dspy.teleprompt import MIPROv2
-
 from soni.core.commands import Command
 from soni.du.metrics import adapt_metric_for_gepa
 from soni.du.models import NLUOutput

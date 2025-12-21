@@ -1,9 +1,8 @@
 """Tests for SlotExtractor module."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from soni.core.commands import SetSlot
 from soni.du.slot_extractor import SlotExtractionInput, SlotExtractor
 

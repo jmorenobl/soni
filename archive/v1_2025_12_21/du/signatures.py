@@ -5,7 +5,6 @@ Based on the proven pattern from the current codebase.
 """
 
 import dspy
-
 from soni.du.models import DialogueContext, NLUOutput
 
 

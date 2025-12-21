@@ -3,8 +3,6 @@
 Verifies single source of truth for version.
 """
 
-import pytest
-
 
 class TestVersion:
     """Tests for version management."""

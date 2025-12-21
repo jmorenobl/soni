@@ -9,9 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from unittest.mock import MagicMock
 
-import pytest
-
 from soni.compiler.subgraph import SubgraphBuilder
+
 from soni.config.models import FlowConfig
 from soni.config.steps import (
     BranchStepConfig,

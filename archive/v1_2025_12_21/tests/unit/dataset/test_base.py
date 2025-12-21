@@ -2,8 +2,7 @@
 
 import dspy
 import pytest
-
-from soni.core.commands import AffirmConfirmation, SetSlot, StartFlow
+from soni.core.commands import SetSlot, StartFlow
 from soni.dataset.base import (
     ConversationContext,
     DomainConfig,

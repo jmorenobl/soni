@@ -3,12 +3,12 @@
 from typing import Any
 
 from langgraph.runtime import Runtime
-
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
-from soni.config.steps import ActionStepConfig, StepConfig
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import merge_delta
+
+from soni.config.steps import ActionStepConfig, StepConfig
 
 
 class ActionNodeFactory:

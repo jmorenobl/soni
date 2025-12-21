@@ -1,7 +1,6 @@
 """Tests for dataset pattern generators."""
 
 import pytest
-
 from soni.dataset.domains import ALL_DOMAINS
 from soni.dataset.patterns.cancellation import CancellationGenerator
 from soni.dataset.patterns.clarification import ClarificationGenerator

@@ -1,7 +1,6 @@
 """Restaurant reservation domain configuration and example data."""
 
 import dspy
-
 from soni.dataset.base import ConversationContext, DomainConfig, DomainExampleData
 
 # Example data constants

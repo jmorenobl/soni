@@ -1,6 +1,4 @@
-import pytest
-
-from soni.core.constants import FlowContextState, FlowState
+from soni.core.constants import FlowContextState
 from soni.core.state import create_empty_dialogue_state, get_current_flow_id
 
 

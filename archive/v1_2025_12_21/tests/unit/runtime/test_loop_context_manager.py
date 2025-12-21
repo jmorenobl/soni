@@ -3,11 +3,9 @@
 Verifies proper resource management via __aenter__/__aexit__.
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from soni.runtime.loop import RuntimeLoop
 
 

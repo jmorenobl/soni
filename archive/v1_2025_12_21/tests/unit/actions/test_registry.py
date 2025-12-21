@@ -1,7 +1,6 @@
 """Tests for ActionRegistry and Handler."""
 
 import pytest
-
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
 from soni.core.errors import ActionError

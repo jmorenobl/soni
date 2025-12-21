@@ -6,7 +6,6 @@ Uses the slot_extraction_cases from DomainExampleData for domain-specific exampl
 
 import dspy
 from pydantic import BaseModel
-
 from soni.dataset.base import DomainConfig
 from soni.du.slot_extractor import SlotExtractionInput, SlotExtractionResult
 

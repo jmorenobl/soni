@@ -4,7 +4,6 @@ from typing import Any, Literal
 
 import dspy
 from pydantic import BaseModel, Field
-
 from soni.dataset.constants import (
     DEFAULT_EXAMPLE_DATETIME,
     SHARED_CONFIRMATION_NEGATIVE,

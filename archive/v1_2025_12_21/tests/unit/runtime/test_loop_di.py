@@ -3,11 +3,11 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-from soni.config import SoniConfig
 from soni.core.types import DUProtocol
 from soni.du.modules import SoniDU
 from soni.runtime.loop import RuntimeLoop
+
+from soni.config import SoniConfig
 
 
 @pytest.fixture

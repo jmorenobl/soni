@@ -1,8 +1,6 @@
 import pytest
-
 from soni.compiler.factory import NodeFactoryRegistry
 from soni.compiler.subgraph import SubgraphBuilder
-from soni.config.steps import StepConfig
 from soni.core.errors import GraphBuildError, ValidationError
 
 
@@ -98,6 +96,7 @@ class TestNodeFactoryErrorTypes:
     def test_say_missing_message_raises_validation_error(self):
         """Test that say step without message raises ValidationError."""
         from soni.compiler.nodes.say import SayNodeFactory
+
         from soni.config.steps import SayStepConfig
 
         # Use model_construct to bypass Pydantic validation
@@ -112,6 +111,7 @@ class TestNodeFactoryErrorTypes:
     def test_collect_missing_slot_raises_validation_error(self):
         """Test that collect step without slot raises ValidationError."""
         from soni.compiler.nodes.collect import CollectNodeFactory
+
         from soni.config.steps import CollectStepConfig
 
         step = CollectStepConfig.model_construct(step="get_name", type="collect", message="hi")
@@ -125,6 +125,7 @@ class TestNodeFactoryErrorTypes:
     def test_action_missing_call_raises_validation_error(self):
         """Test that action step without call raises ValidationError."""
         from soni.compiler.nodes.action import ActionNodeFactory
+
         from soni.config.steps import ActionStepConfig
 
         step = ActionStepConfig.model_construct(step="do_something", type="action")
@@ -138,6 +139,7 @@ class TestNodeFactoryErrorTypes:
     def test_branch_missing_cases_raises_validation_error(self):
         """Test that branch step without cases raises ValidationError."""
         from soni.compiler.nodes.branch import BranchNodeFactory
+
         from soni.config.steps import BranchStepConfig
 
         step = BranchStepConfig.model_construct(step="check", type="branch", evaluate="slots.value")

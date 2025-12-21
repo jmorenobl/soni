@@ -11,7 +11,6 @@ from typing import Any
 
 import dspy
 from pydantic import BaseModel, Field
-
 from soni.core.commands import SetSlot
 from soni.du.base import OptimizableDSPyModule, safe_extract_result
 

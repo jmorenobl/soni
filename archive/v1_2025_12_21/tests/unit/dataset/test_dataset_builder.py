@@ -2,7 +2,6 @@
 
 import dspy
 import pytest
-
 from soni.dataset.base import DomainConfig, DomainExampleData, PatternGenerator
 from soni.dataset.builder import DatasetBuilder
 from soni.dataset.domains import ALL_DOMAINS

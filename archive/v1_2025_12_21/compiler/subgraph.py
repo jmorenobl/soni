@@ -10,13 +10,13 @@ from copy import deepcopy
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
-
 from soni.compiler.factory import get_factory_for_step
-from soni.config.models import FlowConfig
-from soni.config.steps import BranchStepConfig, StepConfig, WhileStepConfig
 from soni.core.constants import NodeName
 from soni.core.errors import GraphBuildError
 from soni.core.types import DialogueState, RuntimeContext
+
+from soni.config.models import FlowConfig
+from soni.config.steps import BranchStepConfig, StepConfig, WhileStepConfig
 
 # Constant for special node name
 END_FLOW_NODE = NodeName.END_FLOW

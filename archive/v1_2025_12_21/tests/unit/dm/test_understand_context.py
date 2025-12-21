@@ -1,7 +1,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from soni.core.constants import FlowState, SlotWaitType
 from soni.core.types import DialogueState, RuntimeContext
 from soni.du.service import build_du_context

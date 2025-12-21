@@ -5,8 +5,9 @@ Provides runtime type checking and coercion for slot values based on config.
 
 from typing import Any
 
-from soni.config import SlotConfig
 from soni.core.constants import SlotType
+
+from soni.config import SlotConfig
 
 
 def validate_slot_value(value: Any, config: SlotConfig) -> Any:

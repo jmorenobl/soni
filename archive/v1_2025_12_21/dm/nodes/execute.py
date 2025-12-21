@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
-
 from soni.core.commands import CancelFlow, StartFlow, parse_command
 from soni.core.constants import NodeName
 from soni.core.types import DialogueState, RuntimeContext

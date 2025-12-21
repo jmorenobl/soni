@@ -2,8 +2,8 @@
 
 import pytest
 from pydantic import ValidationError
-
 from soni.compiler.subgraph import SubgraphBuilder
+
 from soni.config import (
     ActionStepConfig,
     FlowConfig,

@@ -4,11 +4,11 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 from langgraph.runtime import Runtime
-
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
-from soni.config.steps import SayStepConfig, StepConfig
 from soni.core.types import DialogueState, RuntimeContext
+
+from soni.config.steps import SayStepConfig, StepConfig
 
 
 class SayNodeFactory:

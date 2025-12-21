@@ -3,10 +3,7 @@
 from dataclasses import fields
 from typing import get_type_hints
 
-import pytest
-
 from soni.core.types import (
-    DialogueState,
     FlowContext,
     FlowContextProvider,
     FlowDelta,

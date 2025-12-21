@@ -6,10 +6,8 @@ Verifies that concurrent registration and access operations are safe.
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import MagicMock
 
 import pytest
-
 from soni.actions.registry import ActionRegistry
 
 

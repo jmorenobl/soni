@@ -1,8 +1,6 @@
 """Tests for dataset registry utilities."""
 
-import dspy
 import pytest
-
 from soni.dataset.builder import DatasetBuilder
 from soni.dataset.registry import print_dataset_stats, validate_dataset
 

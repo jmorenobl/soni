@@ -1,7 +1,6 @@
 """Tests for dataset domains module."""
 
 import pytest
-
 from soni.dataset.domains import ALL_DOMAINS
 from soni.dataset.domains.banking import BANKING
 from soni.dataset.domains.ecommerce import ECOMMERCE

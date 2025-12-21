@@ -5,7 +5,6 @@ Tests handling of empty, multiple, and malformed messages.
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-
 from soni.runtime.extractor import ResponseExtractor
 
 

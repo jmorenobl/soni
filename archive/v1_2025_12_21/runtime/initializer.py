@@ -9,15 +9,15 @@ from typing import cast
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
-
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
-from soni.config import SoniConfig
 from soni.core.types import DUProtocol, SlotExtractorProtocol
 from soni.dm.builder import build_orchestrator
 from soni.du.modules import SoniDU
 from soni.du.slot_extractor import SlotExtractor
 from soni.flow.manager import FlowManager
+
+from soni.config import SoniConfig
 
 logger = logging.getLogger(__name__)
 

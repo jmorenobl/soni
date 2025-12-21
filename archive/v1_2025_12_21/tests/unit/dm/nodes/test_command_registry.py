@@ -1,10 +1,9 @@
 """Tests for CommandHandlerRegistry."""
 
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
-
 from soni.core.commands import (
     AffirmConfirmation,
     ChitChat,
@@ -18,7 +17,6 @@ from soni.dm.nodes.command_registry import (
     COMMAND_HANDLERS,
     CommandHandlerRegistry,
     CommandResult,
-    get_command_registry,
     register_command_handler,
 )
 

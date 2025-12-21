@@ -1,7 +1,5 @@
 """Tests for ResponseStreamExtractor."""
 
-import pytest
-
 
 class TestResponseStreamExtractor:
     """Tests for ResponseStreamExtractor."""

@@ -23,7 +23,6 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 from langgraph.runtime import Runtime
-
 from soni.core.types import DialogueState, RuntimeContext
 
 

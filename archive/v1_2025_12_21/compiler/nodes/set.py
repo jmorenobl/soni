@@ -162,13 +162,13 @@ import logging
 from typing import Any
 
 from langgraph.runtime import Runtime
-
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field, validate_non_empty
-from soni.config.steps import SetStepConfig, StepConfig
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import merge_delta
+
+from soni.config.steps import SetStepConfig, StepConfig
 
 logger = logging.getLogger(__name__)
 

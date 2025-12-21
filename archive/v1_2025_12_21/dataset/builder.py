@@ -3,7 +3,6 @@
 from typing import Literal
 
 import dspy
-
 from soni.dataset.base import DomainConfig, PatternGenerator
 from soni.dataset.domains import ALL_DOMAINS
 from soni.dataset.edge_cases import get_all_edge_cases

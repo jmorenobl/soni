@@ -2,11 +2,11 @@
 
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
-
 from soni.actions.registry import ActionRegistry
+from soni.runtime.loop import RuntimeLoop
+
 from soni.config import FlowConfig, SoniConfig
 from soni.config.steps import ActionStepConfig, CollectStepConfig, SayStepConfig
-from soni.runtime.loop import RuntimeLoop
 
 
 @pytest.mark.asyncio

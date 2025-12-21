@@ -1,10 +1,10 @@
 """Unit tests for Node Factories."""
 
-from dataclasses import dataclass
-from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from soni.compiler.nodes.branch import BranchNodeFactory
+from soni.core.state import create_empty_dialogue_state
 
 from soni.compiler.nodes import (
     ActionNodeFactory,
@@ -13,25 +13,18 @@ from soni.compiler.nodes import (
     SayNodeFactory,
     WhileNodeFactory,
 )
-from soni.compiler.nodes.base import NodeFunction
-from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.config import (
     ActionStepConfig,
     BranchStepConfig,
     CollectStepConfig,
     ConfirmStepConfig,
     SayStepConfig,
-    StepConfig,
     WhileStepConfig,
 )
-from soni.core.state import create_empty_dialogue_state
-from soni.core.types import DialogueState, RuntimeContext
 
 
 # Mocking helper
 def create_mock_config(fm=None, ah=None):
-    from unittest.mock import MagicMock
-
     from langgraph.runtime import Runtime
 
     from soni.config import SoniConfig

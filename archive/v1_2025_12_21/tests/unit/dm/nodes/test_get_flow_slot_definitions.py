@@ -1,6 +1,7 @@
 """Tests for get_flow_slot_definitions helper."""
 
-import pytest
+from soni.du.service import get_flow_slot_definitions
+from soni.du.slot_extractor import SlotExtractionInput
 
 from soni.config import (
     CollectStepConfig,
@@ -9,10 +10,7 @@ from soni.config import (
     SayStepConfig,
     SlotConfig,
     SoniConfig,
-    StepConfig,
 )
-from soni.du.service import get_flow_slot_definitions
-from soni.du.slot_extractor import SlotExtractionInput
 
 
 class TestGetFlowSlotDefinitions:

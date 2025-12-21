@@ -1,13 +1,13 @@
 """Tests for server error handling - ensures no sensitive data exposure."""
 
 import pytest
-
 from soni.core.errors import (
     ConfigError,
     FlowError,
     NLUError,
     ValidationError,
 )
+
 from soni.server.errors import (
     create_error_reference,
     create_error_response,

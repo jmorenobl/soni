@@ -2,10 +2,9 @@
 
 from copy import deepcopy
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
-
 from soni.compiler.nodes.confirm_handlers import (
     AffirmHandler,
     DenyHandler,

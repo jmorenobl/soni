@@ -4,7 +4,6 @@ from unittest.mock import Mock
 
 import pytest
 from pydantic import BaseModel, ValidationError
-
 from soni.du.base import safe_extract_result, validate_dspy_result
 from soni.du.models import NLUOutput
 from soni.du.slot_extractor import SlotExtractionResult

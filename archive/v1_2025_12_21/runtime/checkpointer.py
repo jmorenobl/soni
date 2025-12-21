@@ -11,7 +11,6 @@ from typing import cast
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
-
 from soni.core.errors import ConfigError
 
 logger = logging.getLogger(__name__)

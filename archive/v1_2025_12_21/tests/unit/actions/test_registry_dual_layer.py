@@ -4,7 +4,6 @@ Tests global vs local action precedence and isolation.
 """
 
 import pytest
-
 from soni.actions.registry import ActionRegistry
 
 

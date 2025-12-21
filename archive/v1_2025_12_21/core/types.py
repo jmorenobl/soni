@@ -13,7 +13,6 @@ from typing import Annotated, Any, Protocol, TypedDict, runtime_checkable
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
-
 from soni.core.constants import FlowContextState, FlowState, SlotWaitType
 
 # Forward reference for Protocol definitions

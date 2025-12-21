@@ -99,12 +99,12 @@ from typing import Any
 
 from langgraph.runtime import Runtime
 from langgraph.types import Command
-
 from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import validate_non_empty
-from soni.config.steps import StepConfig, WhileStepConfig
 from soni.core.expression import evaluate_condition
 from soni.core.types import DialogueState, RuntimeContext
+
+from soni.config.steps import StepConfig, WhileStepConfig
 
 # Special constant for exiting a while loop from within
 EXIT_LOOP_TARGET = "__exit_loop__"

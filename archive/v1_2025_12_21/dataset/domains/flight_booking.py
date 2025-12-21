@@ -5,7 +5,6 @@ training examples across all conversational patterns.
 """
 
 import dspy
-
 from soni.dataset.base import ConversationContext, DomainConfig, DomainExampleData
 
 # Example data for generating varied examples

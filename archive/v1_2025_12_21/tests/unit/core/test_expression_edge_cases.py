@@ -1,5 +1,3 @@
-import pytest
-
 from soni.core.expression import evaluate_condition
 
 

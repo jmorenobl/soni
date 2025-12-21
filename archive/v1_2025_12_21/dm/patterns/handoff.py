@@ -3,7 +3,6 @@
 import logging
 
 from langchain_core.messages import AIMessage
-
 from soni.core.commands import HumanHandoff
 from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes.command_registry import CommandResult

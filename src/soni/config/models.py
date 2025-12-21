@@ -1,74 +1,41 @@
-"""Flow and step configuration models.
+"""Configuration models for Soni v2 M1."""
 
-Core Pydantic models for defining flows, steps, slots, and triggers.
-"""
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-# Import discriminated union step types
-from soni.config.steps import (
-    ActionStepConfig,
-    BranchStepConfig,
-    CollectStepConfig,
-    ConfirmStepConfig,
-    SayStepConfig,
-    SetStepConfig,
-    StepConfig,
-    WhileStepConfig,
-)
+# DSL Version constants
+SUPPORTED_VERSIONS = frozenset({"1.0"})
+CURRENT_VERSION = "1.0"
 
 
-class TriggerConfig(BaseModel):
-    """Trigger configuration for a flow."""
-
-    intents: list[str] = Field(
-        default_factory=list, description="Example phrases that trigger this flow"
-    )
-
-
-class SlotConfig(BaseModel):
-    """Slot definition from YAML.
-
-    Provides metadata for slot validation and NLU extraction.
-    """
-
-    type: str = Field(default="string", description="Data type: string, float, date, etc.")
-    prompt: str = Field(default="", description="Prompt to ask user for this slot")
-    validator: str | None = Field(default=None, description="Validator function name")
-    validation_error_message: str | None = Field(
-        default=None, description="Message shown when validation fails"
-    )
-    required: bool = Field(default=True, description="Whether this slot must be filled")
-    description: str = Field(default="", description="Human-readable description for NLU")
-    examples: list[str] = Field(
-        default_factory=list, description="Example valid values for NLU extraction"
-    )
+class SayStepConfig(BaseModel):
+    """Configuration for say steps."""
+    step: str = Field(description="Step identifier")
+    type: str = "say"
+    message: str = Field(description="Message to display")
 
 
 class FlowConfig(BaseModel):
-    """Configuration for a single flow."""
-
-    description: str
-    steps: list[StepConfig] = Field(default_factory=list)
-    trigger: TriggerConfig | None = None
-
-    @property
-    def trigger_intents(self) -> list[str]:
-        """Get trigger intents or empty list."""
-        return self.trigger.intents if self.trigger else []
+    """Configuration for a flow."""
+    description: str = ""
+    steps: list[SayStepConfig] = Field(default_factory=list)
 
 
-# Re-export step types for convenience
-__all__ = [
-    "TriggerConfig",
-    "SlotConfig",
-    "FlowConfig",
-    "StepConfig",
-    "SayStepConfig",
-    "CollectStepConfig",
-    "ActionStepConfig",
-    "BranchStepConfig",
-    "ConfirmStepConfig",
-    "WhileStepConfig",
-    "SetStepConfig",
+class SoniConfig(BaseModel):
+    """Root configuration with DSL versioning."""
+    version: str = Field(default=CURRENT_VERSION, description="DSL version")
+    flows: dict[str, FlowConfig] = Field(default_factory=dict)
+    
+    def model_post_init(self, __context: object) -> None:
+        """Validate DSL version after initialization."""
+        if self.version not in SUPPORTED_VERSIONS:
+            raise ValueError(
+                f"Unsupported DSL version: {self.version}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_VERSIONS))}"
+            )
+
+StepConfig = Annotated[
+    SayStepConfig,
+    Field(discriminator="type"),
 ]

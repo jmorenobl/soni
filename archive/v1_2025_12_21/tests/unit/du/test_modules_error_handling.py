@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from soni.du.models import DialogueContext, NLUOutput
 from soni.du.modules import SoniDU
 

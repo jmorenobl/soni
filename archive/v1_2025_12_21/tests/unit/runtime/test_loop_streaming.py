@@ -4,8 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from soni.core.errors import StateError
-
 
 class TestRuntimeLoopStreaming:
     """Tests for process_message_streaming method."""
