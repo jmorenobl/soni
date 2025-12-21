@@ -1,4 +1,4 @@
-"""CollectNodeFactory for M2."""
+"""CollectNodeFactory for M5 (with validation)."""
 
 from typing import Any
 
@@ -6,12 +6,13 @@ from langgraph.runtime import Runtime
 
 from soni.config.models import CollectStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
+from soni.core.validation import validate
 from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
 
 
 class CollectNodeFactory:
-    """Factory for collect step nodes (SRP: slot collection only)."""
+    """Factory for collect step nodes (SRP: slot collection + validation)."""
 
     def create(
         self,
@@ -21,35 +22,58 @@ class CollectNodeFactory:
     ) -> NodeFunction:
         """Create a collect node function."""
         if not isinstance(step, CollectStepConfig):
-            raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
+            raise ValueError(
+                f"CollectNodeFactory received wrong step type: {type(step).__name__}"
+            )
 
         slot_name = step.slot
         prompt = step.message
+        validator_name = step.validator
+        error_message = step.validation_error_message or f"Invalid value for {slot_name}"
 
         async def collect_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            """Collect slot value from user."""
-            # ISP: Use SlotProvider interface (FlowManager)
+            """Collect and validate slot value from user."""
             fm = runtime.context.flow_manager
 
-            # 1. Already filled? Clear branch target and continue
+            # 1. Already filled? Continue to next step
             if fm.get_slot(state, slot_name):
                 return {"_branch_target": None}
 
-            # 2. Command provides value?
+            # 2. Check for value in commands
             commands = state.get("commands", []) or []
 
             for cmd in commands:
                 if cmd.get("type") == "set_slot" and cmd.get("slot") == slot_name:
-                    delta = fm.set_slot(state, slot_name, cmd["value"])
-                    # Clear branch target + consume command
+                    value = cmd["value"]
+
+                    # 3. Validate if validator configured
+                    if validator_name:
+                        slots = fm.get_all_slots(state)
+                        is_valid = await validate(value, validator_name, slots)
+
+                        if not is_valid:
+                            # Validation failed - re-prompt with error
+                            return {
+                                "_need_input": True,
+                                "_pending_prompt": {
+                                    "slot": slot_name,
+                                    "prompt": prompt,
+                                    "error": error_message,
+                                },
+                                "response": error_message,
+                                "_branch_target": None,
+                            }
+
+                    # 4. Valid - set slot and continue
+                    delta = fm.set_slot(state, slot_name, value)
                     updates: dict[str, Any] = {"commands": [], "_branch_target": None}
                     merge_delta(updates, delta)
                     return updates
 
-            # 3. Need input (clear branch target to prevent loops on resume)
+            # 5. No value provided - need input
             return {
                 "_need_input": True,
                 "_pending_prompt": {"slot": slot_name, "prompt": prompt},
@@ -59,3 +83,4 @@ class CollectNodeFactory:
 
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node
+

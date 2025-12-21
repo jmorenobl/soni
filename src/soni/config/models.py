@@ -24,6 +24,10 @@ class CollectStepConfig(BaseModel):
     type: Literal["collect"] = "collect"
     slot: str = Field(description="Slot to fill")
     message: str = Field(description="Prompt message")
+    validator: str | None = Field(default=None, description="Validator function name")
+    validation_error_message: str | None = Field(
+        default=None, description="Error message on validation failure"
+    )
 
 
 class SetStepConfig(BaseModel):

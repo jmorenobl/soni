@@ -10,7 +10,7 @@ from soni.runtime.loop import RuntimeLoop
 @pytest.mark.asyncio
 async def test_collect_and_greet():
     """Two-turn conversation: collect name, then greet.
-    
+
     NLU detects intent from flow description and triggers the flow.
     """
     # Arrange - flow with description for NLU to match

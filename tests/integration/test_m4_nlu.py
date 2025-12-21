@@ -16,7 +16,7 @@ from soni.runtime.loop import RuntimeLoop
 @pytest.mark.asyncio
 async def test_nlu_triggers_flow():
     """NLU detects intent and triggers appropriate flow.
-    
+
     MockSoniDU returns StartFlow for first flow in config.
     """
     # Arrange - two flows, NLU should trigger first one
@@ -60,10 +60,10 @@ async def test_nlu_with_slot_collection():
     # Act - first turn triggers flow, asks for name
     from langgraph.checkpoint.memory import MemorySaver
     checkpointer = MemorySaver()
-    
+
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response1 = await runtime.process_message("Hello", user_id="test")
-    
+
     assert "name" in response1.lower()
 
     # Turn 2 - provide name

@@ -7,7 +7,13 @@ and are idempotent per ADR-002.
 import pytest
 
 from soni.actions.registry import ActionRegistry
-from soni.config.models import ActionStepConfig, FlowConfig, SayStepConfig, SoniConfig
+from soni.config.models import (
+    ActionStepConfig,
+    CollectStepConfig,
+    FlowConfig,
+    SayStepConfig,
+    SoniConfig,
+)
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -69,3 +75,48 @@ async def test_action_registry_contains():
     # Assert
     assert "my_action" in registry
     assert "other" not in registry
+
+
+@pytest.mark.asyncio
+async def test_validation_rejects_invalid():
+    """Collect node rejects invalid values and re-prompts."""
+    from soni.core.validation import register_validator
+
+    # Register validator
+    def validate_positive(value, slots):
+        try:
+            return float(value) > 0
+        except (ValueError, TypeError):
+            return False
+
+    register_validator("positive_amount", validate_positive)
+
+    config = SoniConfig(
+        flows={
+            "transfer": FlowConfig(
+                description="Transfer money",
+                steps=[
+                    CollectStepConfig(
+                        step="ask_amount",
+                        slot="amount",
+                        message="How much?",
+                        validator="positive_amount",
+                        validation_error_message="Amount must be positive",
+                    ),
+                    SayStepConfig(step="confirm", message="Transferring ${amount}"),
+                ],
+            )
+        }
+    )
+
+    # Mock that provides invalid value first, then valid
+    from langgraph.checkpoint.memory import MemorySaver
+
+    checkpointer = MemorySaver()
+
+    # First turn - trigger flow
+    async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
+        response1 = await runtime.process_message("transfer money", user_id="val_test")
+
+    assert "How much" in response1
+

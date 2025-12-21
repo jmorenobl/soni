@@ -9,7 +9,7 @@ from soni.runtime.loop import RuntimeLoop
 @pytest.mark.asyncio
 async def test_hello_world():
     """A flow with a single say step returns the message.
-    
+
     NLU detects intent from flow description and triggers the flow.
     """
     # Arrange - flow with description for NLU to match
