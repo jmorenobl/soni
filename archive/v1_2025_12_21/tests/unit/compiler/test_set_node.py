@@ -3,12 +3,12 @@
 import pytest
 from pydantic import ValidationError
 from soni.compiler.nodes.set import SetNodeFactory
+
+from soni.config import SetStepConfig
 from soni.core.constants import FlowContextState, FlowState
 from soni.core.errors import ValidationError as SoniValidationError
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import FlowManager
-
-from soni.config import SetStepConfig
 
 
 @pytest.fixture

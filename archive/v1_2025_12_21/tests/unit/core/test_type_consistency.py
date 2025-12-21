@@ -19,12 +19,11 @@ def test_flow_context_state_is_strenum():
 
 def test_no_duplicate_flow_state_in_types():
     """Test that types.py doesn't define its own FlowState Literal."""
-    import soni.core.types as types_module
-
     # Check if 'FlowState' in types works as expected
     # The crucial check is that it's NOT a distinct Literal definition
     # If types.py defines 'FlowState = Literal[...]', it's NOT the same object
     # as constants.FlowState class.
+    import soni.core.types as types_module
     from soni.core.constants import FlowState as ConstFlowState
 
     # If types.py imports from constants, this will be True

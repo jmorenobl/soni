@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import BaseModel
-from soni.core.types import RuntimeContext
 from soni.dm.nodes.understand import understand_node
+
+from soni.core.types import RuntimeContext
 
 
 class UnknownCommand(BaseModel):

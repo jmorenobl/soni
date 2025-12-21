@@ -2,10 +2,10 @@ from unittest.mock import Mock
 
 import pytest
 from soni.compiler.nodes.confirm import ConfirmNodeFactory
-from soni.core.constants import FlowState
-from soni.core.types import DialogueState
 
 from soni.config import ConfirmStepConfig
+from soni.core.constants import FlowState
+from soni.core.types import DialogueState
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 1: Hello World (Say Only)
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0
 
 ---
@@ -163,7 +163,7 @@ class SoniConfig(BaseModel):
     """Root configuration with DSL versioning."""
     version: str = Field(default=CURRENT_VERSION, description="DSL version")
     flows: dict[str, FlowConfig] = Field(default_factory=dict)
-    
+
     def model_post_init(self, __context: object) -> None:
         """Validate DSL version after initialization."""
         if self.version not in SUPPORTED_VERSIONS:
@@ -222,16 +222,16 @@ class SayNodeFactory:
         """Create a node that returns a static response."""
         if not isinstance(step, SayStepConfig):
             raise ValueError(f"SayNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         message = step.message
-        
+
         async def say_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Return the message as response."""
             return {"response": message}
-        
+
         say_node.__name__ = f"say_{step.step}"
         return say_node
 ```
@@ -291,25 +291,25 @@ from soni.core.types import DialogueState
 def build_flow_subgraph(flow: FlowConfig):
     """Build a compiled subgraph for a flow."""
     builder = StateGraph(DialogueState)
-    
+
     prev_step = None
     for i, step in enumerate(flow.steps):
         factory = get_factory_for_step(step.type)
         node_fn = factory.create(step, flow.steps, i)
         builder.add_node(step.step, node_fn)
-        
+
         if i == 0:
             builder.set_entry_point(step.step)
-        
+
         if prev_step:
             builder.add_edge(prev_step, step.step)
-        
+
         prev_step = step.step
-    
+
     # Last step -> END
     if prev_step:
         builder.add_edge(prev_step, END)
-    
+
     return builder.compile()
 ```
 
@@ -349,11 +349,11 @@ from soni.core.types import DialogueState
 def build_orchestrator():
     """Build the main orchestrator graph."""
     builder = StateGraph(DialogueState)
-    
+
     builder.add_node("execute", execute_node)
     builder.set_entry_point("execute")
     builder.add_edge("execute", END)
-    
+
     return builder.compile()
 ```
 
@@ -371,7 +371,7 @@ from soni.config.models import SoniConfig
 @dataclass
 class RuntimeContext:
     \"\"\"Context passed to nodes via runtime.context.
-    
+
     This is the typed context accessible in nodes via `runtime.context`.
     \"\"\"
     subgraph: Any  # CompiledStateGraph
@@ -396,26 +396,26 @@ from soni.runtime.context import RuntimeContext
 
 class RuntimeLoop:
     \"\"\"Simple runtime loop for M1.\"\"\"
-    
+
     def __init__(self, config: SoniConfig) -> None:
         self.config = config
         self._graph: CompiledStateGraph | None = None
         self._context: RuntimeContext | None = None
-    
+
     async def __aenter__(self) -> \"RuntimeLoop\":
         \"\"\"Initialize graphs.\"\"\"
         # Build subgraph for first flow
         flow_name = next(iter(self.config.flows.keys()))
         flow = self.config.flows[flow_name]
         subgraph = build_flow_subgraph(flow)
-        
+
         # Create context
         self._context = RuntimeContext(subgraph=subgraph, config=self.config)
-        
+
         # Build orchestrator
         self._graph = build_orchestrator()
         return self
-    
+
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -424,18 +424,18 @@ class RuntimeLoop:
     ) -> None:
         \"\"\"Cleanup.\"\"\"
         pass
-    
+
     async def process_message(self, message: str) -> str:
         \"\"\"Process a message and return response.\"\"\"
         if self._graph is None or self._context is None:
             raise RuntimeError(\"RuntimeLoop not initialized. Use 'async with' context.\")
-        
+
         state = create_empty_state()
         state[\"user_message\"] = message
-        
+
         # Pass context via configurable
         config = {\"configurable\": {\"context\": self._context}}
-        
+
         result = await self._graph.ainvoke(state, config)
         return result.get(\"response\", \"\")
 ```
@@ -467,11 +467,11 @@ async def test_hello_world():
             )
         }
     )
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
-    
+
     # Assert
     assert response == "Hello, World!"
 
@@ -490,11 +490,11 @@ async def test_multi_step_say():
             )
         }
     )
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
-    
+
     # Assert
     assert response == "Welcome to Soni!"
 ```
@@ -516,9 +516,9 @@ async def test_say_node_returns_message():
     """Say node returns the configured message."""
     step = SayStepConfig(step="test", message="Test message")
     node = create_say_node(step)
-    
+
     result = await node({}, None)
-    
+
     assert result["response"] == "Test message"
 
 
@@ -526,7 +526,7 @@ def test_say_node_has_correct_name():
     """Say node function has descriptive name."""
     step = SayStepConfig(step="greet", message="Hello")
     node = create_say_node(step)
-    
+
     assert node.__name__ == "say_greet"
 ```
 

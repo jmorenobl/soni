@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
+
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState, RuntimeContext
 
@@ -65,7 +66,6 @@ class TestActionNodeFactory:
     async def test_action_node_uses_runtime(self):
         """Test that action nodes accept Runtime parameter."""
         from soni.compiler.nodes.action import ActionNodeFactory
-
         from soni.config.steps import ActionStepConfig
 
         step = ActionStepConfig(

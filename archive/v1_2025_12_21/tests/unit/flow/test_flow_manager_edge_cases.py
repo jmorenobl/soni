@@ -4,6 +4,7 @@ Tests complex flow stack scenarios and edge cases.
 """
 
 import pytest
+
 from soni.core.errors import FlowStackError
 from soni.core.state import create_empty_dialogue_state
 from soni.flow.manager import FlowDelta, FlowManager, merge_delta

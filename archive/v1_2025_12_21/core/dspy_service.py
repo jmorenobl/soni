@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import dspy
-from soni.core.errors import ConfigError
 
 from soni.config import SoniConfig
+from soni.core.errors import ConfigError
 
 logger = logging.getLogger(__name__)
 

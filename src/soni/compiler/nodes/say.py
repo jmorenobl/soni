@@ -19,15 +19,27 @@ class SayNodeFactory:
         """Create a node that returns a static response."""
         if not isinstance(step, SayStepConfig):
             raise ValueError(f"SayNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         message = step.message
-        
+
         async def say_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Return the message as response."""
-            return {"response": message}
-        
+            # Interpolate slots
+            import re
+
+            fm = runtime.context.flow_manager
+
+            def replace_slot(match: re.Match) -> str:
+                slot_name = match.group(1)
+                value = fm.get_slot(state, slot_name)
+                return str(value) if value is not None else match.group(0)
+
+            interpolated_message = re.sub(r"\{(\w+)\}", replace_slot, message)
+
+            return {"response": interpolated_message}
+
         say_node.__name__ = f"say_{step.step}"
         return say_node

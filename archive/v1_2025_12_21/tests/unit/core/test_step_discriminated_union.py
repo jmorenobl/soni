@@ -1,6 +1,5 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
-
 from soni.config.steps import (
     CollectStepConfig,
     SayStepConfig,

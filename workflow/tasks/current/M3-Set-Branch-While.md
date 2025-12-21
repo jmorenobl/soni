@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 3: Set + Branch + While
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0, M1, M2
 
 ---
@@ -133,10 +133,10 @@ While loops are compiled to branch + jump_to pattern:
 class DialogueState(TypedDict):
     # From M1, M2
     ...
-    
+
     # NEW M3: Idempotency
     _executed_steps: Annotated[dict[str, set[str]], _merge_dicts]
-    
+
     # NEW M3: Branch routing
     _branch_target: Annotated[str | None, _last_value]
 ```
@@ -172,31 +172,31 @@ class SetNodeFactory:
         """Create a set node function."""
         if not isinstance(step, SetStepConfig):
             raise ValueError(f"SetNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         slots_config = step.slots
         condition = step.condition
-        
+
         async def set_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Set slot values programmatically."""
             fm = runtime.context.flow_manager
-            
+
             # Optional condition
             if condition:
                 result = evaluate_expression(condition, fm.get_all_slots(state))
                 if not result:
                     return {}
-            
+
             updates: dict[str, Any] = {}
             for slot_name, value_expr in slots_config.items():
                 value = evaluate_value(value_expr, fm.get_all_slots(state))
                 delta = fm.set_slot(state, slot_name, value)
                 merge_delta(updates, delta)
-            
+
             return updates
-        
+
         set_node.__name__ = f"set_{step.step}"
         return set_node
 
@@ -230,23 +230,23 @@ class BranchNodeFactory:
         """Create a branch node function."""
         if not isinstance(step, BranchStepConfig):
             raise ValueError(f"BranchNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         slot_name = step.slot
         expression = step.evaluate
         cases = step.cases
-        
+
         async def branch_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Route based on slot value or expression."""
             fm = runtime.context.flow_manager
-            
+
             if expression:
                 value = evaluate_expression(expression, fm.get_all_slots(state))
             else:
                 value = fm.get_slot(state, slot_name)
-            
+
             target = cases.get("default")
             for case_value, case_target in cases.items():
                 if case_value == "default":
@@ -254,9 +254,9 @@ class BranchNodeFactory:
                 if matches(value, case_value):
                     target = case_target
                     break
-            
+
             return {"_branch_target": target}
-        
+
         branch_node.__name__ = f"branch_{step.step}"
         return branch_node
 
@@ -287,15 +287,15 @@ def _create_router(step_names: list[str], default: str):
         # Priority 1: Need input
         if state.get("_need_input"):
             return END
-        
+
         # Priority 2: Branch target
         target = state.get("_branch_target")
         if target and target in step_names:
             return target
-        
+
         # Default: next step
         return default
-    
+
     return router
 ```
 
@@ -321,11 +321,11 @@ async def test_branch_routes_based_on_value():
         SayStepConfig(step="large", message="Large amount"),
         SayStepConfig(step="small", message="Small amount"),
     ])})
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("start")
-    
+
     # Assert
     assert "Small amount" in response
 ```

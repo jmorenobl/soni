@@ -1,7 +1,8 @@
 """Unit tests for SayNodeFactory."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.say import SayNodeFactory
@@ -15,7 +16,7 @@ async def test_say_node_returns_message():
     step = SayStepConfig(step="test", message="Test message")
     factory = SayNodeFactory()
     node = factory.create(step)
-    
+
     # Mock Runtime
     runtime = MagicMock(spec=Runtime)
     # No context needed for say node currently (it doesn't use it yet in M1 simplified version)
@@ -23,7 +24,7 @@ async def test_say_node_returns_message():
     runtime.context = MagicMock(spec=RuntimeContext)
 
     result = await node({}, runtime)
-    
+
     assert result["response"] == "Test message"
 
 
@@ -32,5 +33,5 @@ def test_say_node_has_correct_name():
     step = SayStepConfig(step="greet", message="Hello")
     factory = SayNodeFactory()
     node = factory.create(step)
-    
+
     assert node.__name__ == "say_greet"

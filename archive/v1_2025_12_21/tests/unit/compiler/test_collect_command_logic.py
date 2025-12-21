@@ -14,9 +14,9 @@ class TestCollectNodeCommandLogic:
 
     async def test_collect_node_skips_when_slot_filled(self):
         """Test that collect node returns empty dict when slot already filled."""
-        from soni.compiler.nodes.collect import CollectNodeFactory
-
         from soni.config.steps import CollectStepConfig
+
+        from soni.compiler.nodes.collect import CollectNodeFactory
 
         step = CollectStepConfig(
             type="collect",
@@ -41,10 +41,10 @@ class TestCollectNodeCommandLogic:
 
     async def test_collect_node_uses_setslot_command(self):
         """Test that collect node uses SetSlot command when provided by NLU."""
+        from soni.config.steps import CollectStepConfig
+
         from soni.compiler.nodes.collect import CollectNodeFactory
         from soni.flow.manager import FlowDelta
-
-        from soni.config.steps import CollectStepConfig
 
         step = CollectStepConfig(
             type="collect",
@@ -88,9 +88,9 @@ class TestCollectNodeCommandLogic:
 
     async def test_collect_node_uses_dict_command(self):
         """Test that collect node handles dict-format SetSlot commands."""
-        from soni.compiler.nodes.collect import CollectNodeFactory
-
         from soni.config.steps import CollectStepConfig
+
+        from soni.compiler.nodes.collect import CollectNodeFactory
 
         step = CollectStepConfig(
             type="collect",
@@ -124,9 +124,9 @@ class TestCollectNodeCommandLogic:
 
     async def test_collect_node_ignores_wrong_slot_command(self):
         """Test that collect node ignores SetSlot for different slot."""
-        from soni.compiler.nodes.collect import CollectNodeFactory
-
         from soni.config.steps import CollectStepConfig
+
+        from soni.compiler.nodes.collect import CollectNodeFactory
 
         step = CollectStepConfig(
             type="collect",

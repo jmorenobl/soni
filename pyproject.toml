@@ -70,6 +70,8 @@ exclude = [
     ".mypy_cache",
     ".ruff_cache",
     "experiments",
+    "archive",
+    "ref",
 ]
 
 [tool.ruff.lint]
@@ -132,6 +134,7 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
+exclude = ["^archive/", "^ref/"]
 
 # Ignore missing imports for third-party libraries without stubs
 [[tool.mypy.overrides]]

@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 2: Collect + Interrupt
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0, M1
 
 ---
@@ -31,7 +31,7 @@ Bot: "Hello, Alice!"
 
 ### 3.1 Interrupt Pattern (ADR-002)
 
-**Critical Learning from LangGraph docs**: 
+**Critical Learning from LangGraph docs**:
 - `interrupt()` pauses execution and returns a value to the caller
 - Resume via `Command(resume=value)` or re-invoking with checkpointer
 - Node re-executes from the beginning on resume (use idempotency)
@@ -41,13 +41,13 @@ Bot: "Hello, Alice!"
 # execute_node (orchestrator level)
 while True:
     result = await subgraph.ainvoke(state)
-    
+
     if not result["_need_input"]:
         return result
-    
+
     # Interrupt HERE - returns prompt to caller
     resume_value = interrupt(result["_pending_prompt"])
-    
+
     # On resume, inject user response as command
     state["commands"] = [{"type": "set_slot", "slot": prompt["slot"], "value": resume_value}]
 ```
@@ -135,14 +135,14 @@ class DialogueState(TypedDict):
     user_message: Annotated[str | None, _last_value_str]
     messages: Annotated[list[AnyMessage], add_messages]
     response: Annotated[str | None, _last_value_str]
-    
+
     # NEW M2: Flow management
     flow_stack: list[FlowContext]
     flow_slots: Annotated[dict[str, dict[str, Any]], _merge_flow_slots]
-    
+
     # NEW M2: Commands
     commands: Annotated[list[dict[str, Any]], _last_value_any]
-    
+
     # NEW M2: Interrupt signaling
     _need_input: Annotated[bool, _last_value_any]
     _pending_prompt: Annotated[dict | None, _last_value_any]
@@ -203,10 +203,10 @@ class CollectNodeFactory:
         """Create a collect node function."""
         if not isinstance(step, CollectStepConfig):
             raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         slot_name = step.slot
         prompt = step.message
-        
+
         async def collect_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
@@ -214,11 +214,11 @@ class CollectNodeFactory:
             """Collect slot value from user."""
             # ISP: Use SlotProvider interface
             fm = runtime.context.flow_manager
-            
+
             # 1. Already filled?
             if fm.get_slot(state, slot_name):
                 return {}
-            
+
             # 2. Command provides value?
             for cmd in state.get("commands", []):
                 if cmd.get("type") == "set_slot" and cmd.get("slot") == slot_name:
@@ -226,13 +226,13 @@ class CollectNodeFactory:
                     updates: dict[str, Any] = {"commands": []}  # Consume command
                     merge_delta(updates, delta)
                     return updates
-            
+
             # 3. Need input
             return {
                 "_need_input": True,
                 "_pending_prompt": {"slot": slot_name, "prompt": prompt},
             }
-        
+
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node
 
@@ -274,7 +274,7 @@ async def execute_node(
     """Execute the active flow's subgraph with interrupt handling."""
     subgraph = runtime.context.subgraph
     flow_manager = runtime.context.flow_manager
-    
+
     # Auto-push first flow if stack empty
     if not state.get("flow_stack"):
         _, delta = flow_manager.push_flow(state, "greet")
@@ -283,20 +283,20 @@ async def execute_node(
             state = {**state, "flow_stack": delta.flow_stack}
         if delta.flow_slots:
             state = {**state, "flow_slots": delta.flow_slots}
-    
+
     subgraph_state = dict(state)
     subgraph_state["_need_input"] = False
-    
+
     while True:
         result = await subgraph.ainvoke(subgraph_state)
-        
+
         if not result.get("_need_input"):
             return {"response": result.get("response")}
-        
+
         # Interrupt and get user response
         prompt = result["_pending_prompt"]
         user_response = interrupt(prompt)
-        
+
         # Inject as command for next iteration
         message = user_response if isinstance(user_response, str) else user_response.get("message", "")
         subgraph_state["commands"] = [{"type": "set_slot", "slot": prompt["slot"], "value": message}]
@@ -311,11 +311,11 @@ from langgraph.checkpoint.memory import MemorySaver
 class RuntimeLoop:
     def __init__(self, config, checkpointer=None):
         self._checkpointer = checkpointer or MemorySaver()
-    
+
     async def process_message(self, message: str, user_id: str = "default"):
         thread_id = f"thread_{user_id}"
         config = {"configurable": {"thread_id": thread_id, **context}}
-        
+
         result = await self._graph.ainvoke(
             {"user_message": message},
             config
@@ -354,18 +354,18 @@ async def test_collect_and_greet():
         }
     )
     checkpointer = MemorySaver()
-    
+
     # Act - Turn 1
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response1 = await runtime.process_message("hi", user_id="test")
-    
+
     # Assert - Turn 1
     assert "What is your name?" in response1
-    
+
     # Act - Turn 2
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response2 = await runtime.process_message("Alice", user_id="test")
-    
+
     # Assert - Turn 2
     assert "Hello, Alice!" in response2
 
@@ -375,10 +375,10 @@ async def test_collect_already_filled_skips():
     """If slot is already filled, collect node skips."""
     # Arrange - state with pre-filled slot
     ...
-    
+
     # Act
     ...
-    
+
     # Assert - returns {} (no action needed)
     ...
 ```

@@ -4,14 +4,14 @@ import pytest
 from langchain_core.messages import HumanMessage
 from soni.actions.handler import ActionHandler
 from soni.actions.registry import ActionRegistry
+from soni.config.steps import CollectStepConfig, ConfirmStepConfig, SayStepConfig
 from soni.core.commands import SetSlot, StartFlow
+
+from soni.config import FlowConfig, SoniConfig
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import RuntimeContext
 from soni.dm.builder import build_orchestrator
 from soni.flow.manager import FlowManager
-
-from soni.config import FlowConfig, SoniConfig
-from soni.config.steps import CollectStepConfig, ConfirmStepConfig, SayStepConfig
 
 
 @pytest.fixture

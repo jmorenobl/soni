@@ -2,7 +2,7 @@
 
 import pytest
 
-from soni.config.models import SoniConfig, FlowConfig, SayStepConfig
+from soni.config.models import FlowConfig, SayStepConfig, SoniConfig
 from soni.runtime.loop import RuntimeLoop
 
 
@@ -11,17 +11,13 @@ async def test_hello_world():
     """A flow with a single say step returns the message."""
     # Arrange
     config = SoniConfig(
-        flows={
-            "greet": FlowConfig(
-                steps=[SayStepConfig(step="hello", message="Hello, World!")]
-            )
-        }
+        flows={"greet": FlowConfig(steps=[SayStepConfig(step="hello", message="Hello, World!")])}
     )
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
-    
+
     # Assert
     assert response == "Hello, World!"
 
@@ -40,10 +36,10 @@ async def test_multi_step_say():
             )
         }
     )
-    
+
     # Act
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
-    
+
     # Assert
     assert response == "Welcome to Soni!"

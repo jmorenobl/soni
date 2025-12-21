@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from soni.core.commands import SetSlot, StartFlow
 from soni.du.models import NLUOutput
-from soni.runtime.loop import RuntimeLoop
 
 from soni.config import CollectStepConfig, FlowConfig, SayStepConfig, SoniConfig
+from soni.runtime.loop import RuntimeLoop
 
 
 @pytest.mark.asyncio

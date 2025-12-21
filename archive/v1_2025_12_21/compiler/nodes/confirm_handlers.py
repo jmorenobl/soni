@@ -13,10 +13,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.messages import AIMessage
+from soni.config.patterns import ConfirmationPatternConfig
+
 from soni.core.constants import SlotWaitType
 from soni.core.types import DialogueState, FlowManagerProtocol
-
-from soni.config.patterns import ConfirmationPatternConfig
 
 logger = logging.getLogger(__name__)
 

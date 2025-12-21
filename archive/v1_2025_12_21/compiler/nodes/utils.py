@@ -6,9 +6,9 @@ to reduce code duplication across node factory implementations.
 
 from typing import Any, TypeVar
 
-from soni.core.errors import ValidationError
-
 from soni.config.steps import StepConfig
+
+from soni.core.errors import ValidationError
 
 T = TypeVar("T")
 

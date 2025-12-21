@@ -17,9 +17,9 @@ def mock_runtime():
     from unittest.mock import AsyncMock, MagicMock
 
     from langgraph.runtime import Runtime
-    from soni.core.types import RuntimeContext
 
     from soni.config import SoniConfig
+    from soni.core.types import RuntimeContext
 
     mock_context = MagicMock(spec=RuntimeContext)
     mock_context.flow_manager = MagicMock()

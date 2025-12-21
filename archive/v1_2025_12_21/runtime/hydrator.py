@@ -7,6 +7,7 @@ Responsible solely for creating and hydrating dialogue state.
 from typing import Any, cast
 
 from langchain_core.messages import HumanMessage
+
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import DialogueState
 

@@ -3,7 +3,6 @@
 import pytest
 from pydantic import ValidationError
 from soni.compiler.nodes.branch import BranchNodeFactory
-from soni.core.errors import ValidationError as SoniValidationError
 
 from soni.config import (
     ActionStepConfig,
@@ -13,6 +12,7 @@ from soni.config import (
     SayStepConfig,
     WhileStepConfig,
 )
+from soni.core.errors import ValidationError as SoniValidationError
 
 
 class TestActionNodeFactoryErrors:

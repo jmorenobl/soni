@@ -19,6 +19,7 @@ class TestRuntimeLoopStreaming:
     def runtime_loop(self, mock_graph):
         """Create RuntimeLoop with mocked graph."""
         from soni.runtime.initializer import RuntimeComponents
+
         from soni.runtime.loop import RuntimeLoop
 
         loop = RuntimeLoop.__new__(RuntimeLoop)

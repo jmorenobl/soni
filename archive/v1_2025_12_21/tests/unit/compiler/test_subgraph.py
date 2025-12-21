@@ -1,7 +1,6 @@
 """Unit tests for SubgraphBuilder."""
 
 from soni.compiler.subgraph import SubgraphBuilder
-
 from soni.config import FlowConfig, SayStepConfig
 
 

@@ -7,6 +7,7 @@ All mutation methods are now synchronous and return deltas.
 from typing import Any
 
 import pytest
+
 from soni.core.errors import FlowStackError
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import FlowContextState

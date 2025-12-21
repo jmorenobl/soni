@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from soni.compiler.nodes.branch import BranchNodeFactory
-from soni.core.state import create_empty_dialogue_state
 
 from soni.compiler.nodes import (
     ActionNodeFactory,
@@ -21,6 +20,7 @@ from soni.config import (
     SayStepConfig,
     WhileStepConfig,
 )
+from soni.core.state import create_empty_dialogue_state
 
 
 # Mocking helper

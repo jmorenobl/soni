@@ -92,8 +92,9 @@ class TestDispatchPatternCommand:
         """Test that dispatch returns CommandResult for known patterns."""
         from typing import cast
 
-        from soni.core.types import DialogueState
         from soni.dm.patterns import dispatch_pattern_command
+
+        from soni.core.types import DialogueState
 
         # Mock state and context
         state = cast(
@@ -123,8 +124,9 @@ class TestDispatchPatternCommand:
         from typing import cast
 
         from soni.core.commands import StartFlow
-        from soni.core.types import DialogueState
         from soni.dm.patterns import dispatch_pattern_command
+
+        from soni.core.types import DialogueState
 
         state = cast(DialogueState, {"flow_stack": [], "flow_slots": {}, "messages": []})
         context = MagicMock()

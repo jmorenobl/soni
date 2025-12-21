@@ -1,10 +1,10 @@
 import pytest
-from soni.core.errors import ValidationError
-
 from soni.config.steps import (
     SayStepConfig,
     SetStepConfig,
 )
+
+from soni.core.errors import ValidationError
 
 
 class TestRequireField:

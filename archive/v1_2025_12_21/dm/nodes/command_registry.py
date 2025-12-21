@@ -23,8 +23,9 @@ from soni.core.commands import (
     SetSlot,
     StartFlow,
 )
-from soni.core.types import DialogueState, FlowContextState, RuntimeContext
 from soni.core.validation import validate_slot_value
+
+from soni.core.types import DialogueState, FlowContextState, RuntimeContext
 from soni.flow.manager import merge_delta
 
 logger = logging.getLogger(__name__)

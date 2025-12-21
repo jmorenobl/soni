@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 from langgraph.types import Command
+
 from soni.core.constants import NodeName
 from soni.core.state import create_empty_dialogue_state
 from soni.core.types import FlowContext, FlowContextState
@@ -26,9 +27,9 @@ class TestExecuteNode:
         THEN returns Command(goto="flow_{name}")
         """
         from langgraph.runtime import Runtime
-        from soni.dm.nodes.execute import execute_node
 
         from soni.config import SoniConfig
+        from soni.dm.nodes.execute import execute_node
 
         # Arrange
         state = create_empty_dialogue_state()
@@ -72,9 +73,9 @@ class TestExecuteNode:
         THEN routes to respond (or handles error)
         """
         from langgraph.runtime import Runtime
-        from soni.dm.nodes.execute import execute_node
 
         from soni.config import SoniConfig
+        from soni.dm.nodes.execute import execute_node
 
         state = create_empty_dialogue_state()
         mock_fm = Mock()

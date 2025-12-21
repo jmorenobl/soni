@@ -16,13 +16,13 @@ from typing import Any
 
 from langgraph.runtime import Runtime
 from langgraph.types import Command
-from soni.compiler.nodes.base import NodeFunction
 from soni.compiler.nodes.utils import require_field
+from soni.config.steps import CollectStepConfig, StepConfig
 from soni.core.commands import SetSlot
+
+from soni.compiler.nodes.base import NodeFunction
 from soni.core.types import DialogueState, RuntimeContext
 from soni.flow.manager import FlowDelta
-
-from soni.config.steps import CollectStepConfig, StepConfig
 
 
 def _is_set_slot_for(cmd: Any, slot_name: str) -> bool:

@@ -2,10 +2,10 @@
 
 from typing import Any, Protocol
 
-from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes.command_registry import CommandResult
 
 from soni.config import PatternBehaviorsConfig
+from soni.core.types import DialogueState, RuntimeContext
 
 
 class PatternHandler(Protocol):

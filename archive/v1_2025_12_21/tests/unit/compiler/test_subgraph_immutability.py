@@ -9,15 +9,15 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from unittest.mock import MagicMock
 
-from soni.compiler.subgraph import SubgraphBuilder
-
-from soni.config.models import FlowConfig
 from soni.config.steps import (
     BranchStepConfig,
     CollectStepConfig,
     StepConfig,
     WhileStepConfig,
 )
+
+from soni.compiler.subgraph import SubgraphBuilder
+from soni.config.models import FlowConfig
 
 
 def create_while_flow_config() -> FlowConfig:

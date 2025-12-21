@@ -24,11 +24,11 @@ from langgraph.graph import END
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 from soni.compiler.nodes.utils import require_field
-from soni.core.types import DialogueState, RuntimeContext
-from soni.dm.patterns.base import get_pattern_config
-from soni.flow.manager import merge_delta
-
 from soni.config.steps import ConfirmStepConfig, StepConfig
+from soni.dm.patterns.base import get_pattern_config
+
+from soni.core.types import DialogueState, RuntimeContext
+from soni.flow.manager import merge_delta
 
 from .base import NodeFunction
 from .confirm_handlers import (

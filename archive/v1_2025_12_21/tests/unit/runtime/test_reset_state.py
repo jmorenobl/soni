@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from soni.core.errors import StateError
 from soni.runtime.loop import RuntimeLoop
 

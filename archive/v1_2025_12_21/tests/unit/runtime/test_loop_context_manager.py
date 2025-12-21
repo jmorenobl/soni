@@ -6,6 +6,7 @@ Verifies proper resource management via __aenter__/__aexit__.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from soni.runtime.loop import RuntimeLoop
 
 

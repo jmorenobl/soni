@@ -7,8 +7,6 @@ from soni.core.commands import (
     HumanHandoff,
     RequestClarification,
 )
-from soni.core.constants import FlowState
-from soni.core.types import DialogueState, RuntimeContext
 from soni.dm.nodes.understand import understand_node
 from soni.du.models import NLUOutput
 
@@ -22,6 +20,8 @@ from soni.config import (
     SlotConfig,
     SoniConfig,
 )
+from soni.core.constants import FlowState
+from soni.core.types import DialogueState, RuntimeContext
 
 
 @pytest.fixture
