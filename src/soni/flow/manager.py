@@ -152,6 +152,11 @@ class FlowManager:
         """
         context = self.get_active_context(state)
         if not context:
+            import sys
+
+            sys.stderr.write(
+                f"DEBUG_STDERR: FlowManager.set_slot('{slot_name}') skipped: no active flow context. Stack size: {len(state.get('flow_stack', []))}\n"
+            )
             logger.debug(f"set_slot('{slot_name}') skipped: no active flow context")
             return None
 
@@ -195,7 +200,7 @@ class FlowManager:
         }
 
         # Replace the top of the stack
-        stack = state.get("flow_stack", [])
+        stack = state.get("flow_stack") or []
         new_stack = [*stack[:-1], new_context]
         return FlowDelta(flow_stack=new_stack)
 

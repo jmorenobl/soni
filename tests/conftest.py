@@ -53,17 +53,88 @@ class MockSoniDU:
         """Return deterministic StartFlow command."""
         self._call_count += 1
 
-        if not message:
-            return MockNLUOutput(commands=[])
+        # 0. Debug input
+        import sys
 
-        # Get first available flow from context
+        sys.stderr.write(f"DEBUG_STDERR: MockSoniDU msg='{message}' type={type(message)}\n")
+
+        # 1. Check message content specific patterns first
+        if msg := (message or "").lower():
+            if msg in ("yes", "y", "confirm"):
+                return MockNLUOutput(commands=[MockCommand({"type": "affirm"})])
+            if msg in ("no", "n", "deny"):
+                return MockNLUOutput(commands=[MockCommand({"type": "deny"})])
+
+            if "actually" in msg and "50" in msg:
+                return MockNLUOutput(
+                    commands=[
+                        MockCommand({"type": "correct_slot", "slot": "amount", "new_value": 50})
+                    ]
+                )
+
+            if message.isdigit():
+                sys.stderr.write(f"DEBUG_STDERR: isdigit=True for {repr(message)}\n")
+                # Primitive logic to guess slot based on context would be better,
+                # but for these tests we might need to assume 'param' or 'amount' based on test.
+                # Let's try to infer or just return a generic SetSlot that works if context known?
+                # For `test_confirm_affirm_continues`, slot is `param`.
+                # For `test_confirm_correction_updates_slot`, slot is `amount`.
+                # We can return SetSlot for both if we guess, or key off value.
+                if message == "100":
+                    sys.stderr.write("DEBUG_STDERR: MATCH 100\n")
+                    return MockNLUOutput(
+                        commands=[
+                            MockCommand({"type": "set_slot", "slot": "param", "value": 100}),
+                            MockCommand({"type": "set_slot", "slot": "amount", "value": 100}),
+                        ]
+                    )
+                if message == "200":
+                    return MockNLUOutput(
+                        commands=[MockCommand({"type": "set_slot", "slot": "param", "value": 200})]
+                    )
+
+            if "transfer" in msg:
+                return MockNLUOutput(
+                    commands=[MockCommand({"type": "start_flow", "flow_name": "transfer"})]
+                )
+
+            if "start" in msg:
+                # Default start flow logic
+                pass
+
+        # 2. Fallback: Start Flow if context allows (for initial "start" messages not caught above)
+        import sys
+
+        sys.stderr.write(f"DEBUG_STDERR: MockSoniDU context type: {type(context)}\n")
+
+        # Handle DialogueContext (from understand_node)
         if hasattr(context, "available_flows") and context.available_flows:
-            flow_name = context.available_flows[0].name
+            # FlowInfo objects
+            first_flow = context.available_flows[0]
+            flow_name = getattr(first_flow, "name", None) or first_flow.get("name")
             return MockNLUOutput(
                 commands=[MockCommand({"type": "start_flow", "flow_name": flow_name})]
             )
 
-        # Fallback: return chitchat
+        # Handle RuntimeContext (from execute_node resume)
+        # If we're here with a RuntimeContext, we're resuming from an interrupt.
+        # The user message is likely a slot value, not a new intent.
+        if hasattr(context, "config") and context.config.flows:
+            # Check if there's an active flow in state (indicates slot-filling context)
+            # For test purposes, treat plain text as slot value for 'name' slot
+            if message and not message.lower().startswith(("start", "i want", "transfer")):
+                # Assume it's a slot value - use 'name' as default slot
+                return MockNLUOutput(
+                    commands=[MockCommand({"type": "set_slot", "slot": "name", "value": message})]
+                )
+
+            # Otherwise start flow
+            flow_name = list(context.config.flows.keys())[0]
+            return MockNLUOutput(
+                commands=[MockCommand({"type": "start_flow", "flow_name": flow_name})]
+            )
+
+        # 3. Last resort: Chitchat
         return MockNLUOutput(
             commands=[MockCommand({"type": "chitchat", "message": "I'm here to help!"})]
         )
@@ -89,11 +160,11 @@ class MockSlotExtractor:
 
 
 # Patch modules to use mocks
-import soni.du.modules
-import soni.du.slot_extractor
+import soni.du.modules  # noqa: E402
+import soni.du.slot_extractor  # noqa: E402
 
-soni.du.modules.SoniDU = MockSoniDU  # type: ignore[attr-defined]
-soni.du.slot_extractor.SlotExtractor = MockSlotExtractor  # type: ignore[attr-defined]
+soni.du.modules.SoniDU = MockSoniDU  # type: ignore[misc,assignment]
+soni.du.slot_extractor.SlotExtractor = MockSlotExtractor  # type: ignore[misc,assignment]
 
 
 @pytest.fixture
@@ -128,5 +199,3 @@ def mock_runtime():
         previous=None,
     )
     return runtime
-
-

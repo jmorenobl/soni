@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 7: Confirm + Patterns
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0, M1, M2, M3, M4, M5, M6
 
 ---
@@ -149,38 +149,38 @@ class ConfirmNodeFactory:
         """Create a confirm node function."""
         if not isinstance(step, ConfirmStepConfig):
             raise ValueError(f"ConfirmNodeFactory received wrong step type: {type(step).__name__}")
-        
+
         slot_name = step.slot
         prompt = step.message or f"Please confirm {slot_name}"
         on_confirm = step.on_confirm
         on_deny = step.on_deny
-        
+
         async def confirm_node(
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
             """Confirm slot value with user."""
             fm = runtime.context.flow_manager
-            
+
             # Check for confirmation response
             for cmd in state.get("commands", []):
                 if cmd.get("type") == "affirm":
                     return {"commands": [], "_branch_target": on_confirm}
-                
+
                 if cmd.get("type") == "deny":
                     return {"commands": [], "_branch_target": on_deny}
-                
+
                 if cmd.get("type") == "correction":
                     delta = fm.set_slot(state, cmd["slot"], cmd["new_value"])
                     return {
                         "flow_slots": delta.flow_slots if delta else {},
                         "commands": [],
                     }
-            
+
             # Need confirmation
             slot_value = fm.get_slot(state, slot_name)
             formatted_prompt = prompt.format(**{slot_name: slot_value}) if slot_value else prompt
-            
+
             return {
                 "_need_input": True,
                 "_pending_prompt": {
@@ -190,7 +190,7 @@ class ConfirmNodeFactory:
                     "prompt": formatted_prompt,
                 },
             }
-        
+
         confirm_node.__name__ = f"confirm_{step.step}"
         return confirm_node
 
@@ -212,7 +212,7 @@ class PatternHandler(ABC):
     async def can_handle(self, command: dict, state: dict) -> bool:
         """Check if this handler can process the command."""
         ...
-    
+
     @abstractmethod
     async def handle(self, command: dict, state: dict, context: Any) -> dict:
         """Handle the pattern and return state updates."""
@@ -225,13 +225,13 @@ class PatternHandler(ABC):
 class CancellationHandler(PatternHandler):
     async def can_handle(self, command, state):
         return command.get("type") == "cancel_flow"
-    
+
     async def handle(self, command, state, context):
         fm = context.flow_manager
-        
+
         # Pop current flow
         _, delta = fm.pop_flow(state)
-        
+
         return {
             "flow_stack": delta.flow_stack,
             "_executed_steps": delta.executed_steps,
@@ -245,12 +245,12 @@ class CancellationHandler(PatternHandler):
 class CorrectionHandler(PatternHandler):
     async def can_handle(self, command, state):
         return command.get("type") == "correction"
-    
+
     async def handle(self, command, state, context):
         fm = context.flow_manager
-        
+
         delta = fm.set_slot(state, command["slot"], command["new_value"])
-        
+
         return {"flow_slots": delta.flow_slots}
 ```
 
@@ -259,20 +259,20 @@ class CorrectionHandler(PatternHandler):
 ```python
 class DigressionHandler(PatternHandler):
     """Handle off-flow intents that should pause, not replace, current flow."""
-    
+
     async def can_handle(self, command, state):
         # StartFlow for a different flow while in active flow
         return (
             command.get("type") == "start_flow" and
             len(state.get("flow_stack", [])) > 0
         )
-    
+
     async def handle(self, command, state, context):
         fm = context.flow_manager
-        
+
         # Push new flow (digression)
         _, delta = fm.push_flow(state, command["flow_name"])
-        
+
         return {
             "flow_stack": delta.flow_stack,
             "flow_slots": delta.flow_slots,
@@ -293,10 +293,10 @@ async def test_confirm_affirm_continues():
     """User affirms confirmation and flow continues."""
     # Arrange
     ...
-    
+
     # Act
     ...
-    
+
     # Assert
     ...
 
@@ -305,10 +305,10 @@ async def test_confirm_deny_routes_to_on_deny():
     """User denies and flow routes to on_deny."""
     # Arrange
     ...
-    
+
     # Act
     ...
-    
+
     # Assert
     ...
 
@@ -322,21 +322,21 @@ async def test_confirm_correction_updates_slot():
         SayStepConfig(step="done", message="Transferred ${amount}"),
     ])})
     checkpointer = MemorySaver()
-    
+
     # Act & Assert - Turn 1: Start
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response1 = await runtime.process_message("transfer", user_id="u1")
-    
+
     # Act & Assert - Turn 2: Provide amount
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response2 = await runtime.process_message("100", user_id="u1")
     assert "Transfer $100?" in response2
-    
+
     # Act & Assert - Turn 3: Correction
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response3 = await runtime.process_message("actually 50", user_id="u1")
     assert "Transfer $50?" in response3
-    
+
     # Act & Assert - Turn 4: Confirm
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
         response4 = await runtime.process_message("yes", user_id="u1")

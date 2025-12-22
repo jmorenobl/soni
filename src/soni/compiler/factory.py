@@ -5,6 +5,7 @@ from soni.compiler.nodes.base import NodeFactory
 from soni.compiler.nodes.branch import BranchNodeFactory
 from soni.compiler.nodes.call import CallNodeFactory
 from soni.compiler.nodes.collect import CollectNodeFactory
+from soni.compiler.nodes.confirm import ConfirmNodeFactory
 from soni.compiler.nodes.link import LinkNodeFactory
 from soni.compiler.nodes.say import SayNodeFactory
 from soni.compiler.nodes.set import SetNodeFactory
@@ -24,6 +25,7 @@ class NodeFactoryRegistry:
         "action": ActionNodeFactory(),
         "link": LinkNodeFactory(),
         "call": CallNodeFactory(),
+        "confirm": ConfirmNodeFactory(),
     }
 
     @classmethod

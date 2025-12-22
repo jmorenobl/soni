@@ -25,9 +25,7 @@ class ActionNodeFactory:
     ) -> NodeFunction:
         """Create an action node function."""
         if not isinstance(step, ActionStepConfig):
-            raise ValueError(
-                f"ActionNodeFactory received wrong step type: {type(step).__name__}"
-            )
+            raise ValueError(f"ActionNodeFactory received wrong step type: {type(step).__name__}")
 
         action_name = step.call
         output_mapping = step.map_outputs or {}
@@ -44,7 +42,7 @@ class ActionNodeFactory:
 
             # IDEMPOTENCY CHECK (ADR-002)
             if flow_id:
-                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
                     return {"_branch_target": None}
 

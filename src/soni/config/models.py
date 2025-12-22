@@ -129,6 +129,22 @@ class CallStepConfig(BaseModel):
     target: str = Field(description="Subflow to call")
 
 
+class ConfirmStepConfig(BaseModel):
+    """Configuration for confirm steps (M7).
+
+    Validates a slot value with the user before proceeding.
+    """
+
+    step: str = Field(description="Step identifier")
+    type: Literal["confirm"] = "confirm"
+    slot: str = Field(description="Slot to confirm")
+    message: str | None = Field(default=None, description="Confirmation prompt")
+    on_confirm: str | None = Field(
+        default=None, description="Step to go to on confirm (defaults to next)"
+    )
+    on_deny: str | None = Field(default=None, description="Step to go to on deny")
+
+
 StepConfig = Annotated[
     SayStepConfig
     | CollectStepConfig
@@ -137,7 +153,8 @@ StepConfig = Annotated[
     | WhileStepConfig
     | ActionStepConfig
     | LinkStepConfig
-    | CallStepConfig,
+    | CallStepConfig
+    | ConfirmStepConfig,
     Field(discriminator="type"),
 ]
 

@@ -7,15 +7,16 @@ def create_empty_state() -> DialogueState:
     """Create an empty dialogue state."""
     return {
         "user_message": None,
-        "messages": [],
+        "messages": [],  # Messages are always additive (add_messages reducer)
         "response": None,
-        "flow_stack": [],
-        "flow_slots": {},
-        "commands": [],
-        "_need_input": False,
+        "flow_stack": None,  # MUST be None to avoid clobbering persistence
+        "flow_slots": None,  # MUST be None
+        "commands": None,  # Commands are transient but safer as None
+        "_need_input": None,
         "_pending_prompt": None,
-        "_executed_steps": {},
+        "_executed_steps": None,
         "_branch_target": None,
-        "_pending_responses": [],
-        "_flow_changed": False,
+        "_pending_responses": [],  # Additive reducer, safe to start empty
+        "_flow_changed": None,
+        "_loop_flag": None,
     }

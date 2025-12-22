@@ -34,7 +34,7 @@ class SayNodeFactory:
 
             # Idempotency check (ADR-002 requirement)
             if flow_id:
-                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
                     # Already executed - skip to prevent duplicate messages
                     return {"_branch_target": None}
@@ -49,7 +49,7 @@ class SayNodeFactory:
 
             # Build response with idempotency tracking
             result: dict[str, Any] = {
-                "response": interpolated_message,
+                "_pending_responses": [interpolated_message],
                 "_branch_target": None,
             }
 

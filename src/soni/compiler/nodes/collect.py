@@ -22,9 +22,7 @@ class CollectNodeFactory:
     ) -> NodeFunction:
         """Create a collect node function."""
         if not isinstance(step, CollectStepConfig):
-            raise ValueError(
-                f"CollectNodeFactory received wrong step type: {type(step).__name__}"
-            )
+            raise ValueError(f"CollectNodeFactory received wrong step type: {type(step).__name__}")
 
         slot_name = step.slot
         prompt = step.message
@@ -39,48 +37,55 @@ class CollectNodeFactory:
             fm = runtime.context.flow_manager
 
             # 1. Already filled? Continue to next step
-            if fm.get_slot(state, slot_name):
+            existing_value = fm.get_slot(state, slot_name)
+            if existing_value:
                 return {"_branch_target": None}
 
             # 2. Check for value in commands
             commands = state.get("commands", []) or []
 
+            matching_command = None
             for cmd in commands:
                 if cmd.get("type") == "set_slot" and cmd.get("slot") == slot_name:
                     value = cmd["value"]
+                    matching_command = cmd
+                    break
 
-                    # 3. Validate if validator configured
-                    if validator_name:
-                        slots = fm.get_all_slots(state)
-                        is_valid = await validate(value, validator_name, slots)
+            if matching_command:
+                value = matching_command["value"]
 
-                        if not is_valid:
-                            # Validation failed - re-prompt with error
-                            return {
-                                "_need_input": True,
-                                "_pending_prompt": {
-                                    "slot": slot_name,
-                                    "prompt": prompt,
-                                    "error": error_message,
-                                },
-                                "response": error_message,
-                                "_branch_target": None,
-                            }
+                # 3. Validate if validator configured
+                if validator_name:
+                    slots = fm.get_all_slots(state)
+                    is_valid = await validate(value, validator_name, slots)
 
-                    # 4. Valid - set slot and continue
-                    delta = fm.set_slot(state, slot_name, value)
-                    updates: dict[str, Any] = {"commands": [], "_branch_target": None}
-                    merge_delta(updates, delta)
-                    return updates
+                    if not is_valid:
+                        # Validation failed - re-prompt with error
+                        return {
+                            "_need_input": True,
+                            "_pending_prompt": {
+                                "slot": slot_name,
+                                "prompt": prompt,
+                                "error": error_message,
+                            },
+                            "_pending_responses": [error_message],
+                            "_branch_target": None,
+                        }
+
+                # 4. Valid - set slot and continue
+                delta = fm.set_slot(state, slot_name, value)
+                updates: dict[str, Any] = {"commands": [], "_branch_target": None}
+                merge_delta(updates, delta)
+                return updates
 
             # 5. No value provided - need input
-            return {
+            ret = {
                 "_need_input": True,
                 "_pending_prompt": {"slot": slot_name, "prompt": prompt},
-                "response": prompt,
+                "_pending_responses": [prompt],
                 "_branch_target": None,
             }
+            return ret
 
         collect_node.__name__ = f"collect_{step.step}"
         return collect_node
-

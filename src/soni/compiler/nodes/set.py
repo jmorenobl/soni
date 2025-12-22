@@ -47,7 +47,7 @@ class SetNodeFactory:
 
             # Idempotency check
             if flow_id:
-                executed = state.get("_executed_steps", {}).get(flow_id, set())
+                executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
                     return {"_branch_target": None}
 

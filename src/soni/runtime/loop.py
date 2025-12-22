@@ -1,5 +1,6 @@
-"""RuntimeLoop for M5 (Actions + NLU)."""
+"""RuntimeLoop for M7 (ADR-002 compliant interrupt architecture)."""
 
+import sys
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.runnables import RunnableConfig
@@ -7,11 +8,10 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
-from soni.compiler.subgraph import build_flow_subgraph
 from soni.config.models import SoniConfig
 from soni.core.state import create_empty_state
 from soni.core.types import DialogueState
-from soni.dm.builder import build_orchestrator
+from soni.dm.builder import build_orchestrator, compile_all_subgraphs
 from soni.du.modules import SoniDU
 from soni.flow.manager import FlowManager
 from soni.runtime.context import RuntimeContext
@@ -21,13 +21,16 @@ if TYPE_CHECKING:
 
 
 class RuntimeLoop:
-    """Runtime loop for M5 with actions and NLU support."""
+    """Runtime loop for M7 with ADR-002 interrupt architecture.
+
+    Uses LangGraph's native interrupt/resume mechanism for multi-turn flows.
+    """
 
     def __init__(
         self,
         config: SoniConfig,
         checkpointer: BaseCheckpointSaver | None = None,
-        action_registry: "ActionRegistry | None" = None,  # M5: Optional user-provided registry
+        action_registry: "ActionRegistry | None" = None,
     ) -> None:
         self.config = config
         self.checkpointer = checkpointer
@@ -37,29 +40,30 @@ class RuntimeLoop:
 
     async def __aenter__(self) -> "RuntimeLoop":
         """Initialize graphs, NLU modules, and action registry."""
-        # Build subgraph for first flow
-        flow_name = next(iter(self.config.flows.keys()))
-        flow = self.config.flows[flow_name]
-        subgraph = build_flow_subgraph(flow)
+        # Compile ALL subgraphs upfront (ADR-002)
+        subgraphs = compile_all_subgraphs(self.config)
 
         # Create flow manager and NLU modules (two-pass)
         flow_manager = FlowManager()
         du = SoniDU.create_with_best_model()  # Pass 1: Intent detection
 
         from soni.du.slot_extractor import SlotExtractor
+
         slot_extractor = SlotExtractor.create_with_best_model()  # Pass 2: Slot extraction
 
         # Use provided registry or create empty one
         from soni.actions.registry import ActionRegistry
+
         action_registry = self._action_registry or ActionRegistry()
 
+        # ADR-002: Pass subgraphs to context
         self._context = RuntimeContext(
-            subgraph=subgraph,
             config=self.config,
             flow_manager=flow_manager,
             du=du,
             slot_extractor=slot_extractor,
             action_registry=action_registry,
+            subgraphs=subgraphs,
         )
 
         # Build orchestrator with checkpointer
@@ -76,26 +80,29 @@ class RuntimeLoop:
         pass
 
     async def process_message(self, message: str, user_id: str = "default") -> str:
-        """Process a message and return response."""
+        """Process a message and return response.
+
+        With ADR-002 architecture:
+        - First turn: Fresh invoke, may interrupt waiting for input
+        - Subsequent turns: Resume from interrupt with user's response
+        """
         if self._graph is None or self._context is None:
             raise RuntimeError("RuntimeLoop not initialized. Use 'async with' context.")
-
-        state = create_empty_state()
-        state["user_message"] = message
 
         # Thread config for persistence
         thread_id = f"thread_{user_id}"
         config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
         try:
-            # Check for pending interrupts (only if persistence enabled)
+            # Check for pending interrupts
             snapshot = None
             if self.checkpointer:
                 snapshot = await self._graph.aget_state(config)
+                if snapshot:
+                    pass  # Resuming from interrupt
 
-            # Resume if interrupted
+            # ADR-002: Resume if there are pending tasks (interrupt was called)
             if snapshot and snapshot.tasks:
-                # Resume execution with the user message
                 result = await self._graph.ainvoke(
                     Command(resume=message),
                     config=config,
@@ -103,11 +110,12 @@ class RuntimeLoop:
                 )
             else:
                 # Fresh execution
-                # If no checkpointer, config might be ignored by state graph for thread_id, logic holds
+                state = create_empty_state()
+                state["user_message"] = message
                 result = await self._graph.ainvoke(state, config=config, context=self._context)
 
+            # Handle interrupt response (return prompt to user)
             if "__interrupt__" in result:
-                # Unwrap interrupt payload to get the prompt
                 interruption = result["__interrupt__"]
                 val = interruption
 
@@ -119,17 +127,34 @@ class RuntimeLoop:
                 if hasattr(val, "value"):
                     val = val.value
 
-                if isinstance(val, dict) and "prompt" in val:
-                    return str(val["prompt"])
+                # Extract prompt from interrupt payload
+                if isinstance(val, dict):
+                    if "prompt" in val:
+                        return str(val["prompt"])
+                    if "response" in val:
+                        return str(val["response"])
+                return str(val) if val else ""
 
-            return str(result.get("response", ""))
+            if "_pending_responses" in result and result["_pending_responses"]:
+                return "\n".join(result["_pending_responses"])
+
+            return str(result.get("response") or "")
 
         except Exception as e:
-            # Check for interrupt state if exception occurs
-            if self.checkpointer:
-                snapshot = await self._graph.aget_state(config)
-                if snapshot.values:
-                    return str(snapshot.values.get("response", ""))
+            sys.stderr.write(f"DEBUG: RuntimeLoop caught exception: {type(e)}: {e}\n")
+            import traceback
 
-            # Rethrow if no persistence
-            raise e
+            traceback.print_exc(file=sys.stderr)
+
+            # Try to get response from snapshot if available
+            if self.checkpointer:
+                try:
+                    snapshot = await self._graph.aget_state(config)
+                    if snapshot and snapshot.values:
+                        response = snapshot.values.get("response")
+                        if response:
+                            return str(response)
+                except Exception:
+                    pass
+
+            raise

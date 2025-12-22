@@ -34,6 +34,7 @@ def _last_value_str(current: str | None, new: str | None) -> str | None:
 
 def _last_value_any(current: Any | None, new: Any | None) -> Any | None:
     """Reducer that keeps the last non-None value."""
+    # print(f"DEBUG: _last_value_any called. New: {new}")
     if new is not None:
         return new
     return current
@@ -44,6 +45,7 @@ def _merge_flow_slots(
     new: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Reducer that deep-merges flow_slots dicts."""
+    # print(f"DEBUG: _merge_flow_slots called. Current keys: {list(current.keys()) if current else 'None'}, New keys: {list(new.keys()) if new else 'None'}")
     if not current:
         current = {}
     if not new:
@@ -56,6 +58,15 @@ def _merge_flow_slots(
         else:
             result[flow_id] = slots
     return result
+
+
+def add_responses(current: list[str] | None, new: list[str] | None) -> list[str]:
+    """Reducer that accumulates responses."""
+    if current is None:
+        current = []
+    if new is None:
+        return current
+    return current + new
 
 
 def _merge_executed_steps(
@@ -98,19 +109,22 @@ class DialogueState(TypedDict):
     response: Annotated[str | None, _last_value_str]
 
     # M2: Flow Management
-    flow_stack: Annotated[list[FlowContext], _last_value_any]
-    flow_slots: Annotated[dict[str, dict[str, Any]], _merge_flow_slots]
+    flow_stack: Annotated[list[FlowContext] | None, _last_value_any]
+    flow_slots: Annotated[dict[str, dict[str, Any]] | None, _merge_flow_slots]
 
     # M2: Commands & Interrupts
-    commands: Annotated[list[dict[str, Any]], _last_value_any]
-    _need_input: Annotated[bool, _last_value_any]
+    commands: Annotated[list[dict[str, Any]] | None, _last_value_any]
+    _need_input: Annotated[bool | None, _last_value_any]
     _pending_prompt: Annotated[dict[str, Any] | None, _last_value_any]
 
     # Internal
-    _executed_steps: Annotated[dict[str, set[str]], _merge_executed_steps]
-    _branch_target: Annotated[str | None, _last_value_str]
-    _flow_changed: Annotated[bool, _last_value_any]  # M6: Link/Call signal
-    _pending_responses: Annotated[list[str], _last_value_any]
+    _executed_steps: Annotated[dict[str, set[str]] | None, _merge_executed_steps]
+    _branch_target: Annotated[str | None, _last_value_str]  # M6: Branching
+    _flow_changed: Annotated[bool | None, _last_value_any]
+
+    # M7 Orchestration
+    _loop_flag: Annotated[bool | None, _last_value_any]  # M6: Link/Call signal
+    _pending_responses: Annotated[list[str], add_responses]
 
 
 # =============================================================================
