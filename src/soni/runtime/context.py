@@ -1,4 +1,4 @@
-"""RuntimeContext for M7 (ADR-002 compliant interrupt architecture)."""
+"""RuntimeContext for M8 (Response Rephrasing support)."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -9,6 +9,7 @@ from soni.flow.manager import FlowManager
 if TYPE_CHECKING:
     from soni.actions.registry import ActionRegistry
     from soni.du.modules import SoniDU
+    from soni.du.rephraser import ResponseRephraser
     from soni.du.slot_extractor import SlotExtractor
 
 
@@ -19,6 +20,7 @@ class RuntimeContext:
     This is the typed context accessible in nodes via `runtime.context`.
 
     ADR-002: Contains subgraphs dict for flow execution orchestration.
+    M8: Contains optional rephraser for response polishing.
     """
 
     config: SoniConfig
@@ -27,3 +29,4 @@ class RuntimeContext:
     slot_extractor: "SlotExtractor"  # Pass 2: Slot extraction
     action_registry: "ActionRegistry"  # M5: Action handlers
     subgraphs: dict[str, Any] | None = None  # ADR-002: Compiled flow subgraphs
+    rephraser: "ResponseRephraser | None" = None  # M8: Response rephrasing

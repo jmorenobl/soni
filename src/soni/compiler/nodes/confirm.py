@@ -1,9 +1,10 @@
-"""ConfirmNodeFactory for M7."""
+"""ConfirmNodeFactory for M7 + M8 (rephrasing)."""
 
 from typing import Any
 
 from langgraph.runtime import Runtime
 
+from soni.compiler.nodes.base import rephrase_if_enabled
 from soni.config.models import ConfirmStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
 from soni.runtime.context import RuntimeContext
@@ -26,6 +27,7 @@ class ConfirmNodeFactory:
         prompt = step.message or f"Please confirm {slot_name}"
         on_confirm = step.on_confirm
         on_deny = step.on_deny
+        rephrase_step = step.rephrase  # M8: Step-level rephrasing flag
 
         async def confirm_node(
             state: DialogueState,
@@ -119,15 +121,20 @@ class ConfirmNodeFactory:
                 except KeyError:
                     pass  # Keep raw prompt if format fails
 
+            # M8: Rephrase prompt if enabled
+            final_prompt = await rephrase_if_enabled(
+                formatted_prompt, state, runtime.context, rephrase_step
+            )
+
             return {
                 "_need_input": True,
                 "_pending_prompt": {
                     "type": "confirm",
                     "slot": slot_name,
                     "value": slot_value,
-                    "prompt": formatted_prompt,
+                    "prompt": final_prompt,
                 },
-                "_pending_responses": [formatted_prompt],
+                "_pending_responses": [final_prompt],
             }
 
         confirm_node.__name__ = f"confirm_{step.step}"

@@ -56,6 +56,14 @@ class RuntimeLoop:
 
         action_registry = self._action_registry or ActionRegistry()
 
+        # M8: Initialize rephraser if enabled
+        rephraser = None
+        if self.config.settings.rephrase_responses:
+            from soni.du.rephraser import ResponseRephraser
+
+            rephraser = ResponseRephraser.create_with_best_model()
+            rephraser.tone = self.config.settings.rephrase_tone
+
         # ADR-002: Pass subgraphs to context
         self._context = RuntimeContext(
             config=self.config,
@@ -64,6 +72,7 @@ class RuntimeLoop:
             slot_extractor=slot_extractor,
             action_registry=action_registry,
             subgraphs=subgraphs,
+            rephraser=rephraser,  # M8: Response rephrasing
         )
 
         # Build orchestrator with checkpointer

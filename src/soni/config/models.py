@@ -1,4 +1,4 @@
-"""Configuration models for Soni v2 M1."""
+"""Configuration models for Soni v2 M8."""
 
 from typing import Annotated, Literal
 
@@ -15,6 +15,7 @@ class SayStepConfig(BaseModel):
     step: str = Field(description="Step identifier")
     type: Literal["say"] = "say"
     message: str = Field(description="Message to display")
+    rephrase: bool = Field(default=True, description="Whether to rephrase with LLM")
 
 
 class CollectStepConfig(BaseModel):
@@ -28,6 +29,7 @@ class CollectStepConfig(BaseModel):
     validation_error_message: str | None = Field(
         default=None, description="Error message on validation failure"
     )
+    rephrase: bool = Field(default=True, description="Whether to rephrase with LLM")
 
 
 class SetStepConfig(BaseModel):
@@ -143,6 +145,7 @@ class ConfirmStepConfig(BaseModel):
         default=None, description="Step to go to on confirm (defaults to next)"
     )
     on_deny: str | None = Field(default=None, description="Step to go to on deny")
+    rephrase: bool = Field(default=True, description="Whether to rephrase with LLM")
 
 
 StepConfig = Annotated[
@@ -158,6 +161,20 @@ StepConfig = Annotated[
     Field(discriminator="type"),
 ]
 
+# Type alias for supported rephrasing tones
+RephraseTone = Literal["friendly", "professional", "formal"]
+
+
+class Settings(BaseModel):
+    """Runtime settings for Soni."""
+
+    rephrase_responses: bool = Field(
+        default=False, description="Enable LLM rephrasing of template responses"
+    )
+    rephrase_tone: RephraseTone = Field(
+        default="friendly", description="Tone for rephrased responses"
+    )
+
 
 class FlowConfig(BaseModel):
     """Configuration for a flow."""
@@ -171,6 +188,7 @@ class SoniConfig(BaseModel):
 
     version: str = Field(default=CURRENT_VERSION, description="DSL version")
     flows: dict[str, FlowConfig] = Field(default_factory=dict)
+    settings: Settings = Field(default_factory=Settings)
 
     def model_post_init(self, __context: object) -> None:
         """Validate DSL version after initialization."""

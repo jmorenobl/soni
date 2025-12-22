@@ -3,6 +3,7 @@ from typing import Any
 
 from langgraph.runtime import Runtime
 
+from soni.compiler.nodes.base import rephrase_if_enabled
 from soni.config.models import SayStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
 from soni.runtime.context import RuntimeContext
@@ -23,6 +24,7 @@ class SayNodeFactory:
 
         message = step.message
         step_id = step.step
+        rephrase_step = step.rephrase  # M8: Step-level rephrasing flag
 
         async def say_node(
             state: DialogueState,
@@ -47,9 +49,14 @@ class SayNodeFactory:
 
             interpolated_message = re.sub(r"\{(\w+)\}", replace_slot, message)
 
+            # M8: Rephrase if enabled
+            final_message = await rephrase_if_enabled(
+                interpolated_message, state, runtime.context, rephrase_step
+            )
+
             # Build response with idempotency tracking
             result: dict[str, Any] = {
-                "_pending_responses": [interpolated_message],
+                "_pending_responses": [final_message],
                 "_branch_target": None,
             }
 

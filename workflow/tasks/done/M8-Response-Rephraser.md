@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 8: Response Rephraser
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M0, M1, M2, M3, M4, M5, M6, M7
 
 ---
@@ -80,7 +80,7 @@ No direct legacy code - this is new functionality leveraging DSPy.
 """ResponseRephraser - DSPy module for polishing responses.
 
 Follows DSPy pattern:
-- aforward(): Async runtime implementation  
+- aforward(): Async runtime implementation
 - forward(): Sync implementation for optimization
 - module.acall(): Runtime invocation
 - module(): Optimization invocation
@@ -92,11 +92,11 @@ from soni.du.base import OptimizableDSPyModule
 
 class RephraserSignature(dspy.Signature):
     """Polish a template response to sound more natural."""
-    
+
     template_response: str = dspy.InputField(desc="Original template response")
     conversation_context: str = dspy.InputField(desc="Recent conversation history")
     tone: str = dspy.InputField(desc="Desired tone: friendly, professional, formal")
-    
+
     polished_response: str = dspy.OutputField(
         desc="Polished response that preserves all factual information"
     )
@@ -104,27 +104,27 @@ class RephraserSignature(dspy.Signature):
 
 class ResponseRephraser(OptimizableDSPyModule):
     """DSPy module for contextual response rephrasing.
-    
+
     Usage:
         # Runtime (async)
         polished = await rephraser.acall(template, context)
-        
+
         # Optimization (sync)
         polished = rephraser(template, context)
     """
-    
+
     optimized_files = ["rephraser_miprov2.json"]
     default_use_cot = False  # Simple task, no CoT needed
-    
+
     def __init__(self, tone: str = "friendly", use_cot: bool | None = None):
         super().__init__(use_cot=use_cot)
         self.tone = tone
-    
+
     def _create_extractor(self, use_cot: bool) -> dspy.Module:
         if use_cot:
             return dspy.ChainOfThought(RephraserSignature)
         return dspy.Predict(RephraserSignature)
-    
+
     async def aforward(self, template: str, context: str) -> str:
         """Async runtime implementation."""
         result = await self.extractor.acall(
@@ -133,7 +133,7 @@ class ResponseRephraser(OptimizableDSPyModule):
             tone=self.tone,
         )
         return result.polished_response
-    
+
     def forward(self, template: str, context: str) -> str:
         """Sync version for DSPy optimization."""
         result = self.extractor(
@@ -148,7 +148,7 @@ class ResponseRephraser(OptimizableDSPyModule):
             tone=self.tone,
         )
         return result.polished_response
-    
+
     def forward(self, template: str, context: str) -> str:
         """Sync version for DSPy optimization."""
         result = self.predictor(
@@ -166,19 +166,19 @@ class ResponseRephraser(OptimizableDSPyModule):
 
 async def respond_node(state, runtime):
     response = state.get("response")
-    
+
     if not response:
         return {}
-    
+
     # Check if rephrasing enabled
     rephraser = runtime.context.get("rephraser")
     rephrase_enabled = runtime.context.config.settings.get("rephrase_responses", False)
-    
+
     if rephraser and rephrase_enabled:
         context = _build_context(state)
         polished = await rephraser.acall(response, context)
         return {"response": polished}
-    
+
     return {}
 
 
@@ -210,13 +210,13 @@ async def test_rephraser_preserves_facts():
     """Rephraser preserves numerical facts."""
     # Arrange
     rephraser = ResponseRephraser(tone="friendly", use_cot=False)
-    
+
     # Act
     result = await rephraser.acall(
         template="Your balance is $1234.56",
         context="User: What's my balance?"
     )
-    
+
     # Assert
     assert "1234.56" in result or "1,234.56" in result
 
@@ -226,13 +226,13 @@ async def test_rephraser_changes_tone():
     """Rephraser applies specified tone."""
     # Arrange
     rephraser = ResponseRephraser(tone="professional", use_cot=False)
-    
+
     # Act
     result = await rephraser.acall(
         template="Balance: $100",
         context=""
     )
-    
+
     # Assert - Professional tone should be more formal
     assert len(result) > len("Balance: $100")
 ```
@@ -250,7 +250,7 @@ async def test_rephraser_enabled_polishes_response():
             SayStepConfig(step="greet", message="Hello")
         ])}
     )
-    
+
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
         # Response should be more than just "Hello"
@@ -266,7 +266,7 @@ async def test_rephraser_disabled_keeps_template():
             SayStepConfig(step="greet", message="Hello")
         ])}
     )
-    
+
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("hi")
         assert response == "Hello"

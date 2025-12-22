@@ -1,9 +1,10 @@
-"""CollectNodeFactory for M5 (with validation)."""
+"""CollectNodeFactory for M5 (with validation) + M8 (rephrasing)."""
 
 from typing import Any
 
 from langgraph.runtime import Runtime
 
+from soni.compiler.nodes.base import rephrase_if_enabled
 from soni.config.models import CollectStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
 from soni.core.validation import validate
@@ -28,6 +29,7 @@ class CollectNodeFactory:
         prompt = step.message
         validator_name = step.validator
         error_message = step.validation_error_message or f"Invalid value for {slot_name}"
+        rephrase_step = step.rephrase  # M8: Step-level rephrasing flag
 
         async def collect_node(
             state: DialogueState,
@@ -60,15 +62,19 @@ class CollectNodeFactory:
                     is_valid = await validate(value, validator_name, slots)
 
                     if not is_valid:
+                        # M8: Rephrase error message if enabled
+                        final_error = await rephrase_if_enabled(
+                            error_message, state, runtime.context, rephrase_step
+                        )
                         # Validation failed - re-prompt with error
                         return {
                             "_need_input": True,
                             "_pending_prompt": {
                                 "slot": slot_name,
                                 "prompt": prompt,
-                                "error": error_message,
+                                "error": final_error,
                             },
-                            "_pending_responses": [error_message],
+                            "_pending_responses": [final_error],
                             "_branch_target": None,
                         }
 
@@ -79,10 +85,12 @@ class CollectNodeFactory:
                 return updates
 
             # 5. No value provided - need input
+            # M8: Rephrase prompt if enabled
+            final_prompt = await rephrase_if_enabled(prompt, state, runtime.context, rephrase_step)
             ret = {
                 "_need_input": True,
-                "_pending_prompt": {"slot": slot_name, "prompt": prompt},
-                "_pending_responses": [prompt],
+                "_pending_prompt": {"slot": slot_name, "prompt": final_prompt},
+                "_pending_responses": [final_prompt],
                 "_branch_target": None,
             }
             return ret
