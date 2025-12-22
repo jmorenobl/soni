@@ -1,6 +1,6 @@
 """Configuration models for Soni v2 M8."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -165,6 +165,26 @@ StepConfig = Annotated[
 RephraseTone = Literal["friendly", "professional", "formal"]
 
 
+class LLMConfig(BaseModel):
+    """Configuration for LLM provider."""
+
+    provider: Literal["openai", "anthropic", "fake"] = Field(
+        default="openai", description="LLM provider"
+    )
+    model: str = Field(default="gpt-4o-mini", description="Model identifier")
+    api_key: str | None = Field(default=None, description="API key (optional)")
+
+
+class PersistenceConfig(BaseModel):
+    """Configuration for persistence backend."""
+
+    backend: Literal["memory", "sqlite", "postgres"] = Field(
+        default="memory", description="Persistence backend type"
+    )
+    path: str = Field(default=":memory:", description="File path or connection string")
+    cleanup_interval: int = Field(default=3600, description="Cleanup interval in seconds")
+
+
 class Settings(BaseModel):
     """Runtime settings for Soni."""
 
@@ -174,12 +194,34 @@ class Settings(BaseModel):
     rephrase_tone: RephraseTone = Field(
         default="friendly", description="Tone for rephrased responses"
     )
+    llm: LLMConfig = Field(default_factory=LLMConfig, description="LLM settings")
+    persistence: PersistenceConfig = Field(
+        default_factory=PersistenceConfig, description="Persistence settings"
+    )
+
+
+class SlotDefinition(BaseModel):
+    """Configuration for a slot definition in trigger."""
+
+    name: str = Field(description="Slot name")
+    type: str = Field(default="string", description="Slot type")
+    description: str | None = Field(default=None, description="Slot description")
+
+
+class TriggerConfig(BaseModel):
+    """Configuration for flow triggering."""
+
+    intents: list[str] = Field(default_factory=list, description="Trigger phrases/intents")
+    slots: list[SlotDefinition | dict[str, Any]] = Field(
+        default_factory=list, description="Slots to extract on trigger"
+    )
 
 
 class FlowConfig(BaseModel):
     """Configuration for a flow."""
 
     description: str = ""
+    trigger: TriggerConfig | None = Field(default=None, description="Trigger configuration")
     steps: list[StepConfig] = Field(default_factory=list)
 
 

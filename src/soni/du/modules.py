@@ -41,6 +41,26 @@ class SoniDU(OptimizableDSPyModule):
             return dspy.ChainOfThought(ExtractCommands)
         return dspy.Predict(ExtractCommands)
 
+    def _convert_history(self, history: list) -> list[dict[str, str]]:
+        """Convert mixed history types to DSPy-compatible dicts."""
+        if not history:
+            return []
+
+        clean_history = []
+        for msg in history:
+            if isinstance(msg, dict):
+                clean_history.append(msg)
+            elif hasattr(msg, "content") and hasattr(msg, "type"):
+                # Handle LangChain/Pydantic message objects
+                role = (
+                    "user" if msg.type == "human" else "assistant" if msg.type == "ai" else "system"
+                )
+                clean_history.append({"role": role, "content": str(msg.content)})
+            else:
+                # Fallback
+                clean_history.append({"role": "user", "content": str(msg)})
+        return clean_history
+
     async def aforward(
         self,
         user_message: str,
@@ -53,7 +73,8 @@ class SoniDU(OptimizableDSPyModule):
         Uses native .acall() for async LM calls - more efficient
         than wrapping with asyncify.
         """
-        history_obj = dspy.History(messages=history or [])
+        history_list = self._convert_history(history or [])
+        history_obj = dspy.History(messages=history_list)
 
         try:
             result = await self.extractor.acall(
@@ -80,7 +101,9 @@ class SoniDU(OptimizableDSPyModule):
         history: list[dict[str, str]] | None = None,
     ) -> NLUOutput:
         """Sync version (for testing/optimization)."""
-        history_obj = dspy.History(messages=history or [])
+        history_list = self._convert_history(history or [])
+        history_obj = dspy.History(messages=history_list)
+
         result = self.extractor(
             user_message=user_message,
             context=context,

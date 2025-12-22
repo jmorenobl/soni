@@ -195,7 +195,66 @@ async def execute_flow_node(
         nlu_output = await ctx.du.acall(user_message, context=ctx, history=history)
         new_commands = [cmd.model_dump() for cmd in nlu_output.commands]
 
-        # Check for flow-changing commands (digression, cancellation)
+        # Pass 2: Slot Extraction (if flow is active)
+        if hasattr(ctx, "slot_extractor") and flow_name in config.flows:
+            # Get slot definitions for current flow
+            flow_config = config.flows[flow_name]
+            # Collect all slots defined in the flow (trigger slots + step slots)
+            slot_defs = {}
+
+            # From trigger
+            if flow_config.trigger and flow_config.trigger.slots:
+                for s in flow_config.trigger.slots:
+                    if isinstance(s, dict):
+                        slot_defs.update(s)
+                    else:  # simple str
+                        pass
+
+            # From steps (config doesn't easily expose slots per step without iterating)
+            # Actually, `SlotExtractor` usually expects a dict of `SlotConfig`.
+            # For M10 verification, if we just rely on SoniDU for now it failed.
+            # But iterating config steps is expensive here?
+            # ConfigLoader should have provided a map?
+
+            # Simplified: Use Config helper if available or extract relevant slots
+            # For banking, slots are defined in trigger OR implicit in collect steps.
+            # StartFlow passes definitions. Here we are MID-flow.
+            # The `SlotExtractor` needs definitions to know what to look for.
+
+            # If we don't have definitions readily available, maybe we skip or rely on SoniDU?
+            # BUT SoniDU failed.
+
+            # Let's inspect `config.flows[flow_name]`. It is `FlowConfig`.
+            # We can get `slots` from `trigger` if defined there.
+            # The `banking` example defines slots in `trigger` for `check_transactions` but NOT for `transfer_funds`.
+            # `transfer_funds` uses `collect` steps.
+
+            # M10 Fix: Construct definitions from flow config steps
+            # This is technical debt, should be pre-computed.
+            definitions = {}
+            if flow_config.steps:
+                from soni.config.models import CollectStepConfig
+
+                for step in flow_config.steps:
+                    if isinstance(step, CollectStepConfig):
+                        # Create a minimal definition
+                        definitions[step.slot] = {"type": "string", "description": step.message}
+
+            if definitions:
+                from soni.du.slot_extractor import SlotExtractionInput
+
+                inputs = [
+                    SlotExtractionInput(
+                        name=k,
+                        slot_type=v.get("type", "string"),
+                        description=v.get("description", ""),
+                    )
+                    for k, v in definitions.items()
+                ]
+
+                slot_cmds = await ctx.slot_extractor.acall(user_message, inputs)
+                new_commands.extend([cmd.model_dump() for cmd in slot_cmds])
+
         for cmd in new_commands:
             cmd_type = cmd.get("type")
 

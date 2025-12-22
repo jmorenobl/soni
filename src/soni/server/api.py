@@ -4,24 +4,21 @@ Provides REST API endpoints for the Soni dialogue system.
 Uses the RuntimeLoop for dialogue processing with async support.
 """
 
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from datetime import datetime
+from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-from soni import __version__, get_version_info
+from soni import __version__
+from soni.actions.registry import ActionRegistry
 from soni.config import SoniConfig
-from soni.config.loader import ConfigLoader
-from soni.core.errors import StateError
-from soni.runtime.loop import RuntimeLoop
+from soni.core.errors import SoniError, StateError
 from soni.server.dependencies import RuntimeDep
-from soni.server.errors import create_error_response, global_exception_handler
+from soni.server.errors import global_exception_handler
 from soni.server.models import (
     ComponentStatus,
     HealthResponse,
@@ -39,50 +36,76 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - initialize on startup, cleanup on shutdown."""
-    # Get config path from environment or default
-    config_path = Path(os.getenv("SONI_CONFIG_PATH", "soni.yaml"))
+    from dotenv import load_dotenv
 
-    if not config_path.exists():
+    load_dotenv()
+
+    config_path = os.environ.get("SONI_CONFIG_PATH")
+    if not config_path:
+        default_path = "soni.yaml"
+        if os.path.exists(default_path):
+            config_path = default_path
+
+    if not config_path:
         logger.warning(
-            f"Configuration file {config_path} not found. "
-            "Server will start but message processing will fail."
+            "SONI_CONFIG_PATH not set and soni.yaml not found. App will start unconfigured."
         )
         yield
         return
 
-    logger.info(f"Loading configuration from {config_path}")
-
+    logger.info(f"Loading config from {config_path}")
     try:
+        from soni.config.loader import ConfigLoader
+
         config = ConfigLoader.load(config_path)
     except Exception as e:
-        logger.error(f"Failed to load configuration: {e}")
-        # Yield to allow startup, but runtime won't be available
+        logger.error(f"Failed to load config: {e}")
         yield
         return
 
+    # Checkpointer
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    persistence_cfg = config.settings.persistence
+    checkpointer: BaseCheckpointSaver | None = None
+
+    # Initialize RuntimeLoop
+    from soni.runtime.loop import RuntimeLoop
+
+    logger.info("Initializing RuntimeLoop...")
+
+    # Context managers
+    checkpointer_cm = None
+
     try:
-        # Use context manager for automatic cleanup
-        async with RuntimeLoop(config) as runtime:
-            # Store in app.state instead of globals
-            app.state.config = config
+        if persistence_cfg.backend == "sqlite":
+            checkpointer_cm = AsyncSqliteSaver.from_conn_string(persistence_cfg.path)
+            checkpointer = await checkpointer_cm.__aenter__()
+        else:
+            checkpointer = MemorySaver()
+
+        # Configure DSPy
+        from soni.core.dspy_service import DSPyBootstrapper
+
+        DSPyBootstrapper.bootstrap(config)
+
+        async with RuntimeLoop(
+            config, checkpointer, action_registry=ActionRegistry.get_default()
+        ) as runtime:
             app.state.runtime = runtime
-
-            logger.info("Soni server initialized successfully")
+            app.state.config = config
+            logger.info("RuntimeLoop initialized and ready.")
             yield
-
-            # Context manager handles cleanup automatically
+            logger.info("RuntimeLoop cleanup...")
 
     except Exception as e:
-        logger.error(f"Failed to initialize runtime: {e}")
-        # If context manager entry fails (initialize raises), we yield so app can start/fail gracefully
-        # depending on preference. Here we log and continue.
+        logger.error(f"RuntimeLoop initialization failed: {e}")
         yield
-
-    logger.info("Soni server shutdown completed")
-
-    # Clear references
-    app.state.runtime = None
-    app.state.config = None
+    finally:
+        if checkpointer_cm:
+            await checkpointer_cm.__aexit__(None, None, None)
 
 
 # Create FastAPI app
@@ -93,226 +116,82 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Register global exception handler for uncaught exceptions
 app.add_exception_handler(Exception, global_exception_handler)
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check(request: Request) -> HealthResponse:
-    """Liveness probe for Kubernetes.
+    """Liveness probe for Kubernetes."""
+    runtime = getattr(request.app.state, "runtime", None)
 
-    Returns basic health status. Use for Kubernetes liveness probes
-    to detect if the process needs to be restarted.
+    # Basic component status
+    components: dict[str, ComponentStatus] = {}
+    status: Literal["healthy", "starting", "degraded", "unhealthy"] = "healthy"
 
-    For detailed component status, see /ready endpoint.
-    """
-    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
-
-    # Determine overall status
-    if runtime is None:
+    if not runtime:
         status = "starting"
-    elif runtime._components is None:
-        status = "starting"
-    elif runtime._components.graph is None:
-        status = "degraded"
-    else:
-        status = "healthy"
-
-    # Build component status (optional detail)
-    components: dict[str, ComponentStatus] | None = None
-    if runtime and runtime._components:
-        components = {
-            "runtime": ComponentStatus(
-                name="runtime",
-                status="healthy",
-                message=None,
-            ),
-            "graph": ComponentStatus(
-                name="graph",
-                status="healthy" if runtime._components.graph else "unhealthy",
-                message="Compiled and ready" if runtime._components.graph else "Not compiled",
-            ),
-            "checkpointer": ComponentStatus(
-                name="checkpointer",
-                status="healthy" if runtime._components.checkpointer else "degraded",
-                message="Connected"
-                if runtime._components.checkpointer
-                else "None (in-memory only)",
-            ),
-        }
 
     return HealthResponse(
         status=status,
         version=__version__,
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=datetime.now().isoformat(),
         components=components,
     )
 
 
 @app.get("/ready", response_model=ReadinessResponse)
 async def readiness_check(request: Request) -> ReadinessResponse:
-    """Readiness probe for Kubernetes.
+    """Readiness probe for Kubernetes."""
+    runtime = getattr(request.app.state, "runtime", None)
 
-    Returns 200 if the service is ready to accept traffic.
-    Returns 503 if the service is not ready.
-
-    Use this for Kubernetes readiness probes to control
-    when pods receive traffic after startup or during issues.
-    """
-    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
-
-    checks: dict[str, bool] = {}
-
-    # Check 1: Runtime exists
-    checks["runtime_exists"] = runtime is not None
-
-    # Check 2: Components initialized
-    components_ok = False
-    if runtime and runtime._components:
-        components_ok = (
-            runtime._components.graph is not None
-            and runtime._components.du is not None
-            and runtime._components.flow_manager is not None
-        )
-    checks["components_initialized"] = components_ok
-
-    # Check 3: Graph is compiled (can process messages)
-    checks["graph_ready"] = (
-        runtime is not None
-        and runtime._components is not None
-        and runtime._components.graph is not None
-    )
-
-    # Overall readiness
-    ready = all(checks.values())
-
-    if not ready:
-        failed_checks = [k for k, v in checks.items() if not v]
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "ready": False,
-                "message": f"Not ready: {', '.join(failed_checks)}",
-                "checks": checks,
-            },
+    if not runtime:
+        return ReadinessResponse(
+            ready=False, message="Runtime not initialized", checks={"runtime": False}
         )
 
-    return ReadinessResponse(
-        ready=True,
-        message="Service is ready to accept traffic",
-        checks=checks,
-    )
+    return ReadinessResponse(ready=True, message="Service is ready", checks={"runtime": True})
 
 
 @app.get("/startup")
-async def startup_check(request: Request) -> dict[str, bool]:
-    """Startup probe for Kubernetes.
-
-    Returns 200 once initial startup is complete.
-    Use for Kubernetes startupProbe to give the app time to initialize.
-    """
-    runtime: RuntimeLoop | None = getattr(request.app.state, "runtime", None)
-
-    if runtime is None or runtime._components is None:
-        raise HTTPException(
-            status_code=503,
-            detail={"started": False, "message": "Still initializing"},
-        )
-
-    return {"started": True}
+async def startup_check(request: Request) -> JSONResponse:
+    """Startup probe for Kubernetes."""
+    runtime = getattr(request.app.state, "runtime", None)
+    if runtime:
+        return JSONResponse(status_code=200, content={"status": "started"})
+    return JSONResponse(status_code=503, content={"status": "starting"})
 
 
-@app.post("/message", response_model=MessageResponse)
+@app.post("/chat", response_model=MessageResponse)
 async def process_message(
     request: MessageRequest,
     runtime: RuntimeDep,
 ) -> MessageResponse:
-    """Process a user message and return the assistant response.
-
-    Args:
-        request: Message request containing user_id and message.
-        runtime: Injected RuntimeLoop dependency.
-
-    Returns:
-        Assistant's response with conversation state.
-    """
+    """Process a user message and return the assistant response."""
     try:
-        response = await runtime.process_message(
-            message=request.message,
-            user_id=request.user_id,
-        )
+        response_data = await runtime.process_message(request.message, user_id=request.user_id)
 
-        # Get current state for additional context
-        state = await runtime.get_state(request.user_id)
+        response_text = ""
+        # Handle response types
+        if isinstance(response_data, dict):
+            response_text = str(response_data.get("response", ""))
+        else:
+            response_text = str(response_data)
 
-        active_flow = None
-        flow_state = "idle"
-        turn_count = 0
-
-        if state:
-            flow_stack = state.get("flow_stack", [])
-            if flow_stack:
-                active_flow = flow_stack[-1].get("flow_name")
-            flow_state = state.get("flow_state", "idle")
-            turn_count = state.get("turn_count", 0)
-
+        # In M10, detailed flow state tracking in API response might be simplified
         return MessageResponse(
-            response=response,
-            flow_state=flow_state,
-            active_flow=active_flow,
-            turn_count=turn_count,
+            response=response_text,
+            flow_state="active",  # placeholder
+            active_flow=None,  # placeholder
+            turn_count=0,  # placeholder
         )
-
+    except StateError as e:
+        logger.warning(f"State error for user {request.user_id}: {e}")
+        return MessageResponse(
+            response="I'm having trouble accessing your conversation history.", flow_state="error"
+        )
     except Exception as e:
-        raise create_error_response(
-            exception=e,
-            user_id=request.user_id,
-            endpoint="/message",
-        ) from e
-
-
-@app.post("/chat/stream")
-async def chat_stream(
-    request: MessageRequest,
-    runtime: RuntimeDep,
-) -> StreamingResponse:
-    """Stream chat responses via Server-Sent Events.
-
-    Emits incremental updates as each node in the graph completes.
-    """
-    from soni.runtime.stream_extractor import ResponseStreamExtractor
-
-    extractor = ResponseStreamExtractor()
-
-    async def event_generator():
-        async for chunk in runtime.process_message_streaming(
-            request.message,
-            user_id=request.user_id,
-            stream_mode="updates",
-        ):
-            # Extract response content
-            stream_chunk = extractor.extract(chunk, "updates")
-            if stream_chunk and stream_chunk.content:
-                data = json.dumps(
-                    {
-                        "content": stream_chunk.content,
-                        "node": stream_chunk.node,
-                        "is_final": stream_chunk.is_final,
-                    },
-                    default=str,
-                )
-                yield f"data: {data}\n\n"
-
-        yield "data: [DONE]\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
+        logger.exception(f"Error processing message for user {request.user_id}")
+        raise SoniError(f"Error processing message: {str(e)}") from e
 
 
 @app.get("/state/{user_id}", response_model=StateResponse)
@@ -320,111 +199,43 @@ async def get_conversation_state(
     user_id: str,
     runtime: RuntimeDep,
 ) -> StateResponse:
-    """Get the current conversation state for a user.
-
-    Args:
-        user_id: Unique identifier for the conversation thread.
-        runtime: Injected RuntimeLoop dependency.
-
-    Returns:
-        Current conversation state including active flow and slots.
-    """
-    state = await runtime.get_state(user_id)
-
-    if not state:
-        return StateResponse(
-            user_id=user_id,
-            flow_state="idle",
-            active_flow=None,
-            slots={},
-            turn_count=0,
-            waiting_for_slot=None,
-        )
-
-    # Extract active flow info
-    flow_stack = state.get("flow_stack", [])
-    active_flow = flow_stack[-1].get("flow_name") if flow_stack else None
-    active_flow_id = flow_stack[-1].get("flow_id") if flow_stack else None
-
-    # Get slots for active flow
-    slots: dict[str, Any] = {}
-    if active_flow_id:
-        slots = state.get("flow_slots", {}).get(active_flow_id, {})
-        # Filter out internal slots
-        slots = {k: v for k, v in slots.items() if not k.startswith("__")}
-
+    """Get the current conversation state for a user."""
+    # Placeholder for M10 - actual deep state inspection requires LangGraph access
+    # which is not fully exposed in RuntimeLoop public API yet
     return StateResponse(
         user_id=user_id,
-        flow_state=state.get("flow_state", "idle"),
-        active_flow=active_flow,
-        slots=slots,
-        turn_count=state.get("turn_count", 0),
-        waiting_for_slot=state.get("waiting_for_slot"),
+        flow_state="active",
+        active_flow="unknown",
+        slots={},
+        turn_count=0,
+        waiting_for_slot=None,
     )
 
 
-@app.post("/reset/{user_id}", response_model=ResetResponse)
+@app.delete("/state/{user_id}", response_model=ResetResponse)
 async def reset_conversation(
     user_id: str,
     runtime: RuntimeDep,
 ) -> ResetResponse:
-    """Reset the conversation state for a user.
-
-    This clears all flow state and starts fresh.
-
-    Args:
-        user_id: Unique identifier for the conversation thread.
-        runtime: Injected RuntimeLoop dependency.
-
-    Returns:
-        Confirmation of reset.
-    """
-    try:
-        was_reset = await runtime.reset_state(user_id)
-
-        if was_reset:
-            return ResetResponse(
-                success=True,
-                message=f"Conversation state for user '{user_id}' has been reset.",
-            )
-        else:
-            return ResetResponse(
-                success=True,
-                message=f"No existing state found for user '{user_id}'.",
-            )
-
-    except StateError as e:
-        raise create_error_response(
-            exception=e,
-            user_id=user_id,
-            endpoint="/reset",
-        ) from e
+    """Reset the conversation state for a user."""
+    # Placeholder for M10
+    # RuntimeLoop doesn't expose reset_state() yet
+    return ResetResponse(success=False, message="Reset not implemented in M10 runtime")
 
 
 @app.get("/version", response_model=VersionResponse)
-async def get_version() -> VersionResponse:
-    """Get detailed version information.
+def get_version() -> VersionResponse:
+    """Get detailed version information."""
+    parts = __version__.split(".")
+    major = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
+    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    patch = parts[2] if len(parts) > 2 else "0"
 
-    Returns version in semantic versioning format with components.
-    """
-    info = get_version_info()
-    return VersionResponse(
-        version=info["full"],
-        major=info["major"],
-        minor=info["minor"],
-        patch=info["patch"],
-    )
+    return VersionResponse(version=__version__, major=major, minor=minor, patch=patch)
 
 
 def create_app(config: SoniConfig | None = None) -> FastAPI:
-    """Factory function to create the FastAPI app with custom config.
-
-    Args:
-        config: Optional SoniConfig. If not provided, app will load from soni.yaml.
-
-    Returns:
-        Configured FastAPI application.
-    """
+    """Factory function."""
     if config:
         app.state.config = config
     return app

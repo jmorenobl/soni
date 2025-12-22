@@ -7,11 +7,10 @@ import dspy
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from soni.core.commands import Command
 from soni.dataset import DatasetBuilder
 from soni.du.optimizer import create_metric, optimize_du
-
-from soni.config import SoniConfig
-from soni.core.commands import Command
 
 app = typer.Typer(help="Optimize NLU module")
 console = Console()
@@ -40,7 +39,10 @@ def run(
     """Run optimization pipeline."""
 
     # 1. Load Config
-    soni_config = SoniConfig.from_yaml(config)
+    # 1. Load Config
+    from soni.config.loader import ConfigLoader
+
+    soni_config = ConfigLoader.load(config)
 
     # 2. Config DSPy using centralized bootstrapper
     from soni.core.dspy_service import DSPyBootstrapper

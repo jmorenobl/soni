@@ -8,7 +8,6 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from soni.config import SoniConfig
 from soni.core.errors import ConfigError
 from soni.runtime.loop import RuntimeLoop
 
@@ -36,19 +35,15 @@ class SoniChatCLI:
         self.user_id = user_id
         self.streaming = streaming
 
-        # Re-writing start() method content logic completely in one chunk to avoid context issues
-
     async def start(self) -> None:
         """Start the interactive session."""
-        from soni.runtime.stream_extractor import ResponseStreamExtractor
-
         self.console.print(BANNER_ART, style="bold blue")
         self.console.print(f"Session ID: [green]{self.user_id}[/]")
         if self.streaming:
-            self.console.print("[dim]Streaming mode enabled[/]")
-        self.console.print("Type 'exit' or 'quit' to end session.\n")
+            self.console.print("[yellow]Streaming not yet supported in M10 - disabling[/]")
+            self.streaming = False
 
-        extractor = ResponseStreamExtractor()
+        self.console.print("Type 'exit' or 'quit' to end session.\n")
 
         while True:
             try:
@@ -60,41 +55,13 @@ class SoniChatCLI:
                 if not user_input.strip():
                     continue
 
-                if self.streaming:
-                    # Streaming mode
-                    self.console.print("[bold blue]Soni > [/]", end="")
-                    last_response = ""
+                # Process message
+                with self.console.status("[bold blue]Thinking...[/]"):
+                    response = await self.runtime.process_message(user_input, user_id=self.user_id)
 
-                    async for chunk in self.runtime.process_message_streaming(
-                        user_input,
-                        user_id=self.user_id,
-                        stream_mode="updates",
-                    ):
-                        stream_chunk = extractor.extract(chunk, "updates")
-                        if stream_chunk and stream_chunk.content:
-                            # Print new content (avoid duplicates)
-                            if stream_chunk.content != last_response:
-                                print(stream_chunk.content, end="", flush=True)
-                                last_response = stream_chunk.content
-
-                    print()  # Newline after response
-                else:
-                    # Process message
-                    with self.console.status("[bold blue]Thinking...[/]"):
-                        response = await self.runtime.process_message(
-                            user_input, user_id=self.user_id
-                        )
-
-                    # Print response
-                    if response:
-                        # Depending on response format (dict or object)
-                        # response is usually dict from RuntimeLoop
-                        text = (
-                            response.get("response", "...")
-                            if isinstance(response, dict)
-                            else str(response)
-                        )
-                        self.console.print(f"[bold blue]Soni > [/]{text}\n")
+                # Print response
+                if response:
+                    self.console.print(f"[bold blue]Soni > [/]{response}\n")
 
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Goodbye![/]")
@@ -105,19 +72,29 @@ class SoniChatCLI:
 
 @app.callback(invoke_without_command=True)
 def run_chat(
-    config: Path = typer.Option(..., "--config", "-c", help="Path to soni.yaml", exists=True),
-    user_id: str | None = typer.Option(None, "--user-id", "-u", help="User ID for session"),
-    optimized_du: Path | None = typer.Option(
-        None, "--optimized-du", "-d", help="Path to optimized NLU module", exists=True
+    config: Path = typer.Option(
+        "soni.yaml", "--config", "-c", help="Path to soni.yaml or config directory"
     ),
     module: str | None = typer.Option(
-        None, "--module", "-m", help="Python module to import (e.g. 'examples.banking.handlers')"
+        None, "--module", "-m", help="Python module to load (e.g. 'app.actions')"
     ),
-    streaming: bool = typer.Option(False, "--streaming", "-s", help="Enable streaming mode"),
-):
+    optimized_du: bool | None = typer.Option(
+        None, "--optimized-du/--no-optimized-du", help="Use optimized NLU models"
+    ),
+    streaming: bool = typer.Option(False, "--streaming", "-s", help="Enable streaming response"),
+    user_id: str | None = typer.Option(None, "--user", "-u", help="User ID"),
+    ctx: typer.Context = typer.Option(None, hidden=True),  # Inject context
+) -> None:
     """Start interactive chat session."""
+    if ctx.invoked_subcommand:
+        return
 
-    # 1. Load User Code (Actions)
+    # 0. Load Environment Variables
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    # 1. Load Actions Module
     if module:
         import importlib
         import sys
@@ -128,11 +105,7 @@ def run_chat(
             sys.path.insert(0, cwd)
 
         try:
-            # If it's a file path, convert to module notation or load by path?
-            # Simpler to assume module notation for now if using -m
-            # But user might pass 'examples/banking/handlers.py'
             if module.endswith(".py"):
-                # Load via path not implemented yet for simplicity, suggest module syntax
                 typer.echo(
                     "Warning: Please use python module syntax (e.g. pkg.mod) for --module", err=True
                 )
@@ -141,13 +114,13 @@ def run_chat(
             typer.echo(f"Loaded module: {module}")
         except Exception as e:
             typer.echo(f"Failed to load module {module}: {e}", err=True)
-            # Don't exit? Or exit? Actions might be critical.
-            # Let's exit to be safe.
             raise typer.Exit(1)
 
     # 2. Load Config
+    from soni.config.loader import ConfigLoader
+
     try:
-        soni_config = SoniConfig.from_yaml(config)
+        soni_config = ConfigLoader.load(config)
     except ConfigError as e:
         typer.echo(f"Invalid config: {e}", err=True)
         raise typer.Exit(1)
@@ -157,70 +130,70 @@ def run_chat(
 
     try:
         bootstrapper = DSPyBootstrapper(soni_config)
-        dspy_result = bootstrapper.configure()
-        typer.echo(f"DSPy configured: {dspy_result.provider}/{dspy_result.model}")
+        bootstrapper.configure()
     except Exception as e:
         typer.echo(f"DSPy config failed: {e}", err=True)
         raise typer.Exit(1)
 
-    # 3. Setup Persistence
-    from soni.runtime.checkpointer import create_checkpointer
+    # 4. Setup Persistence (LangGraph)
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
     persistence_cfg = soni_config.settings.persistence
+    checkpointer: BaseCheckpointSaver | None = None
+
     try:
         if persistence_cfg.backend == "sqlite":
-            checkpointer = create_checkpointer(type="sqlite", db_path=persistence_cfg.path)
+            # AsyncSqliteSaver requires async context or factory
+            pass
         elif persistence_cfg.backend == "memory":
-            checkpointer = create_checkpointer(type="memory")
-        else:
-            # Fallback or error?
-            # For now fallback to memory if not configured, or error if unknown backend.
-            # checkpointer.py handles unknown types
-            checkpointer = create_checkpointer(
-                type=persistence_cfg.backend,
-                # Pass other kwargs generically if needed, but for now specific mapping is safer
-                # or pass path as db_path/connection_string generically?
-                # create_checkpointer takes kwargs.
-                # sqlite takes db_path. postgres takes connection_string.
-                db_path=persistence_cfg.path,
-                connection_string=persistence_cfg.path,
-            )
+            checkpointer = MemorySaver()
     except Exception as e:
         typer.echo(f"Persistence init failed: {e}", err=True)
-        # Fallback to memory for CLI chat might be acceptable but let's warn
         typer.echo("Falling back to in-memory persistence.", err=True)
-        checkpointer = create_checkpointer(type="memory")
+        checkpointer = MemorySaver()
 
-    # 4. Initialize Runtime
+    # 5. Initialize Runtime
     try:
-        # We need to manually initialize SoniDU with the optimized path if provided.
-        # Ideally RuntimeLoop would handle this, or we patch it.
-        # RuntimeLoop.initialize() creates a fresh SoniDU().
-        # We might need to manually set it after init.
-
-        runtime = RuntimeLoop(config=soni_config, checkpointer=checkpointer)
-        # Note: We need to run async init.
 
         async def _bootstrap():
-            await runtime.initialize()
-            if optimized_du:
-                # Load optimization
-                # runtime.du is accessible as property
-                if hasattr(runtime.du, "load"):
-                    runtime.du.load(str(optimized_du))
-                    typer.echo(f"Loaded optimized NLU from {optimized_du}")
-                else:
-                    typer.echo(
-                        "Warning: Current NLU provider does not support loading optimization.",
-                        err=True,
-                    )
+            # Handle AsyncSqliteSaver if needed
+            nonlocal checkpointer
+            async_checkpointer_cm = None
 
-            chat = SoniChatCLI(
-                runtime,
-                user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}",
-                streaming=streaming,
-            )
-            await chat.start()
+            if persistence_cfg.backend == "sqlite" and checkpointer is None:
+                # We need to maintain reference to context manager to keep it open
+                async_checkpointer_cm = AsyncSqliteSaver.from_conn_string(persistence_cfg.path)
+                checkpointer = await async_checkpointer_cm.__aenter__()
+
+            # Fallback
+            if checkpointer is None:
+                checkpointer = MemorySaver()
+
+            # M10: Using async context manager
+            from soni.actions.registry import ActionRegistry
+            from soni.core.dspy_service import DSPyBootstrapper
+
+            # Configure DSPy (LLM)
+            DSPyBootstrapper.bootstrap(soni_config)
+
+            try:
+                # Use default registry to pick up actions registered via decorators
+                registry = ActionRegistry.get_default()
+
+                async with RuntimeLoop(
+                    config=soni_config, checkpointer=checkpointer, action_registry=registry
+                ) as runtime:
+                    chat = SoniChatCLI(
+                        runtime,
+                        user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}",
+                        streaming=streaming,
+                    )
+                    await chat.start()
+            finally:
+                if async_checkpointer_cm:
+                    await async_checkpointer_cm.__aexit__(None, None, None)
 
         asyncio.run(_bootstrap())
 

@@ -1,7 +1,7 @@
 # Soni Banking Assistant - Settings
 # Global configuration and metadata
 
-version: "0.1"
+version: "1.0"
 
 settings:
   models:
