@@ -1,8 +1,8 @@
 # Soni v2 - Milestone 9: DSPy Prompt Optimization
 
-**Status**: Ready for Review  
-**Date**: 2025-12-21  
-**Type**: Design Document  
+**Status**: Ready for Review
+**Date**: 2025-12-21
+**Type**: Design Document
 **Depends On**: M4 (CommandGenerator NLU)
 
 ---
@@ -39,10 +39,10 @@ Implement DSPy prompt optimization for NLU modules, providing automatic prompt e
 ```python
 class OptimizableDSPyModule(dspy.Module):
     """Base class with automatic optimized model loading."""
-    
+
     optimized_files: ClassVar[list[str]] = []  # Priority-ordered
     default_use_cot: ClassVar[bool] = True
-    
+
     def __init__(self, use_cot: bool | None = None):
         super().__init__()
         self._use_cot = use_cot if use_cot is not None else self.default_use_cot
@@ -99,31 +99,31 @@ import dspy
 
 class OptimizableDSPyModule(dspy.Module):
     """Base class for DSPy modules supporting optimization.
-    
+
     Features:
     - Automatic loading of best optimized model
     - Configurable CoT vs Predict
     - Standard async/sync interfaces
     """
-    
+
     optimized_files: ClassVar[list[str]] = []
     default_use_cot: ClassVar[bool] = True
-    
+
     def __init__(self, use_cot: bool | None = None):
         super().__init__()
         self._use_cot = use_cot if use_cot is not None else self.default_use_cot
         self.extractor = self._create_extractor(self._use_cot)
         self._load_optimized_if_available()
-    
+
     @abstractmethod
     def _create_extractor(self, use_cot: bool) -> dspy.Module:
         """Create the predictor/extractor."""
         ...
-    
+
     def _load_optimized_if_available(self) -> None:
         """Load best available optimized model."""
         optimized_dir = Path(__file__).parent / "optimized"
-        
+
         for filename in self.optimized_files:
             path = optimized_dir / filename
             if path.exists():
@@ -150,20 +150,20 @@ def create_metric(
     validate_command_fn: Callable | None = None,
 ) -> Callable:
     """Create evaluation metric for optimization."""
-    
+
     def metric(example: Example, prediction: Any, trace: Any = None) -> float:
         expected = example.result.commands
         actual = prediction.result.commands if hasattr(prediction.result, "commands") else []
-        
+
         if len(expected) != len(actual):
             return 0.0
-        
+
         matches = sum(
             1 for e, a in zip(expected, actual)
             if _commands_match(e, a, validate_command_fn)
         )
         return matches / len(expected) if expected else 1.0
-    
+
     return metric
 
 
@@ -178,7 +178,7 @@ def optimize_du(
     verbose: bool = True,
 ) -> SoniDU:
     """Optimize SoniDU with chosen optimizer.
-    
+
     Args:
         trainset: Training examples
         metric: Evaluation metric
@@ -187,7 +187,7 @@ def optimize_du(
         auto: Optimization intensity ("light", "medium", "heavy")
     """
     du = SoniDU(use_cot=True)
-    
+
     if optimizer_type == "miprov2":
         optimizer = MIPROv2(
             metric=metric,
@@ -201,7 +201,7 @@ def optimize_du(
         from dspy.teleprompt import GEPA
         optimizer = GEPA(metric=metric, auto=auto)
         optimized = optimizer.compile(du, trainset=trainset, valset=valset)
-    
+
     return optimized
 ```
 
@@ -218,24 +218,24 @@ from soni.dataset.patterns import INTENT_PATTERNS, SLOT_PATTERNS
 
 class DatasetBuilder:
     """Generate training examples from flow definitions."""
-    
+
     def build(self, config: SoniConfig) -> list[Example]:
         """Build training dataset from config."""
         examples = []
-        
+
         for flow_name, flow in config.flows.items():
             # Generate intent examples
             examples.extend(self._generate_intent_examples(flow_name, flow))
-            
+
             # Generate slot extraction examples
             examples.extend(self._generate_slot_examples(flow_name, flow))
-        
+
         return examples
-    
+
     def _generate_intent_examples(self, flow_name: str, flow) -> list[Example]:
         # Use trigger phrases + pattern variations
         ...
-    
+
     def _generate_slot_examples(self, flow_name: str, flow) -> list[Example]:
         # Generate examples for each collect step
         ...
@@ -266,11 +266,11 @@ def run(
     """Run DSPy optimization on SoniDU."""
     # Load config
     config = ConfigLoader().load(config_path)
-    
+
     # Generate dataset
     builder = DatasetBuilder()
     trainset = builder.build(config)
-    
+
     # Optimize
     metric = create_metric()
     optimized_du = optimize_du(
@@ -279,7 +279,7 @@ def run(
         optimizer_type=optimizer,
         auto=auto,
     )
-    
+
     # Save
     optimized_du.save(output)
     typer.echo(f"Saved optimized model to {output}")
@@ -305,16 +305,16 @@ async def test_optimization_improves_accuracy():
     trainset = builder.build(config)
     testset = trainset[:5]  # Hold out for testing
     trainset = trainset[5:]
-    
+
     # Act - Baseline
     baseline_du = SoniDU(use_cot=False)
     baseline_score = evaluate(baseline_du, testset)
-    
+
     # Act - Optimized
     metric = create_metric()
     optimized_du = optimize_du(trainset, metric, auto="light")
     optimized_score = evaluate(optimized_du, testset)
-    
+
     # Assert
     assert optimized_score >= baseline_score
 ```
@@ -327,7 +327,7 @@ def test_create_metric_returns_callable():
     """create_metric returns a callable."""
     # Arrange & Act
     metric = create_metric()
-    
+
     # Assert
     assert callable(metric)
 
@@ -337,10 +337,10 @@ def test_dataset_builder_generates_examples():
     # Arrange
     config = SoniConfig(flows={"greet": FlowConfig(...)})
     builder = DatasetBuilder()
-    
+
     # Act
     examples = builder.build(config)
-    
+
     # Assert
     assert len(examples) > 0
     assert all(hasattr(e, "user_message") for e in examples)
@@ -392,17 +392,17 @@ Usage:
 
 def main(auto: str = "medium", optimizer: str = "miprov2") -> int:
     """Generate baseline optimization."""
-    
+
     # 1. Generate dataset from all patterns and domains
     builder = DatasetBuilder()
     trainset = builder.build_all(
         examples_per_combination=5,
         include_edge_cases=True,
     )
-    
+
     # 2. Stratified split (ensures all command types represented)
     train_split, val_split = stratified_split(trainset, train_ratio=0.9)
-    
+
     # 3. Optimize SoniDU
     optimized = optimize_du(
         trainset=train_split,
@@ -411,10 +411,10 @@ def main(auto: str = "medium", optimizer: str = "miprov2") -> int:
         auto=auto,
         optimizer_type=optimizer,
     )
-    
+
     # 4. Optimize SlotExtractor
     generate_and_optimize_slots(...)
-    
+
     # 5. Save to src/soni/du/optimized/
     optimized.save("src/soni/du/optimized/baseline_v1_miprov2.json")
 ```
@@ -429,14 +429,14 @@ The `create_with_best_model()` pattern ensures automatic loading:
 ```python
 class SoniDU(OptimizableDSPyModule):
     """Dialogue Understanding with automatic optimization loading."""
-    
+
     # Priority-ordered optimization files
     optimized_files: ClassVar[list[str]] = [
         "baseline_v1_miprov2.json",
-        "baseline_v1_gepa.json", 
+        "baseline_v1_gepa.json",
         "baseline_v1.json",
     ]
-    
+
     # ... rest of class
 
 # Auto-loading in NLUService:
