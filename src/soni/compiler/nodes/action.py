@@ -54,22 +54,29 @@ async def action_node(
 
     # Return InformTask with the result message
     prompt = ""
+    has_message = False
+
     if hasattr(result, "message"):
         prompt = result.message
+        has_message = True
     elif isinstance(result, dict) and "message" in result:
         prompt = result["message"]
+        has_message = True
     else:
+        # Default to string representation, but only used if forced
         prompt = str(result)
 
     wait_for_ack = getattr(config, "wait_for_ack", False)
     if wait_for_ack is not True:
         wait_for_ack = False
 
-    updates["_pending_task"] = inform(
-        prompt=prompt,
-        wait_for_ack=wait_for_ack,
-        metadata={"action": config.call},
-    )
+    # Only inform if explicitly waiting for ack OR if result has a message
+    if wait_for_ack or has_message:
+        updates["_pending_task"] = inform(
+            prompt=prompt,
+            wait_for_ack=wait_for_ack,
+            metadata={"action": config.call},
+        )
 
     return updates
 

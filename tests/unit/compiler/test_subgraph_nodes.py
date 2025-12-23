@@ -185,3 +185,27 @@ class TestActionNode:
         # Assert
         task = result["_pending_task"]
         assert task.get("wait_for_ack") is not True
+
+    @pytest.mark.asyncio
+    async def test_action_silent_with_dict_result_and_no_wait(self):
+        """Test that action returning simple dict without wait_for_ack is silent."""
+        # Arrange
+        from soni.compiler.nodes.action import action_node
+
+        config = MagicMock()
+        config.wait_for_ack = False
+        config.call = "silent_action"
+
+        # Result is a raw dict without "message" key
+        mock_result = {"key": "value", "id": 123}
+
+        state: dict[str, Any] = {}
+        runtime = MagicMock()
+        runtime.context.action_registry.execute = AsyncMock(return_value=mock_result)
+
+        # Act
+        result = await action_node(cast(DialogueState, state), runtime, config)
+
+        # Assert
+        # Should NOT have _pending_task
+        assert "_pending_task" not in result or result.get("_pending_task") is None
