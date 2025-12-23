@@ -4,7 +4,7 @@ from typing import Any
 
 from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, _merge_flow_slots
 from soni.dm.orchestrator.command_processor import CommandProcessor
 from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
@@ -36,7 +36,14 @@ async def orchestrator_node(
     updates = delta.to_dict()
 
     # 2. Get active flow
-    merged_state = {**state, **updates}
+    # Build local state for subgraph - MERGE slots, don't overwrite!
+    merged_state = dict(state)
+    merged_state.update(updates)
+
+    if "flow_slots" in updates:
+        merged_state["flow_slots"] = _merge_flow_slots(
+            state.get("flow_slots") or {}, updates["flow_slots"]
+        )
     # typeddict cast for mypy if needed, but dict merge is fine for reading
     from typing import cast
 
