@@ -104,7 +104,7 @@ class ActionRegistry:
                 # Case 2: Explicit 'slots' dict argument (Modern)
                 result = handler(slots)
             else:
-                # Case 3: Match slots to arguments (Legacy / Direct Unpacking)
+                # Case 3: Match slots to arguments (Direct Argument Unpacking)
                 kwargs = {k: v for k, v in slots.items() if k in params}
                 result = handler(**kwargs)  # type: ignore[call-arg]
 

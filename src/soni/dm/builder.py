@@ -1,9 +1,9 @@
 """Orchestrator builder for M7 (ADR-002 compliant interrupt architecture).
 
-The orchestrator uses a simplified flow:
-    understand → execute_flow → END
+The orchestrator uses a specific flow:
+    human_input_gate → nlu → orchestrator → (loop back if pending task)
 
-The execute_flow node handles all interrupt/resume logic internally using
+The human_input_gate handles all interrupt/resume logic using
 LangGraph's interrupt() mechanism.
 """
 
