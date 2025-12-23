@@ -64,15 +64,21 @@ class RuntimeLoop:
             rephraser = ResponseRephraser.create_with_best_model()
             rephraser.tone = self.config.settings.rephrase_tone
 
+        # Create message sink (M7: ADR-002)
+        from soni.core.message_sink import BufferedMessageSink
+
+        message_sink = BufferedMessageSink()
+
         # ADR-002: Pass subgraphs to context
         self._context = RuntimeContext(
             config=self.config,
             flow_manager=flow_manager,
-            du=du,
+            subgraph_registry=subgraphs,  # Updated name
+            message_sink=message_sink,  # Added sink
+            nlu_provider=du,  # Updated name (du -> nlu_provider)
             slot_extractor=slot_extractor,
             action_registry=action_registry,
-            subgraphs=subgraphs,
-            rephraser=rephraser,  # M8: Response rephrasing
+            rephraser=rephraser,
         )
 
         # Build orchestrator with checkpointer
@@ -103,155 +109,34 @@ class RuntimeLoop:
         config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
         try:
-            # Check for pending interrupts
+            # Check for existing state (persistence)
             snapshot = None
             if self.checkpointer:
                 snapshot = await self._graph.aget_state(config)
-                if snapshot:
-                    pass  # Resuming from interrupt
 
-            # ADR-002: Resume if there are pending tasks (interrupt was called)
             if snapshot and snapshot.tasks:
-                # CRITICAL: Process NLU BEFORE resuming to generate SetSlot commands
-                # Without this, user's response (e.g. "checking") won't be parsed as slot value
-                from soni.du.models import (
-                    CommandInfo,
-                    DialogueContext,
-                    FlowInfo,
-                    SlotDefinition,
-                    SlotValue,
-                )
-
-                fm = self._context.flow_manager
-                du = self._context.du
-                slot_extractor = self._context.slot_extractor
-                config_obj = self._context.config
-
-                # Get current state from snapshot
-                current_state = dict(snapshot.values) if snapshot.values else {}
-
-                # Build context for NLU
-                active_ctx = fm.get_active_context(current_state)
-                active_flow = active_ctx["flow_name"] if active_ctx else None
-
-                # Get expected slot from interrupt
-                pending = current_state.get("_pending_prompt")
-                expected_slot = pending.get("slot") if pending else None
-
-                # Get slot definitions for active flow
-                flow_slots_defs: list[SlotDefinition] = []
-                if active_flow and active_flow in config_obj.flows:
-                    from soni.config.models import CollectStepConfig
-
-                    flow_config = config_obj.flows[active_flow]
-                    for step in flow_config.steps:
-                        if isinstance(step, CollectStepConfig):
-                            flow_slots_defs.append(
-                                SlotDefinition(
-                                    name=step.slot,
-                                    slot_type="string",
-                                    description=step.message or f"Value for {step.slot}",
-                                )
-                            )
-
-                # Get current slots
-                current_slots: list[SlotValue] = []
-                if active_ctx:
-                    flow_id = active_ctx["flow_id"]
-                    flow_slots_state = current_state.get("flow_slots", {})
-                    if flow_slots_state:
-                        slot_dict = flow_slots_state.get(flow_id, {})
-                        for name, value in slot_dict.items():
-                            if not name.startswith("_"):
-                                current_slots.append(
-                                    SlotValue(
-                                        name=name, value=str(value) if value is not None else None
-                                    )
-                                )
-
-                flows_info = [
-                    FlowInfo(name=name, description=flow.description or name)
-                    for name, flow in config_obj.flows.items()
-                ]
-
-                commands_info = [
-                    CommandInfo(
-                        command_type="set_slot",
-                        description="Set a slot value when user provides information",
-                        required_fields=["slot", "value"],
-                    ),
-                    CommandInfo(command_type="affirm", description="User confirms"),
-                    CommandInfo(command_type="deny", description="User denies"),
-                ]
-
-                context_nlu = DialogueContext(
-                    available_flows=flows_info,
-                    available_commands=commands_info,
-                    active_flow=active_flow,
-                    flow_slots=flow_slots_defs,
-                    current_slots=current_slots,
-                    expected_slot=expected_slot,
-                    conversation_state="collecting" if active_flow else "idle",
-                )
-
-                # Get history
-                messages = current_state.get("messages", [])
-                history = [
-                    {
-                        "role": "user" if hasattr(m, "type") and m.type == "human" else "assistant",
-                        "content": m.content if hasattr(m, "content") else str(m),
-                    }
-                    for m in messages[-10:]
-                ]
-
-                # Run NLU
-                try:
-                    nlu_result = await du.acall(message, context_nlu, history)
-                    commands = [
-                        cmd.model_dump() if hasattr(cmd, "model_dump") else dict(cmd)
-                        for cmd in nlu_result.commands
-                    ]
-                except Exception:
-                    commands = []
-
-                # Resume with commands in payload
+                # Resuming from interrupt (ADR-002 simplified)
+                # Native LangGraph resume: pass message via Command(resume=...)
+                # The message will be picked up by human_input_gate node.
                 result = await self._graph.ainvoke(
-                    Command(
-                        resume=message,
-                        update={
-                            "commands": commands,
-                            "user_message": message,
-                        },
-                    ),
+                    Command(resume=message),
                     config=config,
                     context=self._context,
                 )
             else:
-                # Fresh execution
+                # Fresh execution (ADR-002)
+                # First invoke goes directly to human_input_gate with user_message
                 state = create_empty_state()
                 state["user_message"] = message
-                result = await self._graph.ainvoke(state, config=config, context=self._context)
+                result = await self._graph.ainvoke(
+                    state,
+                    config=config,
+                    context=self._context,
+                )
 
-            # Handle interrupt response (return prompt to user)
-            if "__interrupt__" in result:
-                interruption = result["__interrupt__"]
-                val = interruption
-
-                # Unwrap list/tuple (e.g. [Interrupt(...)])
-                while isinstance(val, (list, tuple)) and val:
-                    val = val[0]
-
-                # Unwrap Interrupt object
-                if hasattr(val, "value"):
-                    val = val.value
-
-                # Extract prompt from interrupt payload
-                if isinstance(val, dict):
-                    if "prompt" in val:
-                        return str(val["prompt"])
-                    if "response" in val:
-                        return str(val["response"])
-                return str(val) if val else ""
+            # Handle response (return prompt to user)
+            # In the new architecture, prompts are sent to MessageSink
+            # and response field is used for final confirmations or fallback.
 
             if "_pending_responses" in result and result["_pending_responses"]:
                 return "\n".join(result["_pending_responses"])

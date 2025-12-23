@@ -16,8 +16,10 @@ from langgraph.graph.state import CompiledStateGraph
 from soni.compiler.subgraph import build_flow_subgraph
 from soni.config.models import SoniConfig
 from soni.core.types import DialogueState
-from soni.dm.nodes.execute_flow import execute_flow_node
+from soni.dm.nodes.human_input_gate import human_input_gate
+from soni.dm.nodes.orchestrator import orchestrator_node
 from soni.dm.nodes.understand import understand_node
+from soni.dm.routing import route_after_orchestrator
 from soni.runtime.context import RuntimeContext
 
 
@@ -35,22 +37,32 @@ def compile_all_subgraphs(config: SoniConfig) -> dict[str, CompiledStateGraph]:
 
 def build_orchestrator(
     checkpointer: BaseCheckpointSaver | None = None,
-) -> CompiledStateGraph:
-    """Build the main orchestrator graph.
+) -> CompiledStateGraph[DialogueState, RuntimeContext, Any, Any]:
+    """Build the main orchestrator graph with Human Input Gate.
 
-    Graph flow: understand → execute_flow → END
-
-    The execute_flow node handles interrupt/resume internally (ADR-002).
+    Graph structure:
+    human_input_gate -> nlu -> orchestrator
+    orchestrator --(loop)--> human_input_gate
     """
     builder: StateGraph[DialogueState, RuntimeContext] = StateGraph(
         DialogueState, context_schema=RuntimeContext
     )
 
-    builder.add_node("understand", understand_node)
-    builder.add_node("execute_flow", execute_flow_node)
+    # Nodes
+    builder.add_node("human_input_gate", human_input_gate)
+    builder.add_node("nlu", understand_node)
+    builder.add_node("orchestrator", orchestrator_node)
 
-    builder.set_entry_point("understand")
-    builder.add_edge("understand", "execute_flow")
-    builder.add_edge("execute_flow", END)
+    # Edges
+    builder.set_entry_point("human_input_gate")
+    builder.add_edge("human_input_gate", "nlu")
+    builder.add_edge("nlu", "orchestrator")
+
+    # Routing
+    builder.add_conditional_edges(
+        "orchestrator",
+        route_after_orchestrator,
+        {"pending_task": "human_input_gate", "end": END},
+    )
 
     return builder.compile(checkpointer=checkpointer)

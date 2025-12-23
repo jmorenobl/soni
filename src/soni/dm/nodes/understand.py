@@ -5,7 +5,7 @@ so that flow_stack is updated BEFORE execute_flow_node runs. This ensures
 the state is persisted correctly when interrupt() is called.
 """
 
-from typing import Any
+from typing import Any, Literal, cast
 
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
@@ -32,7 +32,7 @@ async def understand_node(
     - This ensures state is persisted before execute_flow_node's interrupt()
     - Other commands (SetSlot, etc.) are passed to execute_flow_node
     """
-    du = runtime.context.du
+    du = runtime.context.nlu_provider
     slot_extractor = runtime.context.slot_extractor
     config = runtime.context.config
     fm = runtime.context.flow_manager
@@ -107,7 +107,9 @@ async def understand_node(
         flow_slots=flow_slots_defs,
         current_slots=current_slots,
         expected_slot=expected_slot,
-        conversation_state=conversation_state,
+        conversation_state=cast(
+            Literal["idle", "collecting", "confirming", "action_pending"], conversation_state
+        ),
     )
 
     # Get conversation history
@@ -159,30 +161,32 @@ async def understand_node(
             flow_name = cmd_dict.get("flow_name")
             if flow_name and flow_name in config.flows:
                 # Check if same flow already active
-                current_ctx = fm.get_active_context(local_state)
+                current_ctx = fm.get_active_context(cast(DialogueState, local_state))
                 if current_ctx and current_ctx["flow_name"] == flow_name:
                     continue
 
-                _, delta = fm.push_flow(local_state, flow_name)
+                from soni.core.types import DialogueState
+
+                _, delta = fm.push_flow(cast(DialogueState, local_state), flow_name)
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
                 if delta.flow_stack:
                     local_state["flow_stack"] = delta.flow_stack
                 if delta.flow_slots:
-                    from typing import cast
-
                     from soni.core.types import _merge_flow_slots
 
-                    current_slots = cast(
+                    active_slots = cast(
                         dict[str, dict[str, Any]], local_state.get("flow_slots") or {}
                     )
-                    local_state["flow_slots"] = _merge_flow_slots(current_slots, delta.flow_slots)
+                    local_state["flow_slots"] = _merge_flow_slots(active_slots, delta.flow_slots)
             # Don't pass StartFlow to execute_flow_node (already processed)
 
         elif cmd_type == "cancel_flow":
             stack = local_state.get("flow_stack")
             if stack:
-                _, delta = fm.pop_flow(local_state)
+                from soni.core.types import DialogueState
+
+                _, delta = fm.pop_flow(cast(DialogueState, local_state))
                 merge_delta(updates, delta)
                 if delta.flow_stack is not None:
                     local_state["flow_stack"] = delta.flow_stack

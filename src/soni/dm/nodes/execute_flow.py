@@ -14,7 +14,7 @@ The flow is:
 """
 
 import sys
-from typing import Any
+from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
@@ -45,10 +45,11 @@ async def execute_flow_node(
     NOTE: StartFlow and CancelFlow are processed by understand_node.
     This node only handles SetSlot, Affirm, Deny, and similar commands.
     """
+    du = runtime.context.nlu_provider
     ctx = runtime.context
     fm = ctx.flow_manager
     config = ctx.config
-    subgraphs = ctx.subgraphs or {}
+    subgraph_registry = ctx.subgraph_registry
 
     # Commands are passed from understand_node (SetSlot, Affirm, Deny, etc.)
     # StartFlow and CancelFlow are already processed by understand_node
@@ -66,14 +67,12 @@ async def execute_flow_node(
     if not stack:
         return {"response": RESPONSE_NO_FLOW, "commands": []}
 
-    # Get active flow
     active_flow = stack[-1]
     flow_name = active_flow["flow_name"]
 
-    if flow_name not in subgraphs:
+    subgraph = subgraph_registry.get(flow_name)
+    if not subgraph:
         return {"response": RESPONSE_NO_FLOW, "commands": []}
-
-    subgraph = subgraphs[flow_name]
 
     # Prepare subgraph state
     subgraph_state: dict[str, Any] = {
@@ -137,9 +136,10 @@ async def execute_flow_node(
             # Switch to new flow's subgraph
             if new_stack:
                 new_flow_name = new_stack[-1]["flow_name"]
-                if new_flow_name in subgraphs:
-                    subgraph = subgraphs[new_flow_name]
+                if new_flow_name:
+                    subgraph = subgraph_registry.get(new_flow_name)
                     flow_name = new_flow_name
+                    active_flow = new_stack[-1]
                     continue
             # No new flow - exit
             break
@@ -160,10 +160,10 @@ async def execute_flow_node(
                 # Switch to parent flow's subgraph
                 if delta.flow_stack:
                     parent_flow = delta.flow_stack[-1]["flow_name"]
-                    if parent_flow in subgraphs:
-                        subgraph = subgraphs[parent_flow]
-                        flow_name = parent_flow
-                        continue
+                    subgraph = subgraph_registry.get(parent_flow)
+                    flow_name = parent_flow
+                    active_flow = delta.flow_stack[-1]
+                    continue
 
             # Single flow completed or no parent - exit loop
             break
@@ -241,6 +241,8 @@ async def execute_flow_node(
             CommandInfo(command_type="deny", description="User denies"),
         ]
 
+        conversation_state = "collecting"  # Default for when input is needed
+
         dialogue_context = DialogueContext(
             available_flows=flows_info,
             available_commands=commands_info,
@@ -248,12 +250,14 @@ async def execute_flow_node(
             flow_slots=flow_slots_defs,
             current_slots=current_slots,
             expected_slot=expected_slot,
-            conversation_state="collecting",
+            conversation_state=cast(
+                Literal["idle", "collecting", "confirming", "action_pending"], conversation_state
+            ),
         )
 
         history = subgraph_state.get("messages") or []
-        nlu_output = await ctx.du.acall(user_message, dialogue_context, history)
-        new_commands = [cmd.model_dump() for cmd in nlu_output.commands]
+        nlu_result = await du.acall(user_message, dialogue_context, history)
+        new_commands = [cmd.model_dump() for cmd in nlu_result.commands]
 
         # Pass 2: Slot Extraction (if flow is active)
         if hasattr(ctx, "slot_extractor") and flow_name in config.flows:
@@ -326,15 +330,15 @@ async def execute_flow_node(
                         {**state, "flow_stack": result.get("flow_stack") or stack}, new_flow
                     )
                     merge_delta(updates, delta)
-                    # Switch to new flow's subgraph
-                    if new_flow in subgraphs:
-                        subgraph = subgraphs[new_flow]
+                    subgraph = subgraph_registry.get(new_flow)
+                    if subgraph:
                         flow_name = new_flow
                         subgraph_state["flow_stack"] = delta.flow_stack
                         subgraph_state["flow_slots"] = {
                             **(subgraph_state.get("flow_slots") or {}),
                             **(delta.flow_slots or {}),
                         }
+                        continue
 
             elif cmd_type == "cancel_flow":
                 current_stack = result.get("flow_stack") or stack
@@ -346,14 +350,15 @@ async def execute_flow_node(
                     if delta.flow_stack:
                         # Return to parent flow
                         parent_flow = delta.flow_stack[-1]["flow_name"]
-                        if parent_flow in subgraphs:
-                            subgraph = subgraphs[parent_flow]
+                        subgraph = subgraph_registry.get(parent_flow)
+                        if subgraph:
                             flow_name = parent_flow
+                            active_flow = delta.flow_stack[-1]
                             subgraph_state["flow_stack"] = delta.flow_stack
                             new_commands = []  # Clear commands
-                    else:
-                        # No more flows
-                        break
+                            continue
+                    # No more flows
+                    break
 
         # Update subgraph state for next iteration
         subgraph_state["commands"] = new_commands
