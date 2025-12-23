@@ -1,6 +1,6 @@
 """Configuration models for Soni v2 M8."""
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -212,15 +212,15 @@ class TriggerConfig(BaseModel):
     """Configuration for flow triggering."""
 
     intents: list[str] = Field(default_factory=list, description="Trigger phrases/intents")
-    slots: list[SlotDefinition | dict[str, Any]] = Field(
-        default_factory=list, description="Slots to extract on trigger"
-    )
 
 
 class FlowConfig(BaseModel):
     """Configuration for a flow."""
 
     description: str = ""
+    slots: list[SlotDefinition] = Field(
+        default_factory=list, description="Slot definitions for this flow"
+    )
     trigger: TriggerConfig | None = Field(default=None, description="Trigger configuration")
     steps: list[StepConfig] = Field(default_factory=list)
 

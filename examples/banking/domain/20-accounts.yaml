@@ -2,6 +2,10 @@ flows:
   # Account Balance
   check_balance:
     description: "Check current balance of a bank account"
+    slots:
+      - name: account_type
+        type: string
+        description: The type of account (e.g. checking, savings)
     trigger:
       intents:
         - "What's my balance?"
@@ -29,12 +33,12 @@ flows:
     description: "View paginated transaction history"
     intent: check_transactions
     slots:
-      - account_type:
-          type: string
-          ask: "Which account would you like to check transactions for? (checking/savings)"
-      - transaction_period:
-          type: string
-          ask: "For what time period? I can show you the last week, last month, or last 3 months."
+      - name: account_type
+        type: string
+        description: The account to check transactions for (checking/savings)
+      - name: transaction_period
+        type: string
+        description: Time period (last week, last month, or last 3 months)
     steps:
       # Collect required information
       - step: collect_account

@@ -5,6 +5,7 @@ so that flow_stack is updated BEFORE orchestrator runs. This ensures
 the state is persisted correctly when interrupt() is called.
 """
 
+import logging
 from typing import Any, Literal, cast
 
 from langchain_core.messages import HumanMessage
@@ -15,6 +16,8 @@ from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotDefinitio
 from soni.du.slot_extractor import SlotExtractionInput
 from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
+
+logger = logging.getLogger(__name__)
 
 
 async def understand_node(
@@ -136,15 +139,9 @@ async def understand_node(
     # PASS 1: Intent detection
     try:
         nlu_result = await du.acall(user_message, context, history)
-        print(f"DEBUG UNDERSTAND: nlu_result type: {type(nlu_result)}")
-        print(f"DEBUG UNDERSTAND: nlu_result: {nlu_result}")
         commands = list(nlu_result.commands)
-        print(f"DEBUG UNDERSTAND: commands list: {commands}")
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        print(f"DEBUG UNDERSTAND: Error in DU acall: {e}")
+        logger.error(f"NLU processing failed: {e}", exc_info=True)
         return {"commands": []}
 
     # PASS 2: Slot extraction (only if StartFlow detected)
@@ -163,8 +160,8 @@ async def understand_node(
                 try:
                     slot_commands = await slot_extractor.acall(user_message, slot_definitions)
                     commands.extend(slot_commands)
-                except Exception:
-                    pass  # Continue without slot extraction on failure
+                except Exception as e:
+                    logger.error(f"Slot extraction failed: {e}", exc_info=True)
 
     # ADR-002: Process flow-modifying commands HERE to persist before interrupt
     updates: dict[str, Any] = {}
@@ -177,23 +174,13 @@ async def understand_node(
 
         if cmd_type == "start_flow":
             flow_name = cmd_dict.get("flow_name")
-            print(
-                f"DEBUG UNDERSTAND: Found StartFlow for '{flow_name}'. Available flows: {list(config.flows.keys())}"
-            )
             if flow_name and flow_name in config.flows:
                 # Check if same flow already active
                 current_ctx = fm.get_active_context(cast(DialogueState, local_state))
-                print(
-                    f"DEBUG UNDERSTAND: Processing StartFlow {flow_name}. Current ctx: {current_ctx}"
-                )
                 if current_ctx and current_ctx["flow_name"] == flow_name:
-                    print(f"DEBUG UNDERSTAND: Flow {flow_name} already active. Ignoring.")
                     continue
 
                 _, delta = fm.push_flow(cast(DialogueState, local_state), flow_name)
-                print(
-                    f"DEBUG UNDERSTAND: Pushed flow {flow_name}. Delta stack size: {len(delta.flow_stack) if delta.flow_stack else 'None'}"
-                )
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
                 if delta.flow_stack:
@@ -229,18 +216,29 @@ def _get_slot_definitions(flow_config) -> list[SlotExtractionInput]:
     """Extract slot definitions from flow config for SlotExtractor."""
     from soni.config.models import CollectStepConfig
 
-    definitions = []
-    for step in flow_config.steps:
-        if isinstance(step, CollectStepConfig):
-            definitions.append(
-                SlotExtractionInput(
-                    name=step.slot,
-                    slot_type="string",  # Default type
-                    description=step.message or f"Value for {step.slot}",
-                    examples=[],
-                )
+    definitions_map = {}
+
+    # 1. explicit slots from flow definition
+    if flow_config.slots:
+        for slot in flow_config.slots:
+            definitions_map[slot.name] = SlotExtractionInput(
+                name=slot.name,
+                slot_type=slot.type or "string",
+                description=slot.description or f"Value for {slot.name}",
+                examples=[],
             )
-    return definitions
+
+    # 2. implicit slots from collect steps (fallback)
+    for step in flow_config.steps:
+        if isinstance(step, CollectStepConfig) and step.slot not in definitions_map:
+            definitions_map[step.slot] = SlotExtractionInput(
+                name=step.slot,
+                slot_type="string",  # Default type
+                description=step.message or f"Value for {step.slot}",
+                examples=[],
+            )
+
+    return list(definitions_map.values())
 
 
 def _get_current_slots(state: DialogueState, fm) -> list[SlotValue]:

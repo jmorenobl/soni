@@ -7,7 +7,6 @@ This module is called ONLY when Pass 1 (SoniDU) detects a StartFlow command.
 """
 
 import logging
-from typing import Any
 
 import dspy
 from pydantic import BaseModel, Field
@@ -34,30 +33,14 @@ class SlotExtractionInput(BaseModel):
 class SlotExtractionResult(BaseModel):
     """Result of slot extraction."""
 
-    extracted_slots: list[dict[str, Any]] = Field(
+    extracted_slots: list[SetSlot] = Field(
         default_factory=list,
-        description="List of extracted slots with 'slot' and 'value' keys",
+        description="List of SetSlot commands",
     )
 
 
 class ExtractSlots(dspy.Signature):
-    """Extract slot values from user message given slot definitions.
-
-    You are extracting entity values from a user message for a dialogue system.
-    Given a list of slot definitions, identify any values mentioned in the message.
-
-    RULES:
-    1. Only extract slots that are EXPLICITLY mentioned in the message
-    2. Do not infer or guess values that are not clearly stated
-    3. Match slot types appropriately (e.g., "100" for amount, "my mom" for person)
-    4. If no slots are found, return an empty list
-    5. Return slots in the format: {"slot": "slot_name", "value": "extracted_value"}
-
-    Examples:
-    - "Transfer 100€ to my mom" → [{"slot": "amount", "value": "100"}, {"slot": "beneficiary_name", "value": "my mom"}]
-    - "I want to make a transfer" → [] (no specific values mentioned)
-    - "Send money to account ES1234567890" → [{"slot": "iban", "value": "ES1234567890"}]
-    """
+    """Extract slot values from a user message based on slot definitions."""
 
     user_message: str = dspy.InputField(desc="The user's message to extract slots from")
     slot_definitions: list[SlotExtractionInput] = dspy.InputField(
@@ -126,22 +109,15 @@ class SlotExtractor(OptimizableDSPyModule):
                 context="Slot extraction",
             )
 
-            # Convert extraction result to SetSlot commands
-            extracted: list[SetSlot] = []
-            for slot_data in extraction_result.extracted_slots:
-                # slot_data is now a dict from the model
-                slot_name = slot_data.get("slot")
-                slot_value = slot_data.get("value")
+            # Filter by valid slot names
+            valid_names = {s.name for s in slot_definitions}
+            extracted = [
+                slot for slot in extraction_result.extracted_slots if slot.slot in valid_names
+            ]
 
-                if slot_name and slot_value is not None:
-                    # Validate that slot exists in definitions
-                    valid_names = {s.name for s in slot_definitions}
-                    if slot_name in valid_names:
-                        extracted.append(SetSlot(slot=slot_name, value=str(slot_value)))
-                    else:
-                        logger.warning(
-                            f"SlotExtractor returned unknown slot '{slot_name}', ignoring"
-                        )
+            for slot in extraction_result.extracted_slots:
+                if slot.slot not in valid_names:
+                    logger.warning(f"SlotExtractor returned unknown slot '{slot.slot}', ignoring")
 
             logger.debug(f"SlotExtractor extracted {len(extracted)} slots from message")
             return extracted
