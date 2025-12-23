@@ -1,25 +1,35 @@
 """Orchestrator node - thin coordinator using RuntimeContext."""
 
-from typing import Any
+from typing import Any, cast
 
 from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState, _merge_flow_slots
+from soni.core.types import DialogueState, FlowContext, _merge_flow_slots
 from soni.dm.orchestrator.command_processor import CommandProcessor
 from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
+from soni.flow.manager import merge_delta as fm_merge_delta
 from soni.runtime.context import RuntimeContext
+
+# Safety limit to prevent infinite loops
+MAX_FLOW_ITERATIONS = 50
 
 
 async def orchestrator_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext],
 ) -> dict[str, Any]:
-    """Orchestrator node - thin coordinator delegating to specialized components.
+    """Orchestrator node - executes flows in a loop until interrupt or completion.
 
-    Accesses dependencies via runtime.context (LangGraph pattern).
+    Loop Pattern:
+    1. Execute active flow's subgraph
+    2. If INTERRUPT → return to user
+    3. If flow changed (link/call) → continue loop with new flow
+    4. If flow completed → pop, continue loop if parent exists
+    5. If stack empty → done
     """
     ctx = runtime.context
+    fm = ctx.flow_manager
 
     # Initialize components
     handlers = ctx.command_handlers or tuple(DEFAULT_HANDLERS)
@@ -27,57 +37,124 @@ async def orchestrator_node(
     task_handler = PendingTaskHandler(ctx.message_sink)
 
     # 1. Process NLU commands
-    # 1. Process NLU commands
     commands = state.get("commands") or []
-
     delta = await command_processor.process(
         commands=commands,
         state=state,
-        flow_manager=ctx.flow_manager,
+        flow_manager=fm,
     )
     updates = delta.to_dict()
 
-    # 2. Get active flow
-    # Build local state for subgraph - MERGE slots, don't overwrite!
-    merged_state = dict(state)
-    merged_state.update(updates)
+    # 2. Build working state
+    working_state = _merge_state(dict(state), updates)
 
-    if "flow_slots" in updates:
-        merged_state["flow_slots"] = _merge_flow_slots(
-            state.get("flow_slots") or {}, updates["flow_slots"]
-        )
-    # typeddict cast for mypy if needed, but dict merge is fine for reading
-    from typing import cast
-
-    active_ctx = ctx.flow_manager.get_active_context(cast(DialogueState, merged_state))
-
-    if not active_ctx:
-        return {**updates, "response": "How can I help?", "_pending_task": None}
-
-    # 3. Stream subgraph execution
-    subgraph = ctx.subgraph_registry.get(active_ctx["flow_name"])
-    subgraph_state = _build_subgraph_state(merged_state)
+    # 3. Main execution loop
+    iteration = 0
     final_output: dict[str, Any] = {}
 
-    async for event in subgraph.astream(subgraph_state, stream_mode="updates"):
-        for _node_name, output in event.items():
-            pending_task = output.get("_pending_task")
+    while iteration < MAX_FLOW_ITERATIONS:
+        iteration += 1
 
-            if pending_task:
-                result = await task_handler.handle(pending_task)
+        # Get active flow
+        active_ctx = fm.get_active_context(cast(DialogueState, working_state))
+        if not active_ctx:
+            # No active flow → done
+            break
 
-                if result.action == TaskAction.INTERRUPT:
-                    # Return orchestrator updates + the pending task to interrupt
-                    return {**updates, "_pending_task": result.task}
+        # Track stack before execution
+        stack_before = cast(list[FlowContext], working_state.get("flow_stack") or [])
+        stack_size_before = len(stack_before)
 
-                if result.action == TaskAction.CONTINUE:
-                    # Clear the task from output to prevent duplicate processing
-                    output["_pending_task"] = None
+        # Execute subgraph
+        subgraph = ctx.subgraph_registry.get(active_ctx["flow_name"])
+        subgraph_state = _build_subgraph_state(working_state)
+        subgraph_output: dict[str, Any] = {}
 
-            final_output.update(output)
+        async for event in subgraph.astream(subgraph_state, stream_mode="updates"):
+            for _node_name, output in event.items():
+                pending_task = output.get("_pending_task")
 
-    # 4. Return merged result (transform subgraph output to parent state)
+                if pending_task:
+                    result = await task_handler.handle(pending_task)
+
+                    if result.action == TaskAction.INTERRUPT:
+                        # Interrupt → return to user immediately
+                        return {**updates, "_pending_task": result.task}
+
+                    if result.action == TaskAction.CONTINUE:
+                        output["_pending_task"] = None
+
+                subgraph_output.update(output)
+
+        # Subgraph completed → analyze what happened
+        final_stack = cast(
+            list[FlowContext],
+            subgraph_output.get("flow_stack", working_state.get("flow_stack") or []),
+        )
+        final_stack_size = len(final_stack)
+
+        if final_stack_size > stack_size_before:
+            # Link/Call: stack grew → new flow was pushed
+            # Update working state and continue loop to execute new flow
+            working_state = _merge_state(working_state, subgraph_output)
+            final_output.update(subgraph_output)
+            continue
+
+        elif final_stack_size == stack_size_before:
+            # Flow completed normally → pop it from stack
+            try:
+                _, pop_delta = fm.pop_flow(cast(DialogueState, working_state))
+                fm_merge_delta(updates, pop_delta)
+                working_state["flow_stack"] = pop_delta.flow_stack or []
+            except Exception:
+                # Stack already empty or error
+                break
+
+            final_output.update(subgraph_output)
+
+            # Check if parent flow exists to continue
+            if working_state.get("flow_stack"):
+                continue  # Resume parent flow
+            else:
+                break  # Stack empty, done
+
+        else:
+            # Stack shrunk (cancel already popped) → continue or exit
+            working_state["flow_stack"] = final_stack
+            final_output.update(subgraph_output)
+            if final_stack:
+                continue
+            else:
+                break
+
+    # 4. Return final result
+    if not updates.get("_pending_task") and "_pending_task" not in final_output:
+        updates["_pending_task"] = None
+
     return {**updates, **_transform_result(final_output)}
+
+
+def _merge_state(base: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
+    """Merge delta into base state, handling flow_slots and _executed_steps specially."""
+    result = dict(base)
+    result.update(delta)
+
+    if "flow_slots" in delta:
+        result["flow_slots"] = _merge_flow_slots(base.get("flow_slots") or {}, delta["flow_slots"])
+
+    # Merge _executed_steps additively
+    if "_executed_steps" in delta:
+        base_steps = dict(base.get("_executed_steps") or {})
+        for flow_id, steps in (delta["_executed_steps"] or {}).items():
+            if steps is None:
+                # Removal signal
+                base_steps.pop(flow_id, None)
+            else:
+                existing = base_steps.get(flow_id) or set()
+                base_steps[flow_id] = existing | steps
+        result["_executed_steps"] = base_steps
+
+    return result
 
 
 def _build_subgraph_state(state: dict[str, Any]) -> dict[str, Any]:
@@ -94,11 +171,8 @@ def _build_subgraph_state(state: dict[str, Any]) -> dict[str, Any]:
 
 def _transform_result(result: dict[str, Any]) -> dict[str, Any]:
     """Transform subgraph result to parent state updates."""
-    # Keep relevant updates, ignore internal fields properties
-    result_dict = {k: v for k, v in result.items() if not k.startswith("_") or k == "_pending_task"}
-
-    # Explicitly clear pending task if not returned by subgraph (i.e. task completed)
-    if "_pending_task" not in result_dict:
-        result_dict["_pending_task"] = None
+    # Keep relevant updates, preserve flow_stack, _pending_task, _executed_steps
+    keep_fields = {"flow_stack", "flow_slots", "_pending_task", "_executed_steps"}
+    result_dict = {k: v for k, v in result.items() if not k.startswith("_") or k in keep_fields}
 
     return result_dict
