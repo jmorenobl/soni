@@ -71,7 +71,8 @@ async def orchestrator_node(
                     return {**updates, "_pending_task": result.task}
 
                 if result.action == TaskAction.CONTINUE:
-                    continue
+                    # Clear the task from output to prevent duplicate processing
+                    output["_pending_task"] = None
 
             final_output.update(output)
 
