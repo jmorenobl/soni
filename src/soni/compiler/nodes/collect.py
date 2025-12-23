@@ -59,7 +59,6 @@ async def collect_node(
                         options=getattr(config, "options", None),
                         metadata={"error": final_error},
                     ),
-                    "_pending_responses": [final_error],
                 }
 
         # 4. Valid - set slot and continue
@@ -76,7 +75,6 @@ async def collect_node(
             slot=slot_name,
             options=getattr(config, "options", None),
         ),
-        "_pending_responses": [prompt],
     }
 
 
