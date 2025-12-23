@@ -20,12 +20,13 @@ from soni.runtime.loop import RuntimeLoop
 @pytest.mark.asyncio
 async def test_action_executes_and_maps_outputs():
     """Action executes and maps outputs to slots."""
+
     # Arrange
     async def mock_balance(slots: dict) -> dict:
         return {"balance": 1234.56, "currency": "USD"}
 
     registry = ActionRegistry()
-    registry.register("get_balance", mock_balance)
+    registry.register_handler("get_balance", mock_balance)
 
     config = SoniConfig(
         flows={
@@ -65,12 +66,13 @@ async def test_action_registry_unknown_raises():
 @pytest.mark.asyncio
 async def test_action_registry_contains():
     """Registry contains check works."""
+
     # Arrange
     async def handler(slots):
         return {}
 
     registry = ActionRegistry()
-    registry.register("my_action", handler)
+    registry.register_handler("my_action", handler)
 
     # Assert
     assert "my_action" in registry
@@ -119,4 +121,3 @@ async def test_validation_rejects_invalid():
         response1 = await runtime.process_message("transfer money", user_id="val_test")
 
     assert "How much" in response1
-
