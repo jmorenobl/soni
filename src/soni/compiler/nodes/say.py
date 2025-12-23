@@ -1,4 +1,3 @@
-import re
 from typing import Any
 
 from langgraph.runtime import Runtime
@@ -43,12 +42,9 @@ class SayNodeFactory:
                     return {"_branch_target": None, "_pending_task": None}
 
             # Interpolate slots
-            def replace_slot(match: re.Match) -> str:
-                slot_name = match.group(1)
-                value = fm.get_slot(state, slot_name)
-                return str(value) if value is not None else match.group(0)
+            from soni.core.expression import evaluate_value as interpolate
 
-            interpolated_message = re.sub(r"\{(\w+)\}", replace_slot, message)
+            interpolated_message = interpolate(message, fm.get_all_slots(state))
 
             # M8: Rephrase if enabled
             try:

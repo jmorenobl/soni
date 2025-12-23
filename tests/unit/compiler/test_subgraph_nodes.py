@@ -267,6 +267,7 @@ class TestSayNode:
         runtime.context.flow_manager.get_slot.side_effect = (
             lambda s, k: "World" if k == "name" else None
         )
+        runtime.context.flow_manager.get_all_slots.return_value = {"name": "World"}
         runtime.context.rephraser = None
 
         # Act

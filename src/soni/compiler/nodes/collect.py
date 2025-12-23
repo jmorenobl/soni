@@ -1,6 +1,6 @@
 """CollectNodeFactory for M5 (with validation) + M8 (rephrasing)."""
 
-from typing import Any, cast
+from typing import Any
 
 from langgraph.runtime import Runtime
 
@@ -56,7 +56,7 @@ async def collect_node(
 
             if not is_valid:
                 # Validation failed - re-prompt with error
-                final_error = interpolate(error_message, cast(dict[str, Any], state))
+                final_error = interpolate(error_message, fm.get_all_slots(state))
                 return {
                     "_pending_task": collect(
                         prompt=final_error,
@@ -75,7 +75,7 @@ async def collect_node(
         return updates
 
     # 5. No value provided - need input
-    prompt = interpolate(config.message, cast(dict[str, Any], state))
+    prompt = interpolate(config.message, fm.get_all_slots(state))
     return {
         "_pending_task": collect(
             prompt=prompt,

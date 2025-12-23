@@ -1,6 +1,6 @@
 """ConfirmNodeFactory for M7 + M8 (ADR-002 compliant)."""
 
-from typing import Any, cast
+from typing import Any
 
 from langgraph.runtime import Runtime
 
@@ -76,7 +76,7 @@ async def confirm_node(
             result = {
                 "commands": [],
                 "_pending_task": confirm(
-                    prompt=interpolate(formatted_prompt, cast(dict[str, Any], state)),
+                    prompt=interpolate(formatted_prompt, fm.get_all_slots(state)),
                     options=getattr(config, "options", ["yes", "no"]),
                 ),
             }
@@ -95,8 +95,7 @@ async def confirm_node(
         except KeyError:
             pass
 
-    prompt = interpolate(formatted_prompt, cast(dict[str, Any], state))
-
+    prompt = interpolate(formatted_prompt, fm.get_all_slots(state))
     return {
         "_pending_task": confirm(
             prompt=prompt,
