@@ -60,14 +60,25 @@ async def confirm_node(
             return result
 
         if cmd_type == "correct_slot":
-            # Correction - update slot and loop back to self
+            # Correction - update slot and show confirmation with new value
             slot = cmd["slot"]
             value = cmd["new_value"]
             delta = fm.set_slot(state, slot, value)
+
+            # Build prompt with new value
+            prompt_template = config.message or f"Please confirm {slot_name}"
+            formatted_prompt = prompt_template
+            try:
+                formatted_prompt = prompt_template.format(**{slot_name: value})
+            except KeyError:
+                pass
+
             result = {
                 "commands": [],
-                "_branch_target": config.step,  # Loop back to self
-                "_pending_task": None,
+                "_pending_task": confirm(
+                    prompt=interpolate(formatted_prompt, cast(dict[str, Any], state)),
+                    options=getattr(config, "options", ["yes", "no"]),
+                ),
             }
             merge_delta(result, delta)
             return result

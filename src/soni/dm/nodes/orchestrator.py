@@ -79,7 +79,15 @@ async def orchestrator_node(
 
                     if result.action == TaskAction.INTERRUPT:
                         # Interrupt → return to user immediately
-                        return {**updates, "_pending_task": result.task}
+                        # IMPORTANT: Must include any state updates from the current node (e.g. slots)
+                        final_output.update(subgraph_output)
+                        final_output.update(output)
+
+                        return {
+                            **updates,
+                            **_transform_result(final_output),
+                            "_pending_task": result.task,
+                        }
 
                     if result.action == TaskAction.CONTINUE:
                         output["_pending_task"] = None
