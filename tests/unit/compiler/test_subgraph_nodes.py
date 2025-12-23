@@ -209,3 +209,30 @@ class TestActionNode:
         # Assert
         # Should NOT have _pending_task
         assert "_pending_task" not in result or result.get("_pending_task") is None
+
+    @pytest.mark.asyncio
+    async def test_action_output_string_is_displayed(self):
+        """Test that action returning a string message is displayed."""
+        # Arrange
+        from soni.compiler.nodes.action import action_node
+
+        config = MagicMock()
+        config.wait_for_ack = False
+        config.call = "get_balance"
+
+        # Result is a simple string message
+        mock_result = "Your balance is $1,000"
+
+        state: dict[str, Any] = {}
+        runtime = MagicMock()
+        runtime.context.action_registry.execute = AsyncMock(return_value=mock_result)
+
+        # Act
+        result = await action_node(cast(DialogueState, state), runtime, config)
+
+        # Assert
+        # Should have _pending_task because it IS a message
+        assert "_pending_task" in result
+        task = result["_pending_task"]
+        assert is_inform(task)
+        assert task["prompt"] == "Your balance is $1,000"

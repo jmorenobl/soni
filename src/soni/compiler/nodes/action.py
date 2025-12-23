@@ -62,6 +62,10 @@ async def action_node(
     elif isinstance(result, dict) and "message" in result:
         prompt = result["message"]
         has_message = True
+    elif isinstance(result, str) and result:
+        # Simple string result IS a message
+        prompt = result
+        has_message = True
     else:
         # Default to string representation, but only used if forced
         prompt = str(result)
