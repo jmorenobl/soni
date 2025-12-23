@@ -137,12 +137,16 @@ class RuntimeLoop:
                     context=self._context,
                 )
 
-            # Handle response (return prompt to user)
-            # In the new architecture, prompts are sent to MessageSink
-            # and response field is used for final confirmations or fallback.
+            # Handle response (ADR-002: collect from MessageSink)
+            # All prompts (Inform, Collect, Confirm) are sent to MessageSink
+            # by PendingTaskHandler during orchestrator execution.
+            from soni.core.message_sink import BufferedMessageSink
 
-            if "_pending_responses" in result and result["_pending_responses"]:
-                return "\n".join(result["_pending_responses"])
+            sink = self._context.message_sink
+            if isinstance(sink, BufferedMessageSink) and sink.messages:
+                response = "\n".join(sink.messages)
+                sink.clear()  # Reset for next turn
+                return response
 
             return str(result.get("response") or "")
 
