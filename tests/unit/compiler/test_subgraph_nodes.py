@@ -120,20 +120,26 @@ class TestConfirmNode:
         assert "Proceed" in task["prompt"] or task["prompt"] == config.message
 
     @pytest.mark.asyncio
-    async def test_confirm_returns_empty_when_already_confirmed(self):
-        """Test that confirm_node returns empty when already confirmed."""
+    async def test_confirm_returns_empty_when_already_executed(self):
+        """Test that confirm_node returns empty when already executed (idempotency)."""
         # Arrange
         from soni.compiler.nodes.confirm import confirm_node
 
         config = MagicMock()
-        state: dict[str, Any] = {"_confirmed": True}
+        config.step = "confirm_step"
+
+        state: dict[str, Any] = {
+            "_executed_steps": {"flow_123": {"confirm_step"}},
+        }
         runtime = MagicMock()
+        runtime.context.flow_manager.get_active_flow_id.return_value = "flow_123"
 
         # Act
         result = await confirm_node(cast(DialogueState, state), runtime, config)
 
         # Assert
-        assert "_pending_task" not in result or result.get("_pending_task") is None
+        assert result.get("_pending_task") is None
+        assert result.get("_branch_target") is None
 
 
 class TestActionNode:

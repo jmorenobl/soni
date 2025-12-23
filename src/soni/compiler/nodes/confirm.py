@@ -1,4 +1,4 @@
-"""ConfirmNodeFactory for M7 + M8 (rephrasing)."""
+"""ConfirmNodeFactory for M7 + M8 (ADR-002 compliant)."""
 
 from typing import Any, cast
 
@@ -8,6 +8,7 @@ from soni.config.models import ConfirmStepConfig, StepConfig
 from soni.core.expression import evaluate_value as interpolate
 from soni.core.pending_task import confirm
 from soni.core.types import DialogueState, NodeFunction
+from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
 
 
@@ -16,12 +17,20 @@ async def confirm_node(
     runtime: Runtime[RuntimeContext],
     config: ConfirmStepConfig,
 ) -> dict[str, Any]:
-    """Ask user for confirmation.
+    """Ask user for confirmation (ADR-002 compliant).
 
-    Returns PendingTask instead of internal prompt fields.
+    Returns ConfirmTask instead of internal prompt fields.
     """
     fm = runtime.context.flow_manager
     slot_name = config.slot
+    flow_id = fm.get_active_flow_id(state)
+    step_id = config.step
+
+    # Idempotency check (ADR-002 requirement)
+    if flow_id:
+        executed = (state.get("_executed_steps") or {}).get(flow_id, set())
+        if step_id in executed:
+            return {"_branch_target": None, "_pending_task": None}
 
     # 1. Check for confirmation response in commands
     commands = state.get("commands") or []
@@ -29,32 +38,45 @@ async def confirm_node(
         cmd_type = cmd.get("type")
 
         if cmd_type == "affirm":
-            # Confirmed
-            return {"commands": [], "_branch_target": config.on_confirm}
+            # Confirmed - go to success path
+            result: dict[str, Any] = {
+                "commands": [],
+                "_branch_target": config.on_confirm,
+                "_pending_task": None,
+            }
+            if flow_id:
+                result["_executed_steps"] = {flow_id: {step_id}}
+            return result
 
         if cmd_type == "deny":
-            # Denied
-            return {"commands": [], "_branch_target": config.on_deny}
+            # Denied - go to rejection path
+            result = {
+                "commands": [],
+                "_branch_target": config.on_deny,
+                "_pending_task": None,
+            }
+            if flow_id:
+                result["_executed_steps"] = {flow_id: {step_id}}
+            return result
 
         if cmd_type == "correct_slot":
+            # Correction - update slot and loop back to self
             slot = cmd["slot"]
             value = cmd["new_value"]
             delta = fm.set_slot(state, slot, value)
-            return {
-                "flow_slots": delta.flow_slots if delta else {},
+            result = {
                 "commands": [],
                 "_branch_target": config.step,  # Loop back to self
+                "_pending_task": None,
             }
+            merge_delta(result, delta)
+            return result
 
-    # 2. Already confirmed?
-    if state.get("_confirmed"):
-        return {}
-
-    # 3. Prompt needed
+    # 2. Prompt needed - show confirmation message
     slot_value = fm.get_slot(state, slot_name)
     prompt_template = config.message or f"Please confirm {slot_name}"
 
-    # Format message
+    # Format message with slot value
     formatted_prompt = prompt_template
     if slot_value is not None:
         try:
@@ -69,7 +91,6 @@ async def confirm_node(
             prompt=prompt,
             options=getattr(config, "options", ["yes", "no"]),
         ),
-        "_pending_responses": [prompt],
     }
 
 
