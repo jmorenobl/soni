@@ -242,28 +242,32 @@ class TestSayNode:
     """Tests for say_node returning PendingTask."""
 
     @pytest.mark.asyncio
-    async def test_say_returns_inform_task(self):
-        """Test that say_node returns InformTask."""
-        # Arrange
+    async def test_say_uses_sink(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from soni.compiler.state import create_empty_state
+
         from soni.compiler.nodes.say import SayNodeFactory
         from soni.config.models import SayStepConfig
 
-        config = SayStepConfig(step="welcome", message="Hello {name}!")
-        factory = SayNodeFactory()
-        say_node = factory.create(config)
+        step = SayStepConfig(id="say", type="say", step="test_step", message="Hello {name}")
+        node = SayNodeFactory().create(step)
 
-        state: dict[str, Any] = {
-            "flow_slots": {"name": "World"},
-        }
+        state = create_empty_state()
+        state["flow_slots"] = {"flow_123": {"name": "World"}}
+
+        # Mock runtime with context and sink
         runtime = MagicMock()
-        runtime.context.flow_manager.get_active_flow_id.return_value = "flow-123"
-        runtime.context.flow_manager.get_slot.side_effect = lambda s, k: s["flow_slots"].get(k)
+        runtime.context.flow_manager.get_active_flow_id.return_value = "flow_123"
+        runtime.context.flow_manager.get_slot.side_effect = (
+            lambda s, k: "World" if k == "name" else None
+        )
 
-        # Act
-        result = await say_node(cast(DialogueState, state), runtime)
+        # Mock sink
+        mock_sink = AsyncMock()
+        runtime.context.message_sink = mock_sink
 
-        # Assert
-        assert "_pending_task" in result
-        task = result["_pending_task"]
-        assert is_inform(task)
-        assert task["prompt"] == "Hello World!"
+        result = await node(state, runtime)
+
+        mock_sink.send.assert_called_once_with("Hello World")
+        assert "_pending_task" not in result or result["_pending_task"] is None

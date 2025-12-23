@@ -39,7 +39,7 @@ async def action_node(
     result = await action_registry.execute(config.call, slots)
 
     # Build updates dict
-    updates: dict[str, Any] = {"_branch_target": None}
+    updates: dict[str, Any] = {"_branch_target": None, "_pending_task": None}
 
     # Map outputs to slots
     if isinstance(result, dict):

@@ -27,7 +27,9 @@ async def orchestrator_node(
     task_handler = PendingTaskHandler(ctx.message_sink)
 
     # 1. Process NLU commands
+    # 1. Process NLU commands
     commands = state.get("commands") or []
+
     delta = await command_processor.process(
         commands=commands,
         state=state,

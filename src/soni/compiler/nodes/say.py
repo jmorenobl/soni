@@ -50,16 +50,19 @@ class SayNodeFactory:
             interpolated_message = re.sub(r"\{(\w+)\}", replace_slot, message)
 
             # M8: Rephrase if enabled
-            final_message = await rephrase_if_enabled(
-                interpolated_message, state, runtime.context, rephrase_step
-            )
+            try:
+                final_message = await rephrase_if_enabled(
+                    interpolated_message, state, runtime.context, rephrase_step
+                )
+            except Exception:
+                # Fallback to original message if rephrasing fails
+                final_message = interpolated_message
 
-            from soni.core.pending_task import inform
+            # Send message via sink (non-blocking)
+            if final_message:
+                await runtime.context.message_sink.send(final_message)
 
-            # Build response with idempotency tracking
-            # UPDATED: Use InformTask for display (M5/M7 compatibility)
             result: dict[str, Any] = {
-                "_pending_task": inform(prompt=final_message),
                 "_branch_target": None,
             }
 

@@ -136,8 +136,15 @@ async def understand_node(
     # PASS 1: Intent detection
     try:
         nlu_result = await du.acall(user_message, context, history)
+        print(f"DEBUG UNDERSTAND: nlu_result type: {type(nlu_result)}")
+        print(f"DEBUG UNDERSTAND: nlu_result: {nlu_result}")
         commands = list(nlu_result.commands)
-    except Exception:
+        print(f"DEBUG UNDERSTAND: commands list: {commands}")
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        print(f"DEBUG UNDERSTAND: Error in DU acall: {e}")
         return {"commands": []}
 
     # PASS 2: Slot extraction (only if StartFlow detected)
@@ -170,13 +177,23 @@ async def understand_node(
 
         if cmd_type == "start_flow":
             flow_name = cmd_dict.get("flow_name")
+            print(
+                f"DEBUG UNDERSTAND: Found StartFlow for '{flow_name}'. Available flows: {list(config.flows.keys())}"
+            )
             if flow_name and flow_name in config.flows:
                 # Check if same flow already active
                 current_ctx = fm.get_active_context(cast(DialogueState, local_state))
+                print(
+                    f"DEBUG UNDERSTAND: Processing StartFlow {flow_name}. Current ctx: {current_ctx}"
+                )
                 if current_ctx and current_ctx["flow_name"] == flow_name:
+                    print(f"DEBUG UNDERSTAND: Flow {flow_name} already active. Ignoring.")
                     continue
 
                 _, delta = fm.push_flow(cast(DialogueState, local_state), flow_name)
+                print(
+                    f"DEBUG UNDERSTAND: Pushed flow {flow_name}. Delta stack size: {len(delta.flow_stack) if delta.flow_stack else 'None'}"
+                )
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
                 if delta.flow_stack:
