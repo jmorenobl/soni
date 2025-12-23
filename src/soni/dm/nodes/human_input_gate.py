@@ -27,7 +27,6 @@ async def human_input_gate(state: DialogueState) -> dict[str, Any]:
         # Ensure return is serializable and follows state schema
         return {
             "user_message": str(resume_value),
-            "_pending_task": None,
         }
 
     # Normal message reception:

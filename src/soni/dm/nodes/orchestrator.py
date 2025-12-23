@@ -43,7 +43,7 @@ async def orchestrator_node(
     active_ctx = ctx.flow_manager.get_active_context(cast(DialogueState, merged_state))
 
     if not active_ctx:
-        return {**updates, "response": "How can I help?"}
+        return {**updates, "response": "How can I help?", "_pending_task": None}
 
     # 3. Stream subgraph execution
     subgraph = ctx.subgraph_registry.get(active_ctx["flow_name"])
@@ -84,5 +84,11 @@ def _build_subgraph_state(state: dict[str, Any]) -> dict[str, Any]:
 
 def _transform_result(result: dict[str, Any]) -> dict[str, Any]:
     """Transform subgraph result to parent state updates."""
-    # Keep relevant updates, ignore internal fields unless explicit
-    return {k: v for k, v in result.items() if not k.startswith("_") or k == "_pending_task"}
+    # Keep relevant updates, ignore internal fields properties
+    result_dict = {k: v for k, v in result.items() if not k.startswith("_") or k == "_pending_task"}
+
+    # Explicitly clear pending task if not returned by subgraph (i.e. task completed)
+    if "_pending_task" not in result_dict:
+        result_dict["_pending_task"] = None
+
+    return result_dict
