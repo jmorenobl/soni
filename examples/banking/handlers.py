@@ -231,6 +231,8 @@ def execute_transfer(
     """
     # Convert amount to float (slots come as strings)
     try:
+        if isinstance(amount, str):
+            amount = amount.replace("€", "").replace("$", "").replace(",", "").strip()
         amount_float = float(amount)
     except (ValueError, TypeError):
         return {
