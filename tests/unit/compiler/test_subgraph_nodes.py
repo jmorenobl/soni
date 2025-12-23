@@ -236,3 +236,34 @@ class TestActionNode:
         task = result["_pending_task"]
         assert is_inform(task)
         assert task["prompt"] == "Your balance is $1,000"
+
+
+class TestSayNode:
+    """Tests for say_node returning PendingTask."""
+
+    @pytest.mark.asyncio
+    async def test_say_returns_inform_task(self):
+        """Test that say_node returns InformTask."""
+        # Arrange
+        from soni.compiler.nodes.say import SayNodeFactory
+        from soni.config.models import SayStepConfig
+
+        config = SayStepConfig(step="welcome", message="Hello {name}!")
+        factory = SayNodeFactory()
+        say_node = factory.create(config)
+
+        state: dict[str, Any] = {
+            "flow_slots": {"name": "World"},
+        }
+        runtime = MagicMock()
+        runtime.context.flow_manager.get_active_flow_id.return_value = "flow-123"
+        runtime.context.flow_manager.get_slot.side_effect = lambda s, k: s["flow_slots"].get(k)
+
+        # Act
+        result = await say_node(cast(DialogueState, state), runtime)
+
+        # Assert
+        assert "_pending_task" in result
+        task = result["_pending_task"]
+        assert is_inform(task)
+        assert task["prompt"] == "Hello World!"

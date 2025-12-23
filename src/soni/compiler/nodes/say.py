@@ -54,9 +54,12 @@ class SayNodeFactory:
                 interpolated_message, state, runtime.context, rephrase_step
             )
 
+            from soni.core.pending_task import inform
+
             # Build response with idempotency tracking
+            # UPDATED: Use InformTask for display (M5/M7 compatibility)
             result: dict[str, Any] = {
-                "_pending_responses": [final_message],
+                "_pending_task": inform(prompt=final_message),
                 "_branch_target": None,
             }
 
