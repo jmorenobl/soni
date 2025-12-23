@@ -57,7 +57,7 @@ class RuntimeLoop:
         # Use provided registry or create empty one
         from soni.actions.registry import ActionRegistry
 
-        action_registry = self._action_registry or ActionRegistry()
+        action_registry = self._action_registry or ActionRegistry.get_default()
 
         # M8: Initialize rephraser if enabled
         rephraser = None
