@@ -1,7 +1,7 @@
 """Action registry for custom handlers (M5)."""
 
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 # Type alias for action handlers
 ActionHandler = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
@@ -89,14 +89,14 @@ class ActionRegistry:
         except ValueError:
             # Cannot inspect (e.g. built-in), try passing slots directly
             result = handler(slots)
-            return await result if is_async else result
+            return await result if is_async else result  # type: ignore[return-value]
 
         params = sig.parameters
 
         # Determine arguments based on signature
         if not params:
             # Case 1: No arguments (e.g. get_greeting)
-            result = handler()
+            result = handler()  # type: ignore[call-arg]
         else:
             first_param_name = next(iter(params))
             first_param = params[first_param_name]
@@ -106,10 +106,12 @@ class ActionRegistry:
             else:
                 # Case 3: Match slots to arguments (Legacy / Direct Unpacking)
                 kwargs = {k: v for k, v in slots.items() if k in params}
-                result = handler(**kwargs)
+                result = handler(**kwargs)  # type: ignore[call-arg]
 
         # Await if async, return directly if sync
-        return await result if is_async else result
+        if is_async:
+            return await cast(Any, result)  # type: ignore[no-any-return]
+        return cast(dict[str, Any], result)
 
     def __contains__(self, name: str) -> bool:
         """Check if action is registered."""

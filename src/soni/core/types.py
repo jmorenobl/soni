@@ -20,6 +20,38 @@ class FlowDelta:
     flow_slots: dict[str, dict[str, Any]] | None = None
     executed_steps: dict[str, set[str] | None] | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert delta to state update dictionary."""
+        updates: dict[str, Any] = {}
+        if self.flow_stack is not None:
+            updates["flow_stack"] = self.flow_stack
+        if self.flow_slots is not None:
+            updates["flow_slots"] = self.flow_slots
+        if self.executed_steps is not None:
+            updates["_executed_steps"] = self.executed_steps
+        return updates
+
+
+def merge_deltas(deltas: list[FlowDelta]) -> FlowDelta:
+    """Merge multiple deltas into one (last one wins for stack, merged for slots)."""
+    merged = FlowDelta()
+    for d in deltas:
+        if d.flow_stack is not None:
+            merged.flow_stack = d.flow_stack
+        if d.flow_slots is not None:
+            if merged.flow_slots is None:
+                merged.flow_slots = {}
+            for flow_id, slots in d.flow_slots.items():
+                if flow_id in merged.flow_slots:
+                    merged.flow_slots[flow_id] = {**merged.flow_slots[flow_id], **slots}
+                else:
+                    merged.flow_slots[flow_id] = slots
+        if d.executed_steps is not None:
+            if merged.executed_steps is None:
+                merged.executed_steps = {}
+            merged.executed_steps.update(d.executed_steps)
+    return merged
+
 
 # =============================================================================
 # REDUCERS - Specialized for proper interrupt/resume handling
