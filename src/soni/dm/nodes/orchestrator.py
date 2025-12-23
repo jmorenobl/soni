@@ -82,20 +82,16 @@ async def orchestrator_node(
 
                     if result.action == TaskAction.INTERRUPT:
                         # Interrupt → return to user immediately
-                        # IMPORTANT: Must include any state updates from the current node (e.g. slots)
-                        final_output.update(subgraph_output)
-                        final_output.update(output)
+                        _merge_outputs(final_output, subgraph_output)
+                        _merge_outputs(final_output, output)
 
-                        return {
-                            **updates,
-                            **_transform_result(final_output),
-                            "_pending_task": result.task,
-                        }
+                        # Merge with deep slot merge (same as final return)
+                        return _build_merged_return(updates, final_output, result.task)
 
                     if result.action == TaskAction.CONTINUE:
                         output["_pending_task"] = None
 
-                subgraph_output.update(output)
+                _merge_outputs(subgraph_output, output)
 
         # Subgraph completed → analyze what happened
         final_stack = cast(
@@ -108,7 +104,7 @@ async def orchestrator_node(
             # Link/Call: stack grew → new flow was pushed
             # Update working state and continue loop to execute new flow
             working_state = _merge_state(working_state, subgraph_output)
-            final_output.update(subgraph_output)
+            _merge_outputs(final_output, subgraph_output)
             continue
 
         elif final_stack_size == stack_size_before:
@@ -121,7 +117,7 @@ async def orchestrator_node(
                 # Stack already empty or error
                 break
 
-            final_output.update(subgraph_output)
+            _merge_outputs(final_output, subgraph_output)
 
             # Check if parent flow exists to continue
             if working_state.get("flow_stack"):
@@ -138,11 +134,40 @@ async def orchestrator_node(
             else:
                 break
 
-    # 4. Return final result
-    if not updates.get("_pending_task") and "_pending_task" not in final_output:
-        updates["_pending_task"] = None
+    return _build_merged_return(updates, final_output, updates.get("_pending_task"))
 
-    return {**updates, **_transform_result(final_output)}
+
+def _build_merged_return(
+    updates: dict[str, Any],
+    final_output: dict[str, Any],
+    pending_task: Any = None,
+) -> dict[str, Any]:
+    """Build return dict with deep merge for flow_slots.
+
+    Critical: Prevents subgraph output from overwriting NLU-derived slots.
+    """
+    transformed_output = _transform_result(final_output)
+
+    if "flow_slots" in transformed_output:
+        nlu_slots = updates.get("flow_slots") or {}
+        subgraph_slots = transformed_output["flow_slots"]
+
+        merged_slots = dict(nlu_slots)
+        for f_id, f_slots in subgraph_slots.items():
+            if f_id in merged_slots:
+                merged_slots[f_id] = {**merged_slots[f_id], **f_slots}
+            else:
+                merged_slots[f_id] = f_slots
+
+        updates["flow_slots"] = merged_slots
+        del transformed_output["flow_slots"]
+
+    result = {**updates, **transformed_output}
+
+    # Set pending_task (None to clear, or value to set)
+    result["_pending_task"] = pending_task
+
+    return result
 
 
 def _merge_state(base: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
@@ -187,3 +212,19 @@ def _transform_result(result: dict[str, Any]) -> dict[str, Any]:
     result_dict = {k: v for k, v in result.items() if not k.startswith("_") or k in keep_fields}
 
     return result_dict
+
+
+def _merge_outputs(target: dict[str, Any], source: dict[str, Any]) -> None:
+    """Merge source output into target with deep merge for flow_slots."""
+    for k, v in source.items():
+        if k == "flow_slots" and isinstance(v, dict):
+            # Deep merge flow_slots to prevent overwrite of sibling keys
+            target_slots = target.get("flow_slots", {})
+            for flow_id, slots in v.items():
+                if flow_id in target_slots:
+                    target_slots[flow_id] = {**target_slots[flow_id], **slots}
+                else:
+                    target_slots[flow_id] = slots
+            target["flow_slots"] = target_slots
+        else:
+            target[k] = v

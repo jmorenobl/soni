@@ -1,6 +1,6 @@
 """Command processor for orchestrator (SRP)."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from soni.core.types import DialogueState, FlowDelta, merge_deltas
 from soni.dm.orchestrator.commands import CommandHandler
@@ -22,13 +22,37 @@ class CommandProcessor:
         flow_manager: "FlowManager",
     ) -> FlowDelta:
         """Process all commands and return merged delta."""
+        # Create a working copy of state to track changes sequentially
+        # This ensures that e.g. SetSlot sees the stack created by a preceding StartFlow
+        working_state = dict(state)
+        working_state["flow_stack"] = list(state.get("flow_stack") or [])
+        # Deep copy slots to avoid mutation issues (shallow copy of outer dict might seem enough but better safe)
+        working_state["flow_slots"] = {
+            k: v.copy() for k, v in (state.get("flow_slots") or {}).items()
+        }
+
         deltas: list[FlowDelta] = []
 
         for command in commands:
             for handler in self._handlers:
                 if handler.can_handle(command):
-                    delta = await handler.handle(command, state, flow_manager)
+                    delta = await handler.handle(
+                        command, cast("DialogueState", working_state), flow_manager
+                    )
                     deltas.append(delta)
+
+                    # Apply delta to working_state for subsequent commands
+                    if delta.flow_stack is not None:
+                        working_state["flow_stack"] = delta.flow_stack
+
+                    if delta.flow_slots is not None:
+                        current_slots = cast(dict[str, dict[str, Any]], working_state["flow_slots"])
+                        for flow_id, slots in delta.flow_slots.items():
+                            if flow_id in current_slots:
+                                current_slots[flow_id] = {**current_slots[flow_id], **slots}
+                            else:
+                                current_slots[flow_id] = slots
+
                     break
 
         return merge_deltas(deltas) if deltas else FlowDelta()
