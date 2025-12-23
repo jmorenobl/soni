@@ -136,12 +136,12 @@ def build_flow_subgraph(flow: FlowConfig):
             builder.set_entry_point(node_name)
 
         # Determine default next step
+        # Determine default next step
         if node_name in loop_back_targets:
             # Last step in while loop - loops back to guard
             default_next = loop_back_targets[node_name]
-        elif node_name in branch_targets and node_name not in while_guards:
-            # Branch target (but not a while guard) - routes to END
-            default_next = END
+        # FIX: Removed incorrect logic that forced branch targets to be terminal (END).
+        # Branch targets should flow to the next step unless they are terminal themselves.
         elif i < len(node_names) - 1:
             default_next = node_names[i + 1]
         else:
