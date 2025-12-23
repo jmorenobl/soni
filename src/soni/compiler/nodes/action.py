@@ -52,33 +52,24 @@ async def action_node(
     if flow_id:
         updates["_executed_steps"] = {flow_id: {step_id}}
 
-    # Return InformTask with the result message
-    prompt = ""
-    has_message = False
-
-    if hasattr(result, "message"):
-        prompt = result.message
-        has_message = True
-    elif isinstance(result, dict) and "message" in result:
-        prompt = result["message"]
-        has_message = True
-    elif isinstance(result, str) and result:
-        # Simple string result IS a message
-        prompt = result
-        has_message = True
-    else:
-        # Default to string representation, but only used if forced
-        prompt = str(result)
-
+    # Return InformTask only if explicitly configured to wait for acknowledgment
+    # Action result messages are stored in slots and displayed by subsequent SayNodes
     wait_for_ack = getattr(config, "wait_for_ack", False)
-    if wait_for_ack is not True:
-        wait_for_ack = False
+    if wait_for_ack is True:
+        # Get message from result for display
+        prompt = ""
+        if hasattr(result, "message"):
+            prompt = result.message
+        elif isinstance(result, dict) and "message" in result:
+            prompt = result["message"]
+        elif isinstance(result, str) and result:
+            prompt = result
+        else:
+            prompt = str(result)
 
-    # Only inform if explicitly waiting for ack OR if result has a message
-    if wait_for_ack or has_message:
         updates["_pending_task"] = inform(
             prompt=prompt,
-            wait_for_ack=wait_for_ack,
+            wait_for_ack=True,
             metadata={"action": config.call},
         )
 

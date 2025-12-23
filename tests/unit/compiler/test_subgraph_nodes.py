@@ -143,43 +143,44 @@ class TestConfirmNode:
 
 
 class TestActionNode:
-    """Tests for action_node returning InformTask."""
+    """Tests for action_node behavior."""
 
     @pytest.mark.asyncio
-    async def test_action_returns_inform_task_with_result(self):
-        """Test that action_node returns InformTask with action result."""
+    async def test_action_maps_outputs_without_displaying(self):
+        """Test that action_node maps outputs to slots without auto-displaying."""
         # Arrange
         from soni.compiler.nodes.action import action_node
 
         config = MagicMock()
-        config.action_name = "check_balance"
+        config.call = "check_balance"
+        config.map_outputs = {"balance": "current_balance"}
+        config.wait_for_ack = False
 
-        mock_action_result = MagicMock()
-        mock_action_result.message = "Your balance is $1,234"
+        mock_action_result = {"balance": 1234, "message": "Your balance is $1,234"}
 
-        state: dict[str, Any] = {"flow_slots": {"account": "checking"}}
+        state: dict[str, Any] = {"flow_slots": {}}
         runtime = MagicMock()
         runtime.context.action_registry.execute = AsyncMock(return_value=mock_action_result)
+        runtime.context.flow_manager.set_slot.return_value = None
 
         # Act
         result = await action_node(cast(DialogueState, state), runtime, config)
 
-        # Assert
-        assert "_pending_task" in result
-        task = result["_pending_task"]
-        assert is_inform(task)
-        # Use a more flexible check for prompt
-        assert "Your balance is $1,234" in task["prompt"]
+        # Assert - No InformTask unless wait_for_ack=True
+        assert result.get("_pending_task") is None
 
     @pytest.mark.asyncio
-    async def test_action_inform_does_not_wait_by_default(self):
-        """Test that action result InformTask does not wait for ack by default."""
+    async def test_action_displays_when_wait_for_ack_true(self):
+        """Test that action with wait_for_ack=True creates InformTask."""
         # Arrange
         from soni.compiler.nodes.action import action_node
 
         config = MagicMock()
+        config.call = "long_operation"
+        config.wait_for_ack = True  # Explicitly request display
+
         mock_result = MagicMock()
-        mock_result.message = "Done"
+        mock_result.message = "Operation completed"
 
         state: dict[str, Any] = {}
         runtime = MagicMock()
@@ -188,13 +189,16 @@ class TestActionNode:
         # Act
         result = await action_node(cast(DialogueState, state), runtime, config)
 
-        # Assert
+        # Assert - Should have InformTask with wait_for_ack=True
+        assert "_pending_task" in result
         task = result["_pending_task"]
-        assert task.get("wait_for_ack") is not True
+        assert is_inform(task)
+        assert task["prompt"] == "Operation completed"
+        assert task["wait_for_ack"] is True
 
     @pytest.mark.asyncio
     async def test_action_silent_with_dict_result_and_no_wait(self):
-        """Test that action returning simple dict without wait_for_ack is silent."""
+        """Test that action returning dict without wait_for_ack is silent."""
         # Arrange
         from soni.compiler.nodes.action import action_node
 
@@ -212,13 +216,12 @@ class TestActionNode:
         # Act
         result = await action_node(cast(DialogueState, state), runtime, config)
 
-        # Assert
-        # Should NOT have _pending_task
-        assert "_pending_task" not in result or result.get("_pending_task") is None
+        # Assert - Should NOT have _pending_task
+        assert result.get("_pending_task") is None
 
     @pytest.mark.asyncio
-    async def test_action_output_string_is_displayed(self):
-        """Test that action returning a string message is displayed."""
+    async def test_action_silent_with_string_result(self):
+        """Test that action returning string without wait_for_ack is silent."""
         # Arrange
         from soni.compiler.nodes.action import action_node
 
@@ -226,7 +229,7 @@ class TestActionNode:
         config.wait_for_ack = False
         config.call = "get_balance"
 
-        # Result is a simple string message
+        # Result is a simple string - should NOT display without wait_for_ack
         mock_result = "Your balance is $1,000"
 
         state: dict[str, Any] = {}
@@ -236,12 +239,8 @@ class TestActionNode:
         # Act
         result = await action_node(cast(DialogueState, state), runtime, config)
 
-        # Assert
-        # Should have _pending_task because it IS a message
-        assert "_pending_task" in result
-        task = result["_pending_task"]
-        assert is_inform(task)
-        assert task["prompt"] == "Your balance is $1,000"
+        # Assert - Should NOT have _pending_task
+        assert result.get("_pending_task") is None
 
 
 class TestSayNode:
