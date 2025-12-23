@@ -9,6 +9,7 @@ from langgraph.graph.message import add_messages
 from langgraph.types import Command
 
 from soni.core.constants import FlowContextState
+from soni.core.pending_task import PendingTask
 
 
 @dataclass
@@ -116,6 +117,7 @@ class DialogueState(TypedDict):
     commands: Annotated[list[dict[str, Any]] | None, _last_value_any]
     _need_input: Annotated[bool | None, _last_value_any]
     _pending_prompt: Annotated[dict[str, Any] | None, _last_value_any]
+    _pending_task: Annotated[PendingTask | None, _last_value_any]
 
     # Internal
     _executed_steps: Annotated[dict[str, set[str]] | None, _merge_executed_steps]

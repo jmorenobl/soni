@@ -14,6 +14,7 @@ def create_empty_state() -> DialogueState:
         "commands": None,  # Commands are transient but safer as None
         "_need_input": None,
         "_pending_prompt": None,
+        "_pending_task": None,
         "_executed_steps": None,
         "_branch_target": None,
         "_pending_responses": [],  # Additive reducer, safe to start empty
