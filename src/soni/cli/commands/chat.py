@@ -66,13 +66,9 @@ class SoniChatCLI:
                 if not user_input.strip():
                     continue
 
-                # Process message
+                # Process message - response is printed via ConsoleMessageSink
                 with self.console.status("[bold blue]Thinking...[/]"):
-                    response = await self.runtime.process_message(user_input, user_id=self.user_id)
-
-                # Print response
-                if response:
-                    self.console.print(f"[bold blue]Soni > [/]{response}\n")
+                    await self.runtime.process_message(user_input, user_id=self.user_id)
 
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Goodbye![/]")
