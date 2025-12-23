@@ -134,7 +134,8 @@ async def orchestrator_node(
             else:
                 break
 
-    return _build_merged_return(updates, final_output, updates.get("_pending_task"))
+    pending_task = updates.get("_pending_task") or final_output.get("_pending_task")
+    return _build_merged_return(updates, final_output, pending_task)
 
 
 def _build_merged_return(
