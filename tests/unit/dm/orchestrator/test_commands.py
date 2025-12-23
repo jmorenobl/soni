@@ -115,7 +115,7 @@ class TestSetSlotHandler:
         """Test that handle() calls flow_manager.set_slot()."""
         # Arrange
         handler = SetSlotHandler()
-        command = {"type": "set_slot", "slot_name": "amount", "slot_value": "500"}
+        command = {"type": "set_slot", "slot": "account_type", "value": "savings"}
         state = cast(DialogueState, {})
         mock_fm = MagicMock()
         mock_fm.set_slot.return_value = FlowDelta(flow_slots={"test_id": {"amount": "500"}})
@@ -124,7 +124,7 @@ class TestSetSlotHandler:
         _ = await handler.handle(command, state, mock_fm)
 
         # Assert
-        mock_fm.set_slot.assert_called_once_with(state, "amount", "500")
+        mock_fm.set_slot.assert_called_once_with(state, "account_type", "savings")
 
 
 class TestDefaultHandlers:

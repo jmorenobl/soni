@@ -18,6 +18,7 @@ from soni.runtime.context import RuntimeContext
 
 if TYPE_CHECKING:
     from soni.actions.registry import ActionRegistry
+    from soni.core.message_sink import MessageSink
 
 
 class RuntimeLoop:
@@ -31,10 +32,12 @@ class RuntimeLoop:
         config: SoniConfig,
         checkpointer: BaseCheckpointSaver | None = None,
         action_registry: "ActionRegistry | None" = None,
+        message_sink: "MessageSink | None" = None,
     ) -> None:
         self.config = config
         self.checkpointer = checkpointer
         self._action_registry = action_registry
+        self._message_sink = message_sink
         self._graph: CompiledStateGraph[DialogueState, RuntimeContext, Any, Any] | None = None
         self._context: RuntimeContext | None = None
 
@@ -67,7 +70,7 @@ class RuntimeLoop:
         # Create message sink (M7: ADR-002)
         from soni.core.message_sink import BufferedMessageSink
 
-        message_sink = BufferedMessageSink()
+        message_sink = self._message_sink or BufferedMessageSink()
 
         # ADR-002: Pass subgraphs to context
         self._context = RuntimeContext(

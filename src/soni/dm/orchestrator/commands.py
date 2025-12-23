@@ -74,8 +74,8 @@ class SetSlotHandler(CommandHandler):
     ) -> FlowDelta:
         delta = flow_manager.set_slot(
             state,
-            command["slot_name"],
-            command["slot_value"],
+            command["slot"],
+            command["value"],
         )
         return delta or FlowDelta()
 

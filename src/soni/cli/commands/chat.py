@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 
 from soni.core.errors import ConfigError
+from soni.core.message_sink import MessageSink
 from soni.runtime.loop import RuntimeLoop
 
 app = typer.Typer(help="Start interactive chat with Soni")
@@ -19,6 +20,16 @@ BANNER_ART = r"""
  \__ \ (_) | | | | |
  |___/\___/|_| |_|_|
 """
+
+
+class ConsoleMessageSink(MessageSink):
+    """Sink that prints to rich console."""
+
+    def __init__(self, console: Console):
+        self.console = console
+
+    async def send(self, message: str) -> None:
+        self.console.print(f"[bold blue]Soni > [/]{message}\n")
 
 
 class SoniChatCLI:
@@ -181,15 +192,22 @@ def run_chat(
             try:
                 # Use default registry to pick up actions registered via decorators
                 registry = ActionRegistry.get_default()
+                console = Console()
+                sink = ConsoleMessageSink(console)
 
                 async with RuntimeLoop(
-                    config=soni_config, checkpointer=checkpointer, action_registry=registry
+                    config=soni_config,
+                    checkpointer=checkpointer,
+                    action_registry=registry,
+                    message_sink=sink,
                 ) as runtime:
                     chat = SoniChatCLI(
                         runtime,
                         user_id=user_id or f"cli_{uuid.uuid4().hex[:6]}",
                         streaming=streaming,
                     )
+                    # Sync console instance
+                    chat.console = console
                     await chat.start()
             finally:
                 if async_checkpointer_cm:
