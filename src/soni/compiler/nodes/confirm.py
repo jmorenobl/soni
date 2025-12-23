@@ -73,10 +73,14 @@ async def confirm_node(
             except KeyError:
                 pass
 
+            # Prepare slots for interpolation with the new value
+            interpolation_slots = fm.get_all_slots(state)
+            interpolation_slots[slot] = value
+
             result = {
                 "commands": [],
                 "_pending_task": confirm(
-                    prompt=interpolate(formatted_prompt, fm.get_all_slots(state)),
+                    prompt=interpolate(formatted_prompt, interpolation_slots),
                     options=getattr(config, "options", ["yes", "no"]),
                 ),
             }
