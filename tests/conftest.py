@@ -72,6 +72,16 @@ class MockSoniDU:
                     ]
                 )
 
+            if "check balance" in msg:
+                return MockNLUOutput(
+                    commands=[MockCommand({"type": "start_flow", "flow_name": "check_balance"})]
+                )
+
+            if "es123" in msg:
+                return MockNLUOutput(
+                    commands=[MockCommand({"type": "set_slot", "slot": "iban", "value": "ES123"})]
+                )
+
             if message.isdigit():
                 sys.stderr.write(f"DEBUG_STDERR: isdigit=True for {repr(message)}\n")
                 # Primitive logic to guess slot based on context would be better,

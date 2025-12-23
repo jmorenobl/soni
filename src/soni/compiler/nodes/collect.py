@@ -29,8 +29,13 @@ async def collect_node(
 
     # 1. Already filled? Continue to next step
     existing_value = fm.get_slot(state, slot_name)
+    flow_id = fm.get_active_flow_id(state)
+
     if existing_value:
-        return {"_branch_target": None, "_pending_task": None}
+        result: dict[str, Any] = {"_branch_target": None, "_pending_task": None}
+        if flow_id:
+            result["_executed_steps"] = {flow_id: {config.step}}
+        return result
 
     # 2. Check for value in commands
     commands = state.get("commands", []) or []
@@ -64,6 +69,8 @@ async def collect_node(
         # 4. Valid - set slot and continue
         delta = fm.set_slot(state, slot_name, value)
         updates: dict[str, Any] = {"commands": [], "_branch_target": None, "_pending_task": None}
+        if flow_id:
+            updates["_executed_steps"] = {flow_id: {config.step}}
         merge_delta(updates, delta)
         return updates
 
