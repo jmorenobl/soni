@@ -5,6 +5,7 @@ from langgraph.runtime import Runtime
 
 from soni.compiler.nodes.base import rephrase_if_enabled
 from soni.config.models import SayStepConfig, StepConfig
+from soni.core.pending_task import inform
 from soni.core.types import DialogueState, NodeFunction
 from soni.runtime.context import RuntimeContext
 
@@ -30,7 +31,7 @@ class SayNodeFactory:
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            """Return the message as response."""
+            """Return the message as response via InformTask (ADR-002)."""
             fm = runtime.context.flow_manager
             flow_id = fm.get_active_flow_id(state)
 
@@ -39,7 +40,7 @@ class SayNodeFactory:
                 executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
                     # Already executed - skip to prevent duplicate messages
-                    return {"_branch_target": None}
+                    return {"_branch_target": None, "_pending_task": None}
 
             # Interpolate slots
             def replace_slot(match: re.Match) -> str:
@@ -58,13 +59,19 @@ class SayNodeFactory:
                 # Fallback to original message if rephrasing fails
                 final_message = interpolated_message
 
-            # Send message via sink (non-blocking)
-            if final_message:
-                await runtime.context.message_sink.send(final_message)
-
+            # Build result with InformTask (ADR-002 pattern)
             result: dict[str, Any] = {
                 "_branch_target": None,
             }
+
+            # Return InformTask for orchestrator to handle (non-blocking)
+            if final_message:
+                result["_pending_task"] = inform(
+                    prompt=final_message,
+                    wait_for_ack=False,
+                )
+            else:
+                result["_pending_task"] = None
 
             # Mark as executed
             if flow_id:

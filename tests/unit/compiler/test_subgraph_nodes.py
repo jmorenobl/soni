@@ -239,35 +239,37 @@ class TestActionNode:
 
 
 class TestSayNode:
-    """Tests for say_node returning PendingTask."""
+    """Tests for say_node returning InformTask (ADR-002)."""
 
     @pytest.mark.asyncio
-    async def test_say_uses_sink(self):
-        from unittest.mock import AsyncMock, MagicMock
-
-        from soni.compiler.state import create_empty_state
+    async def test_say_returns_inform_task(self):
+        """Test that SayNode returns InformTask with interpolated message."""
+        from unittest.mock import MagicMock
 
         from soni.compiler.nodes.say import SayNodeFactory
         from soni.config.models import SayStepConfig
+        from soni.core.state import create_empty_state
 
+        # Arrange
         step = SayStepConfig(id="say", type="say", step="test_step", message="Hello {name}")
         node = SayNodeFactory().create(step)
 
         state = create_empty_state()
         state["flow_slots"] = {"flow_123": {"name": "World"}}
 
-        # Mock runtime with context and sink
         runtime = MagicMock()
         runtime.context.flow_manager.get_active_flow_id.return_value = "flow_123"
         runtime.context.flow_manager.get_slot.side_effect = (
             lambda s, k: "World" if k == "name" else None
         )
+        runtime.context.rephraser = None
 
-        # Mock sink
-        mock_sink = AsyncMock()
-        runtime.context.message_sink = mock_sink
-
+        # Act
         result = await node(state, runtime)
 
-        mock_sink.send.assert_called_once_with("Hello World")
-        assert "_pending_task" not in result or result["_pending_task"] is None
+        # Assert
+        assert "_pending_task" in result
+        assert result["_pending_task"] is not None
+        assert result["_pending_task"]["type"] == "inform"
+        assert result["_pending_task"]["prompt"] == "Hello World"
+        assert result["_pending_task"].get("wait_for_ack") is not True
