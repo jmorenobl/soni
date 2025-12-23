@@ -107,14 +107,25 @@ class MockSoniDU:
 
         sys.stderr.write(f"DEBUG_STDERR: MockSoniDU context type: {type(context)}\n")
 
-        # Handle DialogueContext (from understand_node)
-        if hasattr(context, "available_flows") and context.available_flows:
-            # FlowInfo objects
-            first_flow = context.available_flows[0]
-            flow_name = getattr(first_flow, "name", None) or first_flow.get("name")
-            return MockNLUOutput(
-                commands=[MockCommand({"type": "start_flow", "flow_name": flow_name})]
-            )
+        # Handle DialogueContext (from understand_node or execute_flow_node)
+        if hasattr(context, "available_flows"):
+            # Check if we're filling a slot (expected_slot is set)
+            expected_slot = getattr(context, "expected_slot", None)
+            if expected_slot and message:
+                # Return SetSlot for the expected slot
+                return MockNLUOutput(
+                    commands=[
+                        MockCommand({"type": "set_slot", "slot": expected_slot, "value": message})
+                    ]
+                )
+
+            # Otherwise start first available flow
+            if context.available_flows:
+                first_flow = context.available_flows[0]
+                flow_name = getattr(first_flow, "name", None) or first_flow.get("name")
+                return MockNLUOutput(
+                    commands=[MockCommand({"type": "start_flow", "flow_name": flow_name})]
+                )
 
         # Handle RuntimeContext (from execute_node resume)
         # If we're here with a RuntimeContext, we're resuming from an interrupt.

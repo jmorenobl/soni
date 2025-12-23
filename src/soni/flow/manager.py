@@ -228,12 +228,21 @@ def merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
 
     if delta.flow_stack is not None:
         updates["flow_stack"] = delta.flow_stack
+
     if delta.flow_slots is not None:
-        updates["flow_slots"] = delta.flow_slots
-        # Note: We rely on the reducer to merge, so simple assignment to return dict is fine
-        # provided we are returning to LangGraph.
-        # However, if we are doing local merging in execute_node, we might need manual merge.
-        # But for M2 simple case, returning dict is standard.
+        # Deep merge flow_slots to handle multiple set_slot calls in the same node
+        existing = updates.get("flow_slots")
+        if existing is None:
+            updates["flow_slots"] = delta.flow_slots
+        else:
+            # Merge slot dicts per flow_id
+            merged = dict(existing)
+            for flow_id, slots in delta.flow_slots.items():
+                if flow_id in merged:
+                    merged[flow_id] = {**merged[flow_id], **slots}
+                else:
+                    merged[flow_id] = slots
+            updates["flow_slots"] = merged
 
     if delta.executed_steps is not None:
         updates["_executed_steps"] = delta.executed_steps

@@ -5,14 +5,13 @@ so that flow_stack is updated BEFORE execute_flow_node runs. This ensures
 the state is persisted correctly when interrupt() is called.
 """
 
-import sys
 from typing import Any
 
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
 from soni.core.types import DialogueState
-from soni.du.models import CommandInfo, DialogueContext, FlowInfo
+from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotDefinition, SlotValue
 from soni.du.slot_extractor import SlotExtractionInput
 from soni.flow.manager import merge_delta
 from soni.runtime.context import RuntimeContext
@@ -47,16 +46,28 @@ async def understand_node(
         FlowInfo(
             name=name,
             description=flow.description or name,
-            trigger_intents=[],
+            trigger_intents=getattr(flow, "trigger_intents", None) or [],
         )
         for name, flow in config.flows.items()
     ]
 
     commands_info = [
-        CommandInfo(command_type="start_flow", description="Start a new flow"),
-        CommandInfo(command_type="set_slot", description="Set a slot value"),
+        CommandInfo(
+            command_type="start_flow",
+            description="Start a new flow. flow_name must match one of available_flows.name",
+            required_fields=["flow_name"],
+            example='{"type": "start_flow", "flow_name": "check_balance"}',
+        ),
+        CommandInfo(
+            command_type="set_slot",
+            description="Set a slot value when user provides information",
+            required_fields=["slot", "value"],
+            example='{"type": "set_slot", "slot": "account_type", "value": "checking"}',
+        ),
         CommandInfo(command_type="cancel_flow", description="Cancel current flow"),
         CommandInfo(command_type="chitchat", description="Off-topic message"),
+        CommandInfo(command_type="affirm", description="User confirms/agrees"),
+        CommandInfo(command_type="deny", description="User denies/disagrees"),
     ]
 
     active_ctx = fm.get_active_context(state)
@@ -65,11 +76,38 @@ async def understand_node(
     pending = state.get("_pending_prompt")
     expected_slot = pending.get("slot") if pending else None
 
+    # Build flow_slots from active flow's collect steps (as SlotDefinition for NLU context)
+    flow_slots_defs: list[SlotDefinition] = []
+    if active_flow and active_flow in config.flows:
+        for slot_input in _get_slot_definitions(config.flows[active_flow]):
+            flow_slots_defs.append(
+                SlotDefinition(
+                    name=slot_input.name,
+                    slot_type=slot_input.slot_type,
+                    description=slot_input.description,
+                    examples=slot_input.examples,
+                )
+            )
+
+    # Build current_slots from flow state
+    current_slots = _get_current_slots(state, fm)
+
+    # Determine conversation state
+    if not active_flow:
+        conversation_state = "idle"
+    elif expected_slot:
+        conversation_state = "collecting"
+    else:
+        conversation_state = "collecting"  # Active flow = collecting by default
+
     context = DialogueContext(
         available_flows=flows_info,
         available_commands=commands_info,
         active_flow=active_flow,
+        flow_slots=flow_slots_defs,
+        current_slots=current_slots,
         expected_slot=expected_slot,
+        conversation_state=conversation_state,
     )
 
     # Get conversation history
@@ -123,10 +161,8 @@ async def understand_node(
                 # Check if same flow already active
                 current_ctx = fm.get_active_context(local_state)
                 if current_ctx and current_ctx["flow_name"] == flow_name:
-                    sys.stderr.write(f"DEBUG: understand_node: flow {flow_name} already active\n")
                     continue
 
-                sys.stderr.write(f"DEBUG: understand_node: pushing flow {flow_name}\n")
                 _, delta = fm.push_flow(local_state, flow_name)
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
@@ -179,3 +215,26 @@ def _get_slot_definitions(flow_config) -> list[SlotExtractionInput]:
                 )
             )
     return definitions
+
+
+def _get_current_slots(state: DialogueState, fm) -> list[SlotValue]:
+    """Get current slot values from flow state.
+
+    Converts the flow_slots dict to a list of SlotValue objects
+    for the NLU context.
+    """
+    active_ctx = fm.get_active_context(state)
+    if not active_ctx:
+        return []
+
+    flow_id = active_ctx["flow_id"]
+    flow_slots = state.get("flow_slots", {})
+    if not flow_slots:
+        return []
+
+    slot_dict = flow_slots.get(flow_id, {})
+    return [
+        SlotValue(name=name, value=str(value) if value is not None else None)
+        for name, value in slot_dict.items()
+        if not name.startswith("_")  # Skip internal slots
+    ]

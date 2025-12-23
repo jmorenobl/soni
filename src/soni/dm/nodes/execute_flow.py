@@ -191,8 +191,68 @@ async def execute_flow_node(
             user_message = str(resume_value)
 
         # Run NLU on the response (ADR-002: NLU at orchestrator level)
+        # Build proper DialogueContext with expected_slot, flow_slots, etc.
+        from soni.config.models import CollectStepConfig
+        from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotDefinition, SlotValue
+
+        # Get pending prompt info for expected_slot
+        pending = result.get("_pending_prompt") or {}
+        expected_slot = pending.get("slot")
+
+        # Build flow_slots from config
+        flow_slots_defs: list[SlotDefinition] = []
+        if flow_name in config.flows:
+            flow_config = config.flows[flow_name]
+            for step in flow_config.steps:
+                if isinstance(step, CollectStepConfig):
+                    flow_slots_defs.append(
+                        SlotDefinition(
+                            name=step.slot,
+                            slot_type="string",
+                            description=step.message or f"Value for {step.slot}",
+                        )
+                    )
+
+        # Get current slots
+        current_slots: list[SlotValue] = []
+        flow_slots_state = subgraph_state.get("flow_slots", {})
+        if active_flow:
+            flow_id = active_flow.get("flow_id")
+            if flow_id and flow_id in flow_slots_state:
+                slot_dict = flow_slots_state[flow_id]
+                for name, value in slot_dict.items():
+                    if not name.startswith("_"):
+                        current_slots.append(
+                            SlotValue(name=name, value=str(value) if value is not None else None)
+                        )
+
+        # Build available flows and commands
+        flows_info = [
+            FlowInfo(name=n, description=f.description or n) for n, f in config.flows.items()
+        ]
+
+        commands_info = [
+            CommandInfo(
+                command_type="set_slot",
+                description="Set a slot value when user provides information",
+                required_fields=["slot", "value"],
+            ),
+            CommandInfo(command_type="affirm", description="User confirms"),
+            CommandInfo(command_type="deny", description="User denies"),
+        ]
+
+        dialogue_context = DialogueContext(
+            available_flows=flows_info,
+            available_commands=commands_info,
+            active_flow=flow_name,
+            flow_slots=flow_slots_defs,
+            current_slots=current_slots,
+            expected_slot=expected_slot,
+            conversation_state="collecting",
+        )
+
         history = subgraph_state.get("messages") or []
-        nlu_output = await ctx.du.acall(user_message, context=ctx, history=history)
+        nlu_output = await ctx.du.acall(user_message, dialogue_context, history)
         new_commands = [cmd.model_dump() for cmd in nlu_output.commands]
 
         # Pass 2: Slot Extraction (if flow is active)

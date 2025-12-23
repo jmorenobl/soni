@@ -74,36 +74,42 @@ class ActionRegistry:
         Raises:
             ValueError: If action is not registered
         """
+        import asyncio
+        import inspect
+
         if name not in self._handlers:
             raise ValueError(f"Unknown action: {name}")
 
         handler = self._handlers[name]
+        is_async = asyncio.iscoroutinefunction(handler)
 
         # Smart execution: handle legacy vs modern signatures
-        import inspect
-
         try:
             sig = inspect.signature(handler)
         except ValueError:
             # Cannot inspect (e.g. built-in), try passing slots directly
-            return await handler(slots)
+            result = handler(slots)
+            return await result if is_async else result
 
         params = sig.parameters
 
-        # Case 1: No arguments (e.g. get_greeting)
+        # Determine arguments based on signature
         if not params:
-            return await handler()  # type: ignore[call-arg]
+            # Case 1: No arguments (e.g. get_greeting)
+            result = handler()
+        else:
+            first_param_name = next(iter(params))
+            first_param = params[first_param_name]
+            if len(params) == 1 and (first_param_name == "slots" or first_param.annotation is dict):
+                # Case 2: Explicit 'slots' dict argument (Modern)
+                result = handler(slots)
+            else:
+                # Case 3: Match slots to arguments (Legacy / Direct Unpacking)
+                kwargs = {k: v for k, v in slots.items() if k in params}
+                result = handler(**kwargs)
 
-        # Case 2: Explicit 'slots' dict argument (Modern)
-        first_param_name = next(iter(params))
-        first_param = params[first_param_name]
-        if len(params) == 1 and (first_param_name == "slots" or first_param.annotation is dict):
-            return await handler(slots)
-
-        # Case 3: Match slots to arguments (Legacy / Direct Unpacking)
-        # Filter slots to match signature parameters
-        kwargs = {k: v for k, v in slots.items() if k in params}
-        return await handler(**kwargs)  # type: ignore
+        # Await if async, return directly if sync
+        return await result if is_async else result
 
     def __contains__(self, name: str) -> bool:
         """Check if action is registered."""
