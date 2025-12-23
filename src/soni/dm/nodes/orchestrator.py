@@ -59,6 +59,9 @@ async def orchestrator_node(
         active_ctx = fm.get_active_context(cast(DialogueState, working_state))
         if not active_ctx:
             # No active flow → done
+            # If this is the first iteration and no response generated, return help message
+            if iteration == 1 and not updates.get("response"):
+                updates["response"] = "How can I help?"
             break
 
         # Track stack before execution
