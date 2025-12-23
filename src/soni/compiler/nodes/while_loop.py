@@ -68,14 +68,14 @@ class WhileNodeFactory:
 
             if is_true:
                 # Continue looping - route to first step in do block
-                return {"_branch_target": loop_body_start}
+                return {"_branch_target": loop_body_start, "_pending_task": None}
 
             # Exit loop - route to exit target or signal END
             if exit_to:
-                return {"_branch_target": exit_to}
+                return {"_branch_target": exit_to, "_pending_task": None}
 
             # No exit_to means flow ends after loop
-            return {"_branch_target": None}
+            return {"_branch_target": None, "_pending_task": None}
 
         while_node.__name__ = f"while_{step.step}"
         return while_node

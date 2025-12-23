@@ -49,14 +49,14 @@ class SetNodeFactory:
             if flow_id:
                 executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
-                    return {"_branch_target": None}
+                    return {"_branch_target": None, "_pending_task": None}
 
             # Conditional execution
             if condition:
                 current_slots = fm.get_all_slots(state)
                 if not evaluate_expression(condition, current_slots):
                     # Mark as executed even if condition is false, clear branch target
-                    result: dict[str, Any] = {"_branch_target": None}
+                    result: dict[str, Any] = {"_branch_target": None, "_pending_task": None}
                     if flow_id:
                         result["_executed_steps"] = {flow_id: {step_id}}
                     return result
@@ -75,6 +75,7 @@ class SetNodeFactory:
 
             # Mark as executed and clear branch target
             updates["_branch_target"] = None
+            updates["_pending_task"] = None
             if flow_id:
                 updates["_executed_steps"] = {flow_id: {step_id}}
 

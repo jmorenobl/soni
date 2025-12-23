@@ -46,7 +46,11 @@ class CallNodeFactory:
                     return {"_branch_target": None}
 
             # Signal flow change to exit subgraph, and mark step executed
-            updates: dict[str, Any] = {"_flow_changed": True, "_branch_target": "__end__"}
+            updates: dict[str, Any] = {
+                "_flow_changed": True,
+                "_branch_target": "__end__",
+                "_pending_task": None,
+            }
             if flow_id:
                 updates["_executed_steps"] = {flow_id: {step_id}}
 

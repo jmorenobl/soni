@@ -46,7 +46,11 @@ class LinkNodeFactory:
                     return {"_branch_target": None}
 
             # Signal flow change to exit subgraph early
-            updates: dict[str, Any] = {"_flow_changed": True, "_branch_target": "__end__"}
+            updates: dict[str, Any] = {
+                "_flow_changed": True,
+                "_branch_target": "__end__",
+                "_pending_task": None,
+            }
             if flow_id:
                 updates["_executed_steps"] = {flow_id: {step_id}}
 
@@ -54,8 +58,6 @@ class LinkNodeFactory:
             if state.get("flow_stack"):
                 _, pop_delta = fm.pop_flow(state)
                 merge_delta(updates, pop_delta)
-                if pop_delta.flow_stack is not None:
-                    state["flow_stack"] = pop_delta.flow_stack
 
             # Push target flow
             _, push_delta = fm.push_flow(state, target_flow)

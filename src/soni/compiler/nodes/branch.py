@@ -72,7 +72,7 @@ class BranchNodeFactory:
                     break
 
             # Clear any previous branch target if no match
-            return {"_branch_target": target}
+            return {"_branch_target": target, "_pending_task": None}
 
         branch_node.__name__ = f"branch_{step.step}"
         return branch_node
