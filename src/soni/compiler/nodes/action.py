@@ -30,7 +30,7 @@ async def action_node(
     if flow_id:
         executed = (state.get("_executed_steps") or {}).get(flow_id, set())
         if step_id in executed:
-            return {"_branch_target": None}
+            return {"_branch_target": None, "_pending_task": None}
 
     # Get current slots
     slots = fm.get_all_slots(state)
