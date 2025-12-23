@@ -67,5 +67,4 @@ class ConfigLoader:
             with open(yaml_file, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
-        # Pydantic's model_validate returns Self, but mypy infers Any
         return SoniConfig.model_validate(data)  # type: ignore[no-any-return]

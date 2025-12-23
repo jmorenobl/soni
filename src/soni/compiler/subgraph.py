@@ -105,7 +105,7 @@ def build_flow_subgraph(flow: FlowConfig):
         """Create router that supports branch targets."""
 
         def router(state: DialogueState) -> str:
-            if state.get("_need_input"):
+            if state.get("_pending_task"):
                 return cast(str, END)
 
             target = state.get("_branch_target")

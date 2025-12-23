@@ -66,11 +66,8 @@ def _last_value_str(current: str | None, new: str | None) -> str | None:
 
 
 def _last_value_any(current: Any | None, new: Any | None) -> Any | None:
-    """Reducer that keeps the last non-None value."""
-    # print(f"DEBUG: _last_value_any called. New: {new}")
-    if new is not None:
-        return new
-    return current
+    """Reducer that keeps the last value (allows None to clear)."""
+    return new
 
 
 def _merge_flow_slots(
@@ -147,8 +144,6 @@ class DialogueState(TypedDict):
 
     # M2: Commands & Interrupts
     commands: Annotated[list[dict[str, Any]] | None, _last_value_any]
-    _need_input: Annotated[bool | None, _last_value_any]
-    _pending_prompt: Annotated[dict[str, Any] | None, _last_value_any]
     _pending_task: Annotated[PendingTask | None, _last_value_any]
 
     # Internal

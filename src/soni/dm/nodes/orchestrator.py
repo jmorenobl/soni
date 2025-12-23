@@ -73,10 +73,12 @@ async def orchestrator_node(
 def _build_subgraph_state(state: dict[str, Any]) -> dict[str, Any]:
     """Build state for subgraph invocation."""
     return {
+        "flow_stack": state.get("flow_stack", []),
         "flow_slots": state.get("flow_slots", {}),
         "user_message": state.get("user_message"),
         "commands": state.get("commands", []),
         "messages": state.get("messages", []),
+        "_executed_steps": state.get("_executed_steps", {}),
     }
 
 

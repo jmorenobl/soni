@@ -1,7 +1,7 @@
 """Understand node for NLU processing (two-pass architecture).
 
 ADR-002: This node now also processes flow-modifying commands (StartFlow, CancelFlow)
-so that flow_stack is updated BEFORE execute_flow_node runs. This ensures
+so that flow_stack is updated BEFORE orchestrator runs. This ensures
 the state is persisted correctly when interrupt() is called.
 """
 
@@ -10,7 +10,7 @@ from typing import Any, Literal, cast
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState
+from soni.core.types import DialogueState, _merge_flow_slots
 from soni.du.models import CommandInfo, DialogueContext, FlowInfo, SlotDefinition, SlotValue
 from soni.du.slot_extractor import SlotExtractionInput
 from soni.flow.manager import merge_delta
@@ -29,8 +29,8 @@ async def understand_node(
 
     ADR-002 Enhancement:
     - StartFlow commands are processed here to update flow_stack
-    - This ensures state is persisted before execute_flow_node's interrupt()
-    - Other commands (SetSlot, etc.) are passed to execute_flow_node
+    - This ensures state is persisted before orchestrator's interrupt()
+    - Other commands (SetSlot, etc.) are passed to orchestrator
     """
     du = runtime.context.nlu_provider
     slot_extractor = runtime.context.slot_extractor
@@ -73,8 +73,19 @@ async def understand_node(
     active_ctx = fm.get_active_context(state)
     active_flow = active_ctx["flow_name"] if active_ctx else None
 
-    pending = state.get("_pending_prompt")
-    expected_slot = pending.get("slot") if pending else None
+    pending_task = state.get("_pending_task")
+    expected_slot = None
+    if pending_task:
+        if isinstance(pending_task, dict):
+            expected_slot = (
+                pending_task.get("slot") if pending_task.get("type") == "collect" else None
+            )
+        else:
+            expected_slot = (
+                getattr(pending_task, "slot", None)
+                if getattr(pending_task, "type", None) == "collect"
+                else None
+            )
 
     # Build flow_slots from active flow's collect steps (as SlotDefinition for NLU context)
     flow_slots_defs: list[SlotDefinition] = []
@@ -106,7 +117,7 @@ async def understand_node(
         active_flow=active_flow,
         flow_slots=flow_slots_defs,
         current_slots=current_slots,
-        expected_slot=expected_slot,
+        expected_slot=cast(str | None, expected_slot),
         conversation_state=cast(
             Literal["idle", "collecting", "confirming", "action_pending"], conversation_state
         ),
@@ -165,35 +176,29 @@ async def understand_node(
                 if current_ctx and current_ctx["flow_name"] == flow_name:
                     continue
 
-                from soni.core.types import DialogueState
-
                 _, delta = fm.push_flow(cast(DialogueState, local_state), flow_name)
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
                 if delta.flow_stack:
                     local_state["flow_stack"] = delta.flow_stack
                 if delta.flow_slots:
-                    from soni.core.types import _merge_flow_slots
-
                     active_slots = cast(
                         dict[str, dict[str, Any]], local_state.get("flow_slots") or {}
                     )
                     local_state["flow_slots"] = _merge_flow_slots(active_slots, delta.flow_slots)
-            # Don't pass StartFlow to execute_flow_node (already processed)
+            # Don't pass StartFlow to orchestrator (already processed)
 
         elif cmd_type == "cancel_flow":
             stack = local_state.get("flow_stack")
             if stack:
-                from soni.core.types import DialogueState
-
                 _, delta = fm.pop_flow(cast(DialogueState, local_state))
                 merge_delta(updates, delta)
                 if delta.flow_stack is not None:
                     local_state["flow_stack"] = delta.flow_stack
-            # Don't pass CancelFlow to execute_flow_node (already processed)
+            # Don't pass CancelFlow to orchestrator (already processed)
 
         else:
-            # Pass other commands (SetSlot, Affirm, Deny, etc.) to execute_flow_node
+            # Pass other commands (SetSlot, Affirm, Deny, etc.) to orchestrator
             remaining_commands.append(cmd_dict)
 
     return {
