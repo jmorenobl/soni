@@ -105,8 +105,17 @@ def build_flow_subgraph(flow: FlowConfig):
         """Create router that supports branch targets."""
 
         def router(state: DialogueState) -> str:
-            if state.get("_pending_task"):
-                return cast(str, END)
+            pending_task = state.get("_pending_task")
+
+            if pending_task:
+                # ADR-002: Only exit if task requires interruption (blocking)
+                # Inform tasks with wait_for_ack=False are non-blocking
+                is_blocking = True
+                if pending_task.get("type") == "inform" and not pending_task.get("wait_for_ack"):
+                    is_blocking = False
+
+                if is_blocking:
+                    return cast(str, END)
 
             target = state.get("_branch_target")
             if target:
