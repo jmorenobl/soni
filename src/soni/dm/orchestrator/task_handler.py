@@ -31,9 +31,12 @@ class PendingTaskHandler:
 
     async def handle(self, task: PendingTask) -> TaskResult:
         """Process a pending task and determine next action."""
-        if is_inform(task):
+
+        # Always send the prompt if present (Collect, Confirm, Inform all have prompts)
+        if "prompt" in task:
             await self._sink.send(task["prompt"])
 
+        if is_inform(task):
             if requires_input(task):
                 return TaskResult(action=TaskAction.INTERRUPT, task=task)
             return TaskResult(action=TaskAction.CONTINUE)

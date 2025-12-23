@@ -27,7 +27,7 @@ class TestPendingTaskHandler:
         # Assert
         assert result.action == TaskAction.INTERRUPT
         assert result.task == task
-        assert sink.messages == []  # Collect doesn't send message
+        assert sink.messages == ["Enter amount"]
 
     @pytest.mark.asyncio
     async def test_handle_confirm_returns_interrupt(self):
@@ -43,6 +43,7 @@ class TestPendingTaskHandler:
         # Assert
         assert result.action == TaskAction.INTERRUPT
         assert result.task == task
+        assert sink.messages == ["Proceed?"]
 
     @pytest.mark.asyncio
     async def test_handle_inform_without_wait_sends_and_continues(self):

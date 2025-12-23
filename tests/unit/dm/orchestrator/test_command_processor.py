@@ -58,7 +58,7 @@ class TestCommandProcessor:
         processor = CommandProcessor(DEFAULT_HANDLERS)
         commands = [
             {"type": "start_flow", "flow_name": "transfer"},
-            {"type": "set_slot", "slot_name": "amount", "slot_value": "100"},
+            {"type": "set_slot", "slot": "amount", "value": "100"},
         ]
         mock_fm = MagicMock()
         mock_fm.push_flow.return_value = ("test_id", FlowDelta(flow_stack=[]))
