@@ -101,3 +101,77 @@ def _validate_email(value: Any, slots: dict[str, Any]) -> bool:
 register_validator("not_empty", _validate_not_empty)
 register_validator("positive", _validate_positive)
 register_validator("email", _validate_email)
+
+
+def validate_slot_definition(slot: dict[str, Any]) -> None:
+    """Validate a slot definition dictionary.
+
+    Args:
+        slot: Dictionary containing slot definition (name, type, etc.)
+
+    Raises:
+        ValidationError: If definition is invalid.
+    """
+    from soni.core.errors import ValidationError
+
+    if "name" not in slot:
+        raise ValidationError("Slot definition missing 'name'")
+
+    valid_types = {"string", "number", "boolean", "object", "array"}
+    slot_type = slot.get("type", "string")
+    if slot_type not in valid_types:
+        raise ValidationError(f"Invalid slot type '{slot_type}'. Valid: {valid_types}")
+
+    if slot_type == "number" and "validation" in slot:
+        rules = slot["validation"]
+        if "min" in rules and "max" in rules:
+            if rules["min"] > rules["max"]:
+                raise ValidationError(
+                    f"Slot '{slot['name']}': min ({rules['min']}) > max ({rules['max']})"
+                )
+
+
+def validate_flow_definition(flow: dict[str, Any]) -> None:
+    """Validate a flow definition dictionary.
+
+    Args:
+        flow: Dictionary containing flow definition (name, steps, etc.)
+
+    Raises:
+        ValidationError: If definition is invalid.
+    """
+    from soni.core.errors import ValidationError
+
+    if "name" not in flow:
+        raise ValidationError("Flow definition missing 'name'")
+
+    if "steps" not in flow or not flow["steps"]:
+        raise ValidationError(f"Flow '{flow['name']}' missing 'steps'")
+
+    steps = flow["steps"]
+    step_ids = set()
+
+    valid_types = {"say", "collect", "confirm", "action", "branch", "call", "link", "set", "while"}
+
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            raise ValidationError(f"Flow '{flow['name']}', step {i} is not a dictionary")
+
+        step_type = step.get("type")
+        if step_type not in valid_types:
+            raise ValidationError(f"Flow '{flow['name']}', step {i}: invalid type '{step_type}'")
+
+        step_id = step.get("step") or step.get("id")
+        if step_id:
+            if step_id in step_ids:
+                raise ValidationError(f"Flow '{flow['name']}': duplicate step ID '{step_id}'")
+            step_ids.add(step_id)
+
+    # Check references (goto)
+    for i, step in enumerate(steps):
+        goto = step.get("goto")
+        if goto and goto not in step_ids and goto not in ("END", "END_FLOW"):
+            # Simple check, some gpt-generated flows might use END or similar
+            raise ValidationError(
+                f"Flow '{flow['name']}', step {i}: invalid goto reference '{goto}'"
+            )

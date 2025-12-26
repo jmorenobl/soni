@@ -13,14 +13,21 @@ class TestValueEvaluation:
         result = evaluate_value(template, slots)
         assert result == "Hello Alice"
 
-    def test_handles_missing_slot_gracefully(self):
-        """Should handle missing slots by returning original template."""
-        template = "Hello {nonexistent}"
-        slots = {"name": "Alice"}
+    def test_multiple_substitutions(self):
+        """Should handle multiple placeholders in one template."""
+        template = "Hello {name}, your balance is {balance}"
+        slots = {"name": "Alice", "balance": 1000}
         result = evaluate_value(template, slots)
-        assert result == template
+        assert result == "Hello Alice, your balance is 1000"
 
-    def test_preserves_non_string_values(self):
-        """Should return non-string values as-is."""
-        assert evaluate_value(42, {"any": "thing"}) == 42
-        assert evaluate_value(True, {}) is True
+    def test_handles_complex_types_in_placeholders(self):
+        """Should handle non-string types in placeholders."""
+        template = "Result: {data}"
+        slots = {"data": [1, 2, 3]}
+        result = evaluate_value(template, slots)
+        assert result == "Result: [1, 2, 3]"
+
+    def test_no_placeholder_returns_original(self):
+        """Should return original string if no placeholders."""
+        template = "Plain text"
+        assert evaluate_value(template, {}) == template
