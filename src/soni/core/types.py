@@ -75,7 +75,6 @@ def _merge_flow_slots(
     new: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Reducer that deep-merges flow_slots dicts."""
-    # print(f"DEBUG: _merge_flow_slots called. Current keys: {list(current.keys()) if current else 'None'}, New keys: {list(new.keys()) if new else 'None'}")
     if not current:
         current = {}
     if not new:
