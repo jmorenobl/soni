@@ -31,11 +31,10 @@ class FlowDelta:
             updates["flow_stack"] = self.flow_stack
 
         if self.flow_slots is not None:
-            # Need to avoid circular import if we import at top-level
-            # but types.py already imported it for reducers.
-            # However, deep_merge_flow_slots is in slot_utils.py
-            # which types.py already imports.
-            existing = updates.get("flow_slots", {})
+            # Safely handle None in flow_slots
+            existing = updates.get("flow_slots")
+            if existing is None:
+                existing = {}
             updates["flow_slots"] = deep_merge_flow_slots(existing, self.flow_slots)
 
         if self.executed_steps is not None:
