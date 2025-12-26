@@ -77,18 +77,16 @@ async def understand_node(
     active_flow = active_ctx["flow_name"] if active_ctx else None
 
     pending_task = state.get("_pending_task")
-    expected_slot = None
+    expected_slot: str | None = None
     if pending_task:
         if isinstance(pending_task, dict):
-            expected_slot = (
-                pending_task.get("slot") if pending_task.get("type") == "collect" else None
-            )
+            val = pending_task.get("slot")
+            if isinstance(val, str):
+                expected_slot = val
         else:
-            expected_slot = (
-                getattr(pending_task, "slot", None)
-                if getattr(pending_task, "type", None) == "collect"
-                else None
-            )
+            val = getattr(pending_task, "slot", None)
+            if isinstance(val, str):
+                expected_slot = val
 
     # Build flow_slots from active flow's collect steps (as SlotDefinition for NLU context)
     flow_slots_defs: list[SlotDefinition] = []
@@ -106,7 +104,7 @@ async def understand_node(
     # Build current_slots from flow state
     current_slots = _get_current_slots(state, fm)
 
-    # Determine conversation state
+    conversation_state: Literal["idle", "collecting", "confirming", "action_pending"] = "idle"
     if not active_flow:
         conversation_state = "idle"
     elif expected_slot:
@@ -120,10 +118,8 @@ async def understand_node(
         active_flow=active_flow,
         flow_slots=flow_slots_defs,
         current_slots=current_slots,
-        expected_slot=cast(str | None, expected_slot),
-        conversation_state=cast(
-            Literal["idle", "collecting", "confirming", "action_pending"], conversation_state
-        ),
+        expected_slot=expected_slot,
+        conversation_state=conversation_state,
     )
 
     # Get conversation history
@@ -166,7 +162,7 @@ async def understand_node(
     # ADR-002: Process flow-modifying commands HERE to persist before interrupt
     updates: dict[str, Any] = {}
     remaining_commands: list[dict] = []
-    local_state = dict(state)  # Work with a copy for delta calculations
+    local_state = cast(DialogueState, dict(state))  # Work with a copy for delta calculations
 
     for cmd in commands:
         cmd_dict = cmd.model_dump() if hasattr(cmd, "model_dump") else dict(cmd)
@@ -176,26 +172,24 @@ async def understand_node(
             flow_name = cmd_dict.get("flow_name")
             if flow_name and flow_name in config.flows:
                 # Check if same flow already active
-                current_ctx = fm.get_active_context(cast(DialogueState, local_state))
+                current_ctx = fm.get_active_context(local_state)
                 if current_ctx and current_ctx["flow_name"] == flow_name:
                     continue
 
-                _, delta = fm.push_flow(cast(DialogueState, local_state), flow_name)
+                _, delta = fm.push_flow(local_state, flow_name)
                 merge_delta(updates, delta)
                 # Update local state for subsequent commands
                 if delta.flow_stack:
                     local_state["flow_stack"] = delta.flow_stack
                 if delta.flow_slots:
-                    active_slots = cast(
-                        dict[str, dict[str, Any]], local_state.get("flow_slots") or {}
-                    )
+                    active_slots = local_state.get("flow_slots") or {}
                     local_state["flow_slots"] = _merge_flow_slots(active_slots, delta.flow_slots)
             # Don't pass StartFlow to orchestrator (already processed)
 
         elif cmd_type == "cancel_flow":
             stack = local_state.get("flow_stack")
             if stack:
-                _, delta = fm.pop_flow(cast(DialogueState, local_state))
+                _, delta = fm.pop_flow(local_state)
                 merge_delta(updates, delta)
                 if delta.flow_stack is not None:
                     local_state["flow_stack"] = delta.flow_stack

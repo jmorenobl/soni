@@ -4,7 +4,7 @@ from typing import Any, cast
 
 from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState, FlowContext, _merge_flow_slots
+from soni.core.types import DialogueState, _merge_flow_slots
 from soni.dm.orchestrator.command_processor import CommandProcessor
 from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
@@ -18,7 +18,7 @@ MAX_FLOW_ITERATIONS = 50
 async def orchestrator_node(
     state: DialogueState,
     runtime: Runtime[RuntimeContext],
-) -> dict[str, Any]:
+) -> DialogueState | dict[str, Any]:
     """Orchestrator node - executes flows in a loop until interrupt or completion.
 
     Loop Pattern:
@@ -56,7 +56,7 @@ async def orchestrator_node(
         iteration += 1
 
         # Get active flow
-        active_ctx = fm.get_active_context(cast(DialogueState, working_state))
+        active_ctx = fm.get_active_context(working_state)
         if not active_ctx:
             # No active flow → done
             # If this is the first iteration and no response generated, return help message
@@ -65,7 +65,7 @@ async def orchestrator_node(
             break
 
         # Track stack before execution
-        stack_before = cast(list[FlowContext], working_state.get("flow_stack") or [])
+        stack_before = working_state.get("flow_stack") or []
         stack_size_before = len(stack_before)
 
         # Execute subgraph
@@ -94,10 +94,7 @@ async def orchestrator_node(
                 _merge_outputs(subgraph_output, output)
 
         # Subgraph completed → analyze what happened
-        final_stack = cast(
-            list[FlowContext],
-            subgraph_output.get("flow_stack", working_state.get("flow_stack") or []),
-        )
+        final_stack = subgraph_output.get("flow_stack", working_state.get("flow_stack") or [])
         final_stack_size = len(final_stack)
 
         if final_stack_size > stack_size_before:
@@ -110,7 +107,7 @@ async def orchestrator_node(
         elif final_stack_size == stack_size_before:
             # Flow completed normally → pop it from stack
             try:
-                _, pop_delta = fm.pop_flow(cast(DialogueState, working_state))
+                _, pop_delta = fm.pop_flow(working_state)
                 fm_merge_delta(updates, pop_delta)
                 working_state["flow_stack"] = pop_delta.flow_stack or []
             except Exception:
@@ -142,7 +139,7 @@ def _build_merged_return(
     updates: dict[str, Any],
     final_output: dict[str, Any],
     pending_task: Any = None,
-) -> dict[str, Any]:
+) -> DialogueState:
     """Build return dict with deep merge for flow_slots.
 
     Critical: Prevents subgraph output from overwriting NLU-derived slots.
@@ -168,10 +165,10 @@ def _build_merged_return(
     # Set pending_task (None to clear, or value to set)
     result["_pending_task"] = pending_task
 
-    return result
+    return cast(DialogueState, result)
 
 
-def _merge_state(base: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
+def _merge_state(base: DialogueState | dict[str, Any], delta: dict[str, Any]) -> DialogueState:
     """Merge delta into base state, handling flow_slots and _executed_steps specially."""
     result = dict(base)
     result.update(delta)
@@ -191,10 +188,10 @@ def _merge_state(base: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
                 base_steps[flow_id] = existing | steps
         result["_executed_steps"] = base_steps
 
-    return result
+    return cast(DialogueState, result)
 
 
-def _build_subgraph_state(state: dict[str, Any]) -> dict[str, Any]:
+def _build_subgraph_state(state: DialogueState) -> dict[str, Any]:
     """Build state for subgraph invocation."""
     return {
         "flow_stack": state.get("flow_stack", []),

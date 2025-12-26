@@ -140,8 +140,9 @@ def build_flow_subgraph(flow: FlowConfig):
         if node_name in loop_back_targets:
             # Last step in while loop - loops back to guard
             default_next = loop_back_targets[node_name]
-        # FIX: Removed incorrect logic that forced branch targets to be terminal (END).
-        # Branch targets should flow to the next step unless they are terminal themselves.
+        elif node_name in branch_targets:
+            # Case targets should be terminal within the flow diversion
+            default_next = END
         elif i < len(node_names) - 1:
             default_next = node_names[i + 1]
         else:
