@@ -17,7 +17,7 @@ async def test_hello_world():
         flows={
             "greet": FlowConfig(
                 description="Greet the user and say hello",
-                steps=[SayStepConfig(step="hello", message="Hello, World!")]
+                steps=[SayStepConfig(step="hello", message="Hello, World!")],
             )
         }
     )
@@ -41,7 +41,7 @@ async def test_multi_step_say():
                 steps=[
                     SayStepConfig(step="hello", message="Hello!"),
                     SayStepConfig(step="welcome", message="Welcome to Soni!"),
-                ]
+                ],
             )
         }
     )
@@ -52,4 +52,3 @@ async def test_multi_step_say():
 
     # Assert
     assert "Welcome to Soni!" in response
-

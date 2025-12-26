@@ -21,7 +21,7 @@ async def test_collect_and_greet():
                 steps=[
                     CollectStepConfig(step="ask", slot="name", message="What is your name?"),
                     SayStepConfig(step="hello", message="Hello, {name}!"),
-                ]
+                ],
             )
         }
     )
@@ -40,4 +40,3 @@ async def test_collect_and_greet():
 
     # Assert - Turn 2: Should be the greeting with filled slot
     assert "Hello, Alice!" in response2
-

@@ -53,25 +53,28 @@ async def understand_node(
         logger.error(f"NLU Pass 1 failed: {e}", exc_info=True)
         return {"commands": []}
 
-    # 3. PASS 2: Slot extraction (if StartFlow detected)
+    # 3. PASS 2: Slot extraction
+    target_flow_name = None
+
+    # Priority: StartFlow > ActiveFlow
     start_flow_cmd = next(
         (cmd for cmd in commands if getattr(cmd, "type", None) == "start_flow"), None
     )
+
     if start_flow_cmd:
-        flow_name = cast(str, getattr(start_flow_cmd, "flow_name", None))
-        if flow_name:
-            slot_definitions = context_builder.get_slot_definitions(flow_name)
-            logger.debug(
-                f"SlotExtractor: flow={flow_name}, definitions={len(slot_definitions)}, "
-                f"slots={[s.name for s in slot_definitions]}"
-            )
-            if slot_definitions:
-                try:
-                    slot_commands = await ctx.slot_extractor.acall(user_message, slot_definitions)
-                    logger.debug(f"SlotExtractor extracted: {slot_commands}")
-                    commands.extend(slot_commands)
-                except Exception as e:
-                    logger.error(f"Slot extraction failed: {e}", exc_info=True)
+        target_flow_name = cast(str, getattr(start_flow_cmd, "flow_name", None))
+    elif dialogue_context.active_flow:
+        target_flow_name = dialogue_context.active_flow
+
+    if target_flow_name:
+        slot_definitions = context_builder.get_slot_definitions(target_flow_name)
+        if slot_definitions:
+            try:
+                slot_commands = await ctx.slot_extractor.acall(user_message, slot_definitions)
+                logger.debug(f"SlotExtractor: flow={target_flow_name}, extracted={slot_commands}")
+                commands.extend(slot_commands)
+            except Exception as e:
+                logger.error(f"Slot extraction failed: {e}", exc_info=True)
 
     # 4. Process flow commands (ADR-002)
     processor = FlowCommandProcessor(ctx.flow_manager, ctx.config)

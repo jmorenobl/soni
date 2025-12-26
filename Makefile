@@ -76,11 +76,6 @@ docs-clean:
 check: test lint type-check
 	@echo "All checks passed!"
 
-# Optimization
-optimize:
-	@echo "Running quick baseline optimization..."
-	# uv run python scripts/quick_optimize.py
-	@echo "Skipping optimization: src/soni/dataset module is missing."
 
 # Run chat CLI with banking example
 chat:
@@ -101,22 +96,25 @@ test-unit:
 # Integration tests
 test-integration:
 	@echo "Running integration tests..."
-	uv run pytest tests/integration
+	uv run pytest tests/integration -n auto
 
 # E2E tests
 test-e2e:
 	@echo "Running E2E tests..."
 	uv run pytest tests/e2e
 
-# All tests
+# All tests (Sequential to avoid mock contamination)
 test-all:
 	@echo "Running all tests..."
-	uv run pytest tests -n auto
+	$(MAKE) test-unit
+	$(MAKE) test-integration
+	$(MAKE) test-e2e
 
-# CI target
+# CI target (Exclude E2E which requires external keys)
 test-ci:
-	@echo "Running unit and integration tests..."
-	uv run pytest tests -n auto
+	@echo "Running unit and integration tests (CI)..."
+	$(MAKE) test-unit
+	$(MAKE) test-integration
 
 # Linting
 lint:
@@ -162,3 +160,8 @@ verify:
 	@if [ ! -d "dist" ]; then echo "Error: dist/ not found"; exit 1; fi
 	uv run twine check dist/*
 	@tar -tzf dist/soni-*.tar.gz | head -20
+
+# Optimization
+optimize:
+	@echo "Running optimization..."
+	uv run soni optimize run --config examples/banking/domain
