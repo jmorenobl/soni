@@ -6,7 +6,7 @@ from langgraph.runtime import Runtime
 
 from soni.config.models import CallStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 
@@ -56,7 +56,7 @@ class CallNodeFactory:
 
             # Push target flow onto stack (current stays for return)
             _, delta = fm.push_flow(state, target_flow)
-            merge_delta(updates, delta)
+            apply_delta_to_dict(updates, delta)
 
             return updates
 

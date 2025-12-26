@@ -7,7 +7,7 @@ from langgraph.runtime import Runtime
 from soni.config.models import SetStepConfig, StepConfig
 from soni.core.expression import evaluate_expression, evaluate_value
 from soni.core.types import DialogueState, NodeFunction
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 
@@ -68,7 +68,7 @@ class SetNodeFactory:
             for slot_name, value_expr in slots_config.items():
                 value = evaluate_value(value_expr, current_slots)
                 delta = fm.set_slot(state, slot_name, value)
-                merge_delta(updates, delta)
+                apply_delta_to_dict(updates, delta)
 
                 # Update current_slots for subsequent iterations
                 current_slots[slot_name] = value

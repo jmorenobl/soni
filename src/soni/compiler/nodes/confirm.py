@@ -8,7 +8,7 @@ from soni.config.models import ConfirmStepConfig, StepConfig
 from soni.core.expression import evaluate_value as interpolate
 from soni.core.pending_task import confirm
 from soni.core.types import DialogueState, NodeFunction
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 
@@ -84,7 +84,7 @@ async def confirm_node(
                     options=getattr(config, "options", ["yes", "no"]),
                 ),
             }
-            merge_delta(result, delta)
+            apply_delta_to_dict(result, delta)
             return result
 
     # 2. Prompt needed - show confirmation message

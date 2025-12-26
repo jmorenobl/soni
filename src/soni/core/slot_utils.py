@@ -43,9 +43,9 @@ def deep_merge_flow_slots(
         - None values in new dict DO overwrite base values
     """
     if not new:
-        return base if in_place else dict(base)
+        return (base if base is not None else {}) if in_place else dict(base or {})
 
-    result = base if in_place else deepcopy(base)
+    result = base if (in_place and base is not None) else deepcopy(base or {})
 
     for flow_id, slots in new.items():
         if flow_id in result:

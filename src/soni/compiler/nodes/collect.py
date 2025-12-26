@@ -9,7 +9,7 @@ from soni.core.expression import evaluate_value as interpolate
 from soni.core.pending_task import collect
 from soni.core.types import DialogueState, NodeFunction
 from soni.core.validation import validate
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 
@@ -71,7 +71,7 @@ async def collect_node(
         updates: dict[str, Any] = {"commands": [], "_branch_target": None, "_pending_task": None}
         if flow_id:
             updates["_executed_steps"] = {flow_id: {config.step}}
-        merge_delta(updates, delta)
+        apply_delta_to_dict(updates, delta)
         return updates
 
     # 5. No value provided - need input

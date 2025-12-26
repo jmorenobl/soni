@@ -21,15 +21,46 @@ class FlowDelta:
     flow_slots: dict[str, dict[str, Any]] | None = None
     executed_steps: dict[str, set[str] | None] | None = None
 
+    def apply_to(self, updates: dict[str, Any]) -> None:
+        """Apply this delta to an updates dictionary in-place.
+
+        Args:
+            updates: Dictionary to update (mutated in place).
+        """
+        if self.flow_stack is not None:
+            updates["flow_stack"] = self.flow_stack
+
+        if self.flow_slots is not None:
+            # Need to avoid circular import if we import at top-level
+            # but types.py already imported it for reducers.
+            # However, deep_merge_flow_slots is in slot_utils.py
+            # which types.py already imports.
+            existing = updates.get("flow_slots", {})
+            updates["flow_slots"] = deep_merge_flow_slots(existing, self.flow_slots)
+
+        if self.executed_steps is not None:
+            # Merge _executed_steps additively instead of overwriting
+            existing_executed = updates.get("_executed_steps", {})
+            if not isinstance(existing_executed, dict):
+                existing_executed = {}
+
+            new_executed = dict(existing_executed)
+            for flow_id, steps in self.executed_steps.items():
+                if steps is None:
+                    new_executed.pop(flow_id, None)
+                else:
+                    existing_steps = new_executed.get(flow_id) or set()
+                    if isinstance(existing_steps, set):
+                        new_executed[flow_id] = existing_steps | steps
+                    else:
+                        new_executed[flow_id] = steps
+
+            updates["_executed_steps"] = new_executed
+
     def to_dict(self) -> dict[str, Any]:
         """Convert delta to state update dictionary."""
         updates: dict[str, Any] = {}
-        if self.flow_stack is not None:
-            updates["flow_stack"] = self.flow_stack
-        if self.flow_slots is not None:
-            updates["flow_slots"] = self.flow_slots
-        if self.executed_steps is not None:
-            updates["_executed_steps"] = self.executed_steps
+        self.apply_to(updates)
         return updates
 
 

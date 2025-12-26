@@ -8,7 +8,7 @@ from langgraph.runtime import Runtime
 from soni.config.models import ActionStepConfig, StepConfig
 from soni.core.pending_task import inform
 from soni.core.types import DialogueState, NodeFunction
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ async def action_node(
         for action_key, slot_name in output_mapping.items():
             if action_key in result:
                 delta = fm.set_slot(state, slot_name, result[action_key])
-                merge_delta(updates, delta)
+                apply_delta_to_dict(updates, delta)
 
     # MARK AS EXECUTED (ADR-002)
     if flow_id:

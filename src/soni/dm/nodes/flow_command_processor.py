@@ -4,9 +4,8 @@ import logging
 from typing import Any, cast
 
 from soni.core.commands import Command
-from soni.core.slot_utils import deep_merge_flow_slots
 from soni.core.types import DialogueState
-from soni.flow.manager import FlowManager, merge_delta
+from soni.flow.manager import FlowManager, apply_delta_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -53,27 +52,16 @@ class FlowCommandProcessor:
                         continue
 
                     _, delta = self._fm.push_flow(local_state, flow_name)
-                    merge_delta(updates, delta)
-
-                    # Update local state for subsequent commands in the same turn
-                    if delta.flow_stack is not None:
-                        local_state["flow_stack"] = delta.flow_stack
-
-                    # ... (inside loop)
-                    if delta.flow_slots is not None:
-                        active_slots = local_state.get("flow_slots") or {}
-                        local_state["flow_slots"] = deep_merge_flow_slots(
-                            active_slots, delta.flow_slots
-                        )
+                    apply_delta_to_dict(updates, delta)
+                    delta.apply_to(cast(dict[str, Any], local_state))
                 # ADR-002: Processed here, don't pass to orchestrator
 
             elif cmd_type == "cancel_flow":
                 stack = local_state.get("flow_stack")
                 if stack:
                     _, delta = self._fm.pop_flow(local_state)
-                    merge_delta(updates, delta)
-                    if delta.flow_stack is not None:
-                        local_state["flow_stack"] = delta.flow_stack
+                    apply_delta_to_dict(updates, delta)
+                    delta.apply_to(cast(dict[str, Any], local_state))
                 # ADR-002: Processed here, don't pass to orchestrator
 
             else:

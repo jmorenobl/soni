@@ -9,7 +9,6 @@ import uuid
 from typing import Any, cast
 
 from soni.core.errors import FlowStackError
-from soni.core.slot_utils import deep_merge_flow_slots
 from soni.core.types import DialogueState, FlowContext, FlowContextState, FlowDelta
 
 logger = logging.getLogger(__name__)
@@ -217,23 +216,12 @@ class FlowManager:
         return {}
 
 
-def merge_delta(updates: dict[str, Any], delta: FlowDelta | None) -> None:
-    """Helper to merge a FlowDelta into a node's return dict.
+def apply_delta_to_dict(updates: dict[str, Any], delta: FlowDelta | None) -> None:
+    """Apply a FlowDelta to an updates dictionary in-place.
 
     Args:
         updates: The dict being built by a node for return.
-        delta: FlowDelta to merge, or None (no-op).
+        delta: FlowDelta to apply, or None (no-op).
     """
-    if delta is None:
-        return
-
-    if delta.flow_stack is not None:
-        updates["flow_stack"] = delta.flow_stack
-
-    if delta.flow_slots is not None:
-        # Deep merge flow_slots to handle multiple set_slot calls in the same node
-        existing = updates.get("flow_slots", {})
-        updates["flow_slots"] = deep_merge_flow_slots(existing, delta.flow_slots)
-
-    if delta.executed_steps is not None:
-        updates["_executed_steps"] = delta.executed_steps
+    if delta:
+        delta.apply_to(updates)

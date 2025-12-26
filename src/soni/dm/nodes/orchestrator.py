@@ -14,7 +14,7 @@ from soni.dm.orchestrator import (
 from soni.dm.orchestrator.command_processor import CommandProcessor
 from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
-from soni.flow.manager import merge_delta as fm_merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 # Safety limit to prevent infinite loops
@@ -114,7 +114,7 @@ async def orchestrator_node(
             # Flow completed normally → pop it from stack
             try:
                 _, pop_delta = fm.pop_flow(working_state)
-                fm_merge_delta(updates, pop_delta)
+                apply_delta_to_dict(updates, pop_delta)
                 working_state["flow_stack"] = pop_delta.flow_stack or []
             except Exception:
                 # Stack already empty or error

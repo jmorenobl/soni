@@ -6,7 +6,7 @@ from langgraph.runtime import Runtime
 
 from soni.config.models import LinkStepConfig, StepConfig
 from soni.core.types import DialogueState, NodeFunction
-from soni.flow.manager import merge_delta
+from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
 
 
@@ -57,11 +57,11 @@ class LinkNodeFactory:
             # Pop current flow
             if state.get("flow_stack"):
                 _, pop_delta = fm.pop_flow(state)
-                merge_delta(updates, pop_delta)
+                apply_delta_to_dict(updates, pop_delta)
 
             # Push target flow
             _, push_delta = fm.push_flow(state, target_flow)
-            merge_delta(updates, push_delta)
+            apply_delta_to_dict(updates, push_delta)
 
             return updates
 
