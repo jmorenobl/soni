@@ -10,7 +10,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, ClassVar, TypeVar, cast
+from typing import Any, ClassVar, TypeVar
 
 import dspy
 from pydantic import BaseModel, ValidationError
@@ -35,20 +35,24 @@ def validate_dspy_result(result: Any, model_class: type[T]) -> T:
 
     # Case 2: Dict
     if isinstance(result, dict):
-        return cast(T, model_class.model_validate(result))
+        validated: T = model_class.model_validate(result)
+        return validated
 
     # Case 3: DSPy Prediction object (or similar)
     # Check for _store attribute (common in DSPy)
     if hasattr(result, "_store") and isinstance(result._store, dict):
-        return cast(T, model_class.model_validate(result._store))
+        v_store: T = model_class.model_validate(result._store)
+        return v_store
 
     # Check for model_dump method
     if hasattr(result, "model_dump") and callable(result.model_dump):
-        return cast(T, model_class.model_validate(result.model_dump()))
+        v_dump: T = model_class.model_validate(result.model_dump())
+        return v_dump
 
     # Fallback: Try vars() or __dict__ if available
     try:
-        return cast(T, model_class.model_validate(vars(result)))
+        v_vars: T = model_class.model_validate(vars(result))
+        return v_vars
     except (TypeError, ValueError):
         pass
 

@@ -67,4 +67,5 @@ class ConfigLoader:
             with open(yaml_file, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
-        return SoniConfig.model_validate(data)  # type: ignore[no-any-return]
+        config: SoniConfig = SoniConfig.model_validate(data)
+        return config
