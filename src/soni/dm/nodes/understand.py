@@ -61,9 +61,14 @@ async def understand_node(
         flow_name = cast(str, getattr(start_flow_cmd, "flow_name", None))
         if flow_name:
             slot_definitions = context_builder.get_slot_definitions(flow_name)
+            logger.debug(
+                f"SlotExtractor: flow={flow_name}, definitions={len(slot_definitions)}, "
+                f"slots={[s.name for s in slot_definitions]}"
+            )
             if slot_definitions:
                 try:
                     slot_commands = await ctx.slot_extractor.acall(user_message, slot_definitions)
+                    logger.debug(f"SlotExtractor extracted: {slot_commands}")
                     commands.extend(slot_commands)
                 except Exception as e:
                     logger.error(f"Slot extraction failed: {e}", exc_info=True)

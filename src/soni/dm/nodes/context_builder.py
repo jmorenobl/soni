@@ -64,9 +64,23 @@ class DialogueContextBuilder:
         # Build current_slots from flow state
         current_slots = self._get_current_slots(state, fm)
 
+        # Determine conversation state from pending_task type
         conversation_state: Literal["idle", "collecting", "confirming", "action_pending"] = "idle"
+        pending_task = state.get("_pending_task")
         if not active_flow:
             conversation_state = "idle"
+        elif pending_task:
+            task_type = (
+                pending_task.get("type")
+                if isinstance(pending_task, dict)
+                else getattr(pending_task, "type", None)
+            )
+            if task_type == "confirm":
+                conversation_state = "confirming"
+            elif task_type == "collect":
+                conversation_state = "collecting"
+            else:
+                conversation_state = "collecting"
         elif expected_slot:
             conversation_state = "collecting"
         else:

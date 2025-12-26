@@ -3,7 +3,7 @@
 from langgraph.graph import END, StateGraph
 
 from soni.compiler.factory import get_factory_for_step
-from soni.config.models import BranchStepConfig, FlowConfig, StepConfig, WhileStepConfig
+from soni.config.models import FlowConfig, StepConfig, WhileStepConfig
 from soni.core.types import DialogueState
 from soni.runtime.context import RuntimeContext
 
@@ -68,16 +68,10 @@ def build_flow_subgraph(flow: FlowConfig):
     valid_node_names = set(node_names)
     valid_node_names.add(END)
 
-    # Collect branch targets - they route to END after executing
-    branch_targets: set[str] = set()
-    for step in flow.steps:
-        if isinstance(step, BranchStepConfig):
-            for case_target in step.cases.values():
-                if case_target != "default":
-                    node_name = step_to_node.get(case_target, case_target)
-                    branch_targets.add(node_name)
-
     # Collect while loop metadata: last step in do block -> loop back to guard
+    # NOTE: branch targets (case targets) now continue sequentially to their natural
+    # next step in the flow, rather than routing to END. Only while loop steps
+    # need special handling for loop-back behavior.
     loop_back_targets: dict[str, str] = {}  # last do step -> while guard
     while_guards: set[str] = set()
     for step in all_steps:
@@ -90,10 +84,6 @@ def build_flow_subgraph(flow: FlowConfig):
             last_do_step = do_step_names[-1]
             if last_do_step in step_to_node:
                 loop_back_targets[step_to_node[last_do_step]] = guard_name
-            # All steps in do block are branch targets (for the while)
-            for do_step in do_step_names:
-                if do_step in step_to_node:
-                    branch_targets.add(step_to_node[do_step])
 
     def _create_router(
         default_target: str,
@@ -134,13 +124,9 @@ def build_flow_subgraph(flow: FlowConfig):
             builder.set_entry_point(node_name)
 
         # Determine default next step
-        # Determine default next step
         if node_name in loop_back_targets:
             # Last step in while loop - loops back to guard
             default_next = loop_back_targets[node_name]
-        elif node_name in branch_targets:
-            # Case targets should be terminal within the flow diversion
-            default_next = END
         elif i < len(node_names) - 1:
             default_next = node_names[i + 1]
         else:
