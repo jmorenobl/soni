@@ -1,10 +1,16 @@
 """Orchestrator node - thin coordinator using RuntimeContext."""
 
-from typing import Any, cast
+from typing import Any
 
 from langgraph.runtime import Runtime
 
-from soni.core.types import DialogueState, _merge_flow_slots
+from soni.core.types import DialogueState
+from soni.dm.orchestrator import (
+    build_merged_return,
+    build_subgraph_state,
+    merge_outputs,
+    merge_state,
+)
 from soni.dm.orchestrator.command_processor import CommandProcessor
 from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
@@ -46,7 +52,7 @@ async def orchestrator_node(
     updates = delta.to_dict()
 
     # 2. Build working state
-    working_state = _merge_state(dict(state), updates)
+    working_state = merge_state(dict(state), updates)
 
     # 3. Main execution loop
     iteration = 0
@@ -70,7 +76,7 @@ async def orchestrator_node(
 
         # Execute subgraph
         subgraph = ctx.subgraph_registry.get(active_ctx["flow_name"])
-        subgraph_state = _build_subgraph_state(working_state)
+        subgraph_state = build_subgraph_state(working_state)
         subgraph_output: dict[str, Any] = {}
 
         async for event in subgraph.astream(subgraph_state, stream_mode="updates"):
@@ -82,16 +88,16 @@ async def orchestrator_node(
 
                     if result.action == TaskAction.INTERRUPT:
                         # Interrupt → return to user immediately
-                        _merge_outputs(final_output, subgraph_output)
-                        _merge_outputs(final_output, output)
+                        merge_outputs(final_output, subgraph_output)
+                        merge_outputs(final_output, output)
 
                         # Merge with deep slot merge (same as final return)
-                        return _build_merged_return(updates, final_output, result.task)
+                        return build_merged_return(updates, final_output, result.task)
 
                     if result.action == TaskAction.CONTINUE:
                         output["_pending_task"] = None
 
-                _merge_outputs(subgraph_output, output)
+                merge_outputs(subgraph_output, output)
 
         # Subgraph completed → analyze what happened
         final_stack = subgraph_output.get("flow_stack", working_state.get("flow_stack") or [])
@@ -100,8 +106,8 @@ async def orchestrator_node(
         if final_stack_size > stack_size_before:
             # Link/Call: stack grew → new flow was pushed
             # Update working state and continue loop to execute new flow
-            working_state = _merge_state(working_state, subgraph_output)
-            _merge_outputs(final_output, subgraph_output)
+            working_state = merge_state(working_state, subgraph_output)
+            merge_outputs(final_output, subgraph_output)
             continue
 
         elif final_stack_size == stack_size_before:
@@ -114,7 +120,7 @@ async def orchestrator_node(
                 # Stack already empty or error
                 break
 
-            _merge_outputs(final_output, subgraph_output)
+            merge_outputs(final_output, subgraph_output)
 
             # Check if parent flow exists to continue
             if working_state.get("flow_stack"):
@@ -132,97 +138,4 @@ async def orchestrator_node(
                 break
 
     pending_task = updates.get("_pending_task") or final_output.get("_pending_task")
-    return _build_merged_return(updates, final_output, pending_task)
-
-
-def _build_merged_return(
-    updates: dict[str, Any],
-    final_output: dict[str, Any],
-    pending_task: Any = None,
-) -> DialogueState:
-    """Build return dict with deep merge for flow_slots.
-
-    Critical: Prevents subgraph output from overwriting NLU-derived slots.
-    """
-    transformed_output = _transform_result(final_output)
-
-    if "flow_slots" in transformed_output:
-        nlu_slots = updates.get("flow_slots") or {}
-        subgraph_slots = transformed_output["flow_slots"]
-
-        merged_slots = dict(nlu_slots)
-        for f_id, f_slots in subgraph_slots.items():
-            if f_id in merged_slots:
-                merged_slots[f_id] = {**merged_slots[f_id], **f_slots}
-            else:
-                merged_slots[f_id] = f_slots
-
-        updates["flow_slots"] = merged_slots
-        del transformed_output["flow_slots"]
-
-    result = {**updates, **transformed_output}
-
-    # Set pending_task (None to clear, or value to set)
-    result["_pending_task"] = pending_task
-
-    return cast(DialogueState, result)
-
-
-def _merge_state(base: DialogueState | dict[str, Any], delta: dict[str, Any]) -> DialogueState:
-    """Merge delta into base state, handling flow_slots and _executed_steps specially."""
-    result = dict(base)
-    result.update(delta)
-
-    if "flow_slots" in delta:
-        result["flow_slots"] = _merge_flow_slots(base.get("flow_slots") or {}, delta["flow_slots"])
-
-    # Merge _executed_steps additively
-    if "_executed_steps" in delta:
-        base_steps = dict(base.get("_executed_steps") or {})
-        for flow_id, steps in (delta["_executed_steps"] or {}).items():
-            if steps is None:
-                # Removal signal
-                base_steps.pop(flow_id, None)
-            else:
-                existing = base_steps.get(flow_id) or set()
-                base_steps[flow_id] = existing | steps
-        result["_executed_steps"] = base_steps
-
-    return cast(DialogueState, result)
-
-
-def _build_subgraph_state(state: DialogueState) -> dict[str, Any]:
-    """Build state for subgraph invocation."""
-    return {
-        "flow_stack": state.get("flow_stack", []),
-        "flow_slots": state.get("flow_slots", {}),
-        "user_message": state.get("user_message"),
-        "commands": state.get("commands", []),
-        "messages": state.get("messages", []),
-        "_executed_steps": state.get("_executed_steps", {}),
-    }
-
-
-def _transform_result(result: dict[str, Any]) -> dict[str, Any]:
-    """Transform subgraph result to parent state updates."""
-    # Keep relevant updates, preserve flow_stack, _pending_task, _executed_steps
-    keep_fields = {"flow_stack", "flow_slots", "_pending_task", "_executed_steps"}
-    result_dict = {k: v for k, v in result.items() if not k.startswith("_") or k in keep_fields}
-
-    return result_dict
-
-
-def _merge_outputs(target: dict[str, Any], source: dict[str, Any]) -> None:
-    """Merge source output into target with deep merge for flow_slots."""
-    for k, v in source.items():
-        if k == "flow_slots" and isinstance(v, dict):
-            # Deep merge flow_slots to prevent overwrite of sibling keys
-            target_slots = target.get("flow_slots", {})
-            for flow_id, slots in v.items():
-                if flow_id in target_slots:
-                    target_slots[flow_id] = {**target_slots[flow_id], **slots}
-                else:
-                    target_slots[flow_id] = slots
-            target["flow_slots"] = target_slots
-        else:
-            target[k] = v
+    return build_merged_return(updates, final_output, pending_task)

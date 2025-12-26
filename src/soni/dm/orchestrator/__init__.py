@@ -8,6 +8,13 @@ from soni.dm.orchestrator.commands import (
     SetSlotHandler,
     StartFlowHandler,
 )
+from soni.dm.orchestrator.state_utils import (
+    build_merged_return,
+    build_subgraph_state,
+    merge_outputs,
+    merge_state,
+    transform_result,
+)
 from soni.dm.orchestrator.task_handler import (
     PendingTaskHandler,
     TaskAction,
@@ -24,4 +31,9 @@ __all__ = [
     "PendingTaskHandler",
     "TaskAction",
     "TaskResult",
+    "build_merged_return",
+    "build_subgraph_state",
+    "merge_outputs",
+    "merge_state",
+    "transform_result",
 ]
