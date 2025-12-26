@@ -192,24 +192,22 @@ class TestRephraseResponse:
     """Tests for ResponseRephraser specialized logic."""
 
     @pytest.mark.asyncio
-    async def test_aforward_history_pass_through(self):
-        """Should pass history to extractor."""
-        from soni.du.schemas.rephrase_response import RephraseResult
-
+    async def test_aforward_logic(self):
+        """Should call extractor with correct arguments."""
         from soni.du.modules.rephrase_response import ResponseRephraser
 
-        gen = ResponseRephraser()
+        gen = ResponseRephraser(tone="professional")
         gen.extractor = AsyncMock()
 
         mock_res = MagicMock()
-        mock_res.result = RephraseResult(rephrased_text="Hello!")
+        mock_res.polished_response = "Hello Professional!"
         gen.extractor.acall.return_value = mock_res
 
-        history = [{"role": "user", "content": "hi"}]
-        result = await gen.aforward("Hi", "Greeting", history)
-        assert result == "Hello!"
+        result = await gen.aforward("Hi", "Context")
+        assert result == "Hello Professional!"
 
-        # Verify history was converted (it's the 3rd arg to acall)
+        # Verify call args
         args, kwargs = gen.extractor.acall.call_args
-        assert isinstance(kwargs["history"], dspy.History)
-        assert len(kwargs["history"].messages) == 1
+        assert kwargs["template_response"] == "Hi"
+        assert kwargs["conversation_context"] == "Context"
+        assert kwargs["tone"] == "professional"
