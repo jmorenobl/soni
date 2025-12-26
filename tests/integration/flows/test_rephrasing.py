@@ -28,7 +28,7 @@ def configure_dspy_dummy_lm():
 
 
 @pytest.mark.asyncio
-async def test_rephraser_enabled_polishes_response():
+async def test_rephraser_enabled_polishes_response(use_mock_nlu):
     """With rephraser enabled, responses are polished by LLM."""
     # Arrange
     config = SoniConfig(
@@ -53,7 +53,7 @@ async def test_rephraser_enabled_polishes_response():
 
 
 @pytest.mark.asyncio
-async def test_rephraser_disabled_keeps_template():
+async def test_rephraser_disabled_keeps_template(use_mock_nlu):
     """With rephraser disabled, template response is returned as-is."""
     # Arrange
     config = SoniConfig(
@@ -77,7 +77,7 @@ async def test_rephraser_disabled_keeps_template():
 
 
 @pytest.mark.asyncio
-async def test_step_level_rephrase_disabled():
+async def test_step_level_rephrase_disabled(use_mock_nlu):
     """Step with rephrase=False keeps template even if global is enabled."""
     # Arrange
     config = SoniConfig(

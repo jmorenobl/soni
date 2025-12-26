@@ -13,7 +13,7 @@ class MessageRequest(BaseModel):
     """Request model for processing a user message."""
 
     user_id: str = Field(description="Unique identifier for the conversation thread")
-    message: str = Field(description="User's input message")
+    message: str = Field(min_length=1, description="User's input message")
 
 
 class MessageResponse(BaseModel):

@@ -13,7 +13,7 @@ from soni.runtime.loop import RuntimeLoop
 
 
 @pytest.mark.asyncio
-async def test_digression_preserves_parent_progress():
+async def test_digression_preserves_parent_progress(use_mock_nlu):
     """Verify that digression returns to correct step in parent flow."""
     # Arrange
     config = SoniConfig(
