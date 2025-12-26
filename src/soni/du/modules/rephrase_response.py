@@ -1,44 +1,14 @@
-"""ResponseRephraser - DSPy module for polishing responses.
-
-Provides LLM-powered response rephrasing for more natural conversations.
-
-Follows DSPy pattern:
-- aforward(): Async runtime implementation
-- forward(): Sync implementation for optimization
-- module.acall(): Runtime invocation
-- module(): Optimization invocation
-"""
+"""ResponseRephraser - DSPy module for polishing responses."""
 
 from typing import Literal
 
 import dspy
 
 from soni.du.base import OptimizableDSPyModule
+from soni.du.signatures.rephrase_response import RephraserSignature
 
 # Type alias for supported tones
 RephraseTone = Literal["friendly", "professional", "formal"]
-
-
-class RephraserSignature(dspy.Signature):
-    """Polish a template response to sound more natural.
-
-    You are a helpful assistant that rephrases template responses to be more
-    natural and conversational while preserving ALL factual information.
-
-    CRITICAL RULES:
-    1. PRESERVE all numbers, amounts, dates, names exactly as given
-    2. Do NOT add information not in the template
-    3. Maintain the specified tone consistently
-    4. Keep responses concise - don't over-elaborate
-    """
-
-    template_response: str = dspy.InputField(desc="Original template response to polish")
-    conversation_context: str = dspy.InputField(desc="Recent conversation history for context")
-    tone: str = dspy.InputField(desc="Desired tone: friendly, professional, or formal")
-
-    polished_response: str = dspy.OutputField(
-        desc="Polished response that preserves all factual information"
-    )
 
 
 class ResponseRephraser(OptimizableDSPyModule):

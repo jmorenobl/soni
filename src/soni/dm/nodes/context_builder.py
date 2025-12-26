@@ -5,6 +5,7 @@ from typing import Literal
 
 from soni.config.models import CollectStepConfig, SoniConfig
 from soni.core.types import DialogueState
+from soni.du import SlotExtractionInput
 from soni.du.models import (
     CommandInfo,
     DialogueContext,
@@ -12,7 +13,6 @@ from soni.du.models import (
     SlotDefinition,
     SlotValue,
 )
-from soni.du.slot_extractor import SlotExtractionInput
 from soni.flow.manager import FlowManager
 from soni.runtime.context import RuntimeContext
 

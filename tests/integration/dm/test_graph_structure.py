@@ -8,11 +8,11 @@ import pytest
 from soni.core.message_sink import BufferedMessageSink
 from soni.core.types import DialogueState
 from soni.dm.builder import build_orchestrator
-from soni.du.modules import SoniDU
+from soni.du import CommandGenerator
 from soni.runtime.context import RuntimeContext
 
 
-class MockNLUProvider(SoniDU):
+class MockNLUProvider(CommandGenerator):
     """Mock NLU provider that returns predetermined commands."""
 
     def __init__(self, commands: list[dict] | None = None):
@@ -82,7 +82,7 @@ class TestGraphWithMockedNLU:
             flow_manager=MagicMock(),
             subgraph_registry=MockSubgraphRegistry(),
             message_sink=BufferedMessageSink(),
-            nlu_provider=cast(SoniDU, MockNLUProvider()),
+            nlu_provider=cast(CommandGenerator, MockNLUProvider()),
             slot_extractor=MagicMock(),
             action_registry=MagicMock(),
         )

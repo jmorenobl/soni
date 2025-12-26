@@ -321,7 +321,7 @@ class ExampleTemplate(BaseModel):
         )
 
         # Pass history as list[dict], not dspy.History
-        # SoniDU.forward() handles the conversion to dspy.History
+        # CommandGenerator.forward() handles the conversion to dspy.History
         history_messages = (
             self.conversation_context.history.messages
             if hasattr(self.conversation_context.history, "messages")

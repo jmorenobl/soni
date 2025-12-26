@@ -1,6 +1,6 @@
 """Shared fixtures for Soni tests.
 
-Uses MockSoniDU and MockSlotExtractor for deterministic, fast tests without LLM API calls.
+Uses MockCommandGenerator and MockSlotExtractor for deterministic, fast tests without LLM API calls.
 Two-pass architecture mocked for testing.
 """
 
@@ -30,8 +30,8 @@ class MockCommand:
         return self._data
 
 
-class MockSoniDU:
-    """Deterministic mock for SoniDU (Pass 1: Intent Detection).
+class MockCommandGenerator:
+    """Deterministic mock for CommandGenerator (Pass 1: Intent Detection).
 
     Returns StartFlow for first flow in config if message not empty.
     """
@@ -41,7 +41,7 @@ class MockSoniDU:
         self._call_count = 0
 
     @classmethod
-    def create_with_best_model(cls) -> "MockSoniDU":
+    def create_with_best_model(cls) -> "MockCommandGenerator":
         return cls()
 
     async def acall(
@@ -56,7 +56,9 @@ class MockSoniDU:
         # 0. Debug input
         import sys
 
-        sys.stderr.write(f"DEBUG_STDERR: MockSoniDU msg='{message}' type={type(message)}\n")
+        sys.stderr.write(
+            f"DEBUG_STDERR: MockCommandGenerator msg='{message}' type={type(message)}\n"
+        )
 
         # 1. Check message content specific patterns first
         if msg := (message or "").lower():
@@ -115,7 +117,7 @@ class MockSoniDU:
         # 2. Fallback: Start Flow if context allows (for initial "start" messages not caught above)
         import sys
 
-        sys.stderr.write(f"DEBUG_STDERR: MockSoniDU context type: {type(context)}\n")
+        sys.stderr.write(f"DEBUG_STDERR: MockCommandGenerator context type: {type(context)}\n")
 
         # Handle DialogueContext (from understand_node or execute_flow_node)
         if hasattr(context, "available_flows"):
@@ -181,11 +183,17 @@ class MockSlotExtractor:
 
 
 # Patch modules to use mocks
-import soni.du.modules  # noqa: E402
-import soni.du.slot_extractor  # noqa: E402
+import soni.du  # noqa: E402
+import soni.du.modules.extract_commands  # noqa: E402
+import soni.du.modules.extract_slots  # noqa: E402
 
-soni.du.modules.SoniDU = MockSoniDU  # type: ignore[misc,assignment]
-soni.du.slot_extractor.SlotExtractor = MockSlotExtractor  # type: ignore[misc,assignment]
+# Patch implementations
+soni.du.modules.extract_commands.CommandGenerator = MockCommandGenerator  # type: ignore
+soni.du.modules.extract_slots.SlotExtractor = MockSlotExtractor  # type: ignore
+
+# Patch re-exports in package root
+soni.du.CommandGenerator = MockCommandGenerator  # type: ignore
+soni.du.SlotExtractor = MockSlotExtractor  # type: ignore
 
 
 @pytest.fixture
@@ -208,7 +216,7 @@ def mock_runtime():
 
     mock_context = MagicMock(spec=RuntimeContext)
     mock_context.flow_manager = MagicMock()
-    mock_context.du = MockSoniDU()
+    mock_context.du = MockCommandGenerator()
     mock_context.slot_extractor = MockSlotExtractor()
     mock_context.action_handler = AsyncMock()
     mock_context.config = SoniConfig(flows={})

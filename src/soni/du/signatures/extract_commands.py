@@ -1,8 +1,4 @@
-"""DSPy signatures for Dialogue Understanding.
-
-Uses Pydantic types for structured I/O and rich descriptions to guide the LLM.
-Based on the proven pattern from the current codebase.
-"""
+"""DSPy signature for command extraction."""
 
 import dspy
 

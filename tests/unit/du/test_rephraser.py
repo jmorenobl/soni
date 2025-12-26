@@ -30,7 +30,7 @@ def configure_dspy_dummy_lm():
 async def test_rephraser_returns_polished_response():
     """Rephraser returns a non-empty polished response."""
     # Arrange
-    from soni.du.rephraser import ResponseRephraser
+    from soni.du import ResponseRephraser
 
     rephraser = ResponseRephraser(tone="friendly", use_cot=False)
 
@@ -50,7 +50,7 @@ async def test_rephraser_returns_polished_response():
 async def test_rephraser_preserves_numerical_facts():
     """Rephraser preserves numerical facts in the response."""
     # Arrange
-    from soni.du.rephraser import ResponseRephraser
+    from soni.du import ResponseRephraser
 
     rephraser = ResponseRephraser(tone="friendly", use_cot=False)
 
@@ -68,7 +68,7 @@ async def test_rephraser_preserves_numerical_facts():
 async def test_rephraser_uses_configured_tone():
     """Rephraser applies the configured tone."""
     # Arrange
-    from soni.du.rephraser import ResponseRephraser
+    from soni.du import ResponseRephraser
 
     rephraser = ResponseRephraser(tone="professional", use_cot=False)
 
@@ -86,7 +86,7 @@ async def test_rephraser_uses_configured_tone():
 def test_rephraser_forward_sync():
     """Sync forward method works for optimization."""
     # Arrange
-    from soni.du.rephraser import ResponseRephraser
+    from soni.du import ResponseRephraser
 
     rephraser = ResponseRephraser(tone="friendly", use_cot=False)
 
@@ -103,7 +103,8 @@ def test_rephraser_forward_sync():
 
 def test_rephraser_tone_types():
     """Verify tone is properly typed as Literal."""
-    from soni.du.rephraser import RephraseTone, ResponseRephraser
+    from soni.du import ResponseRephraser
+    from soni.du.modules.rephrase_response import RephraseTone
 
     # Valid tones
     rephraser_friendly = ResponseRephraser(tone="friendly")

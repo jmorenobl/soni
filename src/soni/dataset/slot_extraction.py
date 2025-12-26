@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from soni.core.commands import SetSlot
 from soni.dataset.base import DomainConfig
-from soni.du.slot_extractor import SlotExtractionInput, SlotExtractionResult
+from soni.du.schemas.extract_slots import SlotExtractionInput, SlotExtractionResult
 
 
 class SlotExtractionExampleTemplate(BaseModel):

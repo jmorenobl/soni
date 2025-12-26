@@ -8,9 +8,7 @@ if TYPE_CHECKING:
     from soni.actions.registry import ActionRegistry
     from soni.core.message_sink import MessageSink
     from soni.dm.orchestrator.commands import CommandHandler
-    from soni.du.modules import SoniDU
-    from soni.du.rephraser import ResponseRephraser
-    from soni.du.slot_extractor import SlotExtractor
+    from soni.du import CommandGenerator, ResponseRephraser, SlotExtractor
 
 
 class SubgraphRegistry(Protocol):
@@ -33,7 +31,7 @@ class RuntimeContext:
     flow_manager: FlowManager
     subgraph_registry: SubgraphRegistry
     message_sink: "MessageSink"
-    nlu_provider: "SoniDU"  # Pass 1: Intent detection
+    nlu_provider: "CommandGenerator"  # Pass 1: Intent detection
     slot_extractor: "SlotExtractor"  # Pass 2: Slot extraction
     action_registry: "ActionRegistry"
     command_handlers: tuple["CommandHandler", ...] | None = None

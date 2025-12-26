@@ -85,10 +85,10 @@ def run(
         save_path = output / "optimized_nlu.json"
         optimized.save(str(save_path))
 
-        console.print(f"[green]SoniDU Optimization complete![/] Saved to {save_path}")
+        console.print(f"[green]CommandGenerator Optimization complete![/] Saved to {save_path}")
 
     except Exception as e:
-        console.print(f"[red]SoniDU Optimization failed: {e}[/]")
+        console.print(f"[red]CommandGenerator Optimization failed: {e}[/]")
         # Do not raise immediately if we want to try slots
         if not include_slots:
             raise typer.Exit(1)

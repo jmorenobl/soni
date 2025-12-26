@@ -3,8 +3,8 @@
 Tests verify that NLU correctly processes user messages and generates
 commands that the DM understands and executes.
 
-Note: Uses MockSoniDU from conftest.py for deterministic testing.
-MockSoniDU always returns StartFlow for the first available flow.
+Note: Uses MockCommandGenerator from conftest.py for deterministic testing.
+MockCommandGenerator always returns StartFlow for the first available flow.
 """
 
 import pytest
@@ -17,23 +17,23 @@ from soni.runtime.loop import RuntimeLoop
 async def test_nlu_triggers_flow():
     """NLU detects intent and triggers appropriate flow.
 
-    MockSoniDU returns StartFlow for first flow in config.
+    MockCommandGenerator returns StartFlow for first flow in config.
     """
     # Arrange - two flows, NLU should trigger first one
     config = SoniConfig(
         flows={
             "check_balance": FlowConfig(
                 description="Check account balance",
-                steps=[SayStepConfig(step="balance", message="Your balance is $1,000.")]
+                steps=[SayStepConfig(step="balance", message="Your balance is $1,000.")],
             ),
             "transfer": FlowConfig(
                 description="Transfer funds",
-                steps=[SayStepConfig(step="transfer", message="Transfer initiated.")]
+                steps=[SayStepConfig(step="transfer", message="Transfer initiated.")],
             ),
         }
     )
 
-    # Act - any message with MockSoniDU triggers first flow
+    # Act - any message with MockCommandGenerator triggers first flow
     async with RuntimeLoop(config) as runtime:
         response = await runtime.process_message("I want to check my account")
 
@@ -52,13 +52,14 @@ async def test_nlu_with_slot_collection():
                 steps=[
                     CollectStepConfig(step="ask", slot="name", message="What's your name?"),
                     SayStepConfig(step="greet", message="Nice to meet you, {name}!"),
-                ]
+                ],
             )
         }
     )
 
     # Act - first turn triggers flow, asks for name
     from langgraph.checkpoint.memory import MemorySaver
+
     checkpointer = MemorySaver()
 
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
@@ -80,8 +81,7 @@ async def test_nlu_empty_message_returns_no_commands():
     config = SoniConfig(
         flows={
             "test": FlowConfig(
-                description="Test flow",
-                steps=[SayStepConfig(step="say", message="Hello!")]
+                description="Test flow", steps=[SayStepConfig(step="say", message="Hello!")]
             )
         }
     )
@@ -102,7 +102,7 @@ async def test_understand_node_builds_dialogue_context():
         flows={
             "flow_a": FlowConfig(
                 description="First flow",
-                steps=[SayStepConfig(step="say_a", message="Flow A response")]
+                steps=[SayStepConfig(step="say_a", message="Flow A response")],
             ),
         }
     )

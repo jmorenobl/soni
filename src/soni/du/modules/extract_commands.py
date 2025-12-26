@@ -1,7 +1,4 @@
-"""DSPy modules for dialogue understanding.
-
-Async-first design using native .acall() method.
-"""
+"""Dialogue Understanding module using DSPy."""
 
 import logging
 
@@ -9,12 +6,12 @@ import dspy
 
 from soni.du.base import OptimizableDSPyModule, safe_extract_result
 from soni.du.models import DialogueContext, NLUOutput
-from soni.du.signatures import ExtractCommands
+from soni.du.signatures.extract_commands import ExtractCommands
 
 logger = logging.getLogger(__name__)
 
 
-class SoniDU(OptimizableDSPyModule):
+class CommandGenerator(OptimizableDSPyModule):
     """Dialogue Understanding module using DSPy.
 
     Features:

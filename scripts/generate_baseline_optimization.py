@@ -207,19 +207,19 @@ The baseline optimization covers:
 
 ### Usage
 
-This module is automatically loaded by `SoniDU()` if available:
+This module is automatically loaded by `CommandGenerator()` if available:
 
 ```python
-from soni.du.modules import SoniDU
+from soni.du import CommandGenerator
 
 # Default - uses baseline if available
-nlu = SoniDU()
+nlu = CommandGenerator()
 ```
 
 To use a custom optimization:
 
 ```python
-nlu = SoniDU()
+nlu = CommandGenerator()
 nlu.load("path/to/custom_optimized.json")
 ```
 

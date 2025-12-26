@@ -1,53 +1,15 @@
-"""Slot extraction module for two-pass NLU.
-
-Pass 2 of the two-pass NLU system. Given a user message and slot definitions
-for a specific flow, extracts slot values mentioned in the message.
-
-This module is called ONLY when Pass 1 (SoniDU) detects a StartFlow command.
-"""
+"""Slot extraction module for two-pass NLU."""
 
 import logging
 
 import dspy
-from pydantic import BaseModel, Field
 
 from soni.core.commands import SetSlot
 from soni.du.base import OptimizableDSPyModule, safe_extract_result
+from soni.du.schemas.extract_slots import SlotExtractionInput, SlotExtractionResult
+from soni.du.signatures.extract_slots import ExtractSlots
 
 logger = logging.getLogger(__name__)
-
-
-class SlotExtractionInput(BaseModel):
-    """Input for slot extraction."""
-
-    name: str = Field(description="Slot identifier")
-    slot_type: str = Field(description="Data type: string, float, date, city, etc.")
-    description: str = Field(default="", description="What this slot expects")
-    examples: list[str] = Field(default_factory=list, description="Example valid values")
-
-    def __str__(self) -> str:
-        examples_str = f" (e.g., {', '.join(self.examples[:3])})" if self.examples else ""
-        return f"- {self.name} ({self.slot_type}): {self.description}{examples_str}"
-
-
-class SlotExtractionResult(BaseModel):
-    """Result of slot extraction."""
-
-    extracted_slots: list[SetSlot] = Field(
-        default_factory=list,
-        description="List of SetSlot commands",
-    )
-
-
-class ExtractSlots(dspy.Signature):
-    """Extract slot values from a user message based on slot definitions."""
-
-    user_message: str = dspy.InputField(desc="The user's message to extract slots from")
-    slot_definitions: list[SlotExtractionInput] = dspy.InputField(
-        desc="Available slots to extract with their types and descriptions"
-    )
-
-    result: SlotExtractionResult = dspy.OutputField(desc="Extracted slots matching the definitions")
 
 
 class SlotExtractor(OptimizableDSPyModule):

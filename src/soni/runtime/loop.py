@@ -12,7 +12,7 @@ from soni.config.models import SoniConfig
 from soni.core.state import create_empty_state
 from soni.core.types import DialogueState
 from soni.dm.builder import build_orchestrator, compile_all_subgraphs
-from soni.du.modules import SoniDU
+from soni.du import CommandGenerator
 from soni.flow.manager import FlowManager
 from soni.runtime.context import RuntimeContext
 
@@ -48,9 +48,9 @@ class RuntimeLoop:
 
         # Create flow manager and NLU modules (two-pass)
         flow_manager = FlowManager()
-        du = SoniDU.create_with_best_model()  # Pass 1: Intent detection
+        du = CommandGenerator.create_with_best_model()  # Pass 1: Intent detection
 
-        from soni.du.slot_extractor import SlotExtractor
+        from soni.du import SlotExtractor
 
         slot_extractor = SlotExtractor.create_with_best_model()  # Pass 2: Slot extraction
 
@@ -62,7 +62,7 @@ class RuntimeLoop:
         # M8: Initialize rephraser if enabled
         rephraser = None
         if self.config.settings.rephrase_responses:
-            from soni.du.rephraser import ResponseRephraser
+            from soni.du import ResponseRephraser
 
             rephraser = ResponseRephraser.create_with_best_model()
             rephraser.tone = self.config.settings.rephrase_tone

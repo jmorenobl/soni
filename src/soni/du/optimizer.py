@@ -1,4 +1,4 @@
-"""MIPROv2 optimizer for SoniDU.
+"""MIPROv2 optimizer for CommandGenerator.
 
 Uses DSPy's latest MIPROv2 for prompt optimization.
 """
@@ -11,10 +11,9 @@ from dspy import Example
 from dspy.teleprompt import MIPROv2
 
 from soni.core.commands import Command
+from soni.du import CommandGenerator, SlotExtractor
 from soni.du.metrics.adapters import adapt_metric_for_gepa
 from soni.du.models import NLUOutput
-from soni.du.modules import SoniDU
-from soni.du.slot_extractor import SlotExtractor
 
 
 def default_command_validator(expected: Command, actual: Command) -> bool:
@@ -136,8 +135,8 @@ def optimize_du(
     init_temperature: float = 0.8,
     verbose: bool = True,
     optimizer_type: str = "miprov2",  # "miprov2" or "gepa"
-) -> SoniDU:
-    """Optimize SoniDU with chosen optimizer strategy.
+) -> CommandGenerator:
+    """Optimize CommandGenerator with chosen optimizer strategy.
 
     Args:
         trainset: Training examples
@@ -154,7 +153,7 @@ def optimize_du(
         optimizer_type: "miprov2" or "gepa"
 
     Returns:
-        Optimized SoniDU module
+        Optimized CommandGenerator module
     """
     if optimizer_type.lower() == "gepa":
         teleprompter = _create_gepa_optimizer(
@@ -178,7 +177,7 @@ def optimize_du(
             verbose=verbose,
         )
 
-    program = SoniDU()
+    program = CommandGenerator()
 
     # Compile optimizations
     compile_kwargs = {
@@ -195,7 +194,7 @@ def optimize_du(
 
     optimized = teleprompter.compile(**compile_kwargs)
 
-    return cast(SoniDU, optimized)
+    return cast(CommandGenerator, optimized)
 
 
 def optimize_slot_extractor(
@@ -226,7 +225,7 @@ def optimize_slot_extractor(
     Returns:
         Optimized SlotExtractor module
     """
-    from soni.du.slot_extractor import SlotExtractor
+    from soni.du import SlotExtractor
 
     if optimizer_type.lower() == "gepa":
         teleprompter = _create_gepa_optimizer(

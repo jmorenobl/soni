@@ -20,6 +20,7 @@ logging.getLogger("dspy").setLevel(logging.WARNING)
 
 async def test_du_module() -> None:
     """Test the DU module with various user messages."""
+    from soni.du import CommandGenerator, SlotExtractionInput, SlotExtractor
     from soni.du.models import (
         CommandInfo,
         DialogueContext,
@@ -27,8 +28,6 @@ async def test_du_module() -> None:
         SlotDefinition,
         SlotValue,
     )
-    from soni.du.modules import SoniDU
-    from soni.du.slot_extractor import SlotExtractionInput, SlotExtractor
 
     # Configure DSPy with a cheap/fast model for testing
     lm = dspy.LM("openai/gpt-4o-mini", temperature=0.0)
@@ -39,8 +38,8 @@ async def test_du_module() -> None:
     print("=" * 60)
 
     # 1. Create the modules
-    print("\n📦 Creating SoniDU and SlotExtractor modules...")
-    du = SoniDU(use_cot=True)  # With Chain of Thought reasoning
+    print("\n📦 Creating CommandGenerator and SlotExtractor modules...")
+    du = CommandGenerator(use_cot=True)  # With Chain of Thought reasoning
     slot_extractor = SlotExtractor(use_cot=False)  # Simpler, faster
 
     # 2. Build a test context (simulating the banking domain)
@@ -160,9 +159,9 @@ async def test_du_module() -> None:
         },
     ]
 
-    # Run test cases for SoniDU (Pass 1)
+    # Run test cases for CommandGenerator (Pass 1)
     print("\n" + "-" * 60)
-    print("🧠 Testing SoniDU (Pass 1 - Intent & Command Detection)")
+    print("🧠 Testing CommandGenerator (Pass 1 - Intent & Command Detection)")
     print("-" * 60)
 
     for i, test in enumerate(test_cases, 1):
