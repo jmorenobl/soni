@@ -99,7 +99,7 @@ def run(
             console.print("Starting SlotExtractor optimization...")
             from soni.dataset.domains import ALL_DOMAINS
             from soni.dataset.slot_extraction import SlotExtractionDatasetBuilder
-            from soni.du.metrics import create_slot_extraction_metric
+            from soni.du.metrics.adapters import create_slot_extraction_metric
             from soni.du.optimizer import optimize_slot_extractor
 
             # Use ALL_DOMAINS for comprehensive training

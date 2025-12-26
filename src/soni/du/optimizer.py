@@ -11,7 +11,7 @@ from dspy import Example
 from dspy.teleprompt import MIPROv2
 
 from soni.core.commands import Command
-from soni.du.metrics import adapt_metric_for_gepa
+from soni.du.metrics.adapters import adapt_metric_for_gepa
 from soni.du.models import NLUOutput
 from soni.du.modules import SoniDU
 from soni.du.slot_extractor import SlotExtractor
