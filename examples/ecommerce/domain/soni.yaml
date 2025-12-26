@@ -1,0 +1,67 @@
+version: "1.0"
+settings:
+  rephrase_responses: true
+
+flows:
+  search_product:
+    description: "Search for products by name or category"
+    trigger:
+      intents: ["I'm looking for", "search", "show me"]
+    slots:
+      - name: "product"
+        type: "string"
+        description: "What product are you looking for?"
+      - name: "color"
+        type: "string"
+        description: "What color would you prefer?"
+    steps:
+      - step: "call_search"
+        type: "action"
+        call: "search_products"
+      - step: "inform_results"
+        type: "say"
+        message: "I found some results for {product}. Which one would you like?"
+
+  add_to_cart:
+    description: "Add products to your shopping cart"
+    trigger:
+      intents: ["add to cart", "I want to buy", "order"]
+    slots:
+      - name: "product"
+        type: "string"
+      - name: "quantity"
+        type: "number"
+    steps:
+      - step: "collect_product"
+        type: "collect"
+        slot: "product"
+        message: "What product would you like to add?"
+      - step: "collect_quantity"
+        type: "collect"
+        slot: "quantity"
+        message: "How many?"
+      - step: "call_add"
+        type: "action"
+        call: "add_to_cart"
+      - step: "inform_added"
+        type: "say"
+        message: "Added {quantity} {product} to your cart."
+
+  checkout:
+    description: "Complete purchase and payment"
+    trigger:
+      intents: ["checkout", "payment", "buy now"]
+    slots:
+      - name: "shipping_address"
+        type: "address"
+    steps:
+      - step: "collect_address"
+        type: "collect"
+        slot: "shipping_address"
+        message: "What's the shipping address?"
+      - step: "call_payment"
+        type: "action"
+        call: "process_payment"
+      - step: "inform_confirmed"
+        type: "say"
+        message: "Order confirmed! It will be shipped to {shipping_address}."

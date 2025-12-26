@@ -36,7 +36,17 @@ async def action_node(
     slots = fm.get_all_slots(state)
 
     # Execute action
-    result = await action_registry.execute(config.call, slots)
+    try:
+        result = await action_registry.execute(config.call, slots)
+    except Exception as e:
+        logger.error(f"Action execution failed for '{config.call}': {e}", exc_info=True)
+        return {
+            "_branch_target": None,
+            "_pending_task": inform(
+                prompt=f"I'm sorry, I encountered an error while trying to {config.call}. Please try again later.",
+                metadata={"error": str(e)},
+            ),
+        }
 
     # Build updates dict
     updates: dict[str, Any] = {"_branch_target": None, "_pending_task": None}

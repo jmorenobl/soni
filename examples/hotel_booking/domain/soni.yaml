@@ -1,0 +1,59 @@
+version: "1.0"
+settings:
+  rephrase_responses: true
+
+flows:
+  book_hotel:
+    description: "Book hotel rooms in different cities"
+    trigger:
+      intents: ["book a room", "hotel reservation"]
+    slots:
+      - name: "location"
+        type: "city"
+      - name: "checkin_date"
+        type: "date"
+      - name: "checkout_date"
+        type: "date"
+      - name: "guests"
+        type: "number"
+      - name: "room_type"
+        type: "string"
+    steps:
+      - step: "collect_location"
+        type: "collect"
+        slot: "location"
+        message: "Which city?"
+      - step: "collect_checkin"
+        type: "collect"
+        slot: "checkin_date"
+        message: "When check-in?"
+      - step: "collect_checkout"
+        type: "collect"
+        slot: "checkout_date"
+        message: "When check-out?"
+      - step: "collect_guests"
+        type: "collect"
+        slot: "guests"
+        message: "How many guests?"
+      - step: "collect_room"
+        type: "collect"
+        slot: "room_type"
+        message: "Room type?"
+      - step: "call_book"
+        type: "action"
+        call: "book_hotel"
+      - step: "inform_confirmed"
+        type: "say"
+        message: "Reservation confirmed for a {room_type} in {location}."
+
+  cancel_reservation:
+    description: "Cancel a hotel reservation"
+    trigger:
+      intents: ["cancel reservation", "cancel my booking"]
+    steps:
+      - step: "call_cancel"
+        type: "action"
+        call: "cancel_reservation"
+      - step: "inform_cancelled"
+        type: "say"
+        message: "Your reservation has been cancelled."
