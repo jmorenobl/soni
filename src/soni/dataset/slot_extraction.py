@@ -7,6 +7,7 @@ Uses the slot_extraction_cases from DomainExampleData for domain-specific exampl
 import dspy
 from pydantic import BaseModel
 
+from soni.core.commands import SetSlot
 from soni.dataset.base import DomainConfig
 from soni.du.slot_extractor import SlotExtractionInput, SlotExtractionResult
 
@@ -89,7 +90,7 @@ class SlotExtractionDatasetBuilder:
                             user_message=msg,
                             slot_definitions=[slot_def],
                             expected_output=SlotExtractionResult(
-                                extracted_slots=[{"slot": slot_name, "value": val}]
+                                extracted_slots=[SetSlot(slot=slot_name, value=val)]
                             ),
                             domain=domain_config.name,
                             flow="generic",
@@ -124,7 +125,11 @@ class SlotExtractionDatasetBuilder:
                 SlotExtractionExampleTemplate(
                     user_message=user_message,
                     slot_definitions=slot_defs,
-                    expected_output=SlotExtractionResult(extracted_slots=expected_slots),
+                    expected_output=SlotExtractionResult(
+                        extracted_slots=[
+                            SetSlot(slot=s["slot"], value=s["value"]) for s in expected_slots
+                        ]
+                    ),
                     domain=domain_config.name,
                     flow="multi_slot",
                 )
