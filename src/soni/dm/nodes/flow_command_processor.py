@@ -4,7 +4,8 @@ import logging
 from typing import Any, cast
 
 from soni.core.commands import Command
-from soni.core.types import DialogueState, _merge_flow_slots
+from soni.core.slot_utils import deep_merge_flow_slots
+from soni.core.types import DialogueState
 from soni.flow.manager import FlowManager, merge_delta
 
 logger = logging.getLogger(__name__)
@@ -57,9 +58,11 @@ class FlowCommandProcessor:
                     # Update local state for subsequent commands in the same turn
                     if delta.flow_stack is not None:
                         local_state["flow_stack"] = delta.flow_stack
+
+                    # ... (inside loop)
                     if delta.flow_slots is not None:
                         active_slots = local_state.get("flow_slots") or {}
-                        local_state["flow_slots"] = _merge_flow_slots(
+                        local_state["flow_slots"] = deep_merge_flow_slots(
                             active_slots, delta.flow_slots
                         )
                 # ADR-002: Processed here, don't pass to orchestrator

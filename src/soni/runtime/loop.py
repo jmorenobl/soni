@@ -160,9 +160,9 @@ class RuntimeLoop:
                 try:
                     snapshot = await self._graph.aget_state(config)
                     if snapshot and snapshot.values:
-                        response = snapshot.values.get("response")
-                        if response:
-                            return str(response)
+                        saved_response = snapshot.values.get("response")
+                        if saved_response:
+                            return str(saved_response)
                 except Exception:
                     pass
 

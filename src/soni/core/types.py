@@ -10,6 +10,7 @@ from langgraph.types import Command
 
 from soni.core.constants import FlowContextState
 from soni.core.pending_task import PendingTask
+from soni.core.slot_utils import deep_merge_flow_slots
 
 
 @dataclass
@@ -41,11 +42,7 @@ def merge_deltas(deltas: list[FlowDelta]) -> FlowDelta:
         if d.flow_slots is not None:
             if merged.flow_slots is None:
                 merged.flow_slots = {}
-            for flow_id, slots in d.flow_slots.items():
-                if flow_id in merged.flow_slots:
-                    merged.flow_slots[flow_id] = {**merged.flow_slots[flow_id], **slots}
-                else:
-                    merged.flow_slots[flow_id] = slots
+            merged.flow_slots = deep_merge_flow_slots(merged.flow_slots, d.flow_slots)
         if d.executed_steps is not None:
             if merged.executed_steps is None:
                 merged.executed_steps = {}
@@ -80,13 +77,7 @@ def _merge_flow_slots(
     if not new:
         return current
 
-    result = dict(current)
-    for flow_id, slots in new.items():
-        if flow_id in result:
-            result[flow_id] = {**result[flow_id], **slots}
-        else:
-            result[flow_id] = slots
-    return result
+    return deep_merge_flow_slots(current, new)
 
 
 def add_responses(current: list[str] | None, new: list[str] | None) -> list[str]:

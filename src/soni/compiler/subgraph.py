@@ -113,13 +113,13 @@ def build_flow_subgraph(flow: FlowConfig):
                     is_blocking = False
 
                 if is_blocking:
-                    return END  # type: ignore[no-any-return]
+                    return str(END)
 
             target = state.get("_branch_target")
             if target:
                 # Special: __end__ for link/call to exit subgraph early
                 if target == "__end__":
-                    return END  # type: ignore[no-any-return]
+                    return str(END)
                 node_name = step_mapping.get(target, target)
                 if node_name in valid_targets:
                     return node_name

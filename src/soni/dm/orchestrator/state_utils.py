@@ -6,7 +6,8 @@ state dictionaries during orchestration.
 
 from typing import Any, cast
 
-from soni.core.types import DialogueState, _merge_flow_slots
+from soni.core.slot_utils import deep_merge_flow_slots
+from soni.core.types import DialogueState
 
 
 def merge_state(base: DialogueState | dict[str, Any], delta: dict[str, Any]) -> DialogueState:
@@ -15,7 +16,9 @@ def merge_state(base: DialogueState | dict[str, Any], delta: dict[str, Any]) -> 
     result.update(delta)
 
     if "flow_slots" in delta:
-        result["flow_slots"] = _merge_flow_slots(base.get("flow_slots") or {}, delta["flow_slots"])
+        result["flow_slots"] = deep_merge_flow_slots(
+            base.get("flow_slots") or {}, delta["flow_slots"]
+        )
 
     # Merge _executed_steps additively
     if "_executed_steps" in delta:
@@ -59,12 +62,7 @@ def merge_outputs(target: dict[str, Any], source: dict[str, Any]) -> None:
         if k == "flow_slots" and isinstance(v, dict):
             # Deep merge flow_slots to prevent overwrite of sibling keys
             target_slots = target.get("flow_slots", {})
-            for flow_id, slots in v.items():
-                if flow_id in target_slots:
-                    target_slots[flow_id] = {**target_slots[flow_id], **slots}
-                else:
-                    target_slots[flow_id] = slots
-            target["flow_slots"] = target_slots
+            target["flow_slots"] = deep_merge_flow_slots(target_slots, v)
         else:
             target[k] = v
 

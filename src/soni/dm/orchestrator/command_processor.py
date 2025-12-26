@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING, Any, cast
 
+from soni.core.slot_utils import deep_merge_flow_slots
 from soni.core.types import DialogueState, FlowDelta, merge_deltas
 from soni.dm.orchestrator.commands import CommandHandler
 
@@ -45,13 +46,12 @@ class CommandProcessor:
                     if delta.flow_stack is not None:
                         working_state["flow_stack"] = delta.flow_stack
 
+                    # ... (inside process method)
                     if delta.flow_slots is not None:
                         current_slots = cast(dict[str, dict[str, Any]], working_state["flow_slots"])
-                        for flow_id, slots in delta.flow_slots.items():
-                            if flow_id in current_slots:
-                                current_slots[flow_id] = {**current_slots[flow_id], **slots}
-                            else:
-                                current_slots[flow_id] = slots
+                        working_state["flow_slots"] = deep_merge_flow_slots(
+                            current_slots, delta.flow_slots
+                        )
 
                     break
 
