@@ -12,7 +12,11 @@ from soni.dm.orchestrator import (
     merge_state,
 )
 from soni.dm.orchestrator.command_processor import CommandProcessor
-from soni.dm.orchestrator.commands import DEFAULT_HANDLERS
+from soni.dm.orchestrator.commands import (
+    CancelFlowHandler,
+    SetSlotHandler,
+    StartFlowHandler,
+)
 from soni.dm.orchestrator.task_handler import PendingTaskHandler, TaskAction
 from soni.flow.manager import apply_delta_to_dict
 from soni.runtime.context import RuntimeContext
@@ -37,8 +41,12 @@ async def orchestrator_node(
     ctx = runtime.context
     fm = ctx.flow_manager
 
-    # Initialize components
-    handlers = ctx.command_handlers or tuple(DEFAULT_HANDLERS)
+    # Initialize components with config-aware handlers
+    handlers = ctx.command_handlers or (
+        StartFlowHandler(ctx.config),
+        CancelFlowHandler(),
+        SetSlotHandler(),
+    )
     command_processor = CommandProcessor(list(handlers))
     task_handler = PendingTaskHandler(ctx.message_sink)
 

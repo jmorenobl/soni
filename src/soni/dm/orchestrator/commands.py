@@ -29,7 +29,16 @@ class CommandHandler(ABC):
 
 
 class StartFlowHandler(CommandHandler):
-    """Handles StartFlow commands."""
+    """Handles StartFlow commands with duplicate flow prevention.
+
+    Validates that:
+    - The flow_name is a valid string
+    - The flow exists in config (if config provided)
+    - The same flow is not already active (prevents duplicate stacking)
+    """
+
+    def __init__(self, config: Any | None = None) -> None:
+        self._config = config
 
     def can_handle(self, command: dict[str, Any]) -> bool:
         return command.get("type") == "start_flow"
@@ -40,7 +49,20 @@ class StartFlowHandler(CommandHandler):
         state: "DialogueState",
         flow_manager: "FlowManager",
     ) -> FlowDelta:
-        _, delta = flow_manager.push_flow(state, command["flow_name"])
+        flow_name = command.get("flow_name")
+        if not isinstance(flow_name, str):
+            return FlowDelta()
+
+        # Validate flow exists in config (if config provided)
+        if self._config and flow_name not in self._config.flows:
+            return FlowDelta()
+
+        # Skip if same flow already active (prevent duplicate stacking)
+        current_ctx = flow_manager.get_active_context(state)
+        if current_ctx and current_ctx["flow_name"] == flow_name:
+            return FlowDelta()
+
+        _, delta = flow_manager.push_flow(state, flow_name)
         return delta
 
 
