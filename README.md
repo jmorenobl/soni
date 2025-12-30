@@ -63,7 +63,7 @@ curl -X POST http://localhost:8000/chat \
   -d '{"user_id": "user-123", "message": "I want to transfer money to my friend"}'
 ```
 
-See [Quickstart Guide](docs/quickstart.md) for detailed instructions.
+See [Quickstart Guide](docs/tutorials/quickstart.md) for detailed instructions.
 
 ## Example
 
