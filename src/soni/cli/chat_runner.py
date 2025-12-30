@@ -4,6 +4,7 @@ import importlib
 import os
 import sys
 import uuid
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,7 +69,7 @@ class ChatRunner:
         self.console = Console()
         self.runtime: RuntimeLoop | None = None
         self.thread_id = config.thread_id or f"cli_{uuid.uuid4().hex[:6]}"
-        self.async_checkpointer_cm = None
+        self.async_checkpointer_cm: AbstractAsyncContextManager[AsyncSqliteSaver] | None = None
         self._running = False
 
     async def setup(self) -> None:

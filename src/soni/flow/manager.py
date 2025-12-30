@@ -152,12 +152,11 @@ class FlowManager:
         """
         context = self.get_active_context(state)
         if not context:
-            import sys
-
-            sys.stderr.write(
-                f"DEBUG_STDERR: FlowManager.set_slot('{slot_name}') skipped: no active flow context. Stack size: {len(state.get('flow_stack') or [])}\n"
+            logger.debug(
+                "FlowManager.set_slot('%s') skipped: no active flow context. Stack size: %d",
+                slot_name,
+                len(state.get("flow_stack") or []),
             )
-            logger.debug(f"set_slot('{slot_name}') skipped: no active flow context")
             return None
 
         flow_id = context["flow_id"]
