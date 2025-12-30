@@ -4,6 +4,10 @@
 
 Soni is a modern framework for building task-oriented dialogue systems that combines the power of DSPy for prompt optimization with LangGraph for robust dialogue management.
 
+> [!WARNING]
+> **Experimental Project**: This project is in an early stage of development and is currently experimental.
+
+
 ## The Three Laws of Soni
 
 1. **Declarative First**: Define behavior, not implementation
@@ -47,7 +51,7 @@ export OPENAI_API_KEY="your-api-key-here"
 
 ```bash
 # Run the example
-uv run soni server --config examples/flight_booking/soni.yaml
+uv run soni chat --config examples/banking/domain --module examples.banking.handlers
 ```
 
 ### Test the API
@@ -57,64 +61,57 @@ uv run soni server --config examples/flight_booking/soni.yaml
 curl http://localhost:8000/health
 
 # Start a conversation
-curl -X POST http://localhost:8000/chat/user-123 \
+curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "I want to book a flight"}'
+  -d '{"user_id": "user-123", "message": "I want to transfer money to my friend"}'
 ```
 
 See [Quickstart Guide](docs/quickstart.md) for detailed instructions.
 
 ## Example
 
-The flight booking example demonstrates a complete dialogue system:
+The banking example demonstrates a complete dialogue system:
 
 ```yaml
 flows:
-  book_flight:
+  transfer_funds:
+    description: "Transfer money to another account"
     trigger:
-      intents: [book_flight, i_want_to_book]
+      intents:
+        - "I want to transfer money"
+        - "Send {amount} to {beneficiary_name}"
     steps:
-      - step: collect_origin
+      - step: collect_beneficiary
         type: collect
-        slot: origin
-      - step: collect_destination
+        slot: beneficiary_name
+        message: "Who would you like to send the money to?"
+
+      - step: collect_amount
         type: collect
-        slot: destination
-      - step: search_flights
+        slot: amount
+        message: "How much would you like to transfer?"
+
+      - step: confirm_transfer
+        type: confirm
+        slot: transfer_confirmed
+        message: "Ready to send {amount} to {beneficiary_name}?"
+
+      - step: execute_transfer
         type: action
-        call: search_available_flights
+        call: execute_transfer
 ```
 
-See [Flight Booking Example](examples/flight_booking/README.md) for a complete example.
+See [Banking Example](examples/banking/README.md) for a complete example.
 
 ## Documentation
 
-- [Quickstart Guide](docs/quickstart.md) - Get started in 5 minutes
-- [Architecture Guide](docs/architecture.md) - Understand how Soni works
-- [Migration Guide v0.3.0](docs/migration-v0.3.0.md) - Upgrade from v0.2.x
-- [ADR-001: Framework Architecture](docs/adr/ADR-001-Soni-Framework-Architecture.md) - Detailed architecture decisions
-- [ADR-003: Architectural Refactoring](docs/adr/ADR-003-Architectural-Refactoring.md) - v0.3.0 improvements
+- [Quickstart Guide](docs/tutorials/quickstart.md) - Get started in 5 minutes
+- [Architecture Overview](docs/architecture_overview.md) - Understand how Soni works
 
 ## Requirements
 
 - Python 3.11+
 - OpenAI API key (or other supported LLM provider)
-
-## Code Quality
-
-**v0.4.0 Quality Metrics:**
-- **Overall Rating:** 9.2/10 ⭐ (improved from 7.8/10)
-- **Architecture Score:** 95/100 🏗️ (improved from 56/100)
-- **Coverage:** 85.89% (exceeds 80% target) 🎯
-- **Linting:** ✅ Ruff passes (all checks)
-- **Type Checking:** ✅ Mypy passes (39 source files, 0 errors)
-- **Tests:** 372 passed, 13 skipped
-
-**Architecture Improvements:**
-- ✅ Dependency Injection: 100% (was 0%)
-- ✅ God Objects: 0 (was 2)
-- ✅ RuntimeContext pattern (clean state/config separation)
-- ✅ Modular design (FlowCompiler, ValidatorRegistry, ActionRegistry)
 
 ## Contributing
 
