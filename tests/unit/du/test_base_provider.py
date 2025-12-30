@@ -153,15 +153,15 @@ class TestCommandGenerator:
         assert gen._convert_history(["random text"]) == [{"role": "user", "content": "random text"}]
 
     @pytest.mark.asyncio
-    async def test_aforward_error_handling(self):
-        """Should return default NLUOutput on failure."""
+    async def test_aforward_propagates_error(self):
+        """Should propagate exceptions from extractor (no silent failures)."""
         gen = CommandGenerator()
-        gen.extractor = AsyncMock(side_effect=Exception("api down"))
+        gen.extractor = AsyncMock()
+        gen.extractor.acall = AsyncMock(side_effect=Exception("api down"))
         ctx = DialogueContext(available_flows=[], available_commands=[])
 
-        result = await gen.aforward("test", ctx)
-        assert result.confidence == 0.0
-        assert result.commands == []
+        with pytest.raises(Exception, match="api down"):
+            await gen.aforward("test", ctx)
 
     def test_sync_forward(self):
         """Should return raw Prediction result for optimization."""

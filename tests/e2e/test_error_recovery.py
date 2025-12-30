@@ -12,10 +12,16 @@ from soni.runtime.loop import RuntimeLoop
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
-async def test_nlu_error_recovery():
-    """Test recovery from NLU errors."""
+async def test_nlu_error_propagation():
+    """Test that NLU errors propagate as NLUProviderError.
+
+    Per design: NLU errors should NOT be silently caught.
+    They should be wrapped in NLUProviderError and propagated.
+    """
     if not os.getenv("OPENAI_API_KEY"):
         pytest.skip("OPENAI_API_KEY not set")
+
+    from soni.core.errors import NLUProviderError
 
     config = ConfigLoader.load("examples/banking/domain")
     config.settings.rephrase_responses = False
@@ -24,16 +30,14 @@ async def test_nlu_error_recovery():
     session_id = "error-test-001"
 
     async with RuntimeLoop(config, checkpointer=checkpointer) as runtime:
-        # NLU error in understand_node is caught and returns empty commands:
-        # returns {"commands": []} which lead to orchestrator saying "How can I help?"
+        # NLU errors now propagate instead of being silently caught
         with patch.object(
             runtime._context.nlu_provider, "acall", side_effect=Exception("NLU down")
         ):
-            response = await runtime.process_message("Transfer money", user_id=session_id)
-            # Orchestrator fallback when no commands and no active flow
-            assert "help" in response.lower()
+            with pytest.raises(NLUProviderError, match="NLU Pass 1 failed"):
+                await runtime.process_message("Transfer money", user_id=session_id)
 
-        # System remains responsive
+        # System remains responsive after error (new session)
         response = await runtime.process_message("Hi", user_id=session_id)
         assert response
 

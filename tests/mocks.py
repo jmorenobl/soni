@@ -1,8 +1,13 @@
+"""Mock implementations for deterministic testing.
+
+These mocks provide predictable behavior for NLU components,
+enabling unit and integration tests to run without LLM dependencies.
+"""
+
 from typing import Any
 
 from soni.core.commands import (
     AffirmConfirmation,
-    CancelFlow,
     ChitChat,
     Command,
     CorrectSlot,
@@ -15,7 +20,7 @@ from soni.core.commands import (
 class MockNLUOutput:
     """Mock NLU output for deterministic tests."""
 
-    def __init__(self, commands: list[Command]):
+    def __init__(self, commands: list[Command]) -> None:
         self.commands = commands
         self.confidence = 1.0
 
@@ -26,21 +31,22 @@ class MockCommandGenerator:
     Returns StartFlow for first flow in config if message not empty.
     """
 
-    def __init__(self, default_flow: str | None = None):
+    def __init__(self, default_flow: str | None = None) -> None:
         self.default_flow = default_flow
         self._call_count = 0
 
     @classmethod
     def create_with_best_model(cls) -> "MockCommandGenerator":
+        """Factory method matching real CommandGenerator interface."""
         return cls()
 
     async def acall(
         self,
         message: str,
         context: Any,
-        history: list | None = None,
+        history: list[dict[str, str]] | None = None,
     ) -> MockNLUOutput:
-        """Return deterministic commands."""
+        """Return deterministic commands based on message content."""
         self._call_count += 1
         msg = (message or "").lower()
 
@@ -100,18 +106,19 @@ class MockSlotExtractor:
     Returns empty list - slot extraction happens via SetSlot commands in subsequent turns.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._call_count = 0
 
     @classmethod
     def create_with_best_model(cls) -> "MockSlotExtractor":
+        """Factory method matching real SlotExtractor interface."""
         return cls()
 
-    async def acall(self, user_message: str, slot_definitions: list) -> list:
+    async def acall(self, user_message: str, slot_definitions: list[Any]) -> list[SetSlot]:
         """Return empty list (no slots extracted from initial message)."""
         self._call_count += 1
-        return []  # No slots extracted
+        return []
 
-    async def aforward(self, user_message: str, slot_definitions: list) -> list:
+    async def aforward(self, user_message: str, slot_definitions: list[Any]) -> list[SetSlot]:
         """Mock aforward for consistency with real class."""
         return await self.acall(user_message, slot_definitions)

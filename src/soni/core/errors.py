@@ -47,6 +47,24 @@ class NLUError(SoniError):
     pass
 
 
+class NLUParsingError(NLUError):
+    """Failed to parse NLU response."""
+
+    pass
+
+
+class NLUTimeoutError(NLUError):
+    """NLU request timed out."""
+
+    pass
+
+
+class NLUProviderError(NLUError):
+    """Error from the underlying LLM provider."""
+
+    pass
+
+
 class SlotError(SoniError):
     """Raised when slot operations fail."""
 

@@ -78,13 +78,14 @@ class TestSlotExtractionEdgeCases:
         assert result[0].slot == "amount"
 
     @pytest.mark.asyncio
-    async def test_aforward_error_handling(self, mock_llm):
-        """Should return empty list on exception."""
+    async def test_aforward_propagates_error(self, mock_llm):
+        """Should propagate exceptions from extractor (no silent failures)."""
         extractor = SlotExtractor()
-        extractor.extractor = AsyncMock(side_effect=RuntimeError("LLM down"))
+        extractor.extractor = AsyncMock()
+        extractor.extractor.acall = AsyncMock(side_effect=RuntimeError("LLM down"))
 
-        result = await extractor.aforward("Hello", [SlotExtractionInput(name="s", slot_type="s")])
-        assert result == []
+        with pytest.raises(RuntimeError, match="LLM down"):
+            await extractor.aforward("Hello", [SlotExtractionInput(name="s", slot_type="s")])
 
     def test_sync_forward_empty_defs(self):
         """Sync forward should handle empty definitions."""

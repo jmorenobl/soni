@@ -57,36 +57,29 @@ class SlotExtractor(OptimizableDSPyModule):
         if not slot_definitions:
             return []
 
-        try:
-            result = await self.extractor.acall(
-                user_message=user_message,
-                slot_definitions=slot_definitions,
-            )
+        result = await self.extractor.acall(
+            user_message=user_message,
+            slot_definitions=slot_definitions,
+        )
 
-            # Validate extraction result
-            extraction_result = safe_extract_result(
-                result.result,
-                SlotExtractionResult,
-                default_factory=lambda: SlotExtractionResult(extracted_slots=[]),
-                context="Slot extraction",
-            )
+        # Validate extraction result
+        extraction_result = safe_extract_result(
+            result.result,
+            SlotExtractionResult,
+            default_factory=lambda: SlotExtractionResult(extracted_slots=[]),
+            context="Slot extraction",
+        )
 
-            # Filter by valid slot names
-            valid_names = {s.name for s in slot_definitions}
-            extracted = [
-                slot for slot in extraction_result.extracted_slots if slot.slot in valid_names
-            ]
+        # Filter by valid slot names
+        valid_names = {s.name for s in slot_definitions}
+        extracted = [slot for slot in extraction_result.extracted_slots if slot.slot in valid_names]
 
-            for slot in extraction_result.extracted_slots:
-                if slot.slot not in valid_names:
-                    logger.warning(f"SlotExtractor returned unknown slot '{slot.slot}', ignoring")
+        for slot in extraction_result.extracted_slots:
+            if slot.slot not in valid_names:
+                logger.warning(f"SlotExtractor returned unknown slot '{slot.slot}', ignoring")
 
-            logger.debug(f"SlotExtractor extracted {len(extracted)} slots from message")
-            return extracted
-
-        except Exception as e:
-            logger.error(f"Slot extraction failed: {e}", exc_info=True)
-            return []
+        logger.debug(f"SlotExtractor extracted {len(extracted)} slots from message")
+        return extracted
 
     def forward(
         self,

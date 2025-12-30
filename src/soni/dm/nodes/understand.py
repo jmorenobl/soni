@@ -12,6 +12,7 @@ from typing import Any, cast
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
+from soni.core.errors import NLUError, NLUProviderError
 from soni.core.types import DialogueState
 from soni.dm.nodes.context_builder import DialogueContextBuilder
 from soni.dm.nodes.flow_command_processor import FlowCommandProcessor
@@ -51,7 +52,10 @@ async def understand_node(
         commands = list(nlu_result.commands)
     except Exception as e:
         logger.error(f"NLU Pass 1 failed: {e}", exc_info=True)
-        return {"commands": []}
+        # Wrap non-NLU exceptions with proper error type
+        if isinstance(e, NLUError):
+            raise
+        raise NLUProviderError(f"NLU Pass 1 failed: {e}") from e
 
     # 3. PASS 2: Slot extraction (only when StartFlow detected)
     # Per design: Pass 2 runs only for StartFlow to extract slots from the initial message.
@@ -75,6 +79,10 @@ async def understand_node(
                     commands.extend(slot_commands)
                 except Exception as e:
                     logger.error(f"Slot extraction failed: {e}", exc_info=True)
+                    # Wrap non-NLU exceptions with proper error type
+                    if isinstance(e, NLUError):
+                        raise
+                    raise NLUProviderError(f"Slot extraction failed: {e}") from e
 
     # 4. Process flow commands (ADR-002)
     processor = FlowCommandProcessor(ctx.flow_manager, ctx.config)

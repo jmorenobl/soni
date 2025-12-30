@@ -73,23 +73,18 @@ class CommandGenerator(OptimizableDSPyModule):
         history_list = self._convert_history(history or [])
         history_obj = dspy.History(messages=history_list)
 
-        try:
-            result = await self.extractor.acall(
-                user_message=user_message,
-                context=context,
-                history=history_obj,
-            )
-            # Validate and extract result safely
-            return safe_extract_result(
-                result.result,
-                NLUOutput,
-                default_factory=lambda: NLUOutput(commands=[], confidence=0.0),
-                context="NLU extraction",
-            )
-
-        except Exception as e:
-            logger.error(f"NLU extraction failed: {e}", exc_info=True)
-            return NLUOutput(commands=[], confidence=0.0)
+        result = await self.extractor.acall(
+            user_message=user_message,
+            context=context,
+            history=history_obj,
+        )
+        # Validate and extract result safely
+        return safe_extract_result(
+            result.result,
+            NLUOutput,
+            default_factory=lambda: NLUOutput(commands=[], confidence=0.0),
+            context="NLU extraction",
+        )
 
     def forward(
         self,

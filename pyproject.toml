@@ -196,6 +196,7 @@ addopts = [
 ]
 markers = [
     "design_compliance: Tests that validate design specification compliance",
+    "e2e: End-to-end tests (require OPENAI_API_KEY)",
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "performance: marks tests as performance tests (deselect with '-m \"not performance\"')",
     "slow: marks tests as slow (>3s) (deselect with '-m \"not slow\"')",

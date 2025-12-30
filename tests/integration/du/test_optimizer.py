@@ -15,11 +15,15 @@ class TestOptimizationIntegration:
         """Should simulate a full optimization cycle with DatasetBuilder."""
         # 1. Build a small dataset
         builder = DatasetBuilder()
-        builder.add_pattern("cancellation", flow_name="transfer", num_examples=2)
-        dataset = builder.build()
+        # Use existing patterns/domains instead of non-existent add_pattern
+        dataset = builder.build(
+            patterns=["cancellation"],
+            domains=["banking"],  # Banking domain has 'transfer' flow
+            examples_per_combination=2,
+        )
 
-        # Convert to Examples (DSPy format)
-        examples = [ex.to_dspy_example() for ex in dataset]
+        # builder.build() returns dspy.Example objects directly
+        examples = dataset
 
         # 2. Setup metric
         metric = create_metric()

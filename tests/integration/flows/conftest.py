@@ -1,9 +1,6 @@
-"""Integration test configuration.
+"""Flow integration tests configuration.
 
-Provides shared fixtures for integration tests.
-NLU mocking is NOT automatic here - tests that need it should either:
-1. Be in tests/integration/flows/ (auto-mocked via flows/conftest.py)
-2. Use @pytest.mark.usefixtures("use_mock_nlu") explicitly
+Automatically patches NLU modules with mocks for flow tests.
 """
 
 import pytest
@@ -11,13 +8,12 @@ import pytest
 from tests.mocks import MockCommandGenerator, MockSlotExtractor
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def use_mock_nlu(monkeypatch):
-    """Patch NLU modules with mocks.
+    """Patch NLU modules with mocks for flow integration tests.
 
-    Use this fixture explicitly when needed:
-        @pytest.mark.usefixtures("use_mock_nlu")
-        class TestMyFeature: ...
+    This fixture automatically applies to all tests in the flows/ directory.
+    Tests that need real NLU (like optimizer tests) should be in other directories.
     """
     # Patch implementations
     monkeypatch.setattr("soni.du.modules.extract_commands.CommandGenerator", MockCommandGenerator)
