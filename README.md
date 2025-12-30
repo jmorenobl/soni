@@ -40,9 +40,6 @@ cd soni
 # Install dependencies
 uv sync
 
-# Install the package
-uv pip install -e .
-
 # Set API key
 export OPENAI_API_KEY="your-api-key-here"
 ```
