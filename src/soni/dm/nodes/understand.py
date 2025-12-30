@@ -3,7 +3,9 @@
 Refactored to comply with SRP by delegating responsibilities to specialized components:
 - HistoryConverter: Message format conversion
 - DialogueContextBuilder: NLU context construction
-- FlowCommandProcessor: StartFlow/CancelFlow processing (ADR-002)
+
+Note: Command processing (StartFlow/CancelFlow/SetSlot) has been consolidated
+into orchestrator_node's CommandProcessor for OCP compliance (Issue #3).
 """
 
 import logging
@@ -15,7 +17,6 @@ from langgraph.runtime import Runtime
 from soni.core.errors import NLUError, NLUProviderError
 from soni.core.types import DialogueState
 from soni.dm.nodes.context_builder import DialogueContextBuilder
-from soni.dm.nodes.flow_command_processor import FlowCommandProcessor
 from soni.dm.nodes.history_converter import HistoryConverter
 from soni.runtime.context import RuntimeContext
 
@@ -32,7 +33,8 @@ async def understand_node(
     1. Context building
     2. NLU Pass 1 (intent detection)
     3. NLU Pass 2 (slot extraction)
-    4. Flow command processing (ADR-002)
+
+    Returns commands for orchestrator_node to process.
     """
     ctx = runtime.context
     messages = state.get("messages", [])
@@ -84,12 +86,12 @@ async def understand_node(
                         raise
                     raise NLUProviderError(f"Slot extraction failed: {e}") from e
 
-    # 4. Process flow commands (ADR-002)
-    processor = FlowCommandProcessor(ctx.flow_manager, ctx.config)
-    remaining_commands, updates = processor.process_commands(commands, state)
+    # 4. Convert commands to dicts for orchestrator processing
+    command_dicts = [
+        cmd.model_dump() if hasattr(cmd, "model_dump") else dict(cmd) for cmd in commands
+    ]
 
     return {
-        **updates,
-        "commands": remaining_commands,
+        "commands": command_dicts,
         "messages": [HumanMessage(content=user_message)],
     }

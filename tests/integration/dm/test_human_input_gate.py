@@ -233,11 +233,15 @@ class TestHumanInputGateE2E:
         updates = await human_input_gate(state)
         apply_updates(state, updates, "human_input_gate")
 
-        # 2. Understand node - Should pop flow
+        # 2. Understand node - Returns commands (no longer processes them)
         updates = await understand_node(state, mock_runtime)
         apply_updates(state, updates, "understand_node")
 
-        # ASSERT: Stack should be empty AFTER understand_node
+        # 3. Orchestrator node - Processes commands including cancel_flow
+        updates = await orchestrator_node(state, mock_runtime)
+        apply_updates(state, updates, "orchestrator_node")
+
+        # ASSERT: Stack should be empty AFTER orchestrator_node (Issue #3 consolidation)
         assert state.get("flow_stack") == []
 
     @pytest.mark.asyncio

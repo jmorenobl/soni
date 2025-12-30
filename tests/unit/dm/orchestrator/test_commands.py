@@ -65,6 +65,26 @@ class TestStartFlowHandler:
         mock_fm.push_flow.assert_called_once_with(state, "transfer_funds")
         assert delta.flow_stack is not None
 
+    @pytest.mark.asyncio
+    async def test_handle_skips_duplicate_flow(self):
+        """Test that handler returns empty delta when same flow already active."""
+        # Arrange
+        handler = StartFlowHandler()
+        command = {"type": "start_flow", "flow_name": "transfer_funds"}
+        state = cast(
+            DialogueState,
+            {"flow_stack": [{"flow_name": "transfer_funds", "flow_id": "existing"}]},
+        )
+        mock_fm = MagicMock()
+        mock_fm.get_active_context.return_value = {"flow_name": "transfer_funds"}
+
+        # Act
+        delta = await handler.handle(command, state, mock_fm)
+
+        # Assert
+        mock_fm.push_flow.assert_not_called()
+        assert delta.flow_stack is None
+
 
 class TestCancelFlowHandler:
     """Tests for CancelFlowHandler."""
