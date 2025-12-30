@@ -251,3 +251,4 @@ src/soni/du/datasets/*.json
 .AppleDouble
 .LSOverride
 #archive/
+wiki/
