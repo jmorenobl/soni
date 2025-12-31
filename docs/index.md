@@ -15,4 +15,7 @@ The documentation is organized into four sections:
 
 *   [Quickstart Guide](tutorials/quickstart.md)
 *   [DSL Specification](reference/dsl-spec.md)
+
 *   [Architecture](explanation/architecture.md)
+
+> 🛠️ **Contribuidores**: Consulta la [wiki del proyecto](../wiki/) para roadmaps, ADRs y decisiones de arquitectura.
