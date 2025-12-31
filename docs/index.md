@@ -18,4 +18,4 @@ The documentation is organized into four sections:
 
 *   [Architecture](explanation/architecture.md)
 
-> 🛠️ **Contribuidores**: Consulta la [wiki del proyecto](../wiki/) para roadmaps, ADRs y decisiones de arquitectura.
+> 🛠️ **Contributors**: Check the [project wiki](../wiki/) for roadmaps, ADRs, and architectural decisions.
