@@ -24,11 +24,11 @@ Dedicated class for flow stack management (push/pop/get/set slots).
 **Critical**: Use `flow_id` (unique instance) not `flow_name` (definition) for data access.
 
 ### ChitChat Pattern (Digression Handling)
-Digressions (questions outside flow, chitchat) are handled via the `ChitChat` command in `dm/nodes/command_registry.py`.
+Digressions (questions outside flow, chitchat) are handled via the `ChitChat` command in `soni.core.commands`.
 
 **Pattern**:
 1. NLU detects out-of-flow intent → emits `ChitChat` command
-2. `ChitChatHandler` generates response without modifying flow stack
+2. A handler (e.g., `ChitChatHandler`) generates response without modifying flow stack
 3. Conversation continues in the active flow
 
 **Critical**: Digressions do NOT modify the flow stack.
@@ -135,22 +135,23 @@ src/soni/
 ├── core/              # Core abstractions (types, state, errors, commands)
 ├── du/                # Dialogue Understanding (DSPy-based NLU)
 ├── dm/                # Dialogue Management (LangGraph)
-│   ├── nodes/         # LangGraph node implementations
-│   └── patterns/      # Pattern handlers (correction, cancellation, etc.)
+│   ├── orchestrator/  # Orchestration logic and commands
+│   │   ├── commands.py # Command handlers
+│   │   └── ...
+│   └── nodes/         # LangGraph node implementations
 ├── compiler/          # YAML → LangGraph compilation
 ├── config/            # Configuration loading
 ├── actions/           # Action system
 ├── flow/              # Flow state management (FlowManager)
-├── runtime/           # Runtime orchestration (Loop, Hydrator, Extractor)
+├── runtime/           # Runtime orchestration (Loop, Context)
 ├── server/            # FastAPI server
 ├── cli/               # Typer CLI
-├── dataset/           # Training data generation
 └── utils/             # Utilities
 ```
 
-## Detailed Guidelines (Obsolete - Not Updated - Do Not Follow)
+## Developer Guidelines
 
-For comprehensive implementation details, see:
+For comprehensive implementation details, see local rules:
 
 - **Architecture & SOLID**: `.cursor/rules/001-architecture.mdc`
 - **Code Style & Conventions**: `.cursor/rules/002-code-style.mdc`
@@ -161,19 +162,6 @@ For comprehensive implementation details, see:
 - **YAML DSL**: `.cursor/rules/007-yaml-dsl.mdc`
 - **Deployment & Tools**: `.cursor/rules/008-deployment.mdc`
 
-## Design Documentation (Obsolete - Not Updated - Do Not Follow)
-
-Complete architectural details:
-- **Index**: `docs/design/README.md`
-- **Architecture**: `docs/design/02-architecture.md`
-- **Components**: `docs/design/03-components.md`
-- **State Machine**: `docs/design/04-state-machine.md`
-- **Message Flow**: `docs/design/05-message-flow.md`
-- **NLU System**: `docs/design/06-nlu-system.md`
-- **Flow Management**: `docs/design/07-flow-management.md`
-- **LangGraph Integration**: `docs/design/08-langgraph-integration.md`
-- **DSPy Optimization**: `docs/design/09-dspy-optimization.md`
-- **DSL Specification**: `docs/design/10-dsl-specification/`
 
 ## Quick Reference Commands
 
@@ -199,8 +187,6 @@ uv run soni chat --config examples/banking/domain \
 # Optimization
 uv run soni optimize run --config examples/banking/domain
 
-# Validation
-uv run python scripts/validate_flows.py examples/banking/
 ```
 
 ## Important Reminders
