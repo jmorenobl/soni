@@ -18,9 +18,6 @@ cd soni
 
 # Install dependencies
 uv sync
-
-# Install the package
-uv pip install -e .
 ```
 
 ### Set Up API Key
@@ -102,7 +99,7 @@ curl -X POST http://localhost:8000/chat/user-123 \
 
 ## Next Steps
 
-- See the [Flight Booking Example](../../examples/flight_booking/README.md) for a complete example
+- See the [Banking Example](../../examples/banking/README.md) for a complete example
 - Read the [Architecture Guide](../explanation/architecture.md) to understand how Soni works
 - Check the [DSL Specification](../reference/dsl-spec.md) for detailed documentation
 
@@ -111,7 +108,7 @@ curl -X POST http://localhost:8000/chat/user-123 \
 ### Common Issues
 
 **Issue:** `ModuleNotFoundError: No module named 'soni'`
-- **Solution:** Make sure you've installed the package with `uv pip install -e .`
+- **Solution:** Make sure you've installed the package with `uv sync`
 
 **Issue:** `OPENAI_API_KEY not set`
 - **Solution:** Export your API key: `export OPENAI_API_KEY="your-key"`
