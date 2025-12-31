@@ -92,9 +92,9 @@ uv run soni server --config my_dialogue.yaml
 ### 4. Test It
 
 ```bash
-curl -X POST http://localhost:8000/chat/user-123 \
+curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello"}'
+  -d '{"user_id": "user-123", "message": "Hello"}'
 ```
 
 ## Next Steps
