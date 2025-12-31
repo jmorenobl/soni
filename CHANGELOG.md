@@ -209,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - LangGraph streaming validation
   - Async persistence validation
 - Project documentation structure
-- ADR-002: Technical Validation Results
+- Technical Validation Results
 
 ### Changed
 - N/A

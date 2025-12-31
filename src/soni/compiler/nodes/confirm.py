@@ -1,4 +1,4 @@
-"""ConfirmNodeFactory for M7 + M8 (ADR-002 compliant)."""
+"""ConfirmNodeFactory for M7 + M8."""
 
 from typing import Any
 
@@ -17,7 +17,7 @@ async def confirm_node(
     runtime: Runtime[RuntimeContext],
     config: ConfirmStepConfig,
 ) -> dict[str, Any]:
-    """Ask user for confirmation (ADR-002 compliant).
+    """Ask user for confirmation.
 
     Returns ConfirmTask instead of internal prompt fields.
     """
@@ -26,7 +26,7 @@ async def confirm_node(
     flow_id = fm.get_active_flow_id(state)
     step_id = config.step
 
-    # Idempotency check (ADR-002 requirement)
+    # Idempotency check requirements
     if flow_id:
         executed = (state.get("_executed_steps") or {}).get(flow_id, set())
         if step_id in executed:

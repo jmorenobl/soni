@@ -1,7 +1,7 @@
 """M5: Action + Validation Integration Tests.
 
 Tests verify that actions execute correctly, map outputs to slots,
-and are idempotent per ADR-002.
+and are idempotent.
 """
 
 import pytest

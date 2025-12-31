@@ -1,4 +1,4 @@
-"""Orchestrator builder for M7 (ADR-002 compliant interrupt architecture).
+"""Orchestrator builder for M7 (interrupt architecture).
 
 The orchestrator uses a specific flow:
     human_input_gate → nlu → orchestrator → (loop back if pending task)

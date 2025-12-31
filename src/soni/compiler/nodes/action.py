@@ -1,4 +1,4 @@
-"""ActionNodeFactory for M5 (ADR-002 compliant)."""
+"""ActionNodeFactory for M5."""
 
 import logging
 from typing import Any
@@ -26,7 +26,7 @@ async def action_node(
     step_id = config.step
     output_mapping = config.map_outputs or {}
 
-    # IDEMPOTENCY CHECK (ADR-002)
+    # IDEMPOTENCY CHECK
     if flow_id:
         executed = (state.get("_executed_steps") or {}).get(flow_id, set())
         if step_id in executed:
@@ -58,7 +58,7 @@ async def action_node(
                 delta = fm.set_slot(state, slot_name, result[action_key])
                 apply_delta_to_dict(updates, delta)
 
-    # MARK AS EXECUTED (ADR-002)
+    # MARK AS EXECUTED
     if flow_id:
         updates["_executed_steps"] = {flow_id: {step_id}}
 

@@ -1,4 +1,4 @@
-"""RuntimeLoop for M7 (ADR-002 compliant interrupt architecture)."""
+"""RuntimeLoop for M7 (interrupt architecture)."""
 
 import sys
 from typing import TYPE_CHECKING, Any
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class RuntimeLoop:
-    """Runtime loop for M7 with ADR-002 interrupt architecture.
+    """Runtime loop for M7 with interrupt architecture.
 
     Uses LangGraph's native interrupt/resume mechanism for multi-turn flows.
     """
@@ -43,7 +43,7 @@ class RuntimeLoop:
 
     async def __aenter__(self) -> "RuntimeLoop":
         """Initialize graphs, NLU modules, and action registry."""
-        # Compile ALL subgraphs upfront (ADR-002)
+        # Compile ALL subgraphs upfront
         subgraphs = compile_all_subgraphs(self.config)
 
         # Create flow manager and NLU modules (two-pass)
@@ -67,12 +67,12 @@ class RuntimeLoop:
             rephraser = ResponseRephraser.create_with_best_model()
             rephraser.tone = self.config.settings.rephrase_tone
 
-        # Create message sink (M7: ADR-002)
+        # Create message sink (M7)
         from soni.core.message_sink import BufferedMessageSink
 
         message_sink = self._message_sink or BufferedMessageSink()
 
-        # ADR-002: Pass subgraphs to context
+        # Pass subgraphs to context
         self._context = RuntimeContext(
             config=self.config,
             flow_manager=flow_manager,
@@ -100,7 +100,7 @@ class RuntimeLoop:
     async def process_message(self, message: str, user_id: str = "default") -> str:
         """Process a message and return response.
 
-        With ADR-002 architecture:
+        With interrupt architecture:
         - First turn: Fresh invoke, may interrupt waiting for input
         - Subsequent turns: Resume from interrupt with user's response
         """
@@ -118,7 +118,7 @@ class RuntimeLoop:
                 snapshot = await self._graph.aget_state(config)
 
             if snapshot and snapshot.tasks:
-                # Resuming from interrupt (ADR-002 simplified)
+                # Resuming from interrupt
                 # Native LangGraph resume: pass message via Command(resume=...)
                 # The message will be picked up by human_input_gate node.
                 result = await self._graph.ainvoke(
@@ -127,7 +127,7 @@ class RuntimeLoop:
                     context=self._context,
                 )
             else:
-                # Fresh execution (ADR-002)
+                # Fresh execution
                 # First invoke goes directly to human_input_gate with user_message
                 state = create_empty_state()
                 state["user_message"] = message
@@ -137,7 +137,7 @@ class RuntimeLoop:
                     context=self._context,
                 )
 
-            # Handle response (ADR-002: collect from MessageSink)
+            # Handle response (collect from MessageSink)
             # All prompts (Inform, Collect, Confirm) are sent to MessageSink
             # by PendingTaskHandler during orchestrator execution.
             from soni.core.message_sink import BufferedMessageSink

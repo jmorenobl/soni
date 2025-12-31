@@ -30,11 +30,11 @@ class SayNodeFactory:
             state: DialogueState,
             runtime: Runtime[RuntimeContext],
         ) -> dict[str, Any]:
-            """Return the message as response via InformTask (ADR-002)."""
+            """Return the message as response via InformTask."""
             fm = runtime.context.flow_manager
             flow_id = fm.get_active_flow_id(state)
 
-            # Idempotency check (ADR-002 requirement)
+            # Idempotency check
             if flow_id:
                 executed = (state.get("_executed_steps") or {}).get(flow_id, set())
                 if step_id in executed:
@@ -55,7 +55,7 @@ class SayNodeFactory:
                 # Fallback to original message if rephrasing fails
                 final_message = interpolated_message
 
-            # Build result with InformTask (ADR-002 pattern)
+            # Build result with InformTask
             result: dict[str, Any] = {
                 "_branch_target": None,
             }

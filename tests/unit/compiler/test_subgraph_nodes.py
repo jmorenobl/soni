@@ -244,7 +244,7 @@ class TestActionNode:
 
 
 class TestSayNode:
-    """Tests for say_node returning InformTask (ADR-002)."""
+    """Tests for say_node returning InformTask."""
 
     @pytest.mark.asyncio
     async def test_say_returns_inform_task(self):

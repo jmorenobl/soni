@@ -23,7 +23,7 @@ class SubgraphRegistry(Protocol):
 class RuntimeContext:
     """Context passed to nodes via runtime.context.
 
-    ADR-002: Contains subgraphs and sinks for orchestration.
+    Contains subgraphs and sinks for orchestration.
     DIP: Depends on abstractions (Protocols/ABCs).
     """
 

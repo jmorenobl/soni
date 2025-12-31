@@ -96,7 +96,7 @@ def build_flow_subgraph(flow: FlowConfig):
             pending_task = state.get("_pending_task")
 
             if pending_task:
-                # ADR-002: Only exit if task requires interruption (blocking)
+                # Only exit if task requires interruption (blocking)
                 # Inform tasks with wait_for_ack=False are non-blocking
                 is_blocking = True
                 if pending_task.get("type") == "inform" and not pending_task.get("wait_for_ack"):
