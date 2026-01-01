@@ -22,10 +22,11 @@ workflow_status:
     items:
       - id: "brainstorm-project"
         name: "Brainstorm Project"
-        status: "required"
+        status: "skipped"
         agent: "analyst"
-        command: "/bmad:bmm:workflows:brainstorming"
+        command: "/bmad:core:workflows:brainstorming"
         output_path: ""
+        note: "Brainstorming workflow not available in current BMad installation"
 
       - id: "research"
         name: "Research"
