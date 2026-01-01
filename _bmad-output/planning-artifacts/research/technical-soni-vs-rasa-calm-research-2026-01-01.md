@@ -236,7 +236,7 @@ _Source: Soni architecture.md + codebase analysis_
 | **Flow Definition** | Multi-file YAML (flows.yml, domain.yml, config.yml, stories.yml) | Multi-file YAML organized by feature (e.g., slots.yaml, actions.yaml, transfers.yaml) |
 | **State Management** | Tracker Store + FlowPolicy dialogue stack | LangGraph StateGraph + FlowManager |
 | **LLM Role** | Optional CommandGenerator | Core to DSPy optimization |
-| **Conversation Repair** | Built-in system flows | ChitChat command pattern |
+| **Conversation Repair** | Built-in system flows for digressions, corrections, clarifications | ChitChat command for digressions (early-stage, less comprehensive than Rasa) |
 | **Enterprise Features** | Mature (Rasa Studio, X, Cloud) | Minimal (basic FastAPI server) |
 | **Testing** | Built-in conversation testing | pytest (unit/integration/E2E) |
 
