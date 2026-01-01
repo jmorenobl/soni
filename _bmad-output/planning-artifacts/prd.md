@@ -1,12 +1,12 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments:
   - '_bmad-output/planning-artifacts/research/technical-soni-vs-rasa-calm-research-2026-01-01.md'
   - 'docs/architecture.md'
   - 'docs/project-overview.md'
   - 'docs/source-tree-analysis.md'
 workflowType: 'prd'
-lastStep: 4
+lastStep: 6
 project_name: 'soni'
 user_name: 'Jorge'
 date: '2026-01-01'
@@ -370,3 +370,88 @@ Estos tres journeys revelan los siguientes capabilities necesarios para v0.5.0:
 - Iteración rápida sin steps de "training" lentos (gracias a DSPy auto-optimization)
 - Respuestas rápidas (~200ms) sin overhead de ML training loops
 - Feature-organized YAML configuration (más intuitivo que múltiples archivos desincronizados)
+
+## Innovation & Novel Patterns
+
+### Detected Innovation Areas
+
+**Core Innovation: DSPy Auto-Optimization + LangGraph for Task-Oriented Dialogue**
+
+Soni v0.5.0 introduce una combinación única de tecnologías para frameworks de diálogo orientado a tareas:
+
+1. **DSPy Auto-Optimization for NLU**
+   - **Novel Approach**: Utiliza DSPy (Declarative Self-improving Python) para optimización automática de prompts NLU
+   - **What's Different**: Frameworks tradicionales (Rasa, Botpress) requieren re-entrenamiento manual de modelos o ajuste iterativo de prompts. Soni optimiza automáticamente basándose en ejemplos y feedback
+   - **Developer Benefit**: Elimina ciclos de "training time" de 3-5 minutos. Los cambios en NLU se prueban instantáneamente
+
+2. **LangGraph for Dialogue Management in Task-Oriented Frameworks**
+   - **Novel Approach**: Usa LangGraph (state machine framework) para gestión de flujos de diálogo orientado a tareas
+   - **What's Different**: La mayoría de frameworks task-oriented (Rasa, Dialogflow) usan engines propietarios o políticas basadas en ML. LangGraph ofrece gestión de estado determinista y debuggable
+   - **Developer Benefit**: Estado de conversación completamente visible y predecible. Facilita debugging de flujos complejos
+
+3. **Unique Combination**
+   - **Innovation**: Combinar DSPy (auto-optimization) con LangGraph (deterministic flow) no se ha hecho antes en frameworks task-oriented
+   - **Result**: "Best of both worlds" - optimización automática de comprensión (DSPy) + control predecible de flujo (LangGraph)
+
+### Market Context & Competitive Landscape
+
+**Current Task-Oriented Dialogue Landscape:**
+
+| Framework | NLU Approach | Dialogue Management | Innovation Gap |
+|-----------|--------------|---------------------|----------------|
+| **Rasa CALM** | Manual training + TensorFlow | FlowPolicy (ML-based) | Opaque, slow iteration, vendor lock-in |
+| **Dialogflow CX** | Google Cloud NLU | State machine (visual) | Vendor lock-in, limited customization |
+| **Botpress** | LUIS/Custom NLU | Flow engine | Manual prompt tuning, no auto-optimization |
+| **Soni v0.5.0** | **DSPy auto-optimization** | **LangGraph deterministic** | **Novel combination** ✨ |
+
+**Competitive Advantages from Innovation:**
+- **10x faster iteration**: No training loops (vs Rasa's 3-5 min)
+- **Transparent debugging**: Python + LangGraph states (vs Rasa's TensorFlow black box)
+- **Auto-improving prompts**: DSPy learns from examples (vs manual tuning)
+- **Open source + modern**: No vendor lock-in, Python 3.11+ modern stack
+
+### Validation Approach
+
+**How We Validate These Innovations Work:**
+
+1. **DSPy Auto-Optimization Validation**
+   - **Metric**: NLU accuracy improvement over baseline without manual tuning
+   - **Method**: Track intent detection accuracy before/after DSPy optimization
+   - **Target**: Comparable accuracy to Rasa with zero manual training time
+   - **Evidence**: E2E tests must pass with DSPy-optimized prompts
+
+2. **LangGraph Dialogue Management Validation**
+   - **Metric**: Complex conversation handling (all 6 Rasa CALM patterns)
+   - **Method**: 3-4 E2E tests covering complex multi-turn scenarios
+   - **Target**: 100% test pass rate for banking domain scenarios
+   - **Evidence**: Production-ready stability (conversations don't corrupt state)
+
+3. **Developer Velocity Validation**
+   - **Metric**: Time from code change to validated behavior
+   - **Method**: Measure iteration cycles (change → test → validate)
+   - **Target**: < 30 seconds vs Rasa's 3-5 minutes
+   - **Evidence**: Real-world developer feedback (Journey 3: Marcus)
+
+### Risk Mitigation
+
+**Innovation Risks & Fallback Strategies:**
+
+1. **Risk: DSPy Optimization May Not Converge**
+   - **Mitigation**: Baseline prompt templates manually crafted for initial release
+   - **Fallback**: If DSPy fails, framework works with static prompts (degraded but functional)
+   - **Detection**: Monitor optimization metrics during development
+
+2. **Risk: LangGraph May Not Scale to Very Complex Flows**
+   - **Mitigation**: Test with banking domain (known complexity: transfers, payments, balances)
+   - **Fallback**: Architecture supports swapping dialogue managers via \`IDialogueManager\` protocol
+   - **Detection**: E2E test coverage reveals scalability limits early
+
+3. **Risk: Novel Combination May Have Unknown Issues**
+   - **Mitigation**: v0.5.0 focus on stability over features (no deadline, quality-driven release)
+   - **Fallback**: Documentation of known limitations and workarounds
+   - **Detection**: Extensive manual testing + E2E automated tests
+
+4. **Risk: Market May Not Understand "DSPy + LangGraph" Value**
+   - **Mitigation**: Focus messaging on **outcomes** not tech (faster iteration, better debugging)
+   - **Fallback**: Position as "Rasa alternative" leveraging familiar concepts
+   - **Detection**: Developer adoption and feedback post-release
