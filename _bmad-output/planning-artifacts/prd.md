@@ -1,12 +1,12 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7]
 inputDocuments:
   - '_bmad-output/planning-artifacts/research/technical-soni-vs-rasa-calm-research-2026-01-01.md'
   - 'docs/architecture.md'
   - 'docs/project-overview.md'
   - 'docs/source-tree-analysis.md'
 workflowType: 'prd'
-lastStep: 6
+lastStep: 7
 project_name: 'soni'
 user_name: 'Jorge'
 date: '2026-01-01'
@@ -455,3 +455,199 @@ Soni v0.5.0 introduce una combinación única de tecnologías para frameworks de
    - **Mitigation**: Focus messaging on **outcomes** not tech (faster iteration, better debugging)
    - **Fallback**: Position as "Rasa alternative" leveraging familiar concepts
    - **Detection**: Developer adoption and feedback post-release
+
+## Developer Tool (Framework) Specific Requirements
+
+### Project-Type Overview
+
+Soni v0.5.0 es un Python framework/library para bot builders que crean aplicaciones conversacionales. Como developer tool, debe priorizar:
+
+- **Developer Experience**: Instalación simple, setup rápido, debugging transparente
+- **Type Safety**: MyPy configurado para garantizar tipado correcto
+- **Clear API Surface**: Interfaces bien definidas (\`INLUProvider\`, \`IDialogueManager\`)
+- **Comprehensive Examples**: Banking domain como referencia completa
+
+### Technical Architecture Considerations
+
+**Language & Runtime Requirements:**
+
+| Aspect | Requirement | Rationale |
+|--------|-------------|-----------|
+| **Python Version** | 3.11+ (strict) | Modern syntax (3.11+ type hints), async improvements, no legacy baggage |
+| **Type Checking** | MyPy enforced | Ensures API contracts clear for bot builders |
+| **Async-First** | All I/O operations async | Non-blocking dialogue flows, scalable production deployment |
+| **Dependencies** | DSPy, LangGraph, FastAPI, Pydantic, Typer | Core tech stack for innovation (auto-optimization + state management) |
+
+**No backward compatibility to Python 3.9/3.10** - Strategic decision to use modern features without compromise. Bot builders targeting v0.5.0 must upgrade to Python 3.11+.
+
+### Installation & Distribution
+
+**Package Manager:**
+- **Primary**: PyPI distribution (\`pip install soni\` or \`uv add soni\`)
+- **Version**: Semantic versioning (v0.5.0 as first stable-ish release)
+
+**Project Initialization:**
+\`\`\`bash
+soni init my-bot-project
+\`\`\`
+
+**What \`soni init\` Must Do:**
+1. Create project directory structure:
+   \`\`\`
+   my-bot-project/
+   ├── domain/
+   │   ├── 00-settings.yaml
+   │   ├── 01-slots.yaml
+   │   └── 02-example-flow.yaml
+   ├── handlers/
+   │   └── __init__.py
+   ├── soni.yaml (main config)
+   └── pyproject.toml
+   \`\`\`
+2. Generate starter \`soni.yaml\` with banking example referenced
+3. Install dependencies via \`uv\` or \`pip\`
+4. Provide "next steps" instructions
+
+**Distribution Scope for v0.5.0:**
+- ✅ PyPI package
+- ❌ Docker images (deferred to v0.6.0+)
+- ❌ Conda packages (deferred)
+- ❌ Homebrew formula (deferred)
+
+### API Surface & Developer Interface
+
+**Core Public APIs (Must be stable in v0.5.0):**
+
+1. **Configuration Loading:**
+   \`\`\`python
+   from soni.config import load_config
+   config = load_config("path/to/domain")
+   \`\`\`
+
+2. **Runtime Initialization:**
+   \`\`\`python
+   from soni.runtime import RuntimeLoop
+   loop = RuntimeLoop(config)
+   await loop.run()
+   \`\`\`
+
+3. **Protocol Interfaces (for extensions):**
+   \`\`\`python
+   from soni.core.protocols import INLUProvider, IDialogueManager
+   # Bot builders can implement custom providers
+   \`\`\`
+
+4. **CLI Commands:**
+   \`\`\`bash
+   soni init <project-name>   # Initialize new project
+   soni chat --config <path>  # Interactive testing
+   soni server --config <path> # Run FastAPI server
+   soni optimize run --config <path> # DSPy optimization
+   \`\`\`
+
+**Type Safety Guarantees:**
+- All public APIs must pass \`mypy --strict\`
+- Type hints required for all function signatures
+- Protocol interfaces fully typed
+- Bot builders get IDE autocomplete for core APIs
+
+### Documentation Requirements (v0.5.0)
+
+**Critical Documentation:**
+
+1. **Tutorials/Quickstarts:**
+   - "Your First Soni Bot" (15-min quickstart)
+   - "Banking Bot Tutorial" (step-by-step using example)
+   - "Understanding Conversational Patterns" (6 Rasa CALM patterns explained)
+   - "Debugging Your Bot" (how to use \`human_input_gate\` debugging)
+
+2. **Architecture Guides:**
+   - "Centralized Interrupt Architecture" (why it matters)
+   - "DSPy Auto-Optimization Explained" (how it works)
+   - "Flow Definition with YAML" (domain/ structure)
+   - "Extending Soni with Custom Patterns"
+
+**Documentation Scope:**
+- ✅ Markdown-based docs in \`docs/\`
+- ✅ Aligned with \`src/soni\` source code (source of truth)
+- ❌ API reference auto-generation (deferred to post-v0.5.0)
+- ❌ Video tutorials (deferred)
+- ❌ Interactive playground (deferred)
+
+### Code Examples & Templates
+
+**Primary Example: Banking Domain**
+
+Must include complete, production-quality flows for:
+- **Account balance inquiry** (simple flow)
+- **Money transfer** (complex flow with all 6 patterns):
+  - \`start flow\` - initiate transfer
+  - \`set slot\` - amount, recipient
+  - \`correct slot\` - user corrects amount
+  - \`chitchat\` - user asks balance mid-transfer
+  - \`clarify flows\` - ambiguous recipient
+  - \`cancel flow\` - user cancels transfer
+- **Bill payment** (demonstrates flow switching)
+
+**Example Quality Bar:**
+- Fully functional (runs with \`soni chat\`)
+- Well-commented code
+- Demonstrates best practices
+- Covers edge cases (errors, validations)
+
+**Additional Examples (Nice-to-Have for v0.5.0):**
+- ❌ E-commerce bot (deferred)
+- ❌ Customer support bot (deferred)
+- ❌ Project templates beyond banking (deferred)
+
+Focus: **One excellent example > multiple mediocre ones**
+
+### IDE/Tooling Support
+
+**v0.5.0 Scope:**
+
+✅ **Type Safety via MyPy:**
+- All code passes \`mypy --strict\`
+- Bot builders get type checking in their projects
+- Clear error messages for API misuse
+
+❌ **YAML Schema Validation:**
+- No VSCode/PyCharm schema validation for \`domain/*.yaml\` files
+- Deferred to v0.6.0+
+- Runtime validation catches YAML errors
+
+❌ **Dedicated IDE Plugins:**
+- No VSCode extension for Soni
+- No PyCharm plugin
+- Deferred to later versions
+
+**Rationale:** Focus v0.5.0 on core stability. IDE enhancements are valuable but not critical for initial adoption.
+
+### Implementation Considerations
+
+**For Bot Builders Using Soni v0.5.0:**
+
+1. **Project Setup Flow:**
+   \`\`\`bash
+   pip install soni  # or uv add soni
+   soni init my-banking-bot
+   cd my-banking-bot
+   # Customize domain/ files
+   soni chat --config domain/  # Test interactively
+   \`\`\`
+
+2. **Development Workflow:**
+   - Edit YAML files in \`domain/\`
+   - Write action handlers in \`handlers/\`
+   - Test changes instantly (no training delays)
+   - Debug via \`human_input_gate.py\` inspection
+
+3. **Dependencies Management:**
+   - Use \`uv\` (recommended) or \`pip\`
+   - \`pyproject.toml\` with all dependencies
+   - Lock file for reproducibility
+
+**Migration Path from Rasa (Future):**
+- Not a v0.5.0 requirement
+- Document conceptual mappings (Rasa CALM → Soni patterns)
+- No automated migration tool for v0.5.0
