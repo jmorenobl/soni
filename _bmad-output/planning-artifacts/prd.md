@@ -1,12 +1,12 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - '_bmad-output/planning-artifacts/research/technical-soni-vs-rasa-calm-research-2026-01-01.md'
   - 'docs/architecture.md'
   - 'docs/project-overview.md'
   - 'docs/source-tree-analysis.md'
 workflowType: 'prd'
-lastStep: 3
+lastStep: 4
 project_name: 'soni'
 user_name: 'Jorge'
 date: '2026-01-01'
@@ -288,3 +288,85 @@ Graph Flow: human_input_gate → nlu → orchestrator → (loop back if pending_
 - **Ecosystem Growth**: Community connectors, plugins, extensions
 
 **Strategic Positioning**: Position Soni as the modern, developer-first alternative to Rasa - emphasizing automatic optimization (DSPy), clean architecture, and debuggability
+
+## User Journeys
+
+### Journey 1: Alex Chen - From Frustration to Flow Confidence
+
+Alex Chen es un desarrollador full-stack que trabaja para un banco digital. Durante 3 meses ha estado intentando construir un bot bancario usando Soni v0.4.0 que permita a los clientes hacer transferencias, consultar saldos y gestionar cuentas. El proyecto está atrasado porque cada vez que implementa manejo de digressions (cuando el usuario se desvía del flujo principal), el bot se corrompe y pierde contexto. Ha pasado incontables horas debuggeando por qué las conversaciones se interrumpen en lugares inesperados. Su manager le está preguntando cuándo estará listo para producción, pero Alex no puede dar una fecha - no confía en la estabilidad del sistema.
+
+Una tarde, después de perder 4 horas rastreando un bug de resumption de flow, Alex decide actualizar a Soni v0.5.0 que acaba de salir. Lee en el changelog sobre la "centralized interrupt architecture" y el soporte completo de los 6 patrones de Rasa CALM. Actualiza su proyecto y empieza a refactorizar su código de transferencias.
+
+Lo primero que nota es que ya no tiene que manejar interrupts en cada nodo \`confirm\` y \`collect\` - todo pasa por \`human_input_gate\`. Implementa el patrón \`chitchat\` para manejar digressions: cuando el usuario pregunta "¿cuál es mi saldo?" en medio de una transferencia, el sistema maneja la pregunta y automáticamente regresa al contexto de transferencia. Luego implementa \`correct_slot\` - ahora cuando un usuario dice "no espera, quiero transferir $500 no $50", el sistema corrige retroactivamente sin romper el flujo.
+
+Al cuarto día de trabajo con v0.5.0, Alex ejecuta su suite de tests E2E que nunca habían pasado al 100% en v0.4.0. Todos los tests pasan. Prueba manualmente el escenario más complejo: inicio de transferencia → digresión para consultar saldo → regreso a transferencia → corrección del monto → cancelación de flow → inicio de un pago de facturas. Todo funciona perfectamente.
+
+Cuando algo falla en pruebas de QA, Alex puede debuggear en minutos porque sabe exactamente dónde mirar: \`human_input_gate.py\`. Ya no pierde horas buscando en múltiples nodos.
+
+Dos semanas después, Alex despliega el bot bancario a producción por primera vez. El sistema maneja conversaciones complejas confiablemente. Los clientes pueden divagar, cambiar de opinión, corregir inputs - el bot se mantiene estable. Alex ahora tiene confianza para agregar nuevas features (pagos de servicios, inversiones) porque sabe que la arquitectura no va a pelear contra él. Su manager está impresionado con la velocidad de entrega y la calidad del producto final.
+
+### Journey 2: Sarah Martinez - Extending the Framework Without Fear
+
+Sarah es una desarrolladora senior que lidera un equipo construyendo asistentes virtuales para e-commerce. Necesita implementar un patrón conversacional custom: "suggerir alternativas" - cuando un producto está agotado, el bot debe sugerir productos similares sin perder el contexto de compra. En frameworks anteriores, esto requería hackear el core y arriesgarse a romper funcionalidad existente.
+
+Sarah revisa la documentación de Soni v0.5.0 y ve que los 6 patrones de Rasa CALM están localizados en \`human_input_gate\`. Lee el código fuente (claramente separado gracias a \`INLUProvider\` y \`IDialogueManager\` protocols) y entiende exactamente cómo implementar su patrón custom.
+
+Extiende el NLU provider para detectar el patrón "suggest alternatives" y lo integra en el gate. Como todo está centralizado, su implementación es limpia y no afecta otros flows.
+
+Ejecuta los tests E2E existentes - todos pasan. Su nuevo patrón funciona perfectamente. No rompió nada.
+
+Sarah decide contribuir su patrón de vuelta al proyecto de Soni como open source. Gracias a la arquitectura limpia y la documentación precisa (que refleja el código real en \`src/soni\`), puede crear un PR de calidad rápidamente. Su equipo ahora puede iterar en nuevos features sin miedo a regresiones.
+
+### Journey 3: Marcus Johnson - Escaping Rasa's Complexity Tax
+
+Marcus Johnson es un desarrollador con 2 años de experiencia construyendo bots conversacionales con Rasa para una startup de salud mental. Su bot de apoyo emocional usa Rasa CALM para manejar conversaciones complejas donde los usuarios frecuentemente cambian de tema (ansiedad → depresión → técnicas de respiración → agenda de terapia). El bot funciona, pero Marcus se siente atrapado:
+
+- **Sobrecarga de configuración**: Múltiples archivos YAML (\`domain.yml\`, \`flows.yml\`, \`nlu.yml\`, \`rules.yml\`) que debe mantener sincronizados
+- **Debugging opaco**: Cuando algo falla, tiene que rastrear a través de FlowPolicy, TensorFlow models, y múltiples capas de abstracción
+- **Lentitud de iteración**: Cada cambio requiere re-entrenar modelos, lo que toma minutos. No puede iterar rápidamente
+- **Vendor lock-in**: Está considerando features enterprise de Rasa pero los precios son prohibitivos para una startup
+
+Marcus escucha sobre Soni v0.5.0 - un framework "developer-first" que promete la misma capacidad de conversation repair de Rasa CALM pero con optimización automática DSPy y arquitectura más simple.
+
+Un viernes por la tarde, Marcus decide experimentar. Crea un nuevo proyecto Soni y empieza a migrar un flujo simple de "reserva de sesión de terapia".
+
+En lugar de 4-5 archivos YAML, Soni usa archivos organizados por feature (\`slots.yaml\`, \`actions.yaml\`, \`therapy-booking.yaml\`). Marcus encuentra esto más intuitivo. Implementa \`start flow\`, \`cancel flow\`, \`chitchat\`, y \`correct slot\` para su flujo de reservas. No necesita configurar policies ni entrenar modelos - DSPy optimiza automáticamente. Hace un cambio en el NLU y lo prueba inmediatamente. No hay "training time" de 3-5 minutos.
+
+Cuando un usuario test dice algo ambiguo y activa el patrón \`clarify flows\`, Marcus puede ver exactamente qué pasó en \`human_input_gate.py\`. El código es Python puro, sin capas de abstracción. Puede hacer \`print()\` debugging si quiere.
+
+Después de 3 días de trabajo, Marcus tiene su flujo de reservas funcionando en Soni con los mismos 6 patrones conversacionales que tenía en Rasa, pero con iteración 10x más rápida, código más claro, y mismo comportamiento confiable. Ejecuta benchmarks de latencia: Soni responde en ~200ms vs ~500ms de Rasa (gracias a no tener overhead de TensorFlow).
+
+Marcus presenta Soni a su equipo. Deciden migrar gradualmente - empiezan con nuevos flujos en Soni mientras mantienen los existentes en Rasa. En 2 meses, han migrado el 70% de su bot.
+
+Los beneficios son tangibles: velocidad de desarrollo (features en días vs semanas), menos bugs (arquitectura centralizada), y costo reducido (no necesitan Rasa Enterprise).
+
+Marcus se convierte en contributor de Soni, aportando mejoras al soporte de patrones de salud mental. La arquitectura limpia hace que sus contribuciones sean fáciles de integrar.
+
+### Journey Requirements Summary
+
+Estos tres journeys revelan los siguientes capabilities necesarios para v0.5.0:
+
+**Core Framework Stability:**
+- Centralized interrupt architecture (\`human_input_gate\`) que permite conversaciones complejas confiables
+- Todos los 6 patrones de Rasa CALM funcionando at Level 3 (detect + handle + graceful recovery)
+- 100% de tests E2E passing para validar escenarios complejos
+
+**Developer Debuggability:**
+- Un solo punto de investigación (\`human_input_gate.py\`) para troubleshooting
+- Código Python puro y transparente, sin capas de abstracción opacas
+- Debugging tiempo reducido de horas a minutos
+
+**Extensibility \& Maintainability:**
+- Arquitectura limpia basada en protocols (\`INLUProvider\`, \`IDialogueManager\`) que permite agregar patrones custom sin romper existentes
+- Zero-leakage audit completado - business logic separada de infrastructure
+- Facilita contribuciones open source de calidad
+
+**Documentation Accuracy:**
+- Docs que reflejan el código real en \`src/soni\` (single source of truth)
+- Guías claras para bot builders
+- Migration path documentation para usuarios de Rasa
+
+**Performance \& Developer Velocity:**
+- Iteración rápida sin steps de "training" lentos (gracias a DSPy auto-optimization)
+- Respuestas rápidas (~200ms) sin overhead de ML training loops
+- Feature-organized YAML configuration (más intuitivo que múltiples archivos desincronizados)
