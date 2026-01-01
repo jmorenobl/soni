@@ -13,10 +13,10 @@ workflow_status:
     items:
       - id: "document-project"
         name: "Document Project"
-        status: "required"
+        status: "/Users/jorge/Projects/Playground/soni/docs"
         agent: "analyst"
         command: "/bmad:bmm:workflows:document-project"
-        output_path: ""
+        output_path: "/Users/jorge/Projects/Playground/soni/docs"
 
   - phase: "Analysis"
     items:

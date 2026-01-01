@@ -1,0 +1,51 @@
+{
+    "workflow_version": "1.2.0",
+    "timestamps": {
+        "started": "2026-01-01T14:36:43+01:00",
+        "last_updated": "2026-01-01T14:37:00+01:00"
+    },
+    "mode": "full_rescan",
+    "scan_level": "deep",
+    "project_root": "/Users/jorge/Projects/Playground/soni",
+    "output_folder": "/Users/jorge/Projects/Playground/soni/docs",
+    "completed_steps": [
+        {
+            "step": "step_1",
+            "status": "completed",
+            "timestamp": "2026-01-01T14:37:00+01:00",
+            "summary": "Classified as monolith with 1 part"
+        },
+        {
+            "step": "step_2",
+            "status": "completed",
+            "timestamp": "2026-01-01T14:37:30+01:00",
+            "summary": "Found 26 existing docs"
+        },
+        {
+            "step": "step_3",
+            "status": "completed",
+            "timestamp": "2026-01-01T14:37:45+01:00",
+            "summary": "Tech stack: DSPy + LangGraph on Python 3.11+"
+        }
+    ],
+    "current_step": "step_4",
+    "findings": {
+        "project_classification": "Python library/framework, monolithic structure"
+    },
+    "project_types": [
+        {
+            "part_id": "main",
+            "project_type_id": "library",
+            "display_name": "Python Library"
+        }
+    ],
+    "outputs_generated": [
+        "project-scan-report.json",
+        "project-overview.md",
+        "source-tree-analysis.md",
+        "architecture.md",
+        "development-guide.md",
+        "index.md"
+    ],
+    "resume_instructions": "Documentation workflow completed successfully"
+}
