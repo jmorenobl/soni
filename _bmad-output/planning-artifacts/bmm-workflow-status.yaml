@@ -30,10 +30,10 @@ workflow_status:
 
       - id: "research"
         name: "Research"
-        status: "required"
+        status: "/Users/jorge/Projects/Playground/soni/_bmad-output/planning-artifacts/research/technical-soni-vs-rasa-calm-research-2026-01-01.md"
         agent: "analyst"
         command: "/bmad:bmm:workflows:research"
-        output_path: ""
+        output_path: "/Users/jorge/Projects/Playground/soni/_bmad-output/planning-artifacts/research"
 
       - id: "product-brief"
         name: "Product Brief"
